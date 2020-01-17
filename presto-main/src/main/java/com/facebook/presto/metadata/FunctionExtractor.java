@@ -23,13 +23,13 @@ import com.facebook.presto.spi.function.WindowFunction;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class FunctionExtractor
 {
     private FunctionExtractor() {}
 
-    public static List<? extends SqlFunction> extractFunctions(Collection<Class<?>> classes)
+    public static List<BuiltInFunction> extractFunctions(Collection<Class<?>> classes)
     {
         return classes.stream()
                 .map(FunctionExtractor::extractFunctions)
@@ -37,7 +37,7 @@ public final class FunctionExtractor
                 .collect(toImmutableList());
     }
 
-    public static List<? extends SqlFunction> extractFunctions(Class<?> clazz)
+    public static List<? extends BuiltInFunction> extractFunctions(Class<?> clazz)
     {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
             @SuppressWarnings("unchecked")
@@ -46,7 +46,7 @@ public final class FunctionExtractor
         }
 
         if (clazz.isAnnotationPresent(AggregationFunction.class)) {
-            return SqlAggregationFunction.createByAnnotations(clazz);
+            return SqlAggregationFunction.createFunctionsByAnnotations(clazz);
         }
 
         if (clazz.isAnnotationPresent(ScalarFunction.class) ||

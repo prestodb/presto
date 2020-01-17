@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+
+import java.util.Collection;
 
 /**
  * Visitor to count number of tables scanned in the current fragment
@@ -28,17 +30,27 @@ public final class FragmentTableScanCounter
 {
     private FragmentTableScanCounter() {}
 
-    public static boolean hasMultipleSources(PlanNode... nodes)
+    public static int getNumberOfTableScans(Collection<PlanNode> nodes)
+    {
+        return getNumberOfTableScans(nodes.toArray(new PlanNode[] {}));
+    }
+
+    public static boolean hasMultipleTableScans(PlanNode... nodes)
+    {
+        return getNumberOfTableScans(nodes) > 1;
+    }
+
+    public static int getNumberOfTableScans(PlanNode... nodes)
     {
         int count = 0;
         for (PlanNode node : nodes) {
             count += node.accept(new Visitor(), null);
         }
-        return count > 1;
+        return count;
     }
 
     private static class Visitor
-            extends PlanVisitor<Void, Integer>
+            extends InternalPlanVisitor<Integer, Void>
     {
         @Override
         public Integer visitTableScan(TableScanNode node, Void context)
@@ -49,14 +61,14 @@ public final class FragmentTableScanCounter
         @Override
         public Integer visitExchange(ExchangeNode node, Void context)
         {
-            if (node.getScope() == ExchangeNode.Scope.REMOTE) {
+            if (node.getScope().isRemote()) {
                 return 0;
             }
             return visitPlan(node, context);
         }
 
         @Override
-        protected Integer visitPlan(PlanNode node, Void context)
+        public Integer visitPlan(PlanNode node, Void context)
         {
             int count = 0;
             for (PlanNode source : node.getSources()) {

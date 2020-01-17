@@ -14,9 +14,13 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.tree.SymbolReference;
+
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -30,12 +34,14 @@ final class SemiJoinMatcher
     private final String sourceSymbolAlias;
     private final String filteringSymbolAlias;
     private final String outputAlias;
+    private final Optional<SemiJoinNode.DistributionType> distributionType;
 
-    SemiJoinMatcher(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias)
+    SemiJoinMatcher(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType)
     {
         this.sourceSymbolAlias = requireNonNull(sourceSymbolAlias, "sourceSymbolAlias is null");
         this.filteringSymbolAlias = requireNonNull(filteringSymbolAlias, "filteringSymbolAlias is null");
         this.outputAlias = requireNonNull(outputAlias, "outputAlias is null");
+        this.distributionType = requireNonNull(distributionType, "distributionType is null");
     }
 
     @Override
@@ -45,17 +51,21 @@ final class SemiJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-        if (!(symbolAliases.get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toSymbolReference()) &&
-                symbolAliases.get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference()))) {
+        if (!(symbolAliases.get(sourceSymbolAlias).equals(new SymbolReference(semiJoinNode.getSourceJoinVariable().getName())) &&
+                symbolAliases.get(filteringSymbolAlias).equals(new SymbolReference(semiJoinNode.getFilteringSourceJoinVariable().getName())))) {
             return NO_MATCH;
         }
 
-        return match(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
+        if (distributionType.isPresent() && !distributionType.equals(semiJoinNode.getDistributionType())) {
+            return NO_MATCH;
+        }
+
+        return match(outputAlias, new SymbolReference(semiJoinNode.getSemiJoinOutput().getName()));
     }
 
     @Override
@@ -65,6 +75,7 @@ final class SemiJoinMatcher
                 .add("filteringSymbolAlias", filteringSymbolAlias)
                 .add("sourceSymbolAlias", sourceSymbolAlias)
                 .add("outputAlias", outputAlias)
+                .add("distributionType", distributionType)
                 .toString();
     }
 }

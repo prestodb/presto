@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
-import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.stats.CounterStat;
-import io.airlift.units.Duration;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,73 +38,85 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Only calling getOperatorStats is ThreadSafe
+ * Only {@link #getOperatorStats()} and revocable-memory-related operations are ThreadSafe
  */
 public class OperatorContext
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final String operatorType;
     private final DriverContext driverContext;
     private final Executor executor;
 
-    private final AtomicLong intervalWallStart = new AtomicLong();
-    private final AtomicLong intervalCpuStart = new AtomicLong();
-    private final AtomicLong intervalUserStart = new AtomicLong();
+    private final CounterStat rawInputDataSize = new CounterStat();
+    private final CounterStat rawInputPositions = new CounterStat();
 
-    private final AtomicLong addInputCalls = new AtomicLong();
-    private final AtomicLong addInputWallNanos = new AtomicLong();
-    private final AtomicLong addInputCpuNanos = new AtomicLong();
-    private final AtomicLong addInputUserNanos = new AtomicLong();
+    private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
     private final CounterStat inputPositions = new CounterStat();
 
-    private final AtomicLong getOutputCalls = new AtomicLong();
-    private final AtomicLong getOutputWallNanos = new AtomicLong();
-    private final AtomicLong getOutputCpuNanos = new AtomicLong();
-    private final AtomicLong getOutputUserNanos = new AtomicLong();
+    private final OperationTiming getOutputTiming = new OperationTiming();
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
-    private final AtomicReference<SettableFuture<?>> memoryFuture = new AtomicReference<>();
+    private final AtomicLong physicalWrittenDataSize = new AtomicLong();
+
+    private final AtomicReference<SettableFuture<?>> memoryFuture;
+    private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
-    private final AtomicLong finishCalls = new AtomicLong();
-    private final AtomicLong finishWallNanos = new AtomicLong();
-    private final AtomicLong finishCpuNanos = new AtomicLong();
-    private final AtomicLong finishUserNanos = new AtomicLong();
+    private final OperationTiming finishTiming = new OperationTiming();
 
-    private final AtomicLong memoryReservation = new AtomicLong();
-    private final OperatorSystemMemoryContext systemMemoryContext;
+    private final OperatorSpillContext spillContext;
+    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
 
-    private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
-    private final boolean collectTimings;
+    private final AtomicLong peakUserMemoryReservation = new AtomicLong();
+    private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
+    private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
-    public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor)
+    @GuardedBy("this")
+    private boolean memoryRevokingRequested;
+
+    @Nullable
+    @GuardedBy("this")
+    private Runnable memoryRevocationRequestListener;
+
+    private final MemoryTrackingContext operatorMemoryContext;
+
+    public OperatorContext(
+            int operatorId,
+            PlanNodeId planNodeId,
+            String operatorType,
+            DriverContext driverContext,
+            Executor executor,
+            MemoryTrackingContext operatorMemoryContext)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
+        this.spillContext = new OperatorSpillContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
-        SettableFuture<Object> future = SettableFuture.create();
-        future.set(null);
-        this.memoryFuture.set(future);
-
-        collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
+        this.memoryFuture = new AtomicReference<>(SettableFuture.create());
+        this.memoryFuture.get().set(null);
+        this.revocableMemoryFuture = new AtomicReference<>(SettableFuture.create());
+        this.revocableMemoryFuture.get().set(null);
+        this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
+        operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
     }
 
     public int getOperatorId()
@@ -128,60 +144,64 @@ public class OperatorContext
         return driverContext.isDone();
     }
 
-    public void startIntervalTimer()
+    void recordAddInput(OperationTimer operationTimer, Page page)
     {
-        intervalWallStart.set(System.nanoTime());
-        intervalCpuStart.set(currentThreadCpuTime());
-        intervalUserStart.set(currentThreadUserTime());
-    }
-
-    public void recordAddInput(Page page)
-    {
-        addInputCalls.incrementAndGet();
-        recordInputWallNanos(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        addInputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-        addInputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
-
+        operationTimer.recordOperationComplete(addInputTiming);
         if (page != null) {
             inputDataSize.update(page.getSizeInBytes());
             inputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedInput(long sizeInBytes, long positions)
+    /**
+     * Record the number of rows and amount of physical bytes that were read by an operator.
+     * This metric is valid only for source operators.
+     */
+    public void recordRawInput(long sizeInBytes, long positionCount)
     {
-        recordGeneratedInput(sizeInBytes, positions, 0);
+        rawInputDataSize.update(sizeInBytes);
+        rawInputPositions.update(positionCount);
     }
 
-    public void recordGeneratedInput(long sizeInBytes, long positions, long readNanos)
+    /**
+     * Record the number of rows and amount of physical bytes that were read by an operator and
+     * the time it took to read the data. This metric is valid only for source operators.
+     */
+    public void recordRawInputWithTiming(long sizeInBytes, long positionCount, long readNanos)
+    {
+        rawInputDataSize.update(sizeInBytes);
+        rawInputPositions.update(positionCount);
+        addInputTiming.record(readNanos, 0);
+    }
+
+    /**
+     * Record the size in bytes of input blocks that were processed by an operator.
+     * This metric is valid only for source operators.
+     */
+    public void recordProcessedInput(long sizeInBytes, long positions)
     {
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
-        recordInputWallNanos(readNanos);
     }
 
-    public long recordInputWallNanos(long readNanos)
+    void recordGetOutput(OperationTimer operationTimer, Page page)
     {
-        return addInputWallNanos.getAndAdd(readNanos);
-    }
-
-    public void recordGetOutput(Page page)
-    {
-        getOutputCalls.incrementAndGet();
-        getOutputWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        getOutputCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-        getOutputUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
-
+        operationTimer.recordOperationComplete(getOutputTiming);
         if (page != null) {
             outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
         }
     }
 
-    public void recordGeneratedOutput(long sizeInBytes, long positions)
+    public void recordOutput(long sizeInBytes, long positions)
     {
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
+    }
+
+    public void recordPhysicalWrittenData(long sizeInBytes)
+    {
+        physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -199,12 +219,9 @@ public class OperatorContext
         // Do not register blocked with driver context.  The driver handles this directly.
     }
 
-    public void recordFinish()
+    void recordFinish(OperationTimer operationTimer)
     {
-        finishCalls.incrementAndGet();
-        finishWallNanos.getAndAdd(nanosBetween(intervalWallStart.get(), System.nanoTime()));
-        finishCpuNanos.getAndAdd(nanosBetween(intervalCpuStart.get(), currentThreadCpuTime()));
-        finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
+        operationTimer.recordOperationComplete(finishTiming);
     }
 
     public ListenableFuture<?> isWaitingForMemory()
@@ -212,58 +229,109 @@ public class OperatorContext
         return memoryFuture.get();
     }
 
-    public void reserveMemory(long bytes)
+    public ListenableFuture<?> isWaitingForRevocableMemory()
     {
-        ListenableFuture<?> future = driverContext.reserveMemory(bytes);
-        if (!future.isDone()) {
-            SettableFuture<?> currentMemoryFuture = memoryFuture.get();
+        return revocableMemoryFuture.get();
+    }
+
+    // caller should close this context as it's a new context
+    public LocalMemoryContext newLocalSystemMemoryContext(String allocationTag)
+    {
+        return new InternalLocalMemoryContext(operatorMemoryContext.newSystemMemoryContext(allocationTag), memoryFuture, this::updatePeakMemoryReservations, true);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public LocalMemoryContext localUserMemoryContext()
+    {
+        return new InternalLocalMemoryContext(operatorMemoryContext.localUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public LocalMemoryContext localSystemMemoryContext()
+    {
+        return new InternalLocalMemoryContext(operatorMemoryContext.localSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public LocalMemoryContext localRevocableMemoryContext()
+    {
+        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, () -> {}, false);
+    }
+
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateUserMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+    }
+
+    // caller should close this context as it's a new context
+    public AggregatedMemoryContext newAggregateSystemMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+    }
+
+    // listen to all memory allocations and update the peak memory reservations accordingly
+    private void updatePeakMemoryReservations()
+    {
+        long userMemory = operatorMemoryContext.getUserMemory();
+        long systemMemory = operatorMemoryContext.getSystemMemory();
+        long totalMemory = userMemory + systemMemory;
+        peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
+        peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+    }
+
+    public long getReservedRevocableBytes()
+    {
+        return operatorMemoryContext.getRevocableMemory();
+    }
+
+    private static void updateMemoryFuture(ListenableFuture<?> memoryPoolFuture, AtomicReference<SettableFuture<?>> targetFutureReference)
+    {
+        if (!memoryPoolFuture.isDone()) {
+            SettableFuture<?> currentMemoryFuture = targetFutureReference.get();
             while (currentMemoryFuture.isDone()) {
                 SettableFuture<?> settableFuture = SettableFuture.create();
                 // We can't replace one that's not done, because the task may be blocked on that future
-                if (memoryFuture.compareAndSet(currentMemoryFuture, settableFuture)) {
+                if (targetFutureReference.compareAndSet(currentMemoryFuture, settableFuture)) {
                     currentMemoryFuture = settableFuture;
                 }
                 else {
-                    currentMemoryFuture = memoryFuture.get();
+                    currentMemoryFuture = targetFutureReference.get();
                 }
             }
 
             SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
             // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
-            Futures.addCallback(future, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(Object result)
-                {
-                    finalMemoryFuture.set(null);
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    finalMemoryFuture.set(null);
-                }
-            });
+            memoryPoolFuture.addListener(() -> finalMemoryFuture.set(null), directExecutor());
         }
-        memoryReservation.addAndGet(bytes);
     }
 
-    public void freeMemory(long bytes)
+    public void destroy()
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
-        driverContext.freeMemory(bytes);
-        memoryReservation.getAndAdd(-bytes);
+        // reset memory revocation listener so that OperatorContext doesn't hold any references to Driver instance
+        synchronized (this) {
+            memoryRevocationRequestListener = null;
+        }
+
+        operatorMemoryContext.close();
+
+        if (operatorMemoryContext.getSystemMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero system memory (%d bytes) after destroy()", this, operatorMemoryContext.getSystemMemory()));
+        }
+
+        if (operatorMemoryContext.getUserMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
+        }
+
+        if (operatorMemoryContext.getRevocableMemory() != 0) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero revocable memory (%d bytes) after destroy()", this, operatorMemoryContext.getRevocableMemory()));
+        }
     }
 
-    public AbstractAggregatedMemoryContext getSystemMemoryContext()
+    public SpillContext getSpillContext()
     {
-        return systemMemoryContext;
-    }
-
-    public void closeSystemMemoryContext()
-    {
-        systemMemoryContext.close();
+        return spillContext;
     }
 
     public void moreMemoryAvailable()
@@ -271,60 +339,64 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    public void transferMemoryToTaskContext(long taskBytes)
+    public synchronized boolean isMemoryRevokingRequested()
     {
-        long bytes = memoryReservation.getAndSet(0);
-        driverContext.transferMemoryToTaskContext(bytes);
+        return memoryRevokingRequested;
+    }
 
-        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
-        if (taskBytes > bytes) {
-            try {
-                taskContext.reserveMemory(taskBytes - bytes);
-            }
-            catch (ExceededMemoryLimitException e) {
-                taskContext.freeMemory(bytes);
-                throw e;
+    /**
+     * Returns how much revocable memory will be revoked by the operator
+     */
+    public long requestMemoryRevoking()
+    {
+        long revokedMemory = 0L;
+        Runnable listener = null;
+        synchronized (this) {
+            if (!isMemoryRevokingRequested() && operatorMemoryContext.getRevocableMemory() > 0) {
+                memoryRevokingRequested = true;
+                revokedMemory = operatorMemoryContext.getRevocableMemory();
+                listener = memoryRevocationRequestListener;
             }
         }
-        else {
-            taskContext.freeMemory(bytes - taskBytes);
+        if (listener != null) {
+            runListener(listener);
+        }
+        return revokedMemory;
+    }
+
+    public synchronized void resetMemoryRevokingRequested()
+    {
+        memoryRevokingRequested = false;
+    }
+
+    public void setMemoryRevocationRequestListener(Runnable listener)
+    {
+        requireNonNull(listener, "listener is null");
+
+        boolean shouldNotify;
+        synchronized (this) {
+            checkState(memoryRevocationRequestListener == null, "listener already set");
+            memoryRevocationRequestListener = listener;
+            shouldNotify = memoryRevokingRequested;
+        }
+        // if memory revoking is requested immediately run the listener
+        if (shouldNotify) {
+            runListener(listener);
         }
     }
 
-    public void setMemoryReservation(long newMemoryReservation)
+    private static void runListener(Runnable listener)
     {
-        checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
-
-        long delta = newMemoryReservation - memoryReservation.get();
-
-        if (delta > 0) {
-            reserveMemory(delta);
+        requireNonNull(listener, "listener is null");
+        try {
+            listener.run();
         }
-        else {
-            freeMemory(-delta);
+        catch (RuntimeException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Exception while running the listener", e);
         }
     }
 
-    public boolean trySetMemoryReservation(long newMemoryReservation)
-    {
-        checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
-
-        long delta = newMemoryReservation - memoryReservation.get();
-
-        if (delta > 0) {
-            if (!driverContext.tryReserveMemory(delta)) {
-                return false;
-            }
-
-            memoryReservation.addAndGet(delta);
-        }
-        else {
-            freeMemory(-delta);
-        }
-        return true;
-    }
-
-    public void setInfoSupplier(Supplier<?> infoSupplier)
+    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
@@ -350,65 +422,79 @@ public class OperatorContext
         return outputPositions;
     }
 
+    public long getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize.get();
+    }
+
+    @Override
+    public String toString()
+    {
+        return format("%s-%s", operatorType, planNodeId);
+    }
+
     public OperatorStats getOperatorStats()
     {
-        Supplier<?> infoSupplier = this.infoSupplier.get();
-        Object info = null;
-        if (infoSupplier != null) {
-            info = infoSupplier.get();
-        }
+        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
+
+        long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
+                driverContext.getTaskId().getStageExecutionId().getStageId().getId(),
+                driverContext.getTaskId().getStageExecutionId().getId(),
+                driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
                 operatorType,
 
-                addInputCalls.get(),
-                new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(inputDataSize.getTotalCount()),
-                inputPositions.getTotalCount(),
+                1,
 
-                getOutputCalls.get(),
-                new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                addInputTiming.getCalls(),
+                succinctNanos(addInputTiming.getWallNanos()),
+                succinctNanos(addInputTiming.getCpuNanos()),
+                succinctBytes(rawInputDataSize.getTotalCount()),
+                rawInputPositions.getTotalCount(),
+                succinctBytes(inputDataSize.getTotalCount()),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
+
+                getOutputTiming.getCalls(),
+                succinctNanos(getOutputTiming.getWallNanos()),
+                succinctNanos(getOutputTiming.getCpuNanos()),
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
-                new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctBytes(physicalWrittenDataSize.get()),
 
-                finishCalls.get(),
-                new Duration(finishWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(blockedWallNanos.get()),
 
-                succinctBytes(memoryReservation.get()),
-                succinctBytes(systemMemoryContext.getReservedBytes()),
+                finishTiming.getCalls(),
+                succinctNanos(finishTiming.getWallNanos()),
+                succinctNanos(finishTiming.getCpuNanos()),
+
+                succinctBytes(operatorMemoryContext.getUserMemory()),
+                succinctBytes(getReservedRevocableBytes()),
+                succinctBytes(operatorMemoryContext.getSystemMemory()),
+
+                succinctBytes(peakUserMemoryReservation.get()),
+                succinctBytes(peakSystemMemoryReservation.get()),
+                succinctBytes(peakTotalMemoryReservation.get()),
+
+                succinctBytes(spillContext.getSpilledBytes()),
+
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
 
-    private long currentThreadUserTime()
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
-        if (!collectTimings) {
-            return 0;
-        }
-        return THREAD_MX_BEAN.getCurrentThreadUserTime();
-    }
-
-    private long currentThreadCpuTime()
-    {
-        if (!collectTimings) {
-            return 0;
-        }
-        return THREAD_MX_BEAN.getCurrentThreadCpuTime();
+        return visitor.visitOperatorContext(this, context);
     }
 
     private static long nanosBetween(long start, long end)
     {
-        return Math.abs(end - start);
+        return max(0, end - start);
     }
 
     private class BlockedMonitor
@@ -434,57 +520,161 @@ public class OperatorContext
         }
     }
 
-    private static class OperatorSystemMemoryContext
-            extends AbstractAggregatedMemoryContext
+    @ThreadSafe
+    private static class OperatorSpillContext
+            implements SpillContext
     {
-        // TODO: remove this class. See comment in AbstractAggregatedMemoryContext
-
         private final DriverContext driverContext;
+        private final AtomicLong reservedBytes = new AtomicLong();
+        private final AtomicLong spilledBytes = new AtomicLong();
 
-        private boolean closed;
-        private long reservedBytes;
-
-        public OperatorSystemMemoryContext(DriverContext driverContext)
+        public OperatorSpillContext(DriverContext driverContext)
         {
             this.driverContext = driverContext;
         }
 
-        public void close()
+        @Override
+        public void updateBytes(long bytes)
         {
-            if (closed) {
-                return;
+            if (bytes >= 0) {
+                reservedBytes.addAndGet(bytes);
+                driverContext.reserveSpill(bytes);
+                spilledBytes.addAndGet(bytes);
             }
-            closed = true;
-            driverContext.freeSystemMemory(reservedBytes);
-            reservedBytes = 0;
+            else {
+                reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
+                driverContext.freeSpill(-bytes);
+            }
+        }
+
+        public long getSpilledBytes()
+        {
+            return spilledBytes.longValue();
+        }
+
+        private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
+        {
+            checkArgument(bytesBeingFreed >= 0);
+            checkArgument(bytesBeingFreed <= reservedBytes, "tried to free %s spilled bytes from %s bytes reserved", bytesBeingFreed, reservedBytes);
+            return reservedBytes - bytesBeingFreed;
         }
 
         @Override
-        protected void updateBytes(long bytes)
+        public void close()
         {
-            checkState(!closed);
-            if (bytes > 0) {
-                driverContext.reserveSystemMemory(bytes);
-            }
-            else {
-                checkArgument(reservedBytes + bytes >= 0, "tried to free %s bytes of memory from %s bytes reserved", -bytes, reservedBytes);
-                driverContext.freeSystemMemory(-bytes);
-            }
-            reservedBytes += bytes;
-        }
-
-        public long getReservedBytes()
-        {
-            return reservedBytes;
+            // Only products of SpillContext.newLocalSpillContext() should be closed.
+            throw new UnsupportedOperationException(format("%s should not be closed directly", getClass()));
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("usedBytes", reservedBytes)
-                    .add("closed", closed)
+                    .add("usedBytes", reservedBytes.get())
                     .toString();
         }
+    }
+
+    private static class InternalLocalMemoryContext
+            implements LocalMemoryContext
+    {
+        private final LocalMemoryContext delegate;
+        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final Runnable allocationListener;
+        private final boolean closeable;
+
+        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
+            this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+            this.closeable = closeable;
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return delegate.getBytes();
+        }
+
+        @Override
+        public ListenableFuture<?> setBytes(long bytes)
+        {
+            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            updateMemoryFuture(blocked, memoryFuture);
+            allocationListener.run();
+            return blocked;
+        }
+
+        @Override
+        public boolean trySetBytes(long bytes)
+        {
+            if (delegate.trySetBytes(bytes)) {
+                allocationListener.run();
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public void close()
+        {
+            if (!closeable) {
+                throw new UnsupportedOperationException("Called close on unclosable local memory context");
+            }
+            delegate.close();
+        }
+    }
+
+    private static class InternalAggregatedMemoryContext
+            implements AggregatedMemoryContext
+    {
+        private final AggregatedMemoryContext delegate;
+        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final Runnable allocationListener;
+        private final boolean closeable;
+
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
+            this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+            this.closeable = closeable;
+        }
+
+        @Override
+        public AggregatedMemoryContext newAggregatedMemoryContext()
+        {
+            return delegate.newAggregatedMemoryContext();
+        }
+
+        @Override
+        public LocalMemoryContext newLocalMemoryContext(String allocationTag)
+        {
+            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(allocationTag), memoryFuture, allocationListener, true);
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return delegate.getBytes();
+        }
+
+        @Override
+        public void close()
+        {
+            if (!closeable) {
+                throw new UnsupportedOperationException("Called close on unclosable aggregated memory context");
+            }
+            delegate.close();
+            allocationListener.run();
+        }
+    }
+
+    @VisibleForTesting
+    public MemoryTrackingContext getOperatorMemoryContext()
+    {
+        return operatorMemoryContext;
     }
 }

@@ -23,8 +23,6 @@ import org.joda.time.DateTimeZone;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.checkType;
-
 public class TextRcFileEncoding
         implements RcFileEncoding
 {
@@ -90,7 +88,7 @@ public class TextRcFileEncoding
     @Override
     public ColumnEncoding booleanEncoding(Type type)
     {
-        return new BooleanEncoding(type);
+        return new BooleanEncoding(type, nullSequence);
     }
 
     @Override
@@ -168,7 +166,7 @@ public class TextRcFileEncoding
                 nullSequence,
                 separators,
                 escapeByte,
-                checkType(elementEncoding, TextColumnEncoding.class, "elementEncoding"));
+                (TextColumnEncoding) elementEncoding);
     }
 
     @Override
@@ -179,8 +177,8 @@ public class TextRcFileEncoding
                 nullSequence,
                 separators,
                 escapeByte,
-                checkType(keyEncoding, TextColumnEncoding.class, "keyEncoding"),
-                checkType(valueEncoding, TextColumnEncoding.class, "valueEncoding"));
+                (TextColumnEncoding) keyEncoding,
+                (TextColumnEncoding) valueEncoding);
     }
 
     @Override
@@ -193,7 +191,7 @@ public class TextRcFileEncoding
                 escapeByte,
                 lastColumnTakesRest,
                 fieldEncodings.stream()
-                        .map(field -> checkType(field, TextColumnEncoding.class, "fieldEncoding"))
+                        .map(TextColumnEncoding.class::cast)
                         .collect(Collectors.toList()));
     }
 }

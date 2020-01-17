@@ -18,14 +18,20 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +45,7 @@ public class BasicQueryInfo
 {
     private final QueryId queryId;
     private final SessionRepresentation session;
+    private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
     private final MemoryPoolId memoryPool;
     private final boolean scheduled;
@@ -47,21 +54,28 @@ public class BasicQueryInfo
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final Optional<QueryType> queryType;
+    private final List<PrestoWarning> warnings;
 
+    @JsonCreator
     public BasicQueryInfo(
-            QueryId queryId,
-            SessionRepresentation session,
-            QueryState state,
-            MemoryPoolId memoryPool,
-            boolean scheduled,
-            URI self,
-            String query,
-            BasicQueryStats queryStats,
-            ErrorType errorType,
-            ErrorCode errorCode)
+            @JsonProperty("queryId") QueryId queryId,
+            @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("state") QueryState state,
+            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
+            @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("self") URI self,
+            @JsonProperty("query") String query,
+            @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("errorType") ErrorType errorType,
+            @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("warnings") List<PrestoWarning> warnings)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryPool = memoryPool;
         this.errorType = errorType;
@@ -70,12 +84,15 @@ public class BasicQueryInfo
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
     {
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
+                queryInfo.getResourceGroupId(),
                 queryInfo.getState(),
                 queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
@@ -83,7 +100,9 @@ public class BasicQueryInfo
                 queryInfo.getQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
-                queryInfo.getErrorCode());
+                queryInfo.getErrorCode(),
+                queryInfo.getQueryType(),
+                queryInfo.getWarnings());
     }
 
     @JsonProperty
@@ -96,6 +115,12 @@ public class BasicQueryInfo
     public SessionRepresentation getSession()
     {
         return session;
+    }
+
+    @JsonProperty
+    public Optional<ResourceGroupId> getResourceGroupId()
+    {
+        return resourceGroupId;
     }
 
     @JsonProperty
@@ -146,6 +171,18 @@ public class BasicQueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override

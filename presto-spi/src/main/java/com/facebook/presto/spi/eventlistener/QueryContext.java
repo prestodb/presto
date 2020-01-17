@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,12 +29,17 @@ public class QueryContext
     private final Optional<String> principal;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
+    private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final Optional<String> source;
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
 
+    private final Optional<ResourceGroupId> resourceGroupId;
+
     private final Map<String, String> sessionProperties;
+    private final ResourceEstimates resourceEstimates;
 
     private final String serverAddress;
     private final String serverVersion;
@@ -43,10 +50,14 @@ public class QueryContext
             Optional<String> principal,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<ResourceGroupId> resourceGroupId,
             Map<String, String> sessionProperties,
+            ResourceEstimates resourceEstimates,
             String serverAddress,
             String serverVersion,
             String environment)
@@ -55,10 +66,14 @@ public class QueryContext
         this.principal = requireNonNull(principal, "principal is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+        this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
@@ -89,6 +104,18 @@ public class QueryContext
     }
 
     @JsonProperty
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    @JsonProperty
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
+    @JsonProperty
     public Optional<String> getSource()
     {
         return source;
@@ -107,9 +134,21 @@ public class QueryContext
     }
 
     @JsonProperty
+    public Optional<ResourceGroupId> getResourceGroupId()
+    {
+        return resourceGroupId;
+    }
+
+    @JsonProperty
     public Map<String, String> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @JsonProperty
+    public ResourceEstimates getResourceEstimates()
+    {
+        return resourceEstimates;
     }
 
     @JsonProperty

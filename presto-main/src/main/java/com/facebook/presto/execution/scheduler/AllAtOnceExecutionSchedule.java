@@ -14,17 +14,18 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,14 +38,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
@@ -68,7 +69,7 @@ public class AllAtOnceExecutionSchedule
     public Set<SqlStageExecution> getStagesToSchedule()
     {
         for (Iterator<SqlStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
-            StageState state = iterator.next().getState();
+            StageExecutionState state = iterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 iterator.remove();
             }
@@ -96,16 +97,15 @@ public class AllAtOnceExecutionSchedule
         Set<PlanFragment> rootFragments = fragments.stream()
                 .filter(fragment -> !remoteSources.contains(fragment.getId()))
                 .collect(toImmutableSet());
-        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: " + rootFragments);
 
         Visitor visitor = new Visitor(fragments);
-        visitor.processFragment(getOnlyElement(rootFragments).getId());
+        rootFragments.forEach(fragment -> visitor.processFragment(fragment.getId()));
 
         return visitor.getSchedulerOrder();
     }
 
     private static class Visitor
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final ImmutableSet.Builder<PlanFragmentId> schedulerOrder = ImmutableSet.builder();
@@ -113,7 +113,7 @@ public class AllAtOnceExecutionSchedule
         public Visitor(Collection<PlanFragment> fragments)
         {
             this.fragments = fragments.stream()
-                    .collect(toImmutableMap(PlanFragment::getId));
+                    .collect(toImmutableMap(PlanFragment::getId, identity()));
         }
 
         public List<PlanFragmentId> getSchedulerOrder()
@@ -124,7 +124,7 @@ public class AllAtOnceExecutionSchedule
         public void processFragment(PlanFragmentId planFragmentId)
         {
             PlanFragment planFragment = fragments.get(planFragmentId);
-            checkArgument(planFragment != null, "Fragment not found: " + planFragmentId);
+            checkArgument(planFragment != null, "Fragment not found: %s", planFragmentId);
 
             planFragment.getRoot().accept(this, null);
             schedulerOrder.add(planFragmentId);
@@ -143,6 +143,14 @@ public class AllAtOnceExecutionSchedule
         {
             node.getFilteringSource().accept(this, context);
             node.getSource().accept(this, context);
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
             return null;
         }
 
@@ -182,7 +190,7 @@ public class AllAtOnceExecutionSchedule
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {

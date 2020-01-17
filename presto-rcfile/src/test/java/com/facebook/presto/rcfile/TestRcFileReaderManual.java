@@ -16,7 +16,7 @@ package com.facebook.presto.rcfile;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -237,15 +237,12 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new SliceRcFileDataSource(data),
-                ImmutableList.of(SMALLINT),
                 new BinaryRcFileEncoding(),
-                ImmutableSet.of(0),
-                codecName -> {
-                    throw new UnsupportedOperationException();
-                },
+                ImmutableMap.of(0, SMALLINT),
+                new BogusRcFileCodecFactory(),
                 offset,
                 length,
-                new DataSize(1, MEGABYTE));
+                new DataSize(8, MEGABYTE));
 
         ImmutableList.Builder<Integer> values = ImmutableList.builder();
         while (reader.advance() >= 0) {
@@ -297,6 +294,8 @@ public class TestRcFileReaderManual
     private static class SliceRcFileDataSource
             implements RcFileDataSource
     {
+        private static final RcFileDataSourceId DATA_SOURCE_ID = new RcFileDataSourceId("test");
+
         private final Slice data;
 
         public SliceRcFileDataSource(Slice data)
@@ -331,6 +330,28 @@ public class TestRcFileReaderManual
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public RcFileDataSourceId getId()
+        {
+            return DATA_SOURCE_ID;
+        }
+    }
+
+    private static class BogusRcFileCodecFactory
+            implements RcFileCodecFactory
+    {
+        @Override
+        public RcFileCompressor createCompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RcFileDecompressor createDecompressor(String codecName)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

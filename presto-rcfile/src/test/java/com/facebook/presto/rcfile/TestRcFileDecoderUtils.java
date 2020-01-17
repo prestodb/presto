@@ -57,8 +57,12 @@ public class TestRcFileDecoderUtils
 
         long readValueOld = WritableUtils.readVLong(oldBytes.getInput());
         assertEquals(readValueOld, value);
+
         long readValueNew = RcFileDecoderUtils.readVInt(oldBytes, 0);
         assertEquals(readValueNew, value);
+
+        long readValueNewStream = RcFileDecoderUtils.readVInt(oldBytes.getInput());
+        assertEquals(readValueNewStream, value);
     }
 
     private static Slice writeVintOld(SliceOutput output, long value)
@@ -66,14 +70,24 @@ public class TestRcFileDecoderUtils
     {
         output.reset();
         WritableUtils.writeVLong(output, value);
-        Slice vLong = Slices.copyOf(output.slice());
+        Slice vLongOld = Slices.copyOf(output.slice());
+
+        output.reset();
+        RcFileDecoderUtils.writeVLong(output, value);
+        Slice vLongNew = Slices.copyOf(output.slice());
+        assertEquals(vLongNew, vLongOld);
 
         if (value == (int) value) {
             output.reset();
             WritableUtils.writeVInt(output, (int) value);
-            Slice vInt = Slices.copyOf(output.slice());
-            assertEquals(vInt, vLong);
+            Slice vIntOld = Slices.copyOf(output.slice());
+            assertEquals(vIntOld, vLongOld);
+
+            output.reset();
+            RcFileDecoderUtils.writeVInt(output, (int) value);
+            Slice vIntNew = Slices.copyOf(output.slice());
+            assertEquals(vIntNew, vLongOld);
         }
-        return vLong;
+        return vLongOld;
     }
 }

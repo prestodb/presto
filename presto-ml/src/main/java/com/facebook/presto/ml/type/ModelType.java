@@ -47,7 +47,7 @@ public class ModelType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -55,7 +55,7 @@ public class ModelType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,27 +25,27 @@ import static java.util.Objects.requireNonNull;
 public class Prepare
         extends Statement
 {
-    private final String name;
+    private final Identifier name;
     private final Statement statement;
 
-    public Prepare(NodeLocation location, String name, Statement statement)
+    public Prepare(NodeLocation location, Identifier name, Statement statement)
     {
         this(Optional.of(location), name, statement);
     }
 
-    public Prepare(String name, Statement statement)
+    public Prepare(Identifier name, Statement statement)
     {
         this(Optional.empty(), name, statement);
     }
 
-    private Prepare(Optional<NodeLocation> location, String name, Statement statement)
+    private Prepare(Optional<NodeLocation> location, Identifier name, Statement statement)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.statement = requireNonNull(statement, "statement is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }
@@ -56,6 +59,12 @@ public class Prepare
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitPrepare(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(statement);
     }
 
     @Override

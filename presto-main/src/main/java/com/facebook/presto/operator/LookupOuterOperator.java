@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.LookupSource.OuterPositionIterator;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class LookupOuterOperator
@@ -40,32 +42,25 @@ public class LookupOuterOperator
 
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
-        private final List<Type> types;
-        private final List<Type> probeTypes;
-        private final List<Type> buildTypes;
-        private final Runnable onOperatorClose;
-        private State state = State.NOT_CREATED;
+        private final List<Type> probeOutputTypes;
+        private final List<Type> buildOutputTypes;
+        private final JoinBridgeManager<?> joinBridgeManager;
+
+        private final Set<Lifespan> createdLifespans = new HashSet<>();
+        private boolean closed;
 
         public LookupOuterOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                ListenableFuture<OuterPositionIterator> outerPositionsFuture,
-                List<Type> probeTypes,
-                List<Type> buildTypes,
-                Runnable onOperatorClose)
+                List<Type> probeOutputTypes,
+                List<Type> buildOutputTypes,
+                JoinBridgeManager<?> joinBridgeManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
-            this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
-            this.buildTypes = ImmutableList.copyOf(requireNonNull(buildTypes, "buildTypes is null"));
-            this.onOperatorClose = requireNonNull(onOperatorClose, "referenceCount is null");
-
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .addAll(buildTypes)
-                    .build();
+            this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
+            this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
+            this.joinBridgeManager = joinBridgeManager;
         }
 
         public int getOperatorId()
@@ -74,29 +69,34 @@ public class LookupOuterOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            checkState(state == State.NOT_CREATED, "Only one outer operator can be created");
-            state = State.CREATED;
+            checkState(!closed, "LookupOuterOperatorFactory is closed");
+            Lifespan lifespan = driverContext.getLifespan();
+            if (createdLifespans.contains(lifespan)) {
+                throw new IllegalStateException("Only one outer operator can be created per Lifespan");
+            }
+            createdLifespans.add(lifespan);
 
+            ListenableFuture<OuterPositionIterator> outerPositionsFuture = joinBridgeManager.getOuterPositionsFuture(lifespan);
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
-            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeTypes, buildTypes, onOperatorClose);
+            joinBridgeManager.outerOperatorCreated(lifespan);
+            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, () -> joinBridgeManager.outerOperatorClosed(lifespan));
         }
 
         @Override
-        public void close()
+        public void noMoreOperators(Lifespan lifespan)
         {
-            if (state == State.CLOSED) {
+            joinBridgeManager.outerOperatorFactoryClosed(lifespan);
+        }
+
+        @Override
+        public void noMoreOperators()
+        {
+            if (closed) {
                 return;
             }
-            state = State.CLOSED;
-            onOperatorClose.run();
+            closed = true;
         }
 
         @Override
@@ -109,8 +109,7 @@ public class LookupOuterOperator
     private final OperatorContext operatorContext;
     private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
 
-    private final List<Type> types;
-    private final List<Type> probeTypes;
+    private final List<Type> probeOutputTypes;
     private final Runnable onClose;
 
     private final PageBuilder pageBuilder;
@@ -121,18 +120,18 @@ public class LookupOuterOperator
     public LookupOuterOperator(
             OperatorContext operatorContext,
             ListenableFuture<OuterPositionIterator> outerPositionsFuture,
-            List<Type> probeTypes,
-            List<Type> buildTypes,
+            List<Type> probeOutputTypes,
+            List<Type> buildOutputTypes,
             Runnable onClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
 
-        this.types = ImmutableList.<Type>builder()
-                .addAll(requireNonNull(probeTypes, "probeTypes is null"))
-                .addAll(requireNonNull(buildTypes, "buildTypes is null"))
+        List<Type> types = ImmutableList.<Type>builder()
+                .addAll(requireNonNull(probeOutputTypes, "probeOutputTypes is null"))
+                .addAll(requireNonNull(buildOutputTypes, "buildOutputTypes is null"))
                 .build();
-        this.probeTypes = ImmutableList.copyOf(probeTypes);
+        this.probeOutputTypes = ImmutableList.copyOf(probeOutputTypes);
         this.pageBuilder = new PageBuilder(types);
         this.onClose = requireNonNull(onClose, "onClose is null");
     }
@@ -141,12 +140,6 @@ public class LookupOuterOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -193,7 +186,7 @@ public class LookupOuterOperator
         boolean outputPositionsFinished = false;
         while (!pageBuilder.isFull()) {
             // write build columns
-            outputPositionsFinished = !outerPositions.appendToNext(pageBuilder, probeTypes.size());
+            outputPositionsFinished = !outerPositions.appendToNext(pageBuilder, probeOutputTypes.size());
             if (outputPositionsFinished) {
                 break;
             }
@@ -201,7 +194,7 @@ public class LookupOuterOperator
 
             // write nulls into probe columns
             // todo use RLE blocks
-            for (int probeChannel = 0; probeChannel < probeTypes.size(); probeChannel++) {
+            for (int probeChannel = 0; probeChannel < probeOutputTypes.size(); probeChannel++) {
                 pageBuilder.getBlockBuilder(probeChannel).appendNull();
             }
         }

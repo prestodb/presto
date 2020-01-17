@@ -1,0 +1,74 @@
+{
+    "tableName": "orders",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "orders",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "orderkey",
+                "type": "bigint",
+                "jsonPath": "orderkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "custkey",
+                "type": "bigint",
+                "jsonPath": "custkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "orderstatus",
+                "type": "varchar",
+                "jsonPath": "orderstatus",
+                "jsonType": "varchar",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "totalprice",
+                "type": "double",
+                "jsonPath": "totalprice",
+                "jsonType": "double",
+                "ordinalPosition": "3"
+            },
+            {
+                "name": "orderdate",
+                "type": "varchar",
+                "jsonPath": "orderdate",
+                "jsonType": "varchar",
+                "ordinalPosition": "4"
+            },
+            {
+                "name": "orderpriority",
+                "type": "varchar",
+                "jsonPath": "orderpriority",
+                "jsonType": "varchar",
+                "ordinalPosition": "5"
+            },
+            {
+                "name": "clerk",
+                "type": "varchar",
+                "jsonPath": "clerk",
+                "jsonType": "varchar",
+                "ordinalPosition": "6"
+            },
+            {
+                "name": "shippriority",
+                "type": "bigint",
+                "jsonPath": "shippriority",
+                "jsonType": "bigint",
+                "ordinalPosition": "7"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "8"
+            }
+        ]
+}

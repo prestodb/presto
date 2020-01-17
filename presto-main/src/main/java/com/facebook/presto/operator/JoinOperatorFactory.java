@@ -15,8 +15,32 @@ package com.facebook.presto.operator;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public interface JoinOperatorFactory
         extends OperatorFactory
 {
-    Optional<OperatorFactory> createOuterOperatorFactory();
+    Optional<OuterOperatorFactoryResult> createOuterOperatorFactory();
+
+    class OuterOperatorFactoryResult
+    {
+        private final OperatorFactory outerOperatorFactory;
+        private final PipelineExecutionStrategy buildExecutionStrategy;
+
+        public OuterOperatorFactoryResult(OperatorFactory outerOperatorFactory, PipelineExecutionStrategy buildExecutionStrategy)
+        {
+            this.outerOperatorFactory = requireNonNull(outerOperatorFactory, "outerOperatorFactory is null");
+            this.buildExecutionStrategy = requireNonNull(buildExecutionStrategy, "buildExecutionStrategy is null");
+        }
+
+        public OperatorFactory getOuterOperatorFactory()
+        {
+            return outerOperatorFactory;
+        }
+
+        public PipelineExecutionStrategy getBuildExecutionStrategy()
+        {
+            return buildExecutionStrategy;
+        }
+    }
 }

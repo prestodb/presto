@@ -17,10 +17,26 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import java.util.List;
 
 public interface ConnectorPageSourceProvider
 {
-    ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
+    /**
+     * @param columns columns that should show up in the output page, in this order
+     */
+    @Deprecated
+    default ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @param columns columns that should show up in the output page, in this order
+     */
+    default ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
+    {
+        return createPageSource(transactionHandle, session, split, columns);
+    }
 }

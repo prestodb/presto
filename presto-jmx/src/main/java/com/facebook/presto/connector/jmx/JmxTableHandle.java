@@ -24,46 +24,43 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
 public class JmxTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
-    private final String objectName;
+    private final SchemaTableName tableName;
+    private final List<String> objectNames;
     private final List<JmxColumnHandle> columnHandles;
     private final boolean liveData;
 
-    @Deprecated
-    public JmxTableHandle(String connectorId, String objectName, List<JmxColumnHandle> columnHandles)
-    {
-        this(connectorId, objectName, columnHandles, true);
-    }
-
     @JsonCreator
     public JmxTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("objectName") String objectName,
+            @JsonProperty("tableName") SchemaTableName tableName,
+            @JsonProperty("objectNames") List<String> objectNames,
             @JsonProperty("columnHandles") List<JmxColumnHandle> columnHandles,
             @JsonProperty("liveData") boolean liveData)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.objectName = requireNonNull(objectName, "objectName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.objectNames = ImmutableList.copyOf(requireNonNull(objectNames, "objectName is null"));
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.liveData = liveData;
+
+        checkArgument(!objectNames.isEmpty(), "objectsNames is empty");
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public SchemaTableName getTableName()
     {
-        return connectorId;
+        return tableName;
     }
 
     @JsonProperty
-    public String getObjectName()
+    public List<String> getObjectNames()
     {
-        return objectName;
+        return objectNames;
     }
 
     @JsonProperty
@@ -81,7 +78,7 @@ public class JmxTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, objectName, columnHandles, liveData);
+        return Objects.hash(tableName, objectNames, columnHandles, liveData);
     }
 
     @Override
@@ -94,8 +91,8 @@ public class JmxTableHandle
             return false;
         }
         JmxTableHandle other = (JmxTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.objectName, other.objectName) &&
+        return Objects.equals(tableName, other.tableName) &&
+                Objects.equals(this.objectNames, other.objectNames) &&
                 Objects.equals(this.columnHandles, other.columnHandles) &&
                 Objects.equals(this.liveData, other.liveData);
     }
@@ -104,8 +101,8 @@ public class JmxTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("objectName", objectName)
+                .add("tableName", objectNames)
+                .add("objectNames", objectNames)
                 .add("columnHandles", columnHandles)
                 .add("liveData", liveData)
                 .toString();
@@ -114,7 +111,7 @@ public class JmxTableHandle
     public ConnectorTableMetadata getTableMetadata()
     {
         return new ConnectorTableMetadata(
-                new SchemaTableName(JmxMetadata.JMX_SCHEMA_NAME, objectName),
+                tableName,
                 ImmutableList.copyOf(transform(columnHandles, JmxColumnHandle::getColumnMetadata)));
     }
 }

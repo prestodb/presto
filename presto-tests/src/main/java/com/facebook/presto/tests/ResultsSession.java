@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.spi.PrestoWarning;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,7 +33,12 @@ public interface ResultsSession<T>
         throw new UnsupportedOperationException();
     }
 
-    void addResults(QueryResults result);
+    default void setWarnings(List<PrestoWarning> warnings)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    void addResults(QueryStatusInfo statusInfo, QueryData data);
 
     T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);
 }

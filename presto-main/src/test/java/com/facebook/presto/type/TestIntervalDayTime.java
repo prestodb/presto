@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -28,7 +29,6 @@ public class TestIntervalDayTime
 {
     @Test
     public void testObject()
-            throws Exception
     {
         assertEquals(new SqlIntervalDayTime(12, 10, 45, 32, 123), new SqlIntervalDayTime(1_075_532_123));
         assertEquals(new SqlIntervalDayTime(-12, -10, -45, -32, -123), new SqlIntervalDayTime(-1_075_532_123));
@@ -42,7 +42,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertLiteral("INTERVAL '12 10:45:32.123' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 32, 123));
         assertLiteral("INTERVAL '12 10:45:32.12' DAY TO SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12, 10, 45, 32, 120));
@@ -106,7 +105,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND + INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(6 * 1000));
         assertFunction("INTERVAL '6' DAY + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
@@ -115,7 +113,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("INTERVAL '6' SECOND - INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(3 * 1000));
         assertFunction("INTERVAL '9' DAY - INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(3 * 24 * 60 * 60 * 1000));
@@ -124,7 +121,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("INTERVAL '6' SECOND * 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 1000));
         assertFunction("2 * INTERVAL '6' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 1000));
@@ -139,7 +135,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND / 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1500));
         assertFunction("INTERVAL '6' SECOND / 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime(2400));
@@ -150,7 +145,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("- INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(-3 * 1000));
         assertFunction("- INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(-6 * 24 * 60 * 60 * 1000));
@@ -158,7 +152,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND = INTERVAL '3' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '6' DAY = INTERVAL '6' DAY", BOOLEAN, true);
@@ -169,7 +162,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND <> INTERVAL '4' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '6' DAY <> INTERVAL '7' DAY", BOOLEAN, true);
@@ -180,7 +172,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND < INTERVAL '4' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '6' DAY < INTERVAL '7' DAY", BOOLEAN, true);
@@ -193,7 +184,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND <= INTERVAL '4' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '3' SECOND <= INTERVAL '3' SECOND", BOOLEAN, true);
@@ -206,7 +196,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND > INTERVAL '2' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '6' DAY > INTERVAL '5' DAY", BOOLEAN, true);
@@ -219,7 +208,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND >= INTERVAL '2' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '3' SECOND >= INTERVAL '3' SECOND", BOOLEAN, true);
@@ -232,7 +220,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("INTERVAL '3' SECOND between INTERVAL '2' SECOND and INTERVAL '4' SECOND", BOOLEAN, true);
         assertFunction("INTERVAL '3' SECOND between INTERVAL '3' SECOND and INTERVAL '4' SECOND", BOOLEAN, true);
@@ -246,7 +233,6 @@ public class TestIntervalDayTime
 
     @Test
     public void testCastToSlice()
-            throws Exception
     {
         assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, "12 10:45:32.123");
         assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 32, 123).toString());
@@ -286,5 +272,12 @@ public class TestIntervalDayTime
         assertFunction("cast(INTERVAL '32.123' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 123).toString());
         assertFunction("cast(INTERVAL '32.12' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 120).toString());
         assertFunction("cast(INTERVAL '32' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 0).toString());
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as INTERVAL DAY TO SECOND)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "INTERVAL '45' MINUTE TO SECOND", BOOLEAN, false);
     }
 }

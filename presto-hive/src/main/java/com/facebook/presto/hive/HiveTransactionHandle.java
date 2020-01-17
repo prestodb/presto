@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.UUID;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveTransactionHandle
@@ -67,8 +66,6 @@ public class HiveTransactionHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("uuid", uuid)
-                .toString();
+        return uuid.toString();
     }
 }

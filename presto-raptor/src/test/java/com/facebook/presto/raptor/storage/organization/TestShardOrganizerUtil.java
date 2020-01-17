@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
@@ -31,8 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
-import io.airlift.json.JsonCodec;
-import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -58,14 +55,13 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestShardOrganizerUtil
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
-
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(
             new ColumnInfo(1, TIMESTAMP),
             new ColumnInfo(2, BIGINT),
@@ -84,10 +80,10 @@ public class TestShardOrganizerUtil
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
-        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
-        createTablesWithRetry(dbi);
+        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), new TypeRegistry());
 
         metadataDao = dbi.onDemand(MetadataDao.class);
         shardManager = createShardManager(dbi);
@@ -95,26 +91,28 @@ public class TestShardOrganizerUtil
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
         dummyHandle.close();
-        FileUtils.deleteRecursively(dataDir);
+        deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 
     @Test
     public void testGetOrganizationEligibleShards()
-            throws Exception
     {
         int day1 = 1111;
         int day2 = 2222;
 
         SchemaTableName tableName = new SchemaTableName("default", "test");
         metadata.createTable(SESSION, tableMetadataBuilder(tableName)
-                .column("orderkey", BIGINT)
-                .column("orderdate", DATE)
-                .column("orderstatus", createVarcharType(3))
-                .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
-                .property("temporal_column", "orderdate")
-                .build());
+                        .column("orderkey", BIGINT)
+                        .column("orderdate", DATE)
+                        .column("orderstatus", createVarcharType(3))
+                        .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
+                        .property("temporal_column", "orderdate")
+                        .property("table_supports_delta_delete", false)
+                        .build(),
+                false);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         List<TableColumn> tableColumns = metadataDao.listTableColumns(tableInfo.getTableId());
         Map<String, TableColumn> tableColumnMap = Maps.uniqueIndex(tableColumns, TableColumn::getColumnName);
@@ -163,7 +161,7 @@ public class TestShardOrganizerUtil
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableInfo.getTableId(), COLUMNS, shards, Optional.empty(), 0);
-        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShards("node1");
+        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShardsAndDeltas("node1");
 
         Long temporalColumnId = metadataDao.getTemporalColumnId(tableInfo.getTableId());
         TableColumn temporalColumn = metadataDao.getTableColumn(tableInfo.getTableId(), temporalColumnId);
@@ -229,6 +227,8 @@ public class TestShardOrganizerUtil
                     tableId,
                     OptionalInt.empty(),
                     shard.getShardUuid(),
+                    false,
+                    Optional.empty(),
                     shard.getRowCount(),
                     shard.getUncompressedSize(),
                     sortRange,

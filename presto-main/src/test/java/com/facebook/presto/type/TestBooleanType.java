@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
@@ -29,7 +28,7 @@ public class TestBooleanType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, 15);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);

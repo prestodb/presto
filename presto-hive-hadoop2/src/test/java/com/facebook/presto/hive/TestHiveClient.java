@@ -13,24 +13,26 @@
  */
 package com.facebook.presto.hive;
 
+import org.apache.hadoop.net.NetUtils;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
-import org.xbill.DNS.Lookup;
 
-@Test
+import java.net.UnknownHostException;
+
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
-    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone", "dns.port"})
+    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
     @BeforeClass
-    public void initialize(String host, int port, String databaseName, String timeZone, @Optional Integer dnsPort)
+    public void initialize(String host, int port, String databaseName, String timeZone)
+            throws UnknownHostException
     {
-        // Connecting to Hive cluster (e.g. dockerized) over SOCKS proxy requires using a DNS server, which resolves cluster IP addresses (e.g. hadoop-master).
-        // The DNS server might listen on custom port. Therefore we need to configure the name resolver to use that port.
-        if (dnsPort != null) {
-            Lookup.getDefaultResolver().setPort(dnsPort);
+        String hadoopMasterIp = System.getProperty("hadoop-master-ip");
+        if (hadoopMasterIp != null) {
+            // Even though Hadoop is accessed by proxy, Hadoop still tries to resolve hadoop-master
+            // (e.g: in: NameNodeProxies.createProxy)
+            // This adds a static resolution for hadoop-master to docker container internal ip
+            NetUtils.addStaticResolution("hadoop-master", hadoopMasterIp);
         }
 
         setup(host, port, databaseName, timeZone);

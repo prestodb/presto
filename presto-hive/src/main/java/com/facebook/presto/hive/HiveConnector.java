@@ -13,27 +13,33 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PARTITION_COMMIT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,33 +51,40 @@ public class HiveConnector
     private static final Logger log = Logger.get(HiveConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final HiveMetadataFactory metadataFactory;
+    private final Supplier<TransactionalMetadata> metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<SystemTable> systemTables;
+    private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> analyzeProperties;
+
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
+    private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     private final HiveTransactionManager transactionManager;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            HiveMetadataFactory metadataFactory,
+            Supplier<TransactionalMetadata> metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SystemTable> systemTables,
+            Set<Procedure> procedures,
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
+            List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
+            ConnectorPlanOptimizerProvider planOptimizerProvider,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -82,11 +95,14 @@ public class HiveConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -122,9 +138,21 @@ public class HiveConnector
     }
 
     @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
+    }
+
+    @Override
     public Set<SystemTable> getSystemTables()
     {
         return systemTables;
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     @Override
@@ -137,6 +165,12 @@ public class HiveConnector
     public List<PropertyMetadata<?>> getSchemaProperties()
     {
         return schemaProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return analyzeProperties;
     }
 
     @Override
@@ -163,7 +197,7 @@ public class HiveConnector
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction, metadataFactory.get());
         }
         return transaction;
     }
@@ -171,7 +205,7 @@ public class HiveConnector
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transaction);
+        TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.commit();
@@ -181,7 +215,7 @@ public class HiveConnector
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transaction);
+        TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.rollback();
@@ -197,5 +231,11 @@ public class HiveConnector
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PARTITION_COMMIT);
     }
 }

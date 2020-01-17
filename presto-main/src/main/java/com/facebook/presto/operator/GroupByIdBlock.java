@@ -15,11 +15,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -57,33 +56,51 @@ public class GroupByIdBlock
     }
 
     @Override
+    public long getRegionSizeInBytes(int positionOffset, int length)
+    {
+        return block.getRegionSizeInBytes(positionOffset, length);
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        return block.getPositionsSizeInBytes(positions);
+    }
+
+    @Override
     public Block copyRegion(int positionOffset, int length)
     {
         return block.copyRegion(positionOffset, length);
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
-        return block.getLength(position);
+        return block.getSliceLength(position);
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
-        return block.getByte(position, offset);
+        return block.getByte(position);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
-        return block.getShort(position, offset);
+        return block.getShort(position);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
-        return block.getInt(position, offset);
+        return block.getInt(position);
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        return block.getLong(position);
     }
 
     @Override
@@ -99,9 +116,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        return block.getObject(position, clazz);
+        return block.getBlock(position);
     }
 
     @Override
@@ -165,32 +182,40 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         return block.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public long getEstimatedDataSizeForStats(int position)
     {
-        return block.getEncoding();
+        return block.getEstimatedDataSizeForStats(position);
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        return block.copyPositions(positions);
+        consumer.accept(block, block.getRetainedSizeInBytes());
+        consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
-    public void assureLoaded()
+    public String getEncodingName()
     {
+        throw new UnsupportedOperationException("GroupByIdBlock does not support serialization");
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        return block.copyPositions(positions, offset, length);
     }
 
     @Override
@@ -200,5 +225,71 @@ public class GroupByIdBlock
                 .add("groupCount", groupCount)
                 .add("positionCount", getPositionCount())
                 .toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        return block.getLoadedBlock();
+    }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        return block.getByte(internalPosition);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        return block.getShort(internalPosition);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        return block.getInt(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        return block.getLong(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        return block.getLong(internalPosition, offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        return block.getSlice(internalPosition, offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        return block.getSliceLength(internalPosition);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        return block.getBlock(internalPosition);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        return block.isNull(internalPosition);
     }
 }

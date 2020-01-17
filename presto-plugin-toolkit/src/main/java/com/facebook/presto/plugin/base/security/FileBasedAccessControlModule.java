@@ -13,22 +13,41 @@
  */
 package com.facebook.presto.plugin.base.security;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
+import com.google.inject.Provides;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedAccessControlModule
         implements Module
 {
+    private static final Logger log = Logger.get(FileBasedAccessControlModule.class);
+
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(ConnectorAccessControl.class).to(FileBasedAccessControl.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(AccessControlRules.class);
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
+    }
+
+    @Inject
+    @Provides
+    public ConnectorAccessControl getConnectorAccessControl(FileBasedAccessControlConfig config)
+    {
+        if (config.getRefreshPeriod() != null) {
+            return ForwardingConnectorAccessControl.of(memoizeWithExpiration(
+                    () -> {
+                        log.info("Refreshing system access control from %s", config.getConfigFile());
+                        return new FileBasedAccessControl(config);
+                    },
+                    config.getRefreshPeriod().toMillis(),
+                    MILLISECONDS));
+        }
+        return new FileBasedAccessControl(config);
     }
 }

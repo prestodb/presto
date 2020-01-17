@@ -11,33 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.facebook.presto.type.ArrayType;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -58,21 +56,29 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Boolean.TRUE;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -95,17 +101,14 @@ public class BenchmarkArrayFilter
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public Object benchmark(BenchmarkData data)
-            throws Throwable
+    public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -115,7 +118,6 @@ public class BenchmarkArrayFilter
         @Param({"filter", "exact_filter"})
         private String name = "filter";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
 
@@ -123,33 +125,33 @@ public class BenchmarkArrayFilter
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            FunctionManager functionManager = metadata.getFunctionManager();
+            metadata.registerBuiltInFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)"));
-                Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(
-                        new InputReferenceExpression(0, arrayType),
+                FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
+                FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
+                projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
+                        field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
@@ -173,11 +175,6 @@ public class BenchmarkArrayFilter
         public Page getPage()
         {
             return page;
-        }
-
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
         }
     }
 
@@ -206,7 +203,7 @@ public class BenchmarkArrayFilter
         private ExactArrayFilterFunction()
         {
             super(new Signature(
-                    "exact_filter",
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "exact_filter"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -234,32 +231,33 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {
             Type type = boundVariables.getTypeVariable("T");
-            return new ScalarFunctionImplementation(
+            return new BuiltInScalarFunctionImplementation(
                     false,
-                    ImmutableList.of(false, false),
-                    METHOD_HANDLE.bindTo(type),
-                    isDeterministic());
+                    ImmutableList.of(
+                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                    METHOD_HANDLE.bindTo(type));
         }
 
         public static Block filter(Type type, Block block, MethodHandle function)
         {
             int positionCount = block.getPositionCount();
-            BlockBuilder resultBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 Long input = (Long) readNativeValue(type, block, position);
                 Boolean keep;
                 try {
                     keep = (Boolean) function.invokeExact(input);
                 }
-                catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
+                catch (Throwable t) {
+                    throwIfUnchecked(t);
+                    throw new RuntimeException(t);
                 }
                 if (TRUE.equals(keep)) {
                     block.writePositionTo(position, resultBuilder);
-                    resultBuilder.closeEntry();
                 }
             }
             return resultBuilder.build();

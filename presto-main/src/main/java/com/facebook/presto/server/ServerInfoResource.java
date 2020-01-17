@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
 
 import javax.inject.Inject;
@@ -26,8 +29,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -37,21 +43,29 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 @Path("/v1/info")
 public class ServerInfoResource
 {
-    private final ServerInfo serverInfo;
+    private final NodeVersion version;
+    private final String environment;
+    private final boolean coordinator;
+    private final StaticCatalogStore catalogStore;
     private final GracefulShutdownHandler shutdownHandler;
+    private final long startTime = System.nanoTime();
 
     @Inject
-    public ServerInfoResource(ServerInfo serverInfo, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler)
     {
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
+        this.version = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
     }
 
     @GET
     @Produces(APPLICATION_JSON)
-    public ServerInfo getServerInfo()
+    public ServerInfo getInfo()
     {
-        return serverInfo;
+        boolean starting = !catalogStore.areCatalogsLoaded();
+        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
     @PUT
@@ -61,6 +75,7 @@ public class ServerInfoResource
     public Response updateState(NodeState state)
             throws WebApplicationException
     {
+        requireNonNull(state, "state is null");
         switch (state) {
             case SHUTTING_DOWN:
                 shutdownHandler.requestShutdown();
@@ -98,7 +113,7 @@ public class ServerInfoResource
     @Produces(TEXT_PLAIN)
     public Response getServerCoordinator()
     {
-        if (serverInfo.isCoordinator()) {
+        if (coordinator) {
             return Response.ok().build();
         }
         // return 404 to allow load balancers to only send traffic to the coordinator

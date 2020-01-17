@@ -59,7 +59,7 @@ public final class CachedInstanceBinder
         for (Map.Entry<FieldDefinition, MethodHandle> entry : initializers.entrySet()) {
             Binding binding = callSiteBinder.bind(entry.getValue());
             block.append(thisVariable)
-                    .append(invoke(binding, entry.getValue().type().returnType().getSimpleName() + "_constructor"))
+                    .append(invoke(binding, "instanceFieldConstructor"))
                     .putField(entry.getKey());
         }
     }

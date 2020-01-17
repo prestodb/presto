@@ -17,7 +17,6 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import io.airlift.slice.Slice;
 
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 
 class HashRedisValueProvider
@@ -30,12 +29,6 @@ class HashRedisValueProvider
     {
         this.columnHandle = columnHandle;
         this.value = value;
-    }
-
-    @Override
-    public boolean accept(DecoderColumnHandle handle)
-    {
-        return columnHandle.equals(handle);
     }
 
     @Override
@@ -54,18 +47,18 @@ class HashRedisValueProvider
     @Override
     public long getLong()
     {
-        return isNull() ? 0L : Long.parseLong(value.trim());
+        return Long.parseLong(value.trim());
     }
 
     @Override
     public double getDouble()
     {
-        return isNull() ? 0.0d : Double.parseDouble(value.trim());
+        return Double.parseDouble(value.trim());
     }
 
     @Override
     public Slice getSlice()
     {
-        return isNull() ? EMPTY_SLICE : utf8Slice(value);
+        return utf8Slice(value);
     }
 }

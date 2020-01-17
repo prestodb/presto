@@ -15,16 +15,15 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.BlockState;
-import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.operator.aggregation.state.BlockPositionState;
+import com.facebook.presto.operator.aggregation.state.BlockPositionStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -33,65 +32,66 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
 {
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableLongState.class, long.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
-    private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, SliceState.class, Slice.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, NullableBooleanState.class, boolean.class);
-    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "input", MethodHandle.class, BlockState.class, Block.class);
+    private static final MethodHandle BLOCK_POSITION_MIN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "minInput", Type.class, BlockPositionState.class, Block.class, int.class);
+    private static final MethodHandle BLOCK_POSITION_MAX_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "maxInput", Type.class, BlockPositionState.class, Block.class, int.class);
 
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
-    private static final MethodHandle SLICE_OUTPUT_FUNCTION = methodHandle(SliceState.class, "write", Type.class, SliceState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
-    private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
+    private static final MethodHandle BLOCK_POSITION_OUTPUT_FUNCTION = methodHandle(BlockPositionState.class, "write", Type.class, BlockPositionState.class, BlockBuilder.class);
 
     private static final MethodHandle LONG_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableLongState.class, NullableLongState.class);
     private static final MethodHandle DOUBLE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableDoubleState.class, NullableDoubleState.class);
-    private static final MethodHandle SLICE_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, SliceState.class, SliceState.class);
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
-    private static final MethodHandle BLOCK_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, BlockState.class, BlockState.class);
+    private static final MethodHandle BLOCK_POSITION_MIN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "minCombine", Type.class, BlockPositionState.class, BlockPositionState.class);
+    private static final MethodHandle BLOCK_POSITION_MAX_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "maxCombine", Type.class, BlockPositionState.class, BlockPositionState.class);
 
     private final OperatorType operatorType;
+    private final boolean min;
 
-    protected AbstractMinMaxAggregationFunction(String name, OperatorType operatorType)
+    protected AbstractMinMaxAggregationFunction(String name, boolean min)
     {
         super(name,
                 ImmutableList.of(orderableTypeParameter("E")),
                 ImmutableList.of(),
                 parseTypeSignature("E"),
                 ImmutableList.of(parseTypeSignature("E")));
-        requireNonNull(operatorType);
-        this.operatorType = operatorType;
+        this.min = min;
+        this.operatorType = min ? LESS_THAN : GREATER_THAN;
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type type = boundVariables.getTypeVariable("E");
-        MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
+        MethodHandle compareMethodHandle = functionManager.getBuiltInScalarFunctionImplementation(
+                functionManager.resolveOperator(operatorType, fromTypes(type, type))).getMethodHandle();
         return generateAggregation(type, compareMethodHandle);
     }
 
@@ -110,88 +110,130 @@ public abstract class AbstractMinMaxAggregationFunction
         if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
             stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-            inputFunction = LONG_INPUT_FUNCTION;
-            combineFunction = LONG_COMBINE_FUNCTION;
-            outputFunction = LONG_OUTPUT_FUNCTION;
+            inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
+            combineFunction = LONG_COMBINE_FUNCTION.bindTo(compareMethodHandle);
+            outputFunction = LONG_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == double.class) {
             stateInterface = NullableDoubleState.class;
             stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-            inputFunction = DOUBLE_INPUT_FUNCTION;
-            combineFunction = DOUBLE_COMBINE_FUNCTION;
-            outputFunction = DOUBLE_OUTPUT_FUNCTION;
-        }
-        else if (type.getJavaType() == Slice.class) {
-            stateInterface = SliceState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-            inputFunction = SLICE_INPUT_FUNCTION;
-            combineFunction = SLICE_COMBINE_FUNCTION;
-            outputFunction = SLICE_OUTPUT_FUNCTION;
+            inputFunction = DOUBLE_INPUT_FUNCTION.bindTo(compareMethodHandle);
+            combineFunction = DOUBLE_COMBINE_FUNCTION.bindTo(compareMethodHandle);
+            outputFunction = DOUBLE_OUTPUT_FUNCTION.bindTo(type);
         }
         else if (type.getJavaType() == boolean.class) {
             stateInterface = NullableBooleanState.class;
             stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-            inputFunction = BOOLEAN_INPUT_FUNCTION;
-            combineFunction = BOOLEAN_COMBINE_FUNCTION;
-            outputFunction = BOOLEAN_OUTPUT_FUNCTION;
+            inputFunction = BOOLEAN_INPUT_FUNCTION.bindTo(compareMethodHandle);
+            combineFunction = BOOLEAN_COMBINE_FUNCTION.bindTo(compareMethodHandle);
+            outputFunction = BOOLEAN_OUTPUT_FUNCTION.bindTo(type);
         }
         else {
-            stateInterface = BlockState.class;
-            stateSerializer = new BlockStateSerializer(type);
-            inputFunction = BLOCK_INPUT_FUNCTION;
-            combineFunction = BLOCK_COMBINE_FUNCTION;
-            outputFunction = BLOCK_OUTPUT_FUNCTION;
+            // native container type is Slice or Block
+            stateInterface = BlockPositionState.class;
+            stateSerializer = new BlockPositionStateSerializer(type);
+            inputFunction = min ? BLOCK_POSITION_MIN_INPUT_FUNCTION.bindTo(type) : BLOCK_POSITION_MAX_INPUT_FUNCTION.bindTo(type);
+            combineFunction = min ? BLOCK_POSITION_MIN_COMBINE_FUNCTION.bindTo(type) : BLOCK_POSITION_MAX_COMBINE_FUNCTION.bindTo(type);
+            outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);
         }
-
-        inputFunction = inputFunction.bindTo(compareMethodHandle);
-        combineFunction = combineFunction.bindTo(compareMethodHandle);
-        outputFunction = outputFunction.bindTo(type);
 
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
 
         Type intermediateType = stateSerializer.getSerializedType();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(getSignature().getNameSuffix(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
                 combineFunction,
                 outputFunction,
-                stateInterface,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateInterface,
+                        stateSerializer,
+                        stateFactory)),
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, type, true, factory);
+        return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)
     {
-        return ImmutableList.of(
-                new ParameterMetadata(STATE),
-                new ParameterMetadata(INPUT_CHANNEL, type));
+        if (type.getJavaType().isPrimitive()) {
+            return ImmutableList.of(
+                    new ParameterMetadata(STATE),
+                    new ParameterMetadata(INPUT_CHANNEL, type));
+        }
+        else {
+            return ImmutableList.of(
+                    new ParameterMetadata(STATE),
+                    new ParameterMetadata(BLOCK_INPUT_CHANNEL, type),
+                    new ParameterMetadata(BLOCK_INDEX));
+        }
     }
 
     public static void input(MethodHandle methodHandle, NullableDoubleState state, double value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
-                state.setDouble(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        compareAndUpdateState(methodHandle, state, value);
     }
 
     public static void input(MethodHandle methodHandle, NullableLongState state, long value)
+    {
+        compareAndUpdateState(methodHandle, state, value);
+    }
+
+    public static void input(MethodHandle methodHandle, NullableBooleanState state, boolean value)
+    {
+        compareAndUpdateState(methodHandle, state, value);
+    }
+
+    public static void minInput(Type type, BlockPositionState state, Block block, int position)
+    {
+        if (state.getBlock() == null || type.compareTo(block, position, state.getBlock(), state.getPosition()) < 0) {
+            state.setBlock(block);
+            state.setPosition(position);
+        }
+    }
+
+    public static void maxInput(Type type, BlockPositionState state, Block block, int position)
+    {
+        if (state.getBlock() == null || type.compareTo(block, position, state.getBlock(), state.getPosition()) > 0) {
+            state.setBlock(block);
+            state.setPosition(position);
+        }
+    }
+
+    public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
+    {
+        compareAndUpdateState(methodHandle, state, otherState.getLong());
+    }
+
+    public static void combine(MethodHandle methodHandle, NullableDoubleState state, NullableDoubleState otherState)
+    {
+        compareAndUpdateState(methodHandle, state, otherState.getDouble());
+    }
+
+    public static void combine(MethodHandle methodHandle, NullableBooleanState state, NullableBooleanState otherState)
+    {
+        compareAndUpdateState(methodHandle, state, otherState.getBoolean());
+    }
+
+    public static void minCombine(Type type, BlockPositionState state, BlockPositionState otherState)
+    {
+        if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) < 0) {
+            state.setBlock(otherState.getBlock());
+            state.setPosition(otherState.getPosition());
+        }
+    }
+
+    public static void maxCombine(Type type, BlockPositionState state, BlockPositionState otherState)
+    {
+        if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) > 0) {
+            state.setBlock(otherState.getBlock());
+            state.setPosition(otherState.getPosition());
+        }
+    }
+
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableLongState state, long value)
     {
         if (state.isNull()) {
             state.setNull(false);
@@ -204,31 +246,28 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
-    public static void input(MethodHandle methodHandle, SliceState state, Slice value)
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableDoubleState state, double value)
     {
-        if (state.getSlice() == null) {
-            state.setSlice(value);
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setDouble(value);
             return;
         }
         try {
-            if ((boolean) methodHandle.invokeExact(value, state.getSlice())) {
-                state.setSlice(value);
+            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
+                state.setDouble(value);
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 
-    public static void input(MethodHandle methodHandle, NullableBooleanState state, boolean value)
+    private static void compareAndUpdateState(MethodHandle methodHandle, NullableBooleanState state, boolean value)
     {
         if (state.isNull()) {
             state.setNull(false);
@@ -241,120 +280,7 @@ public abstract class AbstractMinMaxAggregationFunction
             }
         }
         catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void input(MethodHandle methodHandle, BlockState state, Block value)
-    {
-        if (state.getBlock() == null) {
-            state.setBlock(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getBlock())) {
-                state.setBlock(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getLong(), state.getLong())) {
-                state.setLong(otherState.getLong());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void combine(MethodHandle methodHandle, NullableDoubleState state, NullableDoubleState otherState)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getDouble(), state.getDouble())) {
-                state.setDouble(otherState.getDouble());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void combine(MethodHandle methodHandle, NullableBooleanState state, NullableBooleanState otherState)
-    {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getBoolean(), state.getBoolean())) {
-                state.setBoolean(otherState.getBoolean());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void combine(MethodHandle methodHandle, SliceState state, SliceState otherState)
-    {
-        if (state.getSlice() == null) {
-            state.setSlice(otherState.getSlice());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getSlice(), state.getSlice())) {
-                state.setSlice(otherState.getSlice());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    public static void combine(MethodHandle methodHandle, BlockState state, BlockState otherState)
-    {
-        if (state.getBlock() == null) {
-            state.setBlock(otherState.getBlock());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getBlock(), state.getBlock())) {
-                state.setBlock(otherState.getBlock());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 }

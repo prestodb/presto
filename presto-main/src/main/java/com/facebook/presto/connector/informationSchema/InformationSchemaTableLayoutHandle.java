@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,15 +27,15 @@ public class InformationSchemaTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final InformationSchemaTableHandle table;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final Set<QualifiedTablePrefix> prefixes;
 
     @JsonCreator
     public InformationSchemaTableLayoutHandle(
             @JsonProperty("table") InformationSchemaTableHandle table,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes)
     {
         this.table = requireNonNull(table, "table is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
     }
 
     @JsonProperty
@@ -43,9 +45,9 @@ public class InformationSchemaTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public Set<QualifiedTablePrefix> getPrefixes()
     {
-        return constraint;
+        return prefixes;
     }
 
     @Override

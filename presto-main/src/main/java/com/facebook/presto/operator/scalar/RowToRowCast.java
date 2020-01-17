@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.CompilerUtils;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
@@ -23,8 +22,8 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.CastType;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -32,7 +31,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
@@ -49,19 +48,21 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.withVariadicBound;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -76,7 +77,7 @@ public class RowToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
@@ -84,12 +85,15 @@ public class RowToRowCast
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
-        Class<?> castOperatorClass = generateRowCast(fromType, toType, functionRegistry);
+        Class<?> castOperatorClass = generateRowCast(fromType, toType, functionManager);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
+        return new BuiltInScalarFunctionImplementation(
+                false,
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle);
     }
 
-    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionRegistry functionRegistry)
+    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionManager functionManager)
     {
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
@@ -102,7 +106,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
+                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -120,46 +124,47 @@ public class RowToRowCast
 
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
         Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable singleRowBlockWriter = scope.createTempVariable(BlockBuilder.class);
 
         body.append(wasNull.set(constantBoolean(false)));
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
 
-        // create the interleave block builder
-        body.newObject(InterleavedBlockBuilder.class)
-                .dup()
-                .append(constantType(binder, toType).invoke("getTypeParameters", List.class))
-                .append(newInstance(BlockBuilderStatus.class))
-                .append(constantInt(toTypes.size()))
-                .invokeConstructor(InterleavedBlockBuilder.class, List.class, BlockBuilderStatus.class, int.class)
-                .putVariable(blockBuilder);
+        // create the row block builder
+        body.append(blockBuilder.set(
+                constantType(binder, toType).invoke(
+                        "createBlockBuilder",
+                        BlockBuilder.class,
+                        constantNull(BlockBuilderStatus.class),
+                        constantInt(1))));
+        body.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
-            Signature signature = internalOperator(
-                    CAST.name(),
-                    toTypes.get(i).getTypeSignature(),
-                    ImmutableList.of(fromTypes.get(i).getTypeSignature()));
-            ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+            FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
+            BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
-                body.append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+                body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
                 continue;
             }
             BytecodeExpression fromElement = constantType(binder, currentFromType).getValue(value, constantInt(i));
-            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, signature.getName(), function, fromElement);
+            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, CAST.name(), function, fromElement);
             IfStatement ifElementNull = new IfStatement("if the element in the row type is null...");
 
             ifElementNull.condition(value.invoke("isNull", boolean.class, constantInt(i)))
-                    .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, toTypes.get(i)).writeValue(blockBuilder, toElement));
+                    .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, toTypes.get(i)).writeValue(singleRowBlockWriter, toElement));
 
             body.append(ifElementNull);
         }
 
-        // call blockBuilder.build()
-        body.append(blockBuilder.invoke("build", Block.class))
-                .retObject();
+        // call blockBuilder.closeEntry() and return the single row block
+        body.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
+        body.append(constantType(binder, toType)
+                .invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
+                .cast(Block.class)
+                .ret());
 
         // create constructor
         MethodDefinition constructorDefinition = definition.declareConstructor(a(PUBLIC));

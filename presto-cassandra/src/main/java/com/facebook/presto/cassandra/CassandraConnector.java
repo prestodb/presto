@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -38,7 +41,8 @@ public class CassandraConnector
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
-    private final CassandraConnectorRecordSinkProvider recordSinkProvider;
+    private final ConnectorPageSinkProvider pageSinkProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public CassandraConnector(
@@ -46,13 +50,15 @@ public class CassandraConnector
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
-            CassandraConnectorRecordSinkProvider recordSinkProvider)
+            CassandraPageSinkProvider pageSinkProvider,
+            CassandraSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties.getSessionProperties(), "sessionProperties is null");
     }
 
     @Override
@@ -87,9 +93,15 @@ public class CassandraConnector
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
-        return recordSinkProvider;
+        return pageSinkProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override

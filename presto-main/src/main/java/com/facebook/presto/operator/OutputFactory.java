@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Function;
 
 public interface OutputFactory
 {
-    OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor);
+    OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory);
 }

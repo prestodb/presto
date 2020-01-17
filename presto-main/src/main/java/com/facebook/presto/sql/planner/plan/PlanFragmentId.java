@@ -22,21 +22,31 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanFragmentId
+        implements Comparable<PlanFragmentId>
 {
-    private final String id;
+    private final int id;
 
-    @JsonCreator
-    public PlanFragmentId(String id)
+    public PlanFragmentId(int id)
     {
-        requireNonNull(id, "id is null");
         this.id = id;
+    }
+
+    public int getId()
+    {
+        return id;
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return id;
+        return Integer.toString(id);
+    }
+
+    @JsonCreator
+    public static PlanFragmentId valueOf(String value)
+    {
+        return new PlanFragmentId(Integer.valueOf(requireNonNull(value, "value is null")));
     }
 
     @Override
@@ -51,16 +61,18 @@ public class PlanFragmentId
 
         PlanFragmentId that = (PlanFragmentId) o;
 
-        if (!id.equals(that.id)) {
-            return false;
-        }
-
-        return true;
+        return id == that.id;
     }
 
     @Override
     public int hashCode()
     {
-        return id.hashCode();
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public int compareTo(PlanFragmentId o)
+    {
+        return Integer.compare(id, o.id);
     }
 }

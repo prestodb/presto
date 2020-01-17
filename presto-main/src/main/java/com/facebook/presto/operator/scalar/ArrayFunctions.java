@@ -15,10 +15,9 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
@@ -32,7 +31,7 @@ public final class ArrayFunctions
     @SqlType("array(unknown)")
     public static Block arrayConstructor()
     {
-        BlockBuilder blockBuilder = new ArrayType(UNKNOWN).createBlockBuilder(new BlockBuilderStatus(), 0);
+        BlockBuilder blockBuilder = new ArrayType(UNKNOWN).createBlockBuilder(null, 0);
         return blockBuilder.build();
     }
 }

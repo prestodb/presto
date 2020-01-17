@@ -1,0 +1,101 @@
+{
+  "rowCount" : 6001215,
+  "columns" : {
+    "l_orderkey" : {
+      "distinctValuesCount" : 1500000,
+      "min" : 1,
+      "max" : 6000000,
+      "dataSize" : null
+    },
+    "l_partkey" : {
+      "distinctValuesCount" : 200000,
+      "min" : 1,
+      "max" : 200000,
+      "dataSize" : null
+    },
+    "l_suppkey" : {
+      "distinctValuesCount" : 10000,
+      "min" : 1,
+      "max" : 10000,
+      "dataSize" : null
+    },
+    "l_linenumber" : {
+      "distinctValuesCount" : 7,
+      "min" : 1,
+      "max" : 7,
+      "dataSize" : null
+    },
+    "l_quantity" : {
+      "distinctValuesCount" : 50,
+      "min" : 1.0,
+      "max" : 50.0,
+      "dataSize" : null
+    },
+    "l_extendedprice" : {
+      "distinctValuesCount" : 933900,
+      "min" : 901.0,
+      "max" : 104949.5,
+      "dataSize" : null
+    },
+    "l_discount" : {
+      "distinctValuesCount" : 11,
+      "min" : 0.0,
+      "max" : 0.1,
+      "dataSize" : null
+    },
+    "l_tax" : {
+      "distinctValuesCount" : 9,
+      "min" : 0.0,
+      "max" : 0.08,
+      "dataSize" : null
+    },
+    "l_returnflag" : {
+      "distinctValuesCount" : 3,
+      "min" : "A",
+      "max" : "R",
+      "dataSize" : 3
+    },
+    "l_linestatus" : {
+      "distinctValuesCount" : 2,
+      "min" : "F",
+      "max" : "O",
+      "dataSize" : 2
+    },
+    "l_shipdate" : {
+      "distinctValuesCount" : 2526,
+      "min" : 8036,
+      "max" : 10561,
+      "dataSize" : null
+    },
+    "l_commitdate" : {
+      "distinctValuesCount" : 2466,
+      "min" : 8065,
+      "max" : 10530,
+      "dataSize" : null
+    },
+    "l_receiptdate" : {
+      "distinctValuesCount" : 2554,
+      "min" : 8038,
+      "max" : 10591,
+      "dataSize" : null
+    },
+    "l_shipinstruct" : {
+      "distinctValuesCount" : 4,
+      "min" : "COLLECT COD",
+      "max" : "TAKE BACK RETURN",
+      "dataSize" : 48
+    },
+    "l_shipmode" : {
+      "distinctValuesCount" : 7,
+      "min" : "AIR",
+      "max" : "TRUCK",
+      "dataSize" : 30
+    },
+    "l_comment" : {
+      "distinctValuesCount" : 4580667,
+      "min" : " Tiresias ",
+      "max" : "zzle? slyly final platelets sleep quickly. ",
+      "dataSize" : 135857609
+    }
+  }
+}

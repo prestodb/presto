@@ -18,53 +18,56 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.control.LookupSwitch;
+import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.bytecode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
 
-    public InCodeGenerator(FunctionRegistry registry)
+    public InCodeGenerator(FunctionManager functionManager)
     {
-        this.registry = requireNonNull(registry, "registry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     enum SwitchGenerationCase
@@ -107,34 +110,31 @@ public class InCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
-        BytecodeNode value = generatorContext.generate(arguments.get(0));
-
         List<RowExpression> values = arguments.subList(1, arguments.size());
-
-        ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
-        for (int i = 1; i < arguments.size(); i++) {
-            BytecodeNode testNode = generatorContext.generate(arguments.get(i));
-            valuesBytecode.add(testNode);
-        }
+        // empty IN statements are not allowed by the standard, and not possible here
+        // the implementation assumes this condition is always met
+        checkArgument(values.size() > 0, "values must not be empty");
 
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
-        SwitchGenerationCase switchGenerationCase  = checkSwitchGenerationCase(type, values);
+        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
-        Signature hashCodeSignature = internalOperator(HASH_CODE, BIGINT, ImmutableList.of(type));
-        MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();
+        FunctionHandle hashCodeHandle = generatorContext.getFunctionManager().resolveOperator(HASH_CODE, fromTypes(type));
+        MethodHandle hashCodeFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
+        FunctionHandle isIndeterminateHandle = generatorContext.getFunctionManager().resolveOperator(INDETERMINATE, fromTypes(type));
+        BuiltInScalarFunctionImplementation isIndeterminateFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(isIndeterminateHandle);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (RowExpression testValue : values) {
-            BytecodeNode testBytecode = generatorContext.generate(testValue);
+            BytecodeNode testBytecode = generatorContext.generate(testValue, Optional.empty());
 
-            if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
+            if (isDeterminateConstant(testValue, isIndeterminateFunction.getMethodHandle())) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
                 switch (switchGenerationCase) {
@@ -144,7 +144,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast(Long.hashCode((Long) hashCodeFunction.invoke(object)));
+                            int hashCode = toIntExact(Long.hashCode((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -169,54 +169,58 @@ public class InCodeGenerator
         LabelNode defaultLabel = new LabelNode("default");
 
         Scope scope = generatorContext.getScope();
+        Variable value = scope.createTempVariable(javaType);
 
         BytecodeNode switchBlock;
-        BytecodeBlock switchCaseBlocks = new BytecodeBlock();
-        LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
+        Variable expression = scope.createTempVariable(int.class);
+        SwitchBuilder switchBuilder = new SwitchBuilder().expression(expression);
+
         switch (switchGenerationCase) {
             case DIRECT_SWITCH:
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
-                    switchBuilder.addCase(Ints.checkedCast((Long) constantValue), match);
+                    switchBuilder.addCase(toIntExact((Long) constantValue), jump(match));
                 }
-                switchBuilder.defaultCase(defaultLabel);
+                switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(<stackValue>))")
-                        .dup(javaType)
                         .append(new IfStatement()
-                                .condition(new BytecodeBlock()
-                                        .dup(javaType)
-                                        .invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, long.class))
+                                .condition(invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, value))
                                 .ifFalse(new BytecodeBlock()
-                                        .pop(javaType)
                                         .gotoLabel(defaultLabel)))
-                        .longToInt()
+                        .append(expression.set(value.cast(int.class)))
                         .append(switchBuilder.build());
                 break;
             case HASH_SWITCH:
                 for (Map.Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
-                    LabelNode label = new LabelNode("inHash" + bucket.getKey());
-                    switchBuilder.addCase(bucket.getKey(), label);
                     Collection<BytecodeNode> testValues = bucket.getValue();
-
-                    BytecodeBlock caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
-                    switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+                    BytecodeBlock caseBlock = buildInCase(
+                            generatorContext,
+                            scope,
+                            type,
+                            match,
+                            defaultLabel,
+                            value,
+                            testValues,
+                            false,
+                            isIndeterminateFunction);
+                    switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
-                switchBuilder.defaultCase(defaultLabel);
+                switchBuilder.defaultCase(jump(defaultLabel));
                 Binding hashCodeBinding = generatorContext
                         .getCallSiteBinder()
                         .bind(hashCodeFunction);
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
-                        .dup(javaType)
-                        .append(invoke(hashCodeBinding, hashCodeSignature))
+                        .getVariable(value)
+                        .append(invoke(hashCodeBinding, HASH_CODE.name()))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
-                        .append(switchBuilder.build())
-                        .append(switchCaseBlocks);
+                        .putVariable(expression)
+                        .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, registry);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, functionManager);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
@@ -224,7 +228,7 @@ public class InCodeGenerator
                         .append(new IfStatement()
                                 .condition(new BytecodeBlock()
                                         .comment("value")
-                                        .dup(javaType)
+                                        .getVariable(value)
                                         .comment("set")
                                         .append(loadConstant(constant))
                                         // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
@@ -235,19 +239,30 @@ public class InCodeGenerator
                 throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
-        BytecodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
+        BytecodeBlock defaultCaseBlock = buildInCase(
+                generatorContext,
+                scope,
+                type,
+                match,
+                noMatch,
+                value,
+                defaultBucket.build(),
+                true,
+                isIndeterminateFunction)
+                .setDescription("default");
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
-                .append(value)
+                .append(generatorContext.generate(arguments.get(0), Optional.empty()))
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
+                .putVariable(value)
                 .append(switchBlock)
+                .visitLabel(defaultLabel)
                 .append(defaultCaseBlock);
 
         BytecodeBlock matchBlock = new BytecodeBlock()
                 .setDescription("match")
                 .visitLabel(match)
-                .pop(javaType)
                 .append(generatorContext.wasNull().set(constantFalse()))
                 .push(true)
                 .gotoLabel(end);
@@ -256,13 +271,13 @@ public class InCodeGenerator
         BytecodeBlock noMatchBlock = new BytecodeBlock()
                 .setDescription("noMatch")
                 .visitLabel(noMatch)
-                .pop(javaType)
                 .push(false)
                 .gotoLabel(end);
         block.append(noMatchBlock);
 
         block.visitLabel(end);
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 
@@ -271,22 +286,23 @@ public class InCodeGenerator
         return value == (int) value;
     }
 
-    private static BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
+    private static BytecodeBlock buildInCase(
+            BytecodeGeneratorContext generatorContext,
             Scope scope,
             Type type,
-            LabelNode caseLabel,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
+            Variable value,
             Collection<BytecodeNode> testValues,
-            boolean checkForNulls)
+            boolean checkForNulls,
+            BuiltInScalarFunctionImplementation isIndeterminateFunction)
     {
         Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
         if (checkForNulls) {
             caseWasNull = scope.createTempVariable(boolean.class);
         }
 
-        BytecodeBlock caseBlock = new BytecodeBlock()
-                .visitLabel(caseLabel);
+        BytecodeBlock caseBlock = new BytecodeBlock();
 
         if (checkForNulls) {
             caseBlock.putVariable(caseWasNull, false);
@@ -298,40 +314,50 @@ public class InCodeGenerator
 
         Variable wasNull = generatorContext.wasNull();
         if (checkForNulls) {
-            elseBlock.append(wasNull.set(caseWasNull));
+            // Consider following expression: "ARRAY[null] IN (ARRAY[1], ARRAY[2], ARRAY[3]) => NULL"
+            // All lookup values will go to the SET_CONTAINS, since neither of them is indeterminate.
+            // As ARRAY[null] is not among them, the code will fall through to the defaultCaseBlock.
+            // Since there is no values in the defaultCaseBlock, the defaultCaseBlock will return FALSE.
+            // That is incorrect. Doing an explicit check for indeterminate is required to correctly return NULL.
+            if (testValues.isEmpty()) {
+                elseBlock.append(new BytecodeBlock()
+                        .append(generatorContext.generateCall(INDETERMINATE.name(), isIndeterminateFunction, ImmutableList.of(value)))
+                        .putVariable(wasNull));
+            }
+            else {
+                elseBlock.append(wasNull.set(caseWasNull));
+            }
         }
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        ScalarFunctionImplementation operator = generatorContext.getRegistry().getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type)));
-
-        Binding equalsFunction = generatorContext
-                .getCallSiteBinder()
-                .bind(operator.getMethodHandle());
+        FunctionHandle equalsHandle = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(type, type));
+        BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalsHandle);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatement test = new IfStatement();
 
+            BytecodeNode equalsCall = generatorContext.generateCall(
+                    EQUAL.name(),
+                    equalsFunction,
+                    ImmutableList.of(value, testNode));
+
             test.condition()
                     .visitLabel(testLabel)
-                    .dup(type.getJavaType())
-                    .append(testNode);
+                    .append(equalsCall);
 
             if (checkForNulls) {
-                IfStatement wasNullCheck = new IfStatement("if wasNull, set caseWasNull to true, clear wasNull, pop 2 values of type, and goto next test value");
+                IfStatement wasNullCheck = new IfStatement("if wasNull, set caseWasNull to true, clear wasNull, pop boolean, and goto next test value");
                 wasNullCheck.condition(wasNull);
                 wasNullCheck.ifTrue(new BytecodeBlock()
                         .append(caseWasNull.set(constantTrue()))
                         .append(wasNull.set(constantFalse()))
-                        .pop(type.getJavaType())
-                        .pop(type.getJavaType())
+                        .pop(boolean.class)
                         .gotoLabel(elseLabel));
                 test.condition().append(wasNullCheck);
             }
-            test.condition()
-                    .append(invoke(equalsFunction, EQUAL.name()));
 
             test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);
@@ -341,5 +367,25 @@ public class InCodeGenerator
         }
         caseBlock.append(elseNode);
         return caseBlock;
+    }
+
+    private static boolean isDeterminateConstant(RowExpression expression, MethodHandle isIndeterminateFunction)
+    {
+        if (!(expression instanceof ConstantExpression)) {
+            return false;
+        }
+        ConstantExpression constantExpression = (ConstantExpression) expression;
+        Object value = constantExpression.getValue();
+        boolean isNull = value == null;
+        if (isNull) {
+            return false;
+        }
+        try {
+            return !(boolean) isIndeterminateFunction.invoke(value, false);
+        }
+        catch (Throwable t) {
+            throwIfUnchecked(t);
+            throw new RuntimeException(t);
+        }
     }
 }

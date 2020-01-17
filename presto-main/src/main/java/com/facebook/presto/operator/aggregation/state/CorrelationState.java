@@ -16,11 +16,11 @@ package com.facebook.presto.operator.aggregation.state;
 public interface CorrelationState
         extends CovarianceState
 {
-    double getSumXSquare();
+    double getM2X();
 
-    void setSumXSquare(double value);
+    void setM2X(double value);
 
-    double getSumYSquare();
+    double getM2Y();
 
-    void setSumYSquare(double value);
+    void setM2Y(double value);
 }

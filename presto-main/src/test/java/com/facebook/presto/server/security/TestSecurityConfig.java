@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.server.security;
 
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Map;
+
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 
 public class TestSecurityConfig
 {
@@ -26,27 +29,18 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
-                .setKerberosConfig(null)
-                .setAuthenticationEnabled(false)
-                .setServiceName(null)
-                .setKeytab(null));
+                .setAuthenticationTypes(""));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http.authentication.krb5.config", "/etc/krb5.conf")
-                .put("http.server.authentication.enabled", "true")
-                .put("http.server.authentication.krb5.service-name", "airlift")
-                .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
+                .put("http-server.authentication.type", "KERBEROS,PASSWORD")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
-                .setKerberosConfig(new File("/etc/krb5.conf"))
-                .setAuthenticationEnabled(true)
-                .setServiceName("airlift")
-                .setKeytab(new File("/tmp/presto.keytab"));
+                .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

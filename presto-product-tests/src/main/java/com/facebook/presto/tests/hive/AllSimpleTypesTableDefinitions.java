@@ -11,20 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
-import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
-import com.teradata.tempto.query.QueryExecutor;
+import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
+import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
-import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
+import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
@@ -42,6 +39,11 @@ public final class AllSimpleTypesTableDefinitions
 
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
+            .setNoData()
+            .build();
+
+    @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_AVRO = avroTableDefinitionBuilder()
             .setNoData()
             .build();
 
@@ -81,6 +83,28 @@ public final class AllSimpleTypesTableDefinitions
                         "STORED AS " + fileFormat);
     }
 
+    private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
+    {
+        return HiveTableDefinition.builder("avro_all_types")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
+                        "   c_int                INT," +
+                        "   c_bigint             BIGINT," +
+                        "   c_float              FLOAT," +
+                        "   c_double             DOUBLE," +
+                        "   c_decimal            DECIMAL," +
+                        "   c_decimal_w_params   DECIMAL(10,5)," +
+                        "   c_timestamp          TIMESTAMP," +
+                        "   c_date               DATE," +
+                        "   c_string             STRING," +
+                        "   c_varchar            VARCHAR(10)," +
+                        "   c_char               CHAR(10)," +
+                        "   c_boolean            BOOLEAN," +
+                        "   c_binary             BINARY" +
+                        ") " +
+                        "STORED AS AVRO");
+    }
+
     private static HiveTableDefinition.HiveTableDefinitionBuilder parquetTableDefinitionBuilder()
     {
         return HiveTableDefinition.builder("parquet_all_types")
@@ -106,7 +130,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+        return createResourceDataSource(format(tableNameFormat, "textfile"), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)
@@ -114,10 +138,5 @@ public final class AllSimpleTypesTableDefinitions
         onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s",
                 tableName,
                 format(tableNameFormat, "textfile")));
-    }
-
-    public static QueryExecutor onHive()
-    {
-        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 }

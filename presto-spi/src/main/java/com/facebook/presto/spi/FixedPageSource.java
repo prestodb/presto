@@ -23,20 +23,14 @@ public class FixedPageSource
 {
     private final Iterator<Page> pages;
 
-    private final long totalBytes;
     private long completedBytes;
+    private long completedPositions;
     private long memoryUsageBytes;
     private boolean closed;
 
     public FixedPageSource(Iterable<Page> pages)
     {
         this.pages = requireNonNull(pages, "pages is null").iterator();
-
-        long totalSize = 0;
-        for (Page page : pages) {
-            totalSize += page.getSizeInBytes();
-        }
-        this.totalBytes = totalSize;
 
         long memoryUsageBytes = 0;
         for (Page page : pages) {
@@ -53,15 +47,15 @@ public class FixedPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return completedBytes;
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -84,6 +78,7 @@ public class FixedPageSource
         }
         Page page = pages.next();
         completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
         return page;
     }
 

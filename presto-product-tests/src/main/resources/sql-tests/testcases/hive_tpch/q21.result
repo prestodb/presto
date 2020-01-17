@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|BIGINT
+-- delimiter: |; ignoreOrder: false; types: VARCHAR|BIGINT
 Supplier#000002829|20|
 Supplier#000005808|18|
 Supplier#000000262|17|

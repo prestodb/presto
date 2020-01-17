@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
+import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -31,7 +35,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.io.File;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,11 +53,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -82,6 +86,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
+    private final OrcDataEnvironment orcDataEnvironment;
     private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -103,6 +108,7 @@ public class ShardCleaner
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             ShardCleanerConfig config)
     {
         this(
@@ -112,6 +118,7 @@ public class ShardCleaner
                 ticker,
                 storageService,
                 backupStore,
+                environment,
                 config.getMaxTransactionAge(),
                 config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
@@ -129,6 +136,7 @@ public class ShardCleaner
             Ticker ticker,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             Duration maxTransactionAge,
             Duration transactionCleanerInterval,
             Duration localCleanerInterval,
@@ -152,6 +160,7 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
+        this.orcDataEnvironment = requireNonNull(environment, "environment is null");
         this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
@@ -217,7 +226,7 @@ public class ShardCleaner
         if (coordinator) {
             startTransactionCleanup();
             if (backupStore.isPresent()) {
-                startBackupCleanup();
+                scheduleBackupCleanup();
             }
         }
 
@@ -225,7 +234,7 @@ public class ShardCleaner
         // since there is a race condition between shards getting created
         // on a worker and being committed (referenced) in the database.
         if (backupStore.isPresent()) {
-            startLocalCleanup();
+            scheduleLocalCleanup();
         }
     }
 
@@ -244,36 +253,88 @@ public class ShardCleaner
         }, 0, transactionCleanerInterval.toMillis(), MILLISECONDS);
     }
 
-    private void startBackupCleanup()
+    private void scheduleBackupCleanup()
     {
-        scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                cleanBackupShards();
-            }
-            catch (Throwable t) {
-                log.error(t, "Error cleaning backup shards");
-                backupJobErrors.update(1);
-            }
-        }, 0, backupCleanerInterval.toMillis(), MILLISECONDS);
+        scheduler.scheduleWithFixedDelay(this::runBackupCleanup, 0, backupCleanerInterval.toMillis(), MILLISECONDS);
     }
 
-    private void startLocalCleanup()
+    private void scheduleLocalCleanup()
     {
+        Set<UUID> local = getLocalShards();
+        scheduler.submit(() -> {
+            waitJitterTime();
+            runLocalCleanupImmediately(local);
+        });
+
         scheduler.scheduleWithFixedDelay(() -> {
-            try {
-                // jitter to avoid overloading database
-                long interval = this.localCleanerInterval.roundTo(SECONDS);
-                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
-                cleanLocalShards();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            catch (Throwable t) {
-                log.error(t, "Error cleaning local shards");
-                localJobErrors.update(1);
-            }
+            waitJitterTime();
+            runLocalCleanup();
         }, 0, localCleanerInterval.toMillis(), MILLISECONDS);
+    }
+
+    private synchronized void runBackupCleanup()
+    {
+        try {
+            cleanBackupShards();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning backup shards");
+            backupJobErrors.update(1);
+        }
+    }
+
+    private void waitJitterTime()
+    {
+        try {
+            // jitter to avoid overloading database
+            long interval = this.localCleanerInterval.roundTo(SECONDS);
+            SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private synchronized void runLocalCleanupImmediately(Set<UUID> local)
+    {
+        try {
+            cleanLocalShardsImmediately(local);
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning local shards");
+            localJobErrors.update(1);
+        }
+    }
+
+    private synchronized void runLocalCleanup()
+    {
+        try {
+            cleanLocalShards();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error cleaning local shards");
+            localJobErrors.update(1);
+        }
+    }
+
+    @Managed
+    public void startBackupCleanup()
+    {
+        scheduler.submit(this::runBackupCleanup);
+    }
+
+    @Managed
+    public void startLocalCleanup()
+    {
+        scheduler.submit(this::runLocalCleanup);
+    }
+
+    @Managed
+    public void startLocalCleanupImmediately()
+    {
+        scheduler.submit(() -> {
+            runLocalCleanupImmediately(getLocalShards());
+        });
     }
 
     @VisibleForTesting
@@ -308,13 +369,40 @@ public class ShardCleaner
     }
 
     @VisibleForTesting
+    synchronized Set<UUID> getLocalShards()
+    {
+        return storageService.getStorageShards();
+    }
+
+    @VisibleForTesting
+    synchronized void cleanLocalShardsImmediately(Set<UUID> local)
+            throws IOException
+    {
+        // get shards assigned to the local node
+        Set<UUID> assigned = dao.getNodeShardsAndDeltas(currentNode, null).stream()
+                .map(ShardMetadata::getShardUuid)
+                .collect(toSet());
+
+        // only delete local files that are not assigned
+        Set<UUID> deletions = Sets.difference(local, assigned);
+
+        for (UUID uuid : deletions) {
+            deleteFile(storageService.getStorageFile(uuid));
+        }
+
+        localShardsCleaned.update(deletions.size());
+        log.info("Cleaned %s local shards immediately", deletions.size());
+    }
+
+    @VisibleForTesting
     synchronized void cleanLocalShards()
+            throws IOException
     {
         // find all files on the local node
-        Set<UUID> local = storageService.getStorageShards();
+        Set<UUID> local = getLocalShards();
 
         // get shards assigned to the local node
-        Set<UUID> assigned = dao.getNodeShards(currentNode, null).stream()
+        Set<UUID> assigned = dao.getNodeShardsAndDeltas(currentNode, null).stream()
                 .map(ShardMetadata::getShardUuid)
                 .collect(toSet());
 
@@ -417,7 +505,10 @@ public class ShardCleaner
             }
 
             try {
-                result.add(queue.poll(remainingNanos, NANOSECONDS));
+                T value = queue.poll(remainingNanos, NANOSECONDS);
+                if (value != null) {
+                    result.add(value);
+                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -432,8 +523,9 @@ public class ShardCleaner
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private static void deleteFile(File file)
+    private void deleteFile(Path file)
+            throws IOException
     {
-        file.delete();
+        orcDataEnvironment.getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT).delete(file, false);
     }
 }

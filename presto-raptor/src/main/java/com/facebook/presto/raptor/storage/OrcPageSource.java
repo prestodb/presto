@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.raptor.storage.DeltaShardLoader.RowsToKeepResult;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.LazyBlock;
@@ -26,17 +27,11 @@ import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 
 import java.io.IOException;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -49,19 +44,18 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
-        implements UpdatablePageSource
+        implements ConnectorPageSource
 {
     public static final int NULL_COLUMN = -1;
     public static final int ROWID_COLUMN = -2;
     public static final int SHARD_UUID_COLUMN = -3;
     public static final int BUCKET_NUMBER_COLUMN = -4;
 
-    private final Optional<ShardRewriter> shardRewriter;
-
-    private final OrcRecordReader recordReader;
+    private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
-    private final BitSet rowsToDelete;
+    // for shard with existing delta
+    private final DeltaShardLoader deltaShardLoader;
 
     private final List<Long> columnIds;
     private final List<Type> types;
@@ -72,24 +66,23 @@ public class OrcPageSource
     private final AggregatedMemoryContext systemMemoryContext;
 
     private int batchId;
+    private long completedPositions;
     private boolean closed;
 
     public OrcPageSource(
-            Optional<ShardRewriter> shardRewriter,
-            OrcRecordReader recordReader,
+            OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,
             List<Integer> columnIndexes,
             UUID shardUuid,
             OptionalInt bucketNumber,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext systemMemoryContext,
+            DeltaShardLoader deltaShardLoader)
     {
-        this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-
-        this.rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
+        this.deltaShardLoader = requireNonNull(deltaShardLoader, "Optional<deltaShardUuid> is null");
 
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(columnIds.size() == columnIndexes.size(), "ids and indexes mismatch");
@@ -125,15 +118,15 @@ public class OrcPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return recordReader.getSplitLength();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return orcDataSource.getReadBytes();
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -158,23 +151,28 @@ public class OrcPageSource
                 close();
                 return null;
             }
+
+            completedPositions += batchSize;
+
             long filePosition = recordReader.getFilePosition();
+
+            // for every page, will generate its rowsToKeep
+            RowsToKeepResult rowsToKeep = deltaShardLoader.getRowsToKeep(batchSize, filePosition);
 
             Block[] blocks = new Block[columnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, rowsToKeep.keepAll() ? batchSize : rowsToKeep.size());
                 }
                 else if (columnIndexes[fieldId] == ROWID_COLUMN) {
-                    blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
+                    blocks[fieldId] = buildSequenceBlock(filePosition, batchSize, rowsToKeep);
                 }
                 else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], type));
+                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], rowsToKeep));
                 }
             }
 
-            return new Page(batchSize, blocks);
+            return new Page(rowsToKeep.keepAll() ? batchSize : rowsToKeep.size(), blocks);
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
@@ -205,22 +203,6 @@ public class OrcPageSource
     }
 
     @Override
-    public void deleteRows(Block rowIds)
-    {
-        for (int i = 0; i < rowIds.getPositionCount(); i++) {
-            long rowId = BIGINT.getLong(rowIds, i);
-            rowsToDelete.set(Ints.checkedCast(rowId));
-        }
-    }
-
-    @Override
-    public CompletableFuture<Collection<Slice>> finish()
-    {
-        checkState(shardRewriter.isPresent(), "shardRewriter is missing");
-        return shardRewriter.get().rewrite(rowsToDelete);
-    }
-
-    @Override
     public long getSystemMemoryUsage()
     {
         return systemMemoryContext.getBytes();
@@ -240,11 +222,13 @@ public class OrcPageSource
         }
     }
 
-    private static Block buildSequenceBlock(long start, int count)
+    private static Block buildSequenceBlock(long start, int count, RowsToKeepResult rowsToKeep)
     {
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(count);
         for (int i = 0; i < count; i++) {
-            BIGINT.writeLong(builder, start + i);
+            if (rowsToKeep.keepAll() || rowsToKeep.getRowsToKeep().contains(i)) {
+                BIGINT.writeLong(builder, start + i);
+            }
         }
         return builder.build();
     }
@@ -260,13 +244,13 @@ public class OrcPageSource
     {
         private final int expectedBatchId = batchId;
         private final int columnIndex;
-        private final Type type;
+        private final RowsToKeepResult rowsToKeep;
         private boolean loaded;
 
-        public OrcBlockLoader(int columnIndex, Type type)
+        public OrcBlockLoader(int columnIndex, RowsToKeepResult rowsToKeep)
         {
             this.columnIndex = columnIndex;
-            this.type = requireNonNull(type, "type is null");
+            this.rowsToKeep = rowsToKeep;
         }
 
         @Override
@@ -279,8 +263,13 @@ public class OrcPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = recordReader.readBlock(type, columnIndex);
-                lazyBlock.setBlock(block);
+                Block block = recordReader.readBlock(columnIndex);
+                if (rowsToKeep.keepAll()) {
+                    lazyBlock.setBlock(block);
+                }
+                else {
+                    lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
+                }
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, e);

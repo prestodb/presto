@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -28,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SampleNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final double sampleRatio;
@@ -37,19 +39,7 @@ public class SampleNode
     public enum Type
     {
         BERNOULLI,
-        SYSTEM;
-
-        public static Type fromType(SampledRelation.Type sampleType)
-        {
-            switch (sampleType) {
-                case BERNOULLI:
-                    return Type.BERNOULLI;
-                case SYSTEM:
-                    return Type.SYSTEM;
-                default:
-                    throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
-            }
-        }
+        SYSTEM
     }
 
     @JsonCreator
@@ -94,14 +84,20 @@ public class SampleNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputSymbols();
+        return source.getOutputVariables();
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSample(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new SampleNode(getId(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
     }
 }

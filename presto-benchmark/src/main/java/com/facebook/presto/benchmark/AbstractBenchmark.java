@@ -123,9 +123,12 @@ public abstract class AbstractBenchmark
         long outputRows = resultsAvg.get("output_rows").longValue();
         DataSize outputBytes = new DataSize(resultsAvg.get("output_bytes"), BYTE);
 
-        System.out.printf("%35s :: %8.3f cpu ms :: in %5s,  %6s,  %8s,  %8s :: out %5s,  %6s,  %8s,  %8s%n",
+        DataSize memory = new DataSize(resultsAvg.get("peak_memory"), BYTE);
+        System.out.printf("%35s :: %8.3f cpu ms :: %5s peak memory :: in %5s,  %6s,  %8s,  %8s :: out %5s,  %6s,  %8s,  %8s%n",
                 getBenchmarkName(),
                 cpuNanos.getValue(MILLISECONDS),
+
+                formatDataSize(memory, true),
 
                 formatCount(inputRows),
                 formatDataSize(inputBytes, true),

@@ -1,0 +1,144 @@
+ {
+    "rowCount" : 8.639936081E9,
+     "columns" : {
+        "ss_net_paid_inc_tax" : {
+             "distinctValuesCount" : 2001996.0,
+             "nullsCount" : 388837233.0,
+             "min" : 0,
+             "max" : 2176948
+        },
+        "ss_ext_list_price" : {
+             "distinctValuesCount" : 917919.0,
+             "nullsCount" : 388801162.0,
+             "min" : 100,
+             "max" : 2000000
+        },
+        "ss_net_paid" : {
+             "distinctValuesCount" : 1543750.0,
+             "nullsCount" : 388812350.0,
+             "min" : 0,
+             "max" : 1997200
+        },
+        "ss_item_sk" : {
+             "distinctValuesCount" : 385937.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 360000
+        },
+        "ss_promo_sk" : {
+             "distinctValuesCount" : 1507.0,
+             "nullsCount" : 388806692.0,
+             "min" : 1,
+             "max" : 1800
+        },
+        "ss_sales_price" : {
+             "distinctValuesCount" : 19423.0,
+             "nullsCount" : 388822511.0,
+             "min" : 0,
+             "max" : 20000
+        },
+        "ss_ext_sales_price" : {
+             "distinctValuesCount" : 917919.0,
+             "nullsCount" : 388796452.0,
+             "min" : 0,
+             "max" : 1997200
+        },
+        "ss_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 388823543.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "ss_net_profit" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 388764120.0,
+             "min" : -10000.00,
+             "max" : 998600
+        },
+        "ss_ext_tax" : {
+             "distinctValuesCount" : 130664.0,
+             "nullsCount" : 388790616.0,
+             "min" : 0,
+             "max" : 179748
+        },
+        "ss_quantity" : {
+             "distinctValuesCount" : 63.0,
+             "nullsCount" : 388791462.0,
+             "min" : 1,
+             "max" : 100
+        },
+        "ss_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 388794618.00000006,
+             "min" : 1,
+             "max" : 7200
+        },
+        "ss_store_sk" : {
+             "distinctValuesCount" : 633.0,
+             "nullsCount" : 388746744.0,
+             "min" : 1,
+             "max" : 1348
+        },
+        "ss_ext_discount_amt" : {
+             "distinctValuesCount" : 1355607.0,
+             "nullsCount" : 388859709.0,
+             "min" : 0,
+             "max" : 1977800
+        },
+        "ss_wholesale_cost" : {
+             "distinctValuesCount" : 10590.0,
+             "nullsCount" : 388777696.00000006,
+             "min" : 100,
+             "max" : 10000
+        },
+        "ss_sold_date_sk" : {
+             "distinctValuesCount" : 2226.0,
+             "nullsCount" : 388811692.0,
+             "min" : 2450816,
+             "max" : 2452642
+        },
+        "ss_coupon_amt" : {
+             "distinctValuesCount" : 1355607.0,
+             "nullsCount" : 388859709.0,
+             "min" : 0,
+             "max" : 1977800
+        },
+        "ss_ext_wholesale_cost" : {
+             "distinctValuesCount" : 545798.0,
+             "nullsCount" : 388787278.0,
+             "min" : 100,
+             "max" : 1000000
+        },
+        "ss_list_price" : {
+             "distinctValuesCount" : 19423.0,
+             "nullsCount" : 388813055.0,
+             "min" : 100,
+             "max" : 20000
+        },
+        "ss_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 388815979.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "ss_addr_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 388786978.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "ss_ticket_number" : {
+             "distinctValuesCount" : 8.25394252E8,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 720000000
+        },
+        "ss_sold_time_sk" : {
+             "distinctValuesCount" : 74399.0,
+             "nullsCount" : 388800029.0,
+             "min" : 28800,
+             "max" : 75599
+        },
+        "dummyColumn" : {}
+    }
+}

@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Optional;
+
 public interface BlockEncoding
 {
     /**
@@ -27,15 +29,18 @@ public interface BlockEncoding
      * Read a block from the specified input.  The returned
      * block should begin at the specified position.
      */
-    Block readBlock(SliceInput input);
+    Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input);
 
     /**
      * Write the specified block to the specified output
      */
-    void writeBlock(SliceOutput sliceOutput, Block block);
+    void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block);
 
     /**
-     * Return associated factory
+     * This method allows the implementor to specify a replacement object that will be serialized instead of the original one.
      */
-    BlockEncodingFactory getFactory();
+    default Optional<Block> replacementBlockForWrite(Block block)
+    {
+        return Optional.empty();
+    }
 }

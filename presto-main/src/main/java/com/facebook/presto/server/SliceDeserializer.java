@@ -29,6 +29,6 @@ public class SliceDeserializer
     public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
             throws IOException
     {
-        return utf8Slice(jsonParser.readValueAs(String.class));
+        return utf8Slice(jsonParser.getText());
     }
 }

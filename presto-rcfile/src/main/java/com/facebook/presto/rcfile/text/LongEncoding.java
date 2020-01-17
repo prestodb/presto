@@ -14,11 +14,12 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 public class LongEncoding
@@ -27,6 +28,7 @@ public class LongEncoding
     private static final Slice MIN_LONG = Slices.utf8Slice("-9223372036854775808");
     private final Type type;
     private final Slice nullSequence;
+    private final StringBuilder buffer = new StringBuilder();
 
     public LongEncoding(Type type, Slice nullSequence)
     {
@@ -35,10 +37,40 @@ public class LongEncoding
     }
 
     @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                long value = type.getLong(block, position);
+                buffer.setLength(0);
+                buffer.append(value);
+                for (int index = 0; index < buffer.length(); index++) {
+                    output.writeByte(buffer.charAt(index));
+                }
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        long value = type.getLong(block, position);
+        buffer.setLength(0);
+        buffer.append(value);
+        for (int index = 0; index < buffer.length(); index++) {
+            output.writeByte(buffer.charAt(index));
+        }
+    }
+
+    @Override
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), size);
+        BlockBuilder builder = type.createBlockBuilder(null, size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {

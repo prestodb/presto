@@ -25,4 +25,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface SqlType
 {
     String value() default "";
+
+    Class<?> nativeContainerType() default Object.class;
 }

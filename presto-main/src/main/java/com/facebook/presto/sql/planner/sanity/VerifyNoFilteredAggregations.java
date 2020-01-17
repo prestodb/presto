@@ -14,41 +14,29 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.planner.TypeProvider;
 
-import java.util.Map;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public final class VerifyNoFilteredAggregations
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(), null);
-    }
-
-    private static class Visitor
-        extends SimplePlanVisitor<Void>
-    {
-        @Override
-        public Void visitAggregation(AggregationNode node, Void context)
-        {
-            super.visitAggregation(node, context);
-
-            for (FunctionCall call : node.getAggregations().values()) {
-                if (call.getFilter().isPresent()) {
+        searchFrom(plan)
+                .where(AggregationNode.class::isInstance)
+                .<AggregationNode>findAll()
+                .stream()
+                .flatMap(node -> node.getAggregations().values().stream())
+                .filter(aggregation -> aggregation.getFilter().isPresent())
+                .forEach(ignored -> {
                     throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
-                }
-            }
-
-            return null;
-        }
+                });
     }
 }

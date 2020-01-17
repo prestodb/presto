@@ -14,9 +14,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.sql.planner.NodePartitionMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
@@ -25,11 +25,16 @@ public interface NodeSelector
 {
     void lockDownNodes();
 
-    List<Node> allNodes();
+    List<InternalNode> allNodes();
 
-    Node selectCurrentNode();
+    InternalNode selectCurrentNode();
 
-    List<Node> selectRandomNodes(int limit);
+    default List<InternalNode> selectRandomNodes(int limit)
+    {
+        return selectRandomNodes(limit, ImmutableSet.of());
+    }
+
+    List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
 
     /**
      * Identifies the nodes for running the specified splits.
@@ -49,5 +54,5 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map. Also returns a future indicating when
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
-    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning);
+    SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap);
 }

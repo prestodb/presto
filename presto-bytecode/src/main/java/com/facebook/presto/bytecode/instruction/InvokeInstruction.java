@@ -357,7 +357,7 @@ public class InvokeInstruction
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription());
+        visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription(), target.isInterface());
     }
 
     @Override
@@ -397,7 +397,8 @@ public class InvokeInstruction
                     bootstrapMethod.getName(),
                     methodDescription(
                             bootstrapMethod.getReturnType(),
-                            bootstrapMethod.getParameterTypes()));
+                            bootstrapMethod.getParameterTypes()),
+                    false);
 
             visitor.visitInvokeDynamicInsn(getName(),
                     getMethodDescription(),

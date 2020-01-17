@@ -13,20 +13,17 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -42,9 +39,8 @@ public class TestStateMachine
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
     }
@@ -57,7 +53,7 @@ public class TestStateMachine
             new StateMachine<>("test", executor, null);
             fail("expected a NullPointerException");
         }
-        catch (NullPointerException exception) {
+        catch (NullPointerException ignored) {
         }
 
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
@@ -67,7 +63,7 @@ public class TestStateMachine
                 stateMachine.set(null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -76,7 +72,7 @@ public class TestStateMachine
                 stateMachine.compareAndSet(State.BREAKFAST, null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -85,7 +81,7 @@ public class TestStateMachine
                 stateMachine.compareAndSet(State.LUNCH, null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -94,7 +90,7 @@ public class TestStateMachine
                 stateMachine.setIf(null, currentState -> true);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -103,7 +99,7 @@ public class TestStateMachine
                 stateMachine.setIf(null, currentState -> false);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
     }
@@ -224,36 +220,20 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
     }
 
-    private void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
+    private static void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
             throws Exception
     {
         State initialState = stateMachine.get();
-        Future<State> futureChange = stateMachine.getStateChange(initialState);
+        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = SettableFuture.create();
-        stateMachine.addStateChangeListener(listenerChange::set);
-
-        Future<State> waitChange = executor.submit(() -> {
-            try {
-                stateMachine.waitForStateChange(initialState, new Duration(10, SECONDS));
-                return stateMachine.get();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
-            }
-        });
+        SettableFuture<State> listenerChange = addTestListener(stateMachine);
 
         stateChange.run();
 
         assertEquals(stateMachine.get(), expectedState);
 
-        assertEquals(futureChange.get(1, SECONDS), expectedState);
-        assertEquals(listenerChange.get(1, SECONDS), expectedState);
-        assertEquals(waitChange.get(1, SECONDS), expectedState);
+        assertEquals(futureChange.get(10, SECONDS), expectedState);
+        assertEquals(listenerChange.get(10, SECONDS), expectedState);
 
         // listeners should not be retained if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(expectedState);
@@ -262,27 +242,14 @@ public class TestStateMachine
         }
     }
 
-    private void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
-            throws Exception
+    private static void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
     {
         State initialState = stateMachine.get();
-        Future<State> futureChange = stateMachine.getStateChange(initialState);
+        ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = SettableFuture.create();
-        stateMachine.addStateChangeListener(listenerChange::set);
+        SettableFuture<State> listenerChange = addTestListener(stateMachine);
 
-        Future<State> waitChange = executor.submit(() -> {
-            try {
-                stateMachine.waitForStateChange(initialState, new Duration(10, SECONDS));
-                return stateMachine.get();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-        });
-
-        // listeners should not be added if we are in a terminal state
+        // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
@@ -292,35 +259,44 @@ public class TestStateMachine
 
         assertEquals(stateMachine.get(), initialState);
 
-        try {
-            // none of the futures should finish, but there is no way to prove that
-            // the state change is not happening (the changes happen in another thread),
-            // so we wait a short time for nothing to happen.
-            waitChange.get(50, MILLISECONDS);
-        }
-        catch (InterruptedException e) {
-            throw e;
-        }
-        catch (Exception ignored) {
-        }
-
-        // the state change listeners will trigger if the state machine is in a terminal state
+        // the future change will trigger if the state machine is in a terminal state
         // this is to prevent waiting for state changes that will never occur
         assertEquals(futureChange.isDone(), isTerminalState);
         futureChange.cancel(true);
-        assertEquals(listenerChange.isDone(), isTerminalState);
+
+        // test listener future only completes if the state actually changed
+        assertFalse(listenerChange.isDone());
         listenerChange.cancel(true);
-        if (isTerminalState) {
-            // in low CPU test environments it can take longer than 50ms for the waitChange future to complete
-            tryGetFutureValue(waitChange, 1, SECONDS);
-        }
-        assertEquals(waitChange.isDone(), isTerminalState);
-        waitChange.cancel(true);
+    }
+
+    private static SettableFuture<State> addTestListener(StateMachine<State> stateMachine)
+    {
+        State initialState = stateMachine.get();
+        SettableFuture<Boolean> initialStateNotified = SettableFuture.create();
+        SettableFuture<State> stateChanged = SettableFuture.create();
+        Thread addingThread = Thread.currentThread();
+        stateMachine.addStateChangeListener(newState -> {
+            Thread callbackThread = Thread.currentThread();
+            if (callbackThread == addingThread) {
+                stateChanged.setException(new AssertionError("Listener was not called back on a different thread"));
+                return;
+            }
+
+            if (newState == initialState) {
+                initialStateNotified.set(true);
+            }
+            else {
+                stateChanged.set(newState);
+            }
+        });
+
+        assertTrue(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent(), "Initial state notification not fired");
+
+        return stateChanged;
     }
 
     private interface StateChanger
     {
-        void run()
-                throws Exception;
+        void run();
     }
 }

@@ -5,7 +5,7 @@ Release 0.97
 General Changes
 ---------------
 
-* The queueing policy in Presto may now be injected. See :doc:`/admin/queue` for details.
+* The queueing policy in Presto may now be injected.
 * Speed up detection of ASCII strings in implementation of ``LIKE`` operator.
 * Fix NullPointerException when metadata-based query optimization is enabled.
 * Fix possible infinite loop when decompressing ORC data.

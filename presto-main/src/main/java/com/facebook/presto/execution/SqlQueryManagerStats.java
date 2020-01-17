@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
-import io.airlift.stats.TimeStat;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -24,10 +24,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlQueryManagerStats
 {
+    private final AtomicInteger queuedQueries = new AtomicInteger();
     private final AtomicInteger runningQueries = new AtomicInteger();
+    private final CounterStat submittedQueries = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
     private final CounterStat failedQueries = new CounterStat();
@@ -37,14 +40,26 @@ public class SqlQueryManagerStats
     private final CounterStat internalFailures = new CounterStat();
     private final CounterStat externalFailures = new CounterStat();
     private final CounterStat insufficientResourcesFailures = new CounterStat();
+    private final CounterStat consumedInputRows = new CounterStat();
+    private final CounterStat consumedInputBytes = new CounterStat();
+    private final CounterStat consumedCpuTimeSecs = new CounterStat();
     private final TimeStat executionTime = new TimeStat(MILLISECONDS);
+    private final TimeStat queuedTime = new TimeStat(MILLISECONDS);
     private final DistributionStat wallInputBytesRate = new DistributionStat();
     private final DistributionStat cpuInputByteRate = new DistributionStat();
+    private final DistributionStat peakRunningTasksStat = new DistributionStat();
+
+    public void queryQueued()
+    {
+        submittedQueries.update(1);
+        queuedQueries.incrementAndGet();
+    }
 
     public void queryStarted()
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
+        queuedQueries.decrementAndGet();
     }
 
     public void queryStopped()
@@ -58,8 +73,13 @@ public class SqlQueryManagerStats
 
         long rawInputBytes = info.getQueryStats().getRawInputDataSize().toBytes();
 
-        long executionWallMillis = info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis();
-        executionTime.add(executionWallMillis, MILLISECONDS);
+        consumedCpuTimeSecs.update((long) info.getQueryStats().getTotalCpuTime().getValue(SECONDS));
+        consumedInputBytes.update(info.getQueryStats().getRawInputDataSize().toBytes());
+        consumedInputRows.update(info.getQueryStats().getRawInputPositions());
+        executionTime.add(info.getQueryStats().getExecutionTime());
+        queuedTime.add(info.getQueryStats().getQueuedTime());
+
+        long executionWallMillis = info.getQueryStats().getExecutionTime().toMillis();
         if (executionWallMillis > 0) {
             wallInputBytesRate.add(rawInputBytes * 1000 / executionWallMillis);
         }
@@ -67,6 +87,11 @@ public class SqlQueryManagerStats
         long executionCpuMillis = info.getQueryStats().getTotalCpuTime().toMillis();
         if (executionCpuMillis > 0) {
             cpuInputByteRate.add(rawInputBytes * 1000 / executionCpuMillis);
+        }
+
+        long peakRunningTasks = info.getQueryStats().getPeakRunningTasks();
+        if (peakRunningTasks > 0) {
+            peakRunningTasksStat.add(peakRunningTasks);
         }
 
         if (info.getErrorCode() != null) {
@@ -103,10 +128,23 @@ public class SqlQueryManagerStats
     }
 
     @Managed
+    public long getQueuedQueries()
+    {
+        return queuedQueries.get();
+    }
+
+    @Managed
     @Nested
     public CounterStat getStartedQueries()
     {
         return startedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSubmittedQueries()
+    {
+        return submittedQueries;
     }
 
     @Managed
@@ -125,9 +163,37 @@ public class SqlQueryManagerStats
 
     @Managed
     @Nested
+    public CounterStat getConsumedInputRows()
+    {
+        return consumedInputRows;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getConsumedInputBytes()
+    {
+        return consumedInputBytes;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getConsumedCpuTimeSecs()
+    {
+        return consumedCpuTimeSecs;
+    }
+
+    @Managed
+    @Nested
     public TimeStat getExecutionTime()
     {
         return executionTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueuedTime()
+    {
+        return queuedTime;
     }
 
     @Managed
@@ -184,5 +250,12 @@ public class SqlQueryManagerStats
     public DistributionStat getCpuInputByteRate()
     {
         return cpuInputByteRate;
+    }
+
+    @Managed(description = "Distribution of query peak running tasks")
+    @Nested
+    public DistributionStat getPeakRunningTasksStat()
+    {
+        return peakRunningTasksStat;
     }
 }

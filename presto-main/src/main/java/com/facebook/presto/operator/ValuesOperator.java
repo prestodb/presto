@@ -14,8 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
@@ -33,22 +32,14 @@ public class ValuesOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private final List<Page> pages;
         private boolean closed;
 
-        public ValuesOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types, List<Page> pages)
+        public ValuesOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Page> pages)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -56,11 +47,11 @@ public class ValuesOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ValuesOperator.class.getSimpleName());
-            return new ValuesOperator(operatorContext, types, pages);
+            return new ValuesOperator(operatorContext, pages);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -68,18 +59,16 @@ public class ValuesOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ValuesOperatorFactory(operatorId, planNodeId, types, pages);
+            return new ValuesOperatorFactory(operatorId, planNodeId, pages);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final ImmutableList<Type> types;
     private final Iterator<Page> pages;
 
-    public ValuesOperator(OperatorContext operatorContext, List<Type> types, List<Page> pages)
+    public ValuesOperator(OperatorContext operatorContext, List<Page> pages)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
         requireNonNull(pages, "pages is null");
 
@@ -90,12 +79,6 @@ public class ValuesOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -130,7 +113,7 @@ public class ValuesOperator
         }
         Page page = pages.next();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+            operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }

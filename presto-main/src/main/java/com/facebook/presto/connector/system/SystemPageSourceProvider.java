@@ -37,37 +37,35 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final Map<SchemaTableName, SystemTable> tables;
+    private final SystemTablesProvider tables;
 
-    public SystemPageSourceProvider(Set<SystemTable> tables)
+    public SystemPageSourceProvider(SystemTablesProvider tables)
     {
-        this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
+        this.tables = requireNonNull(tables, "tables is null");
     }
 
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
-        SystemTransactionHandle systemTransaction = checkType(transactionHandle, SystemTransactionHandle.class, "transaction");
-        SystemSplit systemSplit = checkType(split, SystemSplit.class, "split");
+        SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transactionHandle;
+        SystemSplit systemSplit = (SystemSplit) split;
         SchemaTableName tableName = systemSplit.getTableHandle().getSchemaTableName();
-        SystemTable systemTable = tables.get(tableName);
+        SystemTable systemTable = tables.getSystemTable(session, tableName)
+                // table might disappear in the meantime
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", tableName)));
 
-        checkArgument(systemTable != null, "Table %s does not exist", tableName);
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
         Map<String, Integer> columnsByName = new HashMap<>();
@@ -80,7 +78,7 @@ public class SystemPageSourceProvider
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = checkType(column, SystemColumnHandle.class, "column").getColumnName();
+            String columnName = ((SystemColumnHandle) column).getColumnName();
 
             Integer index = columnsByName.get(columnName);
             if (index == null) {
@@ -93,7 +91,7 @@ public class SystemPageSourceProvider
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
-            String columnName = checkType(entry.getKey(), SystemColumnHandle.class, "column").getColumnName();
+            String columnName = ((SystemColumnHandle) entry.getKey()).getColumnName();
             newConstraints.put(columnsByName.get(columnName), entry.getValue());
         }
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());

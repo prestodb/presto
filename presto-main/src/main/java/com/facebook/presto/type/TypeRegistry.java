@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.ParametricType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -23,13 +28,22 @@ import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.setdigest.SetDigestType;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -46,7 +60,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -54,13 +70,17 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -69,9 +89,10 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.Types.checkType;
+import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -80,16 +101,23 @@ public final class TypeRegistry
 {
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
+    private final FeaturesConfig featuresConfig;
 
+    private FunctionManager functionManager;
+
+    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
+
+    @VisibleForTesting
     public TypeRegistry()
     {
-        this(ImmutableSet.of());
+        this(ImmutableSet.of(), new FeaturesConfig());
     }
 
     @Inject
-    public TypeRegistry(Set<Type> types)
+    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
         requireNonNull(types, "types is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
@@ -111,6 +139,7 @@ public final class TypeRegistry
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
+        addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
         addType(JONI_REGEXP);
         addType(RE2J_REGEXP);
@@ -119,6 +148,8 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
+        addType(IPADDRESS);
+        addType(IPPREFIX);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -126,10 +157,20 @@ public final class TypeRegistry
         addParametricType(ARRAY);
         addParametricType(MAP);
         addParametricType(FUNCTION);
+        addParametricType(QDIGEST);
 
         for (Type type : types) {
             addType(type);
         }
+        parametricTypeCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(this::instantiateParametricType));
+    }
+
+    public void setFunctionManager(FunctionManager functionManager)
+    {
+        checkState(this.functionManager == null, "TypeRegistry can only be associated with a single FunctionManager");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -137,7 +178,13 @@ public final class TypeRegistry
     {
         Type type = types.get(signature);
         if (type == null) {
-            return instantiateParametricType(signature);
+            try {
+                return parametricTypeCache.getUnchecked(signature);
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e.getCause());
+            }
         }
         return type;
     }
@@ -154,28 +201,19 @@ public final class TypeRegistry
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
             TypeParameter typeParameter = TypeParameter.of(parameter, this);
-            if (typeParameter == null) {
-                return null;
-            }
             parameters.add(typeParameter);
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            return null;
+            throw new IllegalArgumentException("Unknown type " + signature);
         }
 
-        try {
-            Type instantiatedType = parametricType.createType(parameters);
+        Type instantiatedType = parametricType.createType(this, parameters);
 
-            // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-            //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-            return instantiatedType;
-        }
-        catch (IllegalArgumentException e) {
-            // TODO: check whether a type constructor actually exists rather than failing when it doesn't. This will be possible in the next version of the type system
-            return null;
-        }
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        return instantiatedType;
     }
 
     @Override
@@ -229,47 +267,74 @@ public final class TypeRegistry
     @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
-        if (firstType.equals(secondType)) {
-            return Optional.of(secondType);
-        }
-
-        if (firstType.equals(UnknownType.UNKNOWN)) {
-            return Optional.of(secondType);
-        }
-
-        if (secondType.equals(UnknownType.UNKNOWN)) {
-            return Optional.of(firstType);
-        }
-
-        String firstTypeBaseName = firstType.getTypeSignature().getBase();
-        String secondTypeBaseName = secondType.getTypeSignature().getBase();
-        if (firstTypeBaseName.equals(secondTypeBaseName)) {
-            if (firstTypeBaseName.equals(StandardTypes.DECIMAL)) {
-                return Optional.of(getCommonSuperTypeForDecimal(
-                        checkType(firstType, DecimalType.class, "firstType"), checkType(secondType, DecimalType.class, "secondType")));
-            }
-            if (firstTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return Optional.of(getCommonSuperTypeForVarchar(
-                        checkType(firstType, VarcharType.class, "firstType"), checkType(secondType, VarcharType.class, "secondType")));
-            }
-
-            if (isCovariantParametrizedType(firstType)) {
-                return getCommonSuperTypeForCovariantParametrizedType(firstType, secondType);
-            }
+        TypeCompatibility compatibility = compatibility(firstType, secondType);
+        if (!compatibility.isCompatible()) {
             return Optional.empty();
         }
+        return Optional.of(compatibility.getCommonSuperType());
+    }
 
-        Optional<Type> coercedType = coerceTypeBase(firstType, secondType.getTypeSignature().getBase());
-        if (coercedType.isPresent()) {
-            return getCommonSuperType(coercedType.get(), secondType);
+    @Override
+    public boolean canCoerce(Type fromType, Type toType)
+    {
+        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        return typeCompatibility.isCoercible();
+    }
+
+    private TypeCompatibility compatibility(Type fromType, Type toType)
+    {
+        if (fromType.equals(toType)) {
+            return TypeCompatibility.compatible(toType, true);
         }
 
-        coercedType = coerceTypeBase(secondType, firstType.getTypeSignature().getBase());
-        if (coercedType.isPresent()) {
-            return getCommonSuperType(firstType, coercedType.get());
+        if (fromType.equals(UnknownType.UNKNOWN)) {
+            return TypeCompatibility.compatible(toType, true);
         }
 
-        return Optional.empty();
+        if (toType.equals(UnknownType.UNKNOWN)) {
+            return TypeCompatibility.compatible(fromType, false);
+        }
+
+        String fromTypeBaseName = fromType.getTypeSignature().getBase();
+        String toTypeBaseName = toType.getTypeSignature().getBase();
+        if (fromTypeBaseName.equals(toTypeBaseName)) {
+            if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
+                Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.VARCHAR)) {
+                Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.CHAR) && !featuresConfig.isLegacyCharToVarcharCoercion()) {
+                Type commonSuperType = getCommonSuperTypeForChar((CharType) fromType, (CharType) toType);
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.ROW)) {
+                return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
+            }
+
+            if (isCovariantParametrizedType(fromType)) {
+                return typeCompatibilityForCovariantParametrizedType(fromType, toType);
+            }
+            return TypeCompatibility.incompatible();
+        }
+
+        Optional<Type> coercedType = coerceTypeBase(fromType, toType.getTypeSignature().getBase());
+        if (coercedType.isPresent()) {
+            return compatibility(coercedType.get(), toType);
+        }
+
+        coercedType = coerceTypeBase(toType, fromType.getTypeSignature().getBase());
+        if (coercedType.isPresent()) {
+            TypeCompatibility typeCompatibility = compatibility(fromType, coercedType.get());
+            if (!typeCompatibility.isCompatible()) {
+                return TypeCompatibility.incompatible();
+            }
+            return TypeCompatibility.compatible(typeCompatibility.getCommonSuperType(), false);
+        }
+
+        return TypeCompatibility.incompatible();
     }
 
     private static Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
@@ -283,25 +348,71 @@ public final class TypeRegistry
 
     private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
+        if (firstType.isUnbounded() || secondType.isUnbounded()) {
+            return createUnboundedVarcharType();
+        }
+
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
-    private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)
+    private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
     {
-        checkState(firstType.getClass().equals(secondType.getClass()));
-        ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
-        List<Type> firstTypeParameters = firstType.getTypeParameters();
-        List<Type> secondTypeParameters = secondType.getTypeParameters();
-        checkState(firstTypeParameters.size() == secondTypeParameters.size());
-        for (int i = 0; i < firstTypeParameters.size(); i++) {
-            Optional<Type> commonParameterType = getCommonSuperType(firstTypeParameters.get(i), secondTypeParameters.get(i));
-            if (!commonParameterType.isPresent()) {
-                return Optional.empty();
-            }
-            commonParameterTypes.add(TypeSignatureParameter.of(commonParameterType.get().getTypeSignature()));
+        return createCharType(Math.max(firstType.getLength(), secondType.getLength()));
+    }
+
+    private TypeCompatibility typeCompatibilityForRow(RowType firstType, RowType secondType)
+    {
+        List<Field> firstFields = firstType.getFields();
+        List<Field> secondFields = secondType.getFields();
+        if (firstFields.size() != secondFields.size()) {
+            return TypeCompatibility.incompatible();
         }
-        String typeName = firstType.getTypeSignature().getBase();
-        return Optional.of(getType(new TypeSignature(typeName, commonParameterTypes.build())));
+
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+        boolean coercible = true;
+        for (int i = 0; i < firstFields.size(); i++) {
+            Type firstFieldType = firstFields.get(i).getType();
+            Type secondFieldType = secondFields.get(i).getType();
+            TypeCompatibility typeCompatibility = compatibility(firstFieldType, secondFieldType);
+            if (!typeCompatibility.isCompatible()) {
+                return TypeCompatibility.incompatible();
+            }
+            Type commonParameterType = typeCompatibility.getCommonSuperType();
+
+            Optional<String> firstParameterName = firstFields.get(i).getName();
+            Optional<String> secondParameterName = secondFields.get(i).getName();
+            Optional<String> commonName = firstParameterName.equals(secondParameterName) ? firstParameterName : Optional.empty();
+
+            // ignore parameter name for coercible
+            coercible &= typeCompatibility.isCoercible();
+            fields.add(new RowType.Field(commonName, commonParameterType));
+        }
+
+        return TypeCompatibility.compatible(RowType.from(fields.build()), coercible);
+    }
+
+    private TypeCompatibility typeCompatibilityForCovariantParametrizedType(Type fromType, Type toType)
+    {
+        checkState(fromType.getClass().equals(toType.getClass()));
+        ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
+        List<Type> fromTypeParameters = fromType.getTypeParameters();
+        List<Type> toTypeParameters = toType.getTypeParameters();
+
+        if (fromTypeParameters.size() != toTypeParameters.size()) {
+            return TypeCompatibility.incompatible();
+        }
+
+        boolean coercible = true;
+        for (int i = 0; i < fromTypeParameters.size(); i++) {
+            TypeCompatibility compatibility = compatibility(fromTypeParameters.get(i), toTypeParameters.get(i));
+            if (!compatibility.isCompatible()) {
+                return TypeCompatibility.incompatible();
+            }
+            coercible &= compatibility.isCoercible();
+            commonParameterTypes.add(TypeSignatureParameter.of(compatibility.getCommonSuperType().getTypeSignature()));
+        }
+        String typeBase = fromType.getTypeSignature().getBase();
+        return TypeCompatibility.compatible(getType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
     }
 
     public void addType(Type type)
@@ -316,6 +427,12 @@ public final class TypeRegistry
         String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
         checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
         parametricTypes.putIfAbsent(name, parametricType);
+    }
+
+    @Override
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return ImmutableList.copyOf(parametricTypes.values());
     }
 
     /**
@@ -345,6 +462,7 @@ public final class TypeRegistry
                     case StandardTypes.TIMESTAMP:
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                     case StandardTypes.HYPER_LOG_LOG:
+                    case SetDigestType.NAME:
                     case StandardTypes.P4_HYPER_LOG_LOG:
                     case StandardTypes.JSON:
                     case StandardTypes.INTERVAL_YEAR_TO_MONTH:
@@ -471,6 +589,17 @@ public final class TypeRegistry
             }
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
+                    case StandardTypes.CHAR:
+                        if (featuresConfig.isLegacyCharToVarcharCoercion()) {
+                            return Optional.empty();
+                        }
+
+                        VarcharType varcharType = (VarcharType) sourceType;
+                        if (varcharType.isUnbounded()) {
+                            return Optional.of(CharType.createCharType(CharType.MAX_LENGTH));
+                        }
+
+                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getLengthSafe())));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
@@ -488,6 +617,10 @@ public final class TypeRegistry
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
+                        if (!featuresConfig.isLegacyCharToVarcharCoercion()) {
+                            return Optional.empty();
+                        }
+
                         CharType charType = (CharType) sourceType;
                         return Optional.of(createVarcharType(charType.getLength()));
                     case JoniRegexpType.NAME:
@@ -526,5 +659,55 @@ public final class TypeRegistry
     public static boolean isCovariantTypeBase(String typeBase)
     {
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+    }
+
+    @Override
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    {
+        requireNonNull(functionManager, "functionManager is null");
+        return functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
+    }
+
+    public static class TypeCompatibility
+    {
+        private final Optional<Type> commonSuperType;
+        private final boolean coercible;
+
+        // Do not call constructor directly. Use factory methods.
+        private TypeCompatibility(Optional<Type> commonSuperType, boolean coercible)
+        {
+            // Assert that: coercible => commonSuperType.isPresent
+            // The factory API is designed such that this is guaranteed.
+            checkArgument(!coercible || commonSuperType.isPresent());
+
+            this.commonSuperType = commonSuperType;
+            this.coercible = coercible;
+        }
+
+        private static TypeCompatibility compatible(Type commonSuperType, boolean coercible)
+        {
+            return new TypeCompatibility(Optional.of(commonSuperType), coercible);
+        }
+
+        private static TypeCompatibility incompatible()
+        {
+            return new TypeCompatibility(Optional.empty(), false);
+        }
+
+        public boolean isCompatible()
+        {
+            return commonSuperType.isPresent();
+        }
+
+        public Type getCommonSuperType()
+        {
+            checkState(commonSuperType.isPresent(), "Types are not compatible");
+            return commonSuperType.get();
+        }
+
+        public boolean isCoercible()
+        {
+            return coercible;
+        }
     }
 }

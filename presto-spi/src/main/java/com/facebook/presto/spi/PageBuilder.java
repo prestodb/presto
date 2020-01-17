@@ -16,75 +16,73 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Optional;
 
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
 {
+    // We choose default initial size to be 8 for PageBuilder and BlockBuilder
+    // so the underlying data is larger than the object overhead, and the size is power of 2.
+    //
+    // This could be any other small number.
+    private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
+
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;
-    private final int initialExpectedEntries;
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
+    /**
+     * Create a PageBuilder with given types.
+     * <p>
+     * A PageBuilder instance created with this constructor has no estimation about bytes per entry,
+     * therefore it can resize frequently while appending new rows.
+     * <p>
+     * This constructor should only be used to get the initial PageBuilder.
+     * Once the PageBuilder is full use reset() or createPageBuilderLike() to create a new
+     * PageBuilder instance with its size estimated based on previous data.
+     */
     public PageBuilder(List<? extends Type> types)
     {
-        this(Integer.MAX_VALUE, types);
+        this(DEFAULT_INITIAL_EXPECTED_ENTRIES, types);
     }
 
     public PageBuilder(int initialExpectedEntries, List<? extends Type> types)
     {
-        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types);
+        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types, Optional.empty());
     }
 
     public static PageBuilder withMaxPageSize(int maxPageBytes, List<? extends Type> types)
     {
-        return new PageBuilder(Integer.MAX_VALUE, maxPageBytes, types);
+        return new PageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, types, Optional.empty());
     }
 
-    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types)
+    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types, Optional<BlockBuilder[]> templateBlockBuilders)
     {
         this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
 
-        int maxBlockSizeInBytes;
-        if (!types.isEmpty()) {
-            maxBlockSizeInBytes = (int) (1.0 * maxPageBytes / types.size());
-            maxBlockSizeInBytes = Math.min(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, maxBlockSizeInBytes);
+        pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
+        blockBuilders = new BlockBuilder[types.size()];
+
+        if (templateBlockBuilders.isPresent()) {
+            BlockBuilder[] templates = templateBlockBuilders.get();
+            checkArgument(templates.length == types.size(), "Size of templates and types should match");
+            for (int i = 0; i < blockBuilders.length; i++) {
+                blockBuilders[i] = templates[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
+            }
         }
         else {
-            maxBlockSizeInBytes = 0;
-        }
-        pageBuilderStatus = new PageBuilderStatus(maxPageBytes, maxBlockSizeInBytes);
-
-        int expectedEntries = Math.min(maxBlockSizeInBytes, initialExpectedEntries);
-        for (Type type : types) {
-            if (type instanceof FixedWidthType) {
-                int fixedSize = Math.max(((FixedWidthType) type).getFixedSize(), 1);
-                expectedEntries = Math.min(expectedEntries, maxBlockSizeInBytes / fixedSize);
-            }
-            else {
-                // We really have no idea how big these are going to be, so just guess. In reset() we'll make a better guess
-                expectedEntries = Math.min(expectedEntries, maxBlockSizeInBytes / 32);
+            for (int i = 0; i < blockBuilders.length; i++) {
+                blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
             }
         }
-
-        blockBuilders = new BlockBuilder[types.size()];
-        for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(
-                    pageBuilderStatus.createBlockBuilderStatus(),
-                    expectedEntries,
-                    pageBuilderStatus.getMaxBlockSizeInBytes() / expectedEntries);
-        }
-        this.initialExpectedEntries = expectedEntries;
     }
 
     public void reset()
@@ -92,18 +90,18 @@ public class PageBuilder
         if (isEmpty()) {
             return;
         }
-        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes(), pageBuilderStatus.getMaxBlockSizeInBytes());
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
 
         declaredPositions = 0;
 
         for (int i = 0; i < types.size(); i++) {
-            blockBuilders[i].reset(pageBuilderStatus.createBlockBuilderStatus());
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
     }
 
-    public Type getType(int channel)
+    public PageBuilder newPageBuilderLike()
     {
-        return types.get(channel);
+        return new PageBuilder(declaredPositions, pageBuilderStatus.getMaxPageSizeInBytes(), types, Optional.of(blockBuilders));
     }
 
     public BlockBuilder getBlockBuilder(int channel)
@@ -111,9 +109,11 @@ public class PageBuilder
         return blockBuilders[channel];
     }
 
-    /**
-     * Hack to declare positions when producing a page with no channels
-     */
+    public Type getType(int channel)
+    {
+        return types.get(channel);
+    }
+
     public void declarePosition()
     {
         declaredPositions++;
@@ -121,7 +121,7 @@ public class PageBuilder
 
     public void declarePositions(int positions)
     {
-        declaredPositions = positions;
+        declaredPositions += positions;
     }
 
     public boolean isFull()
@@ -146,7 +146,13 @@ public class PageBuilder
 
     public long getRetainedSizeInBytes()
     {
-        return Stream.of(blockBuilders).mapToLong(BlockBuilder::getRetainedSizeInBytes).sum();
+        // We use a foreach loop instead of streams
+        // as it has much better performance.
+        long retainedSizeInBytes = 0;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            retainedSizeInBytes += blockBuilder.getRetainedSizeInBytes();
+        }
+        return retainedSizeInBytes;
     }
 
     public Page build()
@@ -164,5 +170,12 @@ public class PageBuilder
         }
 
         return new Page(blocks);
+    }
+
+    private static void checkArgument(boolean expression, String errorMessage)
+    {
+        if (!expression) {
+            throw new IllegalArgumentException(errorMessage);
+        }
     }
 }

@@ -13,57 +13,71 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-class Backoff
+public class Backoff
 {
+    private static final int MIN_RETRIES = 3;
+    private static final List<Duration> DEFAULT_BACKOFF_DELAY_INTERVALS = ImmutableList.<Duration>builder()
+            .add(new Duration(0, MILLISECONDS))
+            .add(new Duration(50, MILLISECONDS))
+            .add(new Duration(100, MILLISECONDS))
+            .add(new Duration(200, MILLISECONDS))
+            .add(new Duration(500, MILLISECONDS))
+            .build();
+
+    private final int minTries;
     private final long maxFailureIntervalNanos;
     private final Ticker ticker;
     private final long[] backoffDelayIntervalsNanos;
 
-    private long lastSuccessTime;
+    private long firstFailureTime;
     private long lastFailureTime;
     private long failureCount;
+    private long failureRequestTimeTotal;
+
+    private long lastRequestStart;
 
     public Backoff(Duration maxFailureInterval)
     {
-        this(maxFailureInterval,
-                new Duration(0, MILLISECONDS),
-                new Duration(50, MILLISECONDS),
-                new Duration(100, MILLISECONDS),
-                new Duration(200, MILLISECONDS),
-                new Duration(500, MILLISECONDS));
+        this(maxFailureInterval, Ticker.systemTicker());
     }
 
-    public Backoff(Duration maxFailureInterval, Duration... backoffDelayIntervals)
+    public Backoff(Duration maxFailureInterval, Ticker ticker)
     {
-        this(maxFailureInterval, Ticker.systemTicker(), backoffDelayIntervals);
+        this(MIN_RETRIES, maxFailureInterval, ticker, DEFAULT_BACKOFF_DELAY_INTERVALS);
     }
 
-    public Backoff(Duration maxFailureInterval, Ticker ticker, Duration... backoffDelayIntervals)
+    @VisibleForTesting
+    public Backoff(int minTries, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
     {
+        checkArgument(minTries > 0, "minTries must be at least 1");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
         requireNonNull(ticker, "ticker is null");
         requireNonNull(backoffDelayIntervals, "backoffDelayIntervals is null");
-        checkArgument(backoffDelayIntervals.length > 0, "backoffDelayIntervals must contain at least one entry");
+        checkArgument(!backoffDelayIntervals.isEmpty(), "backoffDelayIntervals must contain at least one entry");
 
+        this.minTries = minTries;
         this.maxFailureIntervalNanos = maxFailureInterval.roundTo(NANOSECONDS);
         this.ticker = ticker;
-        this.backoffDelayIntervalsNanos = new long[backoffDelayIntervals.length];
-        for (int i = 0; i < backoffDelayIntervals.length; i++) {
-            this.backoffDelayIntervalsNanos[i] = backoffDelayIntervals[i].roundTo(NANOSECONDS);
-        }
-
-        this.lastSuccessTime = this.ticker.read();
+        this.backoffDelayIntervalsNanos = backoffDelayIntervals.stream()
+                .mapToLong(duration -> duration.roundTo(NANOSECONDS))
+                .toArray();
     }
 
     public synchronized long getFailureCount()
@@ -71,16 +85,29 @@ class Backoff
         return failureCount;
     }
 
-    public synchronized Duration getTimeSinceLastSuccess()
+    public synchronized Duration getFailureDuration()
     {
-        long lastSuccessfulRequest = this.lastSuccessTime;
-        long value = ticker.read() - lastSuccessfulRequest;
-        return new Duration(value, NANOSECONDS).convertToMostSuccinctTimeUnit();
+        if (firstFailureTime == 0) {
+            return new Duration(0, MILLISECONDS);
+        }
+        long value = ticker.read() - firstFailureTime;
+        return new Duration(value, NANOSECONDS);
+    }
+
+    public synchronized Duration getFailureRequestTimeTotal()
+    {
+        return new Duration(max(0, failureRequestTimeTotal), NANOSECONDS);
+    }
+
+    public synchronized void startRequest()
+    {
+        lastRequestStart = ticker.read();
     }
 
     public synchronized void success()
     {
-        lastSuccessTime = ticker.read();
+        lastRequestStart = 0;
+        firstFailureTime = 0;
         failureCount = 0;
         lastFailureTime = 0;
     }
@@ -90,20 +117,32 @@ class Backoff
      */
     public synchronized boolean failure()
     {
-        long lastSuccessfulRequest = this.lastSuccessTime;
         long now = ticker.read();
 
         lastFailureTime = now;
-
         failureCount++;
+        if (lastRequestStart != 0) {
+            failureRequestTimeTotal += now - lastRequestStart;
+            lastRequestStart = 0;
+        }
 
-        long timeSinceLastSuccess = now - lastSuccessfulRequest;
-        return timeSinceLastSuccess >= maxFailureIntervalNanos;
+        if (firstFailureTime == 0) {
+            firstFailureTime = now;
+            // can not fail on first failure
+            return false;
+        }
+
+        if (failureCount < minTries) {
+            return false;
+        }
+
+        long failureDuration = now - firstFailureTime;
+        return failureDuration >= maxFailureIntervalNanos;
     }
 
     public synchronized long getBackoffDelayNanos()
     {
-        int failureCount = (int) Math.min(backoffDelayIntervalsNanos.length, this.failureCount);
+        int failureCount = (int) min(backoffDelayIntervalsNanos.length, this.failureCount);
         if (failureCount == 0) {
             return 0;
         }
@@ -112,6 +151,6 @@ class Backoff
 
         // calculate expected delay from now
         long nanosSinceLastFailure = ticker.read() - lastFailureTime;
-        return Math.max(0, currentDelay - nanosSinceLastFailure);
+        return max(0, currentDelay - nanosSinceLastFailure);
     }
 }

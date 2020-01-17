@@ -13,27 +13,27 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -177,7 +177,7 @@ public final class SessionPropertyManager
     public <T> T decodeCatalogPropertyValue(ConnectorId connectorId, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
     {
         String fullPropertyName = catalogName + "." + propertyName;
-        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(connectorId,  propertyName)
+        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(connectorId, propertyName)
                 .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         return decodePropertyValue(fullPropertyName, propertyValue, type, property);
@@ -229,7 +229,7 @@ public final class SessionPropertyManager
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
 
         // convert to object value type of SQL type
-        BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
         writeNativeValue(expectedType, blockBuilder, value);
         Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
 
@@ -248,6 +248,9 @@ public final class SessionPropertyManager
             return value.toString();
         }
         if (BigintType.BIGINT.equals(type)) {
+            return value.toString();
+        }
+        if (IntegerType.INTEGER.equals(type)) {
             return value.toString();
         }
         if (DoubleType.DOUBLE.equals(type)) {
@@ -276,6 +279,9 @@ public final class SessionPropertyManager
         if (BigintType.BIGINT.equals(type)) {
             return Long.valueOf(value);
         }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.valueOf(value);
+        }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.valueOf(value);
         }
@@ -295,6 +301,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Long.class);
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Integer.class);
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
@@ -321,6 +330,9 @@ public final class SessionPropertyManager
         }
         if (BigintType.BIGINT.equals(type)) {
             return Long.class;
+        }
+        if (IntegerType.INTEGER.equals(type)) {
+            return Integer.class;
         }
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;

@@ -18,18 +18,18 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
+import com.mongodb.ServerAddress;
 import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.tpch.TpchTable;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.testing.Closeables.closeAllSuppress;
-import static java.util.Locale.ENGLISH;
 
 public class MongoQueryRunner
         extends DistributedQueryRunner
@@ -37,14 +37,17 @@ public class MongoQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
 
     private final MongoServer server;
+    private final MongoClient client;
     private final InetSocketAddress address;
 
-    private MongoQueryRunner(Session session, int workers) throws Exception
+    private MongoQueryRunner(Session session, int workers)
+            throws Exception
     {
         super(session, workers);
 
         server = new MongoServer(new SyncMemoryBackend());
         address = server.bind();
+        client = new MongoClient(new ServerAddress(address));
     }
 
     public static MongoQueryRunner createMongoQueryRunner(TpchTable<?>... tables)
@@ -65,8 +68,7 @@ public class MongoQueryRunner
 
             Map<String, String> properties = ImmutableMap.of(
                     "mongodb.seeds", queryRunner.getAddress().getHostString() + ":" + queryRunner.getAddress().getPort(),
-                    "mongodb.socket-keep-alive", "true"
-            );
+                    "mongodb.socket-keep-alive", "true");
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
@@ -86,8 +88,6 @@ public class MongoQueryRunner
         return testSessionBuilder()
                 .setCatalog("mongodb")
                 .setSchema(TPCH_SCHEMA)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 
@@ -96,9 +96,15 @@ public class MongoQueryRunner
         return address;
     }
 
+    public MongoClient getMongoClient()
+    {
+        return client;
+    }
+
     public void shutdown()
     {
         close();
+        client.close();
         server.shutdown();
     }
 }

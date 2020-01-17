@@ -27,13 +27,13 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
-            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled\n" +
+            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled, t.table_supports_delta_delete\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n";
 
     String TABLE_COLUMN_SELECT = "" +
             "SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.data_type,\n" +
+            "  c.column_id, c.column_name, c.data_type, c.ordinal_position,\n" +
             "  c.bucket_ordinal_position, c.sort_ordinal_position,\n" +
             "  t.temporal_column_id = c.column_id AS temporal\n" +
             "FROM tables t\n" +
@@ -115,11 +115,11 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
             "  create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
+            "  shard_count, delta_count, row_count, compressed_size, uncompressed_size, table_supports_delta_delete)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
             "  :createTime, :createTime, 0,\n" +
-            "  0, 0, 0, 0)\n")
+            "  0, 0, 0, 0, 0, :tableSupportsDeltaDelete)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
@@ -127,7 +127,8 @@ public interface MetadataDao
             @Bind("compactionEnabled") boolean compactionEnabled,
             @Bind("organizationEnabled") boolean organizationEnabled,
             @Bind("distributionId") Long distributionId,
-            @Bind("createTime") long createTime);
+            @Bind("createTime") long createTime,
+            @Bind("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  update_time = :updateTime\n" +
@@ -138,14 +139,16 @@ public interface MetadataDao
             @Bind("updateTime") long updateTime);
 
     @SqlUpdate("UPDATE tables SET\n" +
-            "  shard_count = shard_count + :shardCount \n" +
+            "  shard_count = shard_count + :shardCountChange \n" +
+            ", delta_count = delta_count + :deltaCountChange \n" +
             ", row_count = row_count + :rowCount\n" +
             ", compressed_size = compressed_size + :compressedSize\n" +
             ", uncompressed_size = uncompressed_size + :uncompressedSize\n" +
             "WHERE table_id = :tableId")
     void updateTableStats(
             @Bind("tableId") long tableId,
-            @Bind("shardCount") long shardCount,
+            @Bind("shardCountChange") long shardCountChange,
+            @Bind("deltaCountChange") long deltaCountChange,
             @Bind("rowCount") long rowCount,
             @Bind("compressedSize") long compressedSize,
             @Bind("uncompressedSize") long uncompressedSize);
@@ -177,6 +180,13 @@ public interface MetadataDao
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId,
             @Bind("target") String target);
+
+    @SqlUpdate("DELETE FROM columns\n" +
+            " WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
+    void dropColumn(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long column);
 
     @SqlUpdate("INSERT INTO views (schema_name, table_name, data)\n" +
             "VALUES (:schemaName, :tableName, :data)")
@@ -213,8 +223,10 @@ public interface MetadataDao
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
 
-    @SqlQuery("SELECT compaction_enabled FROM tables WHERE table_id = :tableId")
-    boolean isCompactionEnabled(@Bind("tableId") long tableId);
+    @SqlQuery("SELECT compaction_enabled AND maintenance_blocked IS NULL\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId")
+    boolean isCompactionEligible(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
     Long getLockedTableId(@Bind("tableId") long tableId);
@@ -237,7 +249,7 @@ public interface MetadataDao
             @Bind("columnTypes") String columnTypes,
             @Bind("bucketCount") int bucketCount);
 
-    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled\n" +
+    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled, table_supports_delta_delete\n" +
             "FROM tables\n" +
             "LEFT JOIN distributions\n" +
             "ON tables.distribution_id = distributions.distribution_id\n" +
@@ -263,7 +275,7 @@ public interface MetadataDao
             @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size\n" +
+            "  shard_count, delta_count, row_count, compressed_size, uncompressed_size\n" +
             "FROM tables\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
@@ -276,9 +288,29 @@ public interface MetadataDao
     @SqlQuery("SELECT table_id\n" +
             "FROM tables\n" +
             "WHERE organization_enabled\n" +
+            "  AND maintenance_blocked IS NULL\n" +
             "  AND table_id IN\n" +
             "       (SELECT table_id\n" +
             "        FROM columns\n" +
             "        WHERE sort_ordinal_position IS NOT NULL)")
     Set<Long> getOrganizationEligibleTables();
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = CURRENT_TIMESTAMP\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND maintenance_blocked IS NULL")
+    void blockMaintenance(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
+            "WHERE table_id = :tableId")
+    void unblockMaintenance(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT maintenance_blocked IS NOT NULL\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId\n" +
+            "FOR UPDATE")
+    boolean isMaintenanceBlockedLocked(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET maintenance_blocked = NULL\n" +
+            "WHERE maintenance_blocked IS NOT NULL")
+    void unblockAllMaintenance();
 }

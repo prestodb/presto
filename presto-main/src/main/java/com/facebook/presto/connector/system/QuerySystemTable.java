@@ -16,6 +16,7 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -23,19 +24,29 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import io.airlift.node.NodeInfo;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.type.ArrayType;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
+
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public class QuerySystemTable
         implements SystemTable
@@ -43,16 +54,15 @@ public class QuerySystemTable
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("runtime", "queries");
 
     public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
-            .column("node_id", createUnboundedVarcharType())
             .column("query_id", createUnboundedVarcharType())
             .column("state", createUnboundedVarcharType())
             .column("user", createUnboundedVarcharType())
             .column("source", createUnboundedVarcharType())
             .column("query", createUnboundedVarcharType())
+            .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
 
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
-            .column("distributed_planning_time_ms", BIGINT)
 
             .column("created", TIMESTAMP)
             .column("started", TIMESTAMP)
@@ -61,13 +71,11 @@ public class QuerySystemTable
             .build();
 
     private final QueryManager queryManager;
-    private final String nodeId;
 
     @Inject
-    public QuerySystemTable(QueryManager queryManager, NodeInfo nodeInfo)
+    public QuerySystemTable(QueryManager queryManager)
     {
         this.queryManager = queryManager;
-        this.nodeId = nodeInfo.getNodeId();
     }
 
     @Override
@@ -86,19 +94,30 @@ public class QuerySystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+        List<QueryInfo> queryInfos = queryManager.getQueries().stream()
+                .map(BasicQueryInfo::getQueryId)
+                .map(queryId -> {
+                    try {
+                        return queryManager.getFullQueryInfo(queryId);
+                    }
+                    catch (NoSuchElementException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+        for (QueryInfo queryInfo : queryInfos) {
             QueryStats queryStats = queryInfo.getQueryStats();
             table.addRow(
-                    nodeId,
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
                     queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
+                    queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
-                    toMillis(queryStats.getDistributedPlanningTime()),
 
                     toTimeStamp(queryStats.getCreateTime()),
                     toTimeStamp(queryStats.getExecutionStartTime()),
@@ -106,6 +125,17 @@ public class QuerySystemTable
                     toTimeStamp(queryStats.getEndTime()));
         }
         return table.build().cursor();
+    }
+
+    private static Block resourceGroupIdToBlock(ResourceGroupId resourceGroupId)
+    {
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
+        List<String> segments = resourceGroupId.getSegments();
+        BlockBuilder blockBuilder = createUnboundedVarcharType().createBlockBuilder(null, segments.size());
+        for (String segment : segments) {
+            createUnboundedVarcharType().writeSlice(blockBuilder, utf8Slice(segment));
+        }
+        return blockBuilder.build();
     }
 
     private static Long toMillis(Duration duration)

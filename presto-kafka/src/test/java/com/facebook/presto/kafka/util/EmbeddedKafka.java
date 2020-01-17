@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import kafka.admin.AdminUtils;
+import kafka.admin.RackAwareMode;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
-import kafka.utils.ZKStringSerializer$;
-import org.I0Itec.zkclient.ZkClient;
+import kafka.utils.ZkUtils;
 
 import java.io.Closeable;
 import java.io.File;
@@ -34,7 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
 import static com.facebook.presto.kafka.util.TestUtils.toProperties;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.FileUtils.deleteRecursively;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
 
 public class EmbeddedKafka
@@ -100,12 +101,13 @@ public class EmbeddedKafka
 
     @Override
     public void close()
+            throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
             kafka.shutdown();
             kafka.awaitShutdown();
             zookeeper.close();
-            deleteRecursively(kafkaDataDir);
+            deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
         }
     }
 
@@ -118,14 +120,14 @@ public class EmbeddedKafka
     {
         checkState(started.get() && !stopped.get(), "not started!");
 
-        ZkClient zkClient = new ZkClient(getZookeeperConnectString(), 30_000, 30_000, ZKStringSerializer$.MODULE$);
+        ZkUtils zkUtils = ZkUtils.apply(getZookeeperConnectString(), 30_000, 30_000, false);
         try {
             for (String topic : topics) {
-                AdminUtils.createTopic(zkClient, topic, partitions, replication, topicProperties);
+                AdminUtils.createTopic(zkUtils, topic, partitions, replication, topicProperties, RackAwareMode.Disabled$.MODULE$);
             }
         }
         finally {
-            zkClient.close();
+            zkUtils.close();
         }
     }
 

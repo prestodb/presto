@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.TypedHeap;
 import com.facebook.presto.spi.function.AccumulatorState;
 
 public interface MinMaxNState
-    extends AccumulatorState
+        extends AccumulatorState
 {
     TypedHeap getTypedHeap();
 

@@ -16,16 +16,31 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
-import java.util.Map;
 import java.util.function.ToIntFunction;
+
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static java.util.Collections.singletonList;
 
 public interface ConnectorNodePartitioningProvider
 {
-    Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
+    // TODO: Use ConnectorPartitionHandle (instead of int) to represent individual buckets.
+    // Currently, it's mixed. listPartitionHandles used CPartitionHandle whereas the other functions used int.
+
+    /**
+     * Returns a list of all partitions associated with the provided {@code partitioningHandle}.
+     * <p>
+     * This method must be implemented for connectors that support addressable split discovery.
+     * The partitions return here will be used as address for the purpose of split discovery.
+     */
+    default List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return singletonList(NOT_PARTITIONED);
+    }
+
+    ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 
     ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 

@@ -66,8 +66,7 @@ The JVM config file, ``etc/jvm.config``, contains a list of command line
 options used for launching the Java Virtual Machine. The format of the file
 is a list of options, one per line. These options are not interpreted by
 the shell, so options containing spaces or other special characters should
-not be quoted (as demonstrated by the ``OnOutOfMemoryError`` option in the
-example below).
+not be quoted.
 
 The following provides a good starting point for creating ``etc/jvm.config``:
 
@@ -80,7 +79,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+HeapDumpOnOutOfMemoryError
-    -XX:OnOutOfMemoryError=kill -9 %p
+    -XX:+ExitOnOutOfMemoryError
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
@@ -107,6 +106,7 @@ The following is a minimal configuration for the coordinator:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -118,6 +118,7 @@ And this is a minimal configuration for the workers:
     http-server.http.port=8080
     query.max-memory=50GB
     query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing that
@@ -130,6 +131,7 @@ will function as both a coordinator and worker, use this configuration:
     http-server.http.port=8080
     query.max-memory=5GB
     query.max-memory-per-node=1GB
+    query.max-total-memory-per-node=2GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -154,7 +156,11 @@ These properties require some explanation:
   The maximum amount of distributed memory that a query may use.
 
 * ``query.max-memory-per-node``:
-  The maximum amount of memory that a query may use on any one machine.
+  The maximum amount of user memory that a query may use on any one machine.
+
+* ``query.max-total-memory-per-node``:
+  The maximum amount of user and system memory that a query may use on any one machine,
+  where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.
@@ -173,12 +179,14 @@ These properties require some explanation:
 
 You may also wish to set the following properties:
 
-* ``query.queue-config-file``:
-  Specifies the file to read the :doc:`/admin/queue` from.
+* ``jmx.rmiregistry.port``:
+  Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
 
 * ``jmx.rmiserver.port``:
   Specifies the port for the JMX RMI server. Presto exports many metrics
   that are useful for monitoring via JMX.
+
+See also :doc:`/admin/resource-groups`.
 
 Log Levels
 ^^^^^^^^^^

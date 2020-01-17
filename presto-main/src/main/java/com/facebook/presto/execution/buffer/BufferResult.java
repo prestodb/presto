@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -24,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class BufferResult
 {
     public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
@@ -35,9 +38,10 @@ public class BufferResult
     private final long token;
     private final long nextToken;
     private final boolean bufferComplete;
-    private final List<Page> pages;
+    private final List<SerializedPage> serializedPages;
 
-    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<Page> pages)
+    @ThriftConstructor
+    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<SerializedPage> serializedPages)
     {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
 
@@ -45,42 +49,47 @@ public class BufferResult
         this.token = token;
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
-        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
+        this.serializedPages = ImmutableList.copyOf(requireNonNull(serializedPages, "serializedPages is null"));
     }
 
+    @ThriftField(1)
+    public String getTaskInstanceId()
+    {
+        return taskInstanceId;
+    }
+
+    @ThriftField(2)
     public long getToken()
     {
         return token;
     }
 
+    @ThriftField(3)
     public long getNextToken()
     {
         return nextToken;
     }
 
+    @ThriftField(4)
     public boolean isBufferComplete()
     {
         return bufferComplete;
     }
 
-    public List<Page> getPages()
+    @ThriftField(5)
+    public List<SerializedPage> getSerializedPages()
     {
-        return pages;
+        return serializedPages;
     }
 
     public int size()
     {
-        return pages.size();
+        return serializedPages.size();
     }
 
     public boolean isEmpty()
     {
-        return pages.isEmpty();
-    }
-
-    public String getTaskInstanceId()
-    {
-        return taskInstanceId;
+        return serializedPages.isEmpty();
     }
 
     @Override
@@ -97,13 +106,13 @@ public class BufferResult
                 Objects.equals(nextToken, that.nextToken) &&
                 Objects.equals(taskInstanceId, that.taskInstanceId) &&
                 Objects.equals(bufferComplete, that.bufferComplete) &&
-                Objects.equals(pages, that.pages);
+                Objects.equals(serializedPages, that.serializedPages);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, pages);
+        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, serializedPages);
     }
 
     @Override
@@ -114,7 +123,7 @@ public class BufferResult
                 .add("nextToken", nextToken)
                 .add("taskInstanceId", taskInstanceId)
                 .add("bufferComplete", bufferComplete)
-                .add("pages", pages)
+                .add("serializedPages", serializedPages)
                 .toString();
     }
 }

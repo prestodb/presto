@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import io.airlift.testing.EquivalenceTester;
+import com.facebook.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.jmx.MetadataUtil.COLUMN_CODEC;
@@ -26,7 +26,7 @@ public class TestJmxColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        JmxColumnHandle handle = new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType());
+        JmxColumnHandle handle = new JmxColumnHandle("columnName", createUnboundedVarcharType());
         String json = COLUMN_CODEC.toJson(handle);
         JmxColumnHandle copy = COLUMN_CODEC.fromJson(json);
         assertEquals(copy, handle);
@@ -37,17 +37,14 @@ public class TestJmxColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType()),
-                        new JmxColumnHandle("connectorId", "columnName", createUnboundedVarcharType()))
+                        new JmxColumnHandle("columnName", createUnboundedVarcharType()),
+                        new JmxColumnHandle("columnName", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType()),
-                        new JmxColumnHandle("connectorIdX", "columnName", createUnboundedVarcharType()))
+                        new JmxColumnHandle("columnNameX", createUnboundedVarcharType()),
+                        new JmxColumnHandle("columnNameX", createUnboundedVarcharType()))
                 .addEquivalentGroup(
-                        new JmxColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType()),
-                        new JmxColumnHandle("connectorId", "columnNameX", createUnboundedVarcharType()))
-                .addEquivalentGroup(
-                        new JmxColumnHandle("connectorId", "columnName", BIGINT),
-                        new JmxColumnHandle("connectorId", "columnName", BIGINT))
+                        new JmxColumnHandle("columnName", BIGINT),
+                        new JmxColumnHandle("columnName", BIGINT))
                 .check();
     }
 }

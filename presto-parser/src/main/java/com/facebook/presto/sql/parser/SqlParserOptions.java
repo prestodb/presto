@@ -13,15 +13,31 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.EnumSet;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class SqlParserOptions
 {
+    protected static final Set<String> RESERVED_WORDS_WARNING = ImmutableSet.of(
+            "CALLED", "CURRENT_ROLE", "DETERMINISTIC", "FUNCTION", "LANGUAGE", "RETURN", "RETURNS", "SQL");
+
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
+    private boolean enhancedErrorHandlerEnabled = true;
+
+    public SqlParserOptions()
+    {
+    }
+
+    private SqlParserOptions(EnumSet<IdentifierSymbol> identifierSymbols, boolean enhancedErrorHandlerEnabled)
+    {
+        this.enhancedErrorHandlerEnabled = enhancedErrorHandlerEnabled;
+        this.allowedIdentifierSymbols.addAll(identifierSymbols);
+    }
 
     public SqlParserOptions allowIdentifierSymbol(Iterable<IdentifierSymbol> identifierSymbols)
     {
@@ -40,5 +56,21 @@ public class SqlParserOptions
             allowedIdentifierSymbols.add(requireNonNull(identifierSymbol, "identifierSymbol is null"));
         }
         return this;
+    }
+
+    public SqlParserOptions useEnhancedErrorHandler(boolean enable)
+    {
+        enhancedErrorHandlerEnabled = enable;
+        return this;
+    }
+
+    public boolean isEnhancedErrorHandlerEnabled()
+    {
+        return enhancedErrorHandlerEnabled;
+    }
+
+    public static SqlParserOptions copyOf(SqlParserOptions other)
+    {
+        return new SqlParserOptions(other.allowedIdentifierSymbols, other.enhancedErrorHandlerEnabled);
     }
 }

@@ -19,32 +19,27 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitioningHandle
         implements ConnectorPartitioningHandle
 {
-    private final String clientId;
     private final int bucketCount;
     private final List<HiveType> hiveTypes;
+    private final OptionalInt maxCompatibleBucketCount;
 
     @JsonCreator
     public HivePartitioningHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("bucketCount") int bucketCount,
-            @JsonProperty("hiveTypes") List<HiveType> hiveTypes)
+            @JsonProperty("hiveTypes") List<HiveType> hiveTypes,
+            @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
         this.bucketCount = bucketCount;
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
-    }
-
-    @JsonProperty
-    public String getClientId()
-    {
-        return clientId;
+        this.maxCompatibleBucketCount = maxCompatibleBucketCount;
     }
 
     @JsonProperty
@@ -59,14 +54,16 @@ public class HivePartitioningHandle
         return hiveTypes;
     }
 
+    @JsonProperty
+    public OptionalInt getMaxCompatibleBucketCount()
+    {
+        return maxCompatibleBucketCount;
+    }
+
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("clientId", clientId)
-                .add("bucketCount", bucketCount)
-                .add("hiveTypes", hiveTypes)
-                .toString();
+        return format("buckets=%s, hiveTypes=%s", bucketCount, hiveTypes);
     }
 
     @Override
@@ -80,13 +77,12 @@ public class HivePartitioningHandle
         }
         HivePartitioningHandle that = (HivePartitioningHandle) o;
         return bucketCount == that.bucketCount &&
-                Objects.equals(clientId, that.clientId) &&
                 Objects.equals(hiveTypes, that.hiveTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, bucketCount, hiveTypes);
+        return Objects.hash(bucketCount, hiveTypes);
     }
 }

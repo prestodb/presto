@@ -15,16 +15,19 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;
 import static org.testng.Assert.assertEquals;
@@ -38,12 +41,11 @@ public class TestVariableWidthBlock
     {
         Slice[] expectedValues = createExpectedValues(100);
         assertVariableWithValues(expectedValues);
-        assertVariableWithValues((Slice[]) alternatingNullValues(expectedValues));
+        assertVariableWithValues(alternatingNullValues(expectedValues));
     }
 
     @Test
     public void testCopyRegion()
-            throws Exception
     {
         Slice[] expectedValues = createExpectedValues(100);
         Block block = createBlockBuilderWithValues(expectedValues).build();
@@ -55,11 +57,29 @@ public class TestVariableWidthBlock
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
-        Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(100));
+        Slice[] expectedValues = alternatingNullValues(createExpectedValues(100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
+    }
+
+    @Test
+    public void testLazyBlockBuilderInitialization()
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
+
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
@@ -67,24 +87,18 @@ public class TestVariableWidthBlock
     {
         int numEntries = 1000;
         VarcharType unboundedVarcharType = createUnboundedVarcharType();
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), numEntries, 20);
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, numEntries, 20 * numEntries);
         for (int i = 0; i < numEntries; i++) {
             unboundedVarcharType.writeString(blockBuilder, String.valueOf(ThreadLocalRandom.current().nextLong()));
         }
         Block block = blockBuilder.build();
 
-        Block half1 = block.getRegion(0, numEntries / 2);
-        Block half2 = block.getRegion(numEntries / 2, numEntries / 2);
-        Block quarter1 = half1.getRegion(0, numEntries / 4);
-        Block quarter2 = half1.getRegion(numEntries / 4, numEntries / 4);
-        Block quarter3 = half2.getRegion(0, numEntries / 4);
-        Block quarter4 = half2.getRegion(numEntries / 4, numEntries / 4);
-
-        int sizeInBytes = block.getSizeInBytes();
-        int quarter1size = quarter1.getSizeInBytes();
-        int quarter2size = quarter2.getSizeInBytes();
-        int quarter3size = quarter3.getSizeInBytes();
-        int quarter4size = quarter4.getSizeInBytes();
+        List<Block> splitQuarter = splitBlock(block, 4);
+        long sizeInBytes = block.getSizeInBytes();
+        long quarter1size = splitQuarter.get(0).getSizeInBytes();
+        long quarter2size = splitQuarter.get(1).getSizeInBytes();
+        long quarter3size = splitQuarter.get(2).getSizeInBytes();
+        long quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
         assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
@@ -94,16 +108,44 @@ public class TestVariableWidthBlock
         assertEquals(quarter1size + quarter2size + quarter3size + quarter4size, sizeInBytes);
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Slice compactSlice = Slices.copyOf(createExpectedValue(16));
+        Slice incompactSlice = Slices.copyOf(createExpectedValue(20)).slice(0, 16);
+        int[] offsets = {0, 1, 1, 2, 4, 8, 16};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new VariableWidthBlock(0, EMPTY_SLICE, new int[1], Optional.empty()));
+        testCompactBlock(new VariableWidthBlock(valueIsNull.length, compactSlice, offsets, Optional.of(valueIsNull)));
+
+        testIncompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
+        // underlying slice is not compact
+        testIncompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
+    }
+
     private void assertVariableWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        return writeValues(expectedValues, blockBuilder);
+    }
+
+    private static BlockBuilder writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

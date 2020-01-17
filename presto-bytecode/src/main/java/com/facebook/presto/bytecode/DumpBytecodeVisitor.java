@@ -17,7 +17,7 @@ import com.facebook.presto.bytecode.control.CaseStatement;
 import com.facebook.presto.bytecode.control.DoWhileLoop;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.control.LookupSwitch;
+import com.facebook.presto.bytecode.control.SwitchStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.control.WhileLoop;
 import com.facebook.presto.bytecode.debug.LineNumberNode;
@@ -45,22 +45,25 @@ import com.facebook.presto.bytecode.instruction.VariableInstruction.StoreVariabl
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
-import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.bytecode.Access.INTERFACE;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.lang.String.format;
 
 public class DumpBytecodeVisitor
         extends BytecodeVisitor<Void>
 {
-    private final PrintStream out;
+    private final PrintWriter out;
     private int indentLevel;
 
-    public DumpBytecodeVisitor(PrintStream out)
+    public DumpBytecodeVisitor(Writer out)
     {
-        this.out = out;
+        this.out = new PrintWriter(out);
     }
 
     @Override
@@ -72,7 +75,11 @@ public class DumpBytecodeVisitor
         }
 
         // print class declaration
-        Line classDeclaration = line().addAll(classDefinition.getAccess()).add("class").add(classDefinition.getType().getJavaClassName());
+        Line classDeclaration = line().addAll(classDefinition.getAccess());
+        if (!classDefinition.getAccess().contains(INTERFACE)) {
+            classDeclaration.add("class");
+        }
+        classDeclaration.add(classDefinition.getType().getJavaClassName());
         if (!classDefinition.getSuperClass().equals(type(Object.class))) {
             classDeclaration.add("extends").add(classDefinition.getSuperClass().getJavaClassName());
         }
@@ -97,6 +104,9 @@ public class DumpBytecodeVisitor
         for (MethodDefinition methodDefinition : classDefinition.getMethods()) {
             visitMethod(classDefinition, methodDefinition);
         }
+
+        // print class initializer
+        visitMethod(classDefinition, classDefinition.getClassInitializer());
 
         indentLevel--;
         printLine("}");
@@ -382,18 +392,21 @@ public class DumpBytecodeVisitor
     }
 
     @Override
-    public Void visitLookupSwitch(BytecodeNode parent, LookupSwitch lookupSwitch)
+    public Void visitSwitch(BytecodeNode parent, SwitchStatement switchStatement)
     {
-        if (lookupSwitch.getComment() != null) {
+        if (switchStatement.getComment() != null) {
             printLine();
-            printLine("// %s", lookupSwitch.getComment());
+            printLine("// %s", switchStatement.getComment());
         }
         printLine("switch {");
         indentLevel++;
-        for (CaseStatement caseStatement : lookupSwitch.getCases()) {
-            printLine("case %s: goto %s", caseStatement.getKey(), caseStatement.getLabel().getName());
+        visitNestedNode("expression", switchStatement.expression(), switchStatement);
+        for (CaseStatement caseStatement : switchStatement.cases()) {
+            visitNestedNode(format("case %s:", caseStatement.getKey()), caseStatement.getBody(), switchStatement);
         }
-        printLine("default: goto %s", lookupSwitch.getDefaultCase().getName());
+        if (switchStatement.getDefaultBody() != null) {
+            visitNestedNode("default:", switchStatement.getDefaultBody(), switchStatement);
+        }
         indentLevel--;
         printLine("}");
         return null;
@@ -522,19 +535,19 @@ public class DumpBytecodeVisitor
 
     public void printLine(String line)
     {
-        out.println(String.format("%s%s", indent(indentLevel), line));
+        out.println(format("%s%s", indent(indentLevel), line));
     }
 
     public void printLine(String format, Object... args)
     {
-        String line = String.format(format, args);
-        out.println(String.format("%s%s", indent(indentLevel), line));
+        String line = format(format, args);
+        out.println(format("%s%s", indent(indentLevel), line));
     }
 
     public void printWords(String... words)
     {
         String line = Joiner.on(" ").join(words);
-        out.println(String.format("%s%s", indent(indentLevel), line));
+        out.println(format("%s%s", indent(indentLevel), line));
     }
 
     private String indent(int level)

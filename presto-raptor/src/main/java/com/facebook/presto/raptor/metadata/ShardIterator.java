@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 
@@ -54,7 +54,8 @@ final class ShardIterator
     private final Map<Integer, String> nodeMap = new HashMap<>();
 
     private final boolean merged;
-    private final Map<Integer, String> bucketToNode;
+    private final boolean tableSupportsDeltaDelete;
+    private final List<String> bucketToNode;
     private final ShardDao dao;
     private final Connection connection;
     private final PreparedStatement statement;
@@ -64,21 +65,22 @@ final class ShardIterator
     public ShardIterator(
             long tableId,
             boolean merged,
-            Optional<Map<Integer, String>> bucketToNode,
+            boolean tableSupportsDeltaDelete,
+            Optional<List<String>> bucketToNode,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             IDBI dbi)
     {
         this.merged = merged;
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
         this.bucketToNode = bucketToNode.orElse(null);
-        ShardPredicate predicate = ShardPredicate.create(effectivePredicate, bucketToNode.isPresent());
+        ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 
         String sql;
-        if (bucketToNode.isPresent()) {
-            sql = "SELECT shard_uuid, bucket_number FROM %s WHERE %s ORDER BY bucket_number";
-        }
-        else {
-            sql = "SELECT shard_uuid, node_ids FROM %s WHERE %s";
-        }
+        sql = "SELECT shard_uuid, " +
+                (tableSupportsDeltaDelete ? "delta_shard_uuid, " : "") +
+                (bucketToNode.isPresent() ? "bucket_number " : "node_ids ") +
+                "FROM %s WHERE %s " +
+                (bucketToNode.isPresent() ? "ORDER BY bucket_number" : "");
         sql = format(sql, shardIndexTable(tableId), predicate.getPredicate());
 
         dao = onDemandDao(dbi, ShardDao.class);
@@ -138,6 +140,7 @@ final class ShardIterator
         }
 
         UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+        Optional<UUID> deltaShardUuid = getDeltaShardUuidFromResultSet();
         Set<String> nodeIdentifiers;
         OptionalInt bucketNumber = OptionalInt.empty();
 
@@ -151,7 +154,7 @@ final class ShardIterator
             nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuid);
         }
 
-        ShardNodes shard = new ShardNodes(shardUuid, nodeIdentifiers);
+        ShardNodes shard = new ShardNodes(shardUuid, deltaShardUuid, nodeIdentifiers);
         return new BucketShards(bucketNumber, ImmutableSet.of(shard));
     }
 
@@ -176,10 +179,11 @@ final class ShardIterator
 
         do {
             UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+            Optional<UUID> deltaShardUuid = getDeltaShardUuidFromResultSet();
             int bucket = resultSet.getInt("bucket_number");
             Set<String> nodeIdentifiers = ImmutableSet.of(getBucketNode(bucket));
 
-            shards.add(new ShardNodes(shardUuid, nodeIdentifiers));
+            shards.add(new ShardNodes(shardUuid, deltaShardUuid, nodeIdentifiers));
         }
         while (resultSet.next() && resultSet.getInt("bucket_number") == bucketNumber);
 
@@ -217,5 +221,14 @@ final class ShardIterator
         for (RaptorNode node : dao.getNodes()) {
             nodeMap.put(node.getNodeId(), node.getNodeIdentifier());
         }
+    }
+
+    private Optional<UUID> getDeltaShardUuidFromResultSet()
+            throws SQLException
+    {
+        if (tableSupportsDeltaDelete && resultSet.getBytes("delta_shard_uuid") != null) {
+            return Optional.of(uuidFromBytes(resultSet.getBytes("delta_shard_uuid")));
+        }
+        return Optional.empty();
     }
 }

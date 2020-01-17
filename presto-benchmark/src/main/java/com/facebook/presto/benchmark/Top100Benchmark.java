@@ -15,16 +15,15 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class Top100Benchmark
         extends AbstractSimpleOperatorBenchmark
@@ -37,16 +36,15 @@ public class Top100Benchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
+        List<Type> tableScanTypes = getColumnTypes("orders", "totalprice");
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                tableScanOperator.getTypes(),
+                tableScanTypes,
                 100,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST),
-                false,
-                new DataSize(16, MEGABYTE));
+                ImmutableList.of(ASC_NULLS_LAST));
         return ImmutableList.of(tableScanOperator, topNOperator);
     }
 

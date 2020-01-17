@@ -1,0 +1,68 @@
+{
+  "rowCount" : 1920800,
+  "columns" : {
+    "cd_demo_sk" : {
+      "distinctValuesCount" : 1920800,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1920800,
+      "dataSize" : null
+    },
+    "cd_gender" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "F",
+      "max" : "M",
+      "dataSize" : 2
+    },
+    "cd_marital_status" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : "D",
+      "max" : "W",
+      "dataSize" : 5
+    },
+    "cd_education_status" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : "2 yr Degree",
+      "max" : "Unknown",
+      "dataSize" : 67
+    },
+    "cd_purchase_estimate" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : 500,
+      "max" : 10000,
+      "dataSize" : null
+    },
+    "cd_credit_rating" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Good",
+      "max" : "Unknown",
+      "dataSize" : 28
+    },
+    "cd_dep_count" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "cd_dep_employed_count" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "cd_dep_college_count" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 6,
+      "dataSize" : null
+    }
+  }
+}

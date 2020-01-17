@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,17 +27,17 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Predicates.not;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DistinctLimitNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final long limit;
     private final boolean partial;
-    private final Optional<Symbol> hashSymbol;
+    private final List<VariableReferenceExpression> distinctVariables;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public DistinctLimitNode(
@@ -43,14 +45,17 @@ public class DistinctLimitNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
         this.partial = partial;
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
+        this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
+        checkArgument(!hashVariable.isPresent() || !distinctVariables.contains(hashVariable.get()), "distinctVariables should not contain hash variable");
     }
 
     @Override
@@ -78,28 +83,34 @@ public class DistinctLimitNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
-    public List<Symbol> getDistinctSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getDistinctVariables()
     {
-        if (hashSymbol.isPresent()) {
-            return ImmutableList.copyOf(Iterables.filter(getOutputSymbols(), not(hashSymbol.get()::equals)));
-        }
-        return getOutputSymbols();
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return source.getOutputSymbols();
+        return distinctVariables;
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
+        outputVariables.addAll(distinctVariables);
+        hashVariable.ifPresent(outputVariables::add);
+        return outputVariables.build();
+    }
+    @Override
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDistinctLimit(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctVariables, hashVariable);
     }
 }

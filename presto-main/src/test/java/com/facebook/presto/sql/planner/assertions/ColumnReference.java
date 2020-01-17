@@ -15,12 +15,13 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +31,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnReference
-    implements RvalueMatcher
+        implements RvalueMatcher
 {
     private final String tableName;
     private final String columnName;
@@ -42,14 +43,26 @@ public class ColumnReference
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof TableScanNode)) {
+        TableHandle tableHandle;
+        Map<VariableReferenceExpression, ColumnHandle> assignments;
+
+        if (node instanceof TableScanNode) {
+            TableScanNode tableScanNode = (TableScanNode) node;
+            tableHandle = tableScanNode.getTable();
+            assignments = tableScanNode.getAssignments();
+        }
+        else if (node instanceof IndexSourceNode) {
+            IndexSourceNode indexSourceNode = (IndexSourceNode) node;
+            tableHandle = indexSourceNode.getTableHandle();
+            assignments = indexSourceNode.getAssignments();
+        }
+        else {
             return Optional.empty();
         }
 
-        TableScanNode tableScanNode = (TableScanNode) node;
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableScanNode.getTable());
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         String actualTableName = tableMetadata.getTable().getTableName();
 
         // Wrong table -> doesn't match.
@@ -57,17 +70,17 @@ public class ColumnReference
             return Optional.empty();
         }
 
-        Optional<ColumnHandle> columnHandle = getColumnHandle(tableScanNode.getTable(), session, metadata);
+        Optional<ColumnHandle> columnHandle = getColumnHandle(tableHandle, session, metadata);
 
         checkState(columnHandle.isPresent(), format("Table %s doesn't have column %s. Typo in test?", tableName, columnName));
 
-        return getAssignedSymbol(tableScanNode, columnHandle.get());
+        return getAssignedVariable(assignments, columnHandle.get());
     }
 
-    private Optional<Symbol> getAssignedSymbol(TableScanNode tableScanNode, ColumnHandle columnHandle)
+    private Optional<VariableReferenceExpression> getAssignedVariable(Map<VariableReferenceExpression, ColumnHandle> assignments, ColumnHandle columnHandle)
     {
-        Optional<Symbol> result = Optional.empty();
-        for (Map.Entry<Symbol, ColumnHandle> entry : tableScanNode.getAssignments().entrySet()) {
+        Optional<VariableReferenceExpression> result = Optional.empty();
+        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : assignments.entrySet()) {
             if (entry.getValue().equals(columnHandle)) {
                 checkState(!result.isPresent(), "Multiple ColumnHandles found for %s:%s in table scan assignments", tableName, columnName);
                 result = Optional.of(entry.getKey());

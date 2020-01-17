@@ -33,6 +33,6 @@ The query detail page has a summary section, graphical representation of various
 query and a list of tasks. Each task ID can be clicked to get more information about that task.
 
 The summary section has a button to kill the currently running query. There are two visualizations
-available in the summary section: task execution and timeline. The full JSON documentation containing
-information and statistics about the query is available by clicking the *Raw* link. These visualizations
+available in the summary section: task execution and timeline. The full JSON document containing
+information and statistics about the query is available by clicking the *JSON* link. These visualizations
 and other statistics can be used to analyze where time is being spent for a query.

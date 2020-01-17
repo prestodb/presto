@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.airlift.concurrent.MoreFutures;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import io.airlift.concurrent.MoreFutures;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
-
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -27,20 +25,12 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 class UpdateRequest
 {
-    private final Block[] blocks;
-    private final CompletableFuture<IndexSnapshot> indexSnapshotFuture = new CompletableFuture<>();
+    private final SettableFuture<IndexSnapshot> indexSnapshotFuture = SettableFuture.create();
     private final Page page;
 
-    public UpdateRequest(Block... blocks)
+    public UpdateRequest(Page page)
     {
-        this.blocks = requireNonNull(blocks, "blocks is null");
-        this.page = new Page(blocks);
-    }
-
-    @Deprecated
-    public Block[] getBlocks()
-    {
-        return blocks;
+        this.page = requireNonNull(page, "page is null");
     }
 
     public Page getPage()
@@ -51,12 +41,12 @@ class UpdateRequest
     public void finished(IndexSnapshot indexSnapshot)
     {
         requireNonNull(indexSnapshot, "indexSnapshot is null");
-        checkState(indexSnapshotFuture.complete(indexSnapshot), "Already finished!");
+        checkState(indexSnapshotFuture.set(indexSnapshot), "Already finished!");
     }
 
     public void failed(Throwable throwable)
     {
-        indexSnapshotFuture.completeExceptionally(throwable);
+        indexSnapshotFuture.setException(throwable);
     }
 
     public boolean isFinished()

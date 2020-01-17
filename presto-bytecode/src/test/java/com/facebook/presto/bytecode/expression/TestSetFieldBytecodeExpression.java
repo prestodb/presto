@@ -17,7 +17,6 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.google.common.base.Throwables;
 import org.testng.annotations.Test;
 
 import java.awt.Point;
@@ -86,7 +85,7 @@ public class TestSetFieldBytecodeExpression
             return clazz.getField(name);
         }
         catch (NoSuchFieldException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 }

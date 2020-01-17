@@ -14,12 +14,16 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnEncoding;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 public interface BinaryColumnEncoding
         extends ColumnEncoding
 {
+    void encodeValueInto(Block block, int position, SliceOutput output);
+
     int getValueOffset(Slice slice, int offset);
 
     int getValueLength(Slice slice, int offset);

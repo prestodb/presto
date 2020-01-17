@@ -15,18 +15,30 @@ package com.facebook.presto.tests;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
+
 public class TestLocalQueryRunner
         extends AbstractTestQueryFramework
 {
     public TestLocalQueryRunner()
     {
-        super(TestLocalQueries.createLocalQueryRunner());
+        super(TestLocalQueries::createLocalQueryRunner);
     }
 
     @Test
     public void testSimpleQuery()
-            throws Exception
     {
         assertQuery("SELECT * FROM nation");
+    }
+
+    @Test
+    public void testAnalyzeAccessControl()
+    {
+        assertAccessAllowed("ANALYZE nation");
+        assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
+        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*nationkey.*] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
     }
 }

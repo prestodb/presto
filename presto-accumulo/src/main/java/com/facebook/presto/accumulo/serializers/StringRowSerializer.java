@@ -22,7 +22,6 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
-import java.io.IOException;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -46,6 +45,8 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link StringRowSerializer} that encodes and decodes Presto column values as human-readable String objects.
@@ -60,7 +61,7 @@ public class StringRowSerializer
     private final Text qualifier = new Text();
     private final Text value = new Text();
 
-    private boolean rowOnly = false;
+    private boolean rowOnly;
     private String rowIdName;
 
     @Override
@@ -96,7 +97,6 @@ public class StringRowSerializer
 
     @Override
     public void deserialize(Entry<Key, Value> entry)
-            throws IOException
     {
         if (!columnValues.containsKey(rowIdName)) {
             entry.getKey().getRow(rowId);
@@ -163,13 +163,13 @@ public class StringRowSerializer
     @Override
     public Date getDate(String name)
     {
-        return new Date(Long.parseLong(getFieldValue(name)));
+        return new Date(DAYS.toMillis(Long.parseLong(getFieldValue(name))));
     }
 
     @Override
     public void setDate(Text text, Date value)
     {
-        text.set(Long.toString(value.getTime()).getBytes(UTF_8));
+        text.set(Long.toString(MILLISECONDS.toDays(value.getTime())).getBytes(UTF_8));
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
@@ -27,7 +28,16 @@ public class ReferenceCount
     private final SettableFuture<Void> freeFuture = SettableFuture.create();
 
     @GuardedBy("this")
-    private int count = 1;
+    private int count;
+
+    public ReferenceCount(int initialCount)
+    {
+        checkArgument(initialCount >= 0, "initialCount must not be negative, got %s", initialCount);
+        count = initialCount;
+        if (initialCount == 0) {
+            freeFuture.set(null);
+        }
+    }
 
     public ListenableFuture<Void> getFreeFuture()
     {

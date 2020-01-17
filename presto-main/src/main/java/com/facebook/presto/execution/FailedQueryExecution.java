@@ -16,17 +16,29 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.sql.planner.Plan;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
+import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -35,14 +47,12 @@ public class FailedQueryExecution
     private final Session session;
     private final Executor executor;
 
-    public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable cause)
+    public FailedQueryExecution(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, Executor executor, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
-        QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, cause);
-
-        queryInfo = queryStateMachine.getQueryInfo(Optional.empty());
+        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, queryType, cause);
     }
 
     @Override
@@ -64,6 +74,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public Plan getQueryPlan()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public VersionedMemoryPoolId getMemoryPool()
     {
         return new VersionedMemoryPoolId(GENERAL_POOL, 0);
@@ -76,15 +92,21 @@ public class FailedQueryExecution
     }
 
     @Override
-    public long getTotalMemoryReservation()
+    public DataSize getUserMemoryReservation()
     {
-        return 0;
+        return new DataSize(0, BYTE);
+    }
+
+    @Override
+    public DataSize getTotalMemoryReservation()
+    {
+        return new DataSize(0, BYTE);
     }
 
     @Override
     public Duration getTotalCpuTime()
     {
-        return new Duration(0, TimeUnit.SECONDS);
+        return new Duration(0, NANOSECONDS);
     }
 
     @Override
@@ -94,22 +116,69 @@ public class FailedQueryExecution
     }
 
     @Override
+    public DateTime getCreateTime()
+    {
+        return queryInfo.getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return queryInfo.getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getEndTime());
+    }
+
+    @Override
+    public Optional<ErrorCode> getErrorCode()
+    {
+        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
+    public BasicQueryInfo getBasicQueryInfo()
+    {
+        return new BasicQueryInfo(getQueryInfo());
+    }
+
+    @Override
+    public int getRunningTaskCount()
+    {
+        return 0;
+    }
+
+    @Override
     public void start()
     {
         // no-op
     }
 
     @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
+    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        return maxWait;
+        // no-op
+    }
+
+    @Override
+    public ListenableFuture<QueryState> getStateChange(QueryState currentState)
+    {
+        return immediateFuture(queryInfo.getState());
     }
 
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
+        executor.execute(() -> stateChangeListener.stateChanged(FAILED));
     }
 
     @Override
@@ -122,6 +191,12 @@ public class FailedQueryExecution
     public void fail(Throwable cause)
     {
         // no-op
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override

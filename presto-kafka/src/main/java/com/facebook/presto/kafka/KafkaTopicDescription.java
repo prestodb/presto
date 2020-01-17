@@ -16,6 +16,8 @@ package com.facebook.presto.kafka;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -28,24 +30,24 @@ public class KafkaTopicDescription
 {
     private final String tableName;
     private final String topicName;
-    private final String schemaName;
-    private final KafkaTopicFieldGroup key;
-    private final KafkaTopicFieldGroup message;
+    private final Optional<String> schemaName;
+    private final Optional<KafkaTopicFieldGroup> key;
+    private final Optional<KafkaTopicFieldGroup> message;
 
     @JsonCreator
     public KafkaTopicDescription(
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("topicName") String topicName,
-            @JsonProperty("key") KafkaTopicFieldGroup key,
-            @JsonProperty("message") KafkaTopicFieldGroup message)
+            @JsonProperty("key") Optional<KafkaTopicFieldGroup> key,
+            @JsonProperty("message") Optional<KafkaTopicFieldGroup> message)
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or is empty");
         this.tableName = tableName;
         this.topicName = requireNonNull(topicName, "topicName is null");
-        this.schemaName = schemaName;
-        this.key = key;
-        this.message = message;
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.key = requireNonNull(key, "key is null");
+        this.message = requireNonNull(message, "message is null");
     }
 
     @JsonProperty
@@ -61,19 +63,19 @@ public class KafkaTopicDescription
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public Optional<String> getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
-    public KafkaTopicFieldGroup getKey()
+    public Optional<KafkaTopicFieldGroup> getKey()
     {
         return key;
     }
 
     @JsonProperty
-    public KafkaTopicFieldGroup getMessage()
+    public Optional<KafkaTopicFieldGroup> getMessage()
     {
         return message;
     }

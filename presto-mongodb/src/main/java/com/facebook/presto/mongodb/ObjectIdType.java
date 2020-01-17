@@ -60,14 +60,14 @@ public class ObjectIdType
         }
 
         // TODO: There's no way to represent string value of a custom type
-        return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
+        return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         if (leftLength != rightLength) {
             return false;
         }
@@ -77,14 +77,14 @@ public class ObjectIdType
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, block.getLength(position));
+        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int leftLength = leftBlock.getLength(leftPosition);
-        int rightLength = rightBlock.getLength(rightPosition);
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
@@ -95,7 +95,7 @@ public class ObjectIdType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -103,7 +103,7 @@ public class ObjectIdType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getLength(position));
+        return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
     @Override

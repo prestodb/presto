@@ -27,7 +27,6 @@ public class HiveInsertTableHandle
 {
     @JsonCreator
     public HiveInsertTableHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
@@ -36,10 +35,10 @@ public class HiveInsertTableHandle
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
-            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat)
+            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec)
     {
         super(
-                clientId,
                 schemaName,
                 tableName,
                 inputColumns,
@@ -48,6 +47,7 @@ public class HiveInsertTableHandle
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                compressionCodec);
     }
 }

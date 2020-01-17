@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.PrestoException;
@@ -47,10 +46,11 @@ public class TestAtopHang
         queryRunner = createQueryRunner(ImmutableMap.of("atop.executable-path", tempPath + "/hanging_atop.sh", "atop.executable-read-timeout", "1s"), AtopProcessFactory.class);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test(timeOut = 60_000)

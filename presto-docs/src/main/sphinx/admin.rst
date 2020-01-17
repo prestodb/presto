@@ -7,5 +7,8 @@ Administration
 
     admin/web-interface
     admin/tuning
-    admin/queue
+    admin/properties
+    admin/spill
     admin/resource-groups
+    admin/session-property-managers
+    admin/dist-sort

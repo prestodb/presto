@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -55,7 +56,7 @@ public class BenchmarkPagesIndexPageSorter
     @Benchmark
     public int runBenchmark(BenchmarkData data)
     {
-        PageSorter pageSorter = new PagesIndexPageSorter();
+        PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         long[] addresses = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
         return addresses.length;
     }
@@ -92,10 +93,10 @@ public class BenchmarkPagesIndexPageSorter
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({ "2", "3", "4", "5" })
+        @Param({"2", "3", "4", "5"})
         private int numSortChannels;
 
-        @Param({ "BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN" })
+        @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String sortChannelType;
 
         private List<Page> pages;

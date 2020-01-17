@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import static java.util.Objects.requireNonNull;
+
 public class SchemaNotFoundException
         extends NotFoundException
 {
@@ -26,10 +28,7 @@ public class SchemaNotFoundException
     public SchemaNotFoundException(String schemaName, String message)
     {
         super(message);
-        if (schemaName == null) {
-            throw new NullPointerException("schemaName is null");
-        }
-        this.schemaName = schemaName;
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
     }
 
     public SchemaNotFoundException(String schemaName, Throwable cause)
@@ -40,10 +39,7 @@ public class SchemaNotFoundException
     public SchemaNotFoundException(String schemaName, String message, Throwable cause)
     {
         super(message, cause);
-        if (schemaName == null) {
-            throw new NullPointerException("schemaName is null");
-        }
-        this.schemaName = schemaName;
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
     }
 
     public String getSchemaName()

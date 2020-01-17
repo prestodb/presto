@@ -14,9 +14,12 @@
 package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -32,9 +35,9 @@ public final class ByteStreamCheckpoint
         this.inputStreamCheckpoint = inputStreamCheckpoint;
     }
 
-    public ByteStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public ByteStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {
-        inputStreamCheckpoint = createInputStreamCheckpoint(compressionKind, positionsList);
+        inputStreamCheckpoint = createInputStreamCheckpoint(compressed, positionsList);
         offset = positionsList.nextPosition();
     }
 
@@ -46,6 +49,14 @@ public final class ByteStreamCheckpoint
     public long getInputStreamCheckpoint()
     {
         return inputStreamCheckpoint;
+    }
+
+    public List<Integer> toPositionList(boolean compressed)
+    {
+        return ImmutableList.<Integer>builder()
+                .addAll(createInputStreamPositionList(compressed, inputStreamCheckpoint))
+                .add(offset)
+                .build();
     }
 
     @Override

@@ -16,102 +16,123 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.CursorProcessor;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.CursorProcessor;
+import com.facebook.presto.operator.project.PageFilter;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler
 {
-    private final Metadata metadata;
-
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
-            {
-                @Override
-                public Class<? extends PageProcessor> load(CacheKey key)
-                        throws Exception
-                {
-                    return compile(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
-                }
-            });
-
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
-            {
-                @Override
-                public Class<? extends CursorProcessor> load(CacheKey key)
-                        throws Exception
-                {
-                    return compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class);
-                }
-            });
+    private final PageFunctionCompiler pageFunctionCompiler;
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
+    private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
-    public ExpressionCompiler(Metadata metadata)
+    public ExpressionCompiler(Metadata metadata, PageFunctionCompiler pageFunctionCompiler)
     {
-        this.metadata = metadata;
+        requireNonNull(metadata, "metadata is null");
+        this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
+        this.cursorProcessors = CacheBuilder.newBuilder()
+                .recordStats()
+                .maximumSize(1000)
+                .build(CacheLoader.from(key -> compile(key.getSqlFunctionProperties(), key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
+        this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
     @Managed
-    public long getCacheSize()
+    @Nested
+    public CacheStatsMBean getCursorProcessorCache()
     {
-        return pageProcessors.size();
+        return cacheStatsMBean;
     }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+    public Supplier<CursorProcessor> compileCursorProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
     {
-        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(sqlFunctionProperties, filter, projections, uniqueKey));
         return () -> {
             try {
-                return cursorProcessor.newInstance();
+                return cursorProcessor.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(RowExpression filter, List<RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, classNameSuffix, OptionalInt.empty());
+    }
+
+    private Supplier<PageProcessor> compilePageProcessor(
+            SqlFunctionProperties sqlFunctionProperties,
+            Optional<RowExpression> filter,
+            List<? extends RowExpression> projections,
+            Optional<String> classNameSuffix,
+            OptionalInt initialBatchSize)
+    {
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix));
+        List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
+                .map(projection -> pageFunctionCompiler.compileProjection(sqlFunctionProperties, projection, classNameSuffix))
+                .collect(toImmutableList());
+
         return () -> {
-            try {
-                return pageProcessor.newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
+            Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
+                    .map(Supplier::get)
+                    .collect(toImmutableList());
+            return new PageProcessor(filterFunction, pageProjections, initialBatchSize);
         };
     }
 
-    private <T> Class<? extends T> compile(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    {
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty());
+    }
+
+    @VisibleForTesting
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
+    {
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+    }
+
+    private <T> Class<? extends T> compile(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
-            return compileProcessor(filter, projections, bodyCompiler, superType);
+            return compileProcessor(sqlFunctionProperties, filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());
@@ -119,9 +140,10 @@ public class ExpressionCompiler
     }
 
     private <T> Class<? extends T> compileProcessor(
+            SqlFunctionProperties sqlFunctionProperties,
             RowExpression filter,
             List<RowExpression> projections,
-            BodyCompiler<T> bodyCompiler,
+            BodyCompiler bodyCompiler,
             Class<? extends T> superType)
     {
         ClassDefinition classDefinition = new ClassDefinition(
@@ -131,7 +153,7 @@ public class ExpressionCompiler
                 type(superType));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        bodyCompiler.generateMethods(classDefinition, callSiteBinder, filter, projections);
+        bodyCompiler.generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filter, projections);
 
         //
         // toString method
@@ -158,18 +180,25 @@ public class ExpressionCompiler
 
     private static final class CacheKey
     {
-        private final RowExpression filter;
+        private final SqlFunctionProperties sqlFunctionProperties;
+        private final Optional<RowExpression> filter;
         private final List<RowExpression> projections;
         private final Object uniqueKey;
 
-        private CacheKey(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
         {
+            this.sqlFunctionProperties = sqlFunctionProperties;
             this.filter = filter;
             this.uniqueKey = uniqueKey;
             this.projections = ImmutableList.copyOf(projections);
         }
 
-        private RowExpression getFilter()
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            return sqlFunctionProperties;
+        }
+
+        private Optional<RowExpression> getFilter()
         {
             return filter;
         }
@@ -182,7 +211,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hash(filter, projections, uniqueKey);
+            return Objects.hash(sqlFunctionProperties, filter, projections, uniqueKey);
         }
 
         @Override
@@ -195,7 +224,8 @@ public class ExpressionCompiler
                 return false;
             }
             CacheKey other = (CacheKey) obj;
-            return Objects.equals(this.filter, other.filter) &&
+            return Objects.equals(this.sqlFunctionProperties, other.sqlFunctionProperties) &&
+                    Objects.equals(this.filter, other.filter) &&
                     Objects.equals(this.projections, other.projections) &&
                     Objects.equals(this.uniqueKey, other.uniqueKey);
         }
@@ -204,6 +234,7 @@ public class ExpressionCompiler
         public String toString()
         {
             return toStringHelper(this)
+                    .add("sqlFunctionProperties", sqlFunctionProperties)
                     .add("filter", filter)
                     .add("projections", projections)
                     .add("uniqueKey", uniqueKey)

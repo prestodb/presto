@@ -11,28 +11,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodHandle;
+import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
+import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayTransformFunction
@@ -40,12 +73,10 @@ public final class ArrayTransformFunction
 {
     public static final ArrayTransformFunction ARRAY_TRANSFORM_FUNCTION = new ArrayTransformFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayTransformFunction.class, "transform", Type.class, Type.class, Block.class, MethodHandle.class);
-
     private ArrayTransformFunction()
     {
         super(new Signature(
-                "transform",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "transform"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),
@@ -73,32 +104,102 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type inputType = boundVariables.getTypeVariable("T");
         Type outputType = boundVariables.getTypeVariable("U");
-        return new ScalarFunctionImplementation(
+        Class<?> generatedClass = generateTransform(inputType, outputType);
+        return new BuiltInScalarFunctionImplementation(
                 false,
-                ImmutableList.of(false, false),
-                METHOD_HANDLE.bindTo(inputType).bindTo(outputType),
-                isDeterministic());
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
+                methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
+                Optional.of(methodHandle(generatedClass, "createPageBuilder")));
     }
 
-    public static Block transform(Type inputType, Type outputType, Block block, MethodHandle function)
+    private static Class<?> generateTransform(Type inputType, Type outputType)
     {
-        int positionCount = block.getPositionCount();
-        BlockBuilder resultBuilder = outputType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Object input = readNativeValue(inputType, block, position);
-            Object output;
-            try {
-                output = function.invoke(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
-            writeNativeValue(outputType, resultBuilder, output);
+        CallSiteBinder binder = new CallSiteBinder();
+        Class<?> inputJavaType = Primitives.wrap(inputType.getJavaType());
+        Class<?> outputJavaType = Primitives.wrap(outputType.getJavaType());
+
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("ArrayTransform"),
+                type(Object.class));
+        definition.declareDefaultConstructor(a(PRIVATE));
+
+        // define createPageBuilder
+        MethodDefinition createPageBuilderMethod = definition.declareMethod(a(PUBLIC, STATIC), "createPageBuilder", type(PageBuilder.class));
+        createPageBuilderMethod.getBody()
+                .append(newInstance(PageBuilder.class, constantType(binder, new ArrayType(outputType)).invoke("getTypeParameters", List.class)).ret());
+
+        // define transform method
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        Parameter block = arg("block", Block.class);
+        Parameter function = arg("function", UnaryFunctionInterface.class);
+
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC, STATIC),
+                "transform",
+                type(Block.class),
+                ImmutableList.of(pageBuilder, block, function));
+
+        BytecodeBlock body = method.getBody();
+        Scope scope = method.getScope();
+        Variable positionCount = scope.declareVariable(int.class, "positionCount");
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder");
+        Variable inputElement = scope.declareVariable(inputJavaType, "inputElement");
+        Variable outputElement = scope.declareVariable(outputJavaType, "outputElement");
+
+        // invoke block.getPositionCount()
+        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+
+        // reset page builder if it is full
+        body.append(new IfStatement()
+                .condition(pageBuilder.invoke("isFull", boolean.class))
+                .ifTrue(pageBuilder.invoke("reset", void.class)));
+
+        // get block builder
+        body.append(blockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(0))));
+
+        BytecodeNode loadInputElement;
+        if (!inputType.equals(UNKNOWN)) {
+            loadInputElement = new IfStatement()
+                    .condition(block.invoke("isNull", boolean.class, position))
+                    .ifTrue(inputElement.set(constantNull(inputJavaType)))
+                    .ifFalse(inputElement.set(constantType(binder, inputType).getValue(block, position).cast(inputJavaType)));
         }
-        return resultBuilder.build();
+        else {
+            loadInputElement = new BytecodeBlock().append(inputElement.set(constantNull(inputJavaType)));
+        }
+
+        BytecodeNode writeOutputElement;
+        if (!outputType.equals(UNKNOWN)) {
+            writeOutputElement = new IfStatement()
+                    .condition(equal(outputElement, constantNull(outputJavaType)))
+                    .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, outputType).writeValue(blockBuilder, outputElement.cast(outputType.getJavaType())));
+        }
+        else {
+            writeOutputElement = new BytecodeBlock().append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+        }
+
+        body.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, positionCount))
+                .update(incrementVariable(position, (byte) 1))
+                .body(new BytecodeBlock()
+                        .append(loadInputElement)
+                        .append(outputElement.set(function.invoke("apply", Object.class, inputElement.cast(Object.class)).cast(outputJavaType)))
+                        .append(writeOutputElement)));
+
+        body.append(pageBuilder.invoke("declarePositions", void.class, positionCount));
+
+        body.append(blockBuilder.invoke("getRegion", Block.class, subtract(blockBuilder.invoke("getPositionCount", int.class), positionCount), positionCount).ret());
+
+        return defineClass(definition, Object.class, binder.getBindings(), ArrayTransformFunction.class.getClassLoader());
     }
 }

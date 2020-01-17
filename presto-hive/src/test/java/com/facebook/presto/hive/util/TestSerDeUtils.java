@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -39,9 +39,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -52,6 +52,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
@@ -67,6 +68,8 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+
     private static class ListHolder
     {
         List<InnerStruct> array;
@@ -115,54 +118,54 @@ public class TestSerDeUtils
     public void testPrimitiveSlice()
     {
         // boolean
-        Block expectedBoolean = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeByte(1).closeEntry().build();
+        Block expectedBoolean = VARBINARY.createBlockBuilder(null, 1).writeByte(1).closeEntry().build();
         Block actualBoolean = toBinaryBlock(BOOLEAN, true, getInspector(Boolean.class));
         assertBlockEquals(actualBoolean, expectedBoolean);
 
         // byte
-        Block expectedByte = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeByte(5).closeEntry().build();
+        Block expectedByte = VARBINARY.createBlockBuilder(null, 1).writeByte(5).closeEntry().build();
         Block actualByte = toBinaryBlock(TINYINT, (byte) 5, getInspector(Byte.class));
         assertBlockEquals(actualByte, expectedByte);
 
         // short
-        Block expectedShort = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeShort(2).closeEntry().build();
+        Block expectedShort = VARBINARY.createBlockBuilder(null, 1).writeShort(2).closeEntry().build();
         Block actualShort = toBinaryBlock(SMALLINT, (short) 2, getInspector(Short.class));
         assertBlockEquals(actualShort, expectedShort);
 
         // int
-        Block expectedInt = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeInt(1).closeEntry().build();
+        Block expectedInt = VARBINARY.createBlockBuilder(null, 1).writeInt(1).closeEntry().build();
         Block actualInt = toBinaryBlock(INTEGER, 1, getInspector(Integer.class));
         assertBlockEquals(actualInt, expectedInt);
 
         // long
-        Block expectedLong = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(10).closeEntry().build();
+        Block expectedLong = VARBINARY.createBlockBuilder(null, 1).writeLong(10).closeEntry().build();
         Block actualLong = toBinaryBlock(BIGINT, 10L, getInspector(Long.class));
         assertBlockEquals(actualLong, expectedLong);
 
         // float
-        Block expectedFloat = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeInt(floatToRawIntBits(20.0f)).closeEntry().build();
+        Block expectedFloat = VARBINARY.createBlockBuilder(null, 1).writeInt(floatToRawIntBits(20.0f)).closeEntry().build();
         Block actualFloat = toBinaryBlock(REAL, 20.0f, getInspector(Float.class));
         assertBlockEquals(actualFloat, expectedFloat);
 
         // double
-        Block expectedDouble = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
+        Block expectedDouble = VARBINARY.createBlockBuilder(null, 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
         Block actualDouble = toBinaryBlock(DOUBLE, 30.12d, getInspector(Double.class));
         assertBlockEquals(actualDouble, expectedDouble);
 
         // string
-        Block expectedString = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeBytes(utf8Slice("abdd"), 0, 4).closeEntry().build();
+        Block expectedString = VARBINARY.createBlockBuilder(null, 1).writeBytes(utf8Slice("abdd"), 0, 4).closeEntry().build();
         Block actualString = toBinaryBlock(createUnboundedVarcharType(), "abdd", getInspector(String.class));
         assertBlockEquals(actualString, expectedString);
 
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(dateTime.getMillis()).closeEntry().build();
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
         Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
         byte[] byteArray = {81, 82, 84, 85};
-        Block expectedBinary = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
+        Block expectedBinary = VARBINARY.createBlockBuilder(null, 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
         Block actualBinary = toBinaryBlock(createUnboundedVarcharType(), byteArray, getInspector(byte[].class));
         assertBlockEquals(actualBinary, expectedBinary);
     }
@@ -176,10 +179,10 @@ public class TestSerDeUtils
         ListHolder listHolder = new ListHolder();
         listHolder.array = array;
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        com.facebook.presto.spi.type.Type arrayOfRowType = new RowType(ImmutableList.of(new ArrayType(rowType)), Optional.empty());
+        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        com.facebook.presto.spi.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
         Block actual = toBinaryBlock(arrayOfRowType, listHolder, getInspector(ListHolder.class));
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1024);
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 8, 9L));
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 10, 11L));
         Block expected = rowBlockOf(ImmutableList.of(new ArrayType(rowType)), blockBuilder.build());
@@ -200,16 +203,16 @@ public class TestSerDeUtils
         holder.map.put("twelve", new InnerStruct(13, 14L));
         holder.map.put("fifteen", new InnerStruct(16, 17L));
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
-        com.facebook.presto.spi.type.Type mapOfVarcharRowType = new RowType(ImmutableList.of(new MapType(createUnboundedVarcharType(), rowType)), Optional.empty());
-        Block actual = toBinaryBlock(mapOfVarcharRowType, holder, getInspector(MapHolder.class));
+        RowType rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        RowType rowOfMapOfVarcharRowType = RowType.anonymous(ImmutableList.of(mapType(VARCHAR, rowType)));
+        Block actual = toBinaryBlock(rowOfMapOfVarcharRowType, holder, getInspector(MapHolder.class));
 
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(createUnboundedVarcharType(), rowType), new BlockBuilderStatus(), 1024);
-        createUnboundedVarcharType().writeString(blockBuilder, "fifteen");
-        rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 16, 17L));
-        createUnboundedVarcharType().writeString(blockBuilder, "twelve");
-        rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L));
-        Block expected = rowBlockOf(ImmutableList.of(new MapType(createUnboundedVarcharType(), rowType)), blockBuilder);
+        Block mapBlock = mapBlockOf(
+                VARCHAR,
+                rowType,
+                new Object[] {utf8Slice("fifteen"), utf8Slice("twelve")},
+                new Object[] {rowBlockOf(rowType.getTypeParameters(), 16, 17L), rowBlockOf(rowType.getTypeParameters(), 13, 14L)});
+        Block expected = rowBlockOf(ImmutableList.of(mapType(VARCHAR, rowType)), mapBlock);
 
         assertBlockEquals(actual, expected);
     }
@@ -220,7 +223,7 @@ public class TestSerDeUtils
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
 
-        com.facebook.presto.spi.type.Type rowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
+        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         Block actual = toBinaryBlock(rowType, innerStruct, getInspector(InnerStruct.class));
 
         Block expected = rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L);
@@ -246,11 +249,11 @@ public class TestSerDeUtils
         outerStruct.map.put("fifteen", new InnerStruct(-5, -10L));
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
-        com.facebook.presto.spi.type.Type innerRowType = new RowType(ImmutableList.of(INTEGER, BIGINT), Optional.empty());
+        com.facebook.presto.spi.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         com.facebook.presto.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
-        com.facebook.presto.spi.type.Type mapOfInnerRowType = new MapType(createUnboundedVarcharType(), innerRowType);
+        com.facebook.presto.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
         List<com.facebook.presto.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
-        com.facebook.presto.spi.type.Type outerRowType = new RowType(outerRowParameterTypes, Optional.empty());
+        com.facebook.presto.spi.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
 
         actual = toBinaryBlock(outerRowType, outerStruct, getInspector(OuterStruct.class));
 
@@ -263,13 +266,12 @@ public class TestSerDeUtils
         outerRowValues.add(6.001d);
         outerRowValues.add("seven");
         outerRowValues.add(new byte[] {'2'});
-        outerRowValues.add(arrayBlockOf(innerRowType, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 2, -5L), rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -10, 0L)));
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(createUnboundedVarcharType(), innerRowType), new BlockBuilderStatus(), 1024);
-        createUnboundedVarcharType().writeString(blockBuilder, "fifteen");
-        innerRowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -5, -10L));
-        createUnboundedVarcharType().writeString(blockBuilder, "twelve");
-        innerRowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 0, 5L));
-        outerRowValues.add(blockBuilder.build());
+        outerRowValues.add(arrayBlockOf(innerRowType, rowBlockOf(innerRowType.getTypeParameters(), 2, -5L), rowBlockOf(ImmutableList.of(INTEGER, BIGINT), -10, 0L)));
+        outerRowValues.add(mapBlockOf(
+                VARCHAR,
+                innerRowType,
+                new Object[] {utf8Slice("fifteen"), utf8Slice("twelve")},
+                new Object[] {rowBlockOf(innerRowType.getTypeParameters(), -5, -10L), rowBlockOf(innerRowType.getTypeParameters(), 0, 5L)}));
         outerRowValues.add(rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 18, 19L));
 
         assertBlockEquals(actual, rowBlockOf(outerRowParameterTypes, outerRowValues.build().toArray()));
@@ -277,7 +279,6 @@ public class TestSerDeUtils
 
     @Test
     public void testReuse()
-            throws Exception
     {
         BytesWritable value = new BytesWritable();
 
@@ -290,22 +291,22 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(new MapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);
     }
 
-    private static void assertBlockEquals(Block actual, Block expected)
+    private void assertBlockEquals(Block actual, Block expected)
     {
         assertEquals(blockToSlice(actual), blockToSlice(expected));
     }
 
-    private static Slice blockToSlice(Block block)
+    private Slice blockToSlice(Block block)
     {
         // This function is strictly for testing use only
         SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block.copyRegion(0, block.getPositionCount()));
+        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
         return sliceOutput.slice();
     }
 
@@ -319,7 +320,7 @@ public class TestSerDeUtils
 
     private static Block getPrimitiveBlock(com.facebook.presto.spi.type.Type type, Object object, ObjectInspector inspector)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
         serializeObject(type, builder, object, inspector);
         return builder.build();
     }

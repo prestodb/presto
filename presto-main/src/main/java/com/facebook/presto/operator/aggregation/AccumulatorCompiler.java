@@ -25,13 +25,19 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ColumnarRow;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.WindowIndex;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.Binding;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.collect.ImmutableList;
@@ -48,19 +54,28 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class AccumulatorCompiler
 {
@@ -81,8 +96,7 @@ public class AccumulatorCompiler
                 classLoader);
 
         return new GenericAccumulatorFactoryBinder(
-                metadata.getStateSerializer(),
-                metadata.getStateFactory(),
+                metadata.getAccumulatorStateDescriptors(),
                 accumulatorClass,
                 groupedAccumulatorClass);
     }
@@ -102,57 +116,111 @@ public class AccumulatorCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        AccumulatorStateSerializer<?> stateSerializer = metadata.getStateSerializer();
-        AccumulatorStateFactory<?> stateFactory = metadata.getStateFactory();
+        List<AccumulatorStateDescriptor> stateDescriptors = metadata.getAccumulatorStateDescriptors();
+        List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
+        for (int i = 0; i < stateDescriptors.size(); i++) {
+            stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
+                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
+                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
+                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? stateDescriptors.get(i).getFactory().getGroupedStateClass() : stateDescriptors.get(i).getFactory().getSingleStateClass()),
+                    stateDescriptors.get(i)));
+        }
+        List<FieldDefinition> stateFileds = stateFieldAndDescriptors.stream()
+                .map(StateFieldAndDescriptor::getStateField)
+                .collect(toImmutableList());
 
-        FieldDefinition stateSerializerField = definition.declareField(a(PRIVATE, FINAL), "stateSerializer", AccumulatorStateSerializer.class);
-        FieldDefinition stateFactoryField = definition.declareField(a(PRIVATE, FINAL), "stateFactory", AccumulatorStateFactory.class);
+        int lambdaCount = metadata.getLambdaInterfaces().size();
+        List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
+        for (int i = 0; i < lambdaCount; i++) {
+            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
+        }
+
         FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
         FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
-        FieldDefinition stateField = definition.declareField(a(PRIVATE, FINAL), "state", grouped ? stateFactory.getGroupedStateClass() : stateFactory.getSingleStateClass());
 
         // Generate constructor
         generateConstructor(
                 definition,
-                stateSerializerField,
-                stateFactoryField,
+                stateFieldAndDescriptors,
                 inputChannelsField,
                 maskChannelField,
-                stateField,
+                lambdaProviderFields,
                 grouped);
 
         // Generate methods
-        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
-        generateGetEstimatedSize(definition, stateField);
-        generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
+        generateAddInput(
+                definition,
+                stateFileds,
+                inputChannelsField,
+                maskChannelField,
+                metadata.getValueInputMetadata(),
+                metadata.getLambdaInterfaces(),
+                lambdaProviderFields,
+                metadata.getInputFunction(),
+                callSiteBinder,
+                grouped);
+        generateAddInputWindowIndex(
+                definition,
+                stateFileds,
+                metadata.getValueInputMetadata(),
+                metadata.getLambdaInterfaces(),
+                lambdaProviderFields,
+                metadata.getInputFunction(),
+                callSiteBinder);
+        generateGetEstimatedSize(definition, stateFileds);
+
+        generateGetIntermediateType(
+                definition,
+                callSiteBinder,
+                stateDescriptors.stream()
+                        .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                        .collect(toImmutableList()));
+
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
 
-        generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), callSiteBinder, grouped);
+        generateAddIntermediateAsCombine(
+                definition,
+                stateFieldAndDescriptors,
+                metadata.getLambdaInterfaces(),
+                lambdaProviderFields,
+                metadata.getCombineFunction(),
+                callSiteBinder,
+                grouped);
 
         if (grouped) {
-            generateGroupedEvaluateIntermediate(definition, stateSerializerField, stateField);
+            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors);
         }
         else {
-            generateEvaluateIntermediate(definition, stateSerializerField, stateField);
+            generateEvaluateIntermediate(definition, stateFieldAndDescriptors);
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateField, metadata.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateField, metadata.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
         }
 
+        if (grouped) {
+            generatePrepareFinal(definition);
+        }
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
     }
 
-    private static MethodDefinition generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, Type type)
+    private static MethodDefinition generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, List<Type> type)
     {
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
 
-        methodDefinition.getBody()
-                .append(constantType(callSiteBinder, type))
-                .retObject();
+        if (type.size() == 1) {
+            methodDefinition.getBody()
+                    .append(constantType(callSiteBinder, getOnlyElement(type)))
+                    .retObject();
+        }
+        else {
+            methodDefinition.getBody()
+                    .append(constantType(callSiteBinder, RowType.withDefaultFieldNames(type)))
+                    .retObject();
+        }
 
         return methodDefinition;
     }
@@ -168,20 +236,30 @@ public class AccumulatorCompiler
         return methodDefinition;
     }
 
-    private static void generateGetEstimatedSize(ClassDefinition definition, FieldDefinition stateField)
+    private static void generateGetEstimatedSize(ClassDefinition definition, List<FieldDefinition> stateFields)
     {
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
-        BytecodeExpression state = method.getThis().getField(stateField);
-        method.getBody()
-                .append(state.invoke("getEstimatedSize", long.class).ret());
+        Variable estimatedSize = method.getScope().declareVariable(long.class, "estimatedSize");
+        method.getBody().append(estimatedSize.set(constantLong(0L)));
+
+        for (FieldDefinition stateField : stateFields) {
+            method.getBody()
+                    .append(estimatedSize.set(
+                            BytecodeExpressions.add(
+                                    estimatedSize,
+                                    method.getThis().getField(stateField).invoke("getEstimatedSize", long.class))));
+        }
+        method.getBody().append(estimatedSize.ret());
     }
 
     private static void generateAddInput(
             ClassDefinition definition,
-            FieldDefinition stateField,
+            List<FieldDefinition> stateField,
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -229,18 +307,181 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        BytecodeBlock block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, scope, parameterVariables, masksBlock, callSiteBinder, grouped);
+        BytecodeBlock block = generateInputForLoop(
+                stateField,
+                parameterMetadatas,
+                inputFunction,
+                scope,
+                parameterVariables,
+                lambdaInterfaces,
+                lambdaProviderFields,
+                masksBlock,
+                callSiteBinder,
+                grouped);
 
         body.append(block);
         body.ret();
     }
 
+    private static void generateAddInputWindowIndex(
+            ClassDefinition definition,
+            List<FieldDefinition> stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
+            MethodHandle inputFunction,
+            CallSiteBinder callSiteBinder)
+    {
+        // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
+
+        Parameter index = arg("index", WindowIndex.class);
+        Parameter channels = arg("channels", type(List.class, Integer.class));
+        Parameter startPosition = arg("startPosition", int.class);
+        Parameter endPosition = arg("endPosition", int.class);
+
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
+        Scope scope = method.getScope();
+
+        Variable position = scope.declareVariable(int.class, "position");
+
+        Binding binding = callSiteBinder.bind(inputFunction);
+        BytecodeExpression invokeInputFunction = invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(binding.getBindingId()),
+                "input",
+                binding.getType(),
+                getInvokeFunctionOnWindowIndexParameters(
+                        scope,
+                        inputFunction.type().parameterArray(),
+                        parameterMetadatas,
+                        lambdaInterfaces,
+                        lambdaProviderFields,
+                        stateField,
+                        index,
+                        channels,
+                        position));
+
+        method.getBody()
+                .append(new ForLoop()
+                        .initialize(position.set(startPosition))
+                        .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
+                        .update(position.increment())
+                        .body(new IfStatement()
+                                .condition(anyParametersAreNull(parameterMetadatas, index, channels, position))
+                                .ifFalse(invokeInputFunction)))
+                .ret();
+    }
+
+    private static BytecodeExpression anyParametersAreNull(
+            List<ParameterMetadata> parameterMetadatas,
+            Variable index,
+            Variable channels,
+            Variable position)
+    {
+        int inputChannel = 0;
+
+        BytecodeExpression isNull = constantFalse();
+        for (ParameterMetadata parameterMetadata : parameterMetadatas) {
+            switch (parameterMetadata.getParameterType()) {
+                case BLOCK_INPUT_CHANNEL:
+                case INPUT_CHANNEL:
+                    BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
+                    isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, getChannel, position));
+                    inputChannel++;
+                    break;
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    inputChannel++;
+                    break;
+            }
+        }
+
+        return isNull;
+    }
+
+    private static List<BytecodeExpression> getInvokeFunctionOnWindowIndexParameters(
+            Scope scope,
+            Class<?>[] parameterTypes,
+            List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
+            List<FieldDefinition> stateField,
+            Variable index,
+            Variable channels,
+            Variable position)
+    {
+        int inputChannel = 0;
+        int stateIndex = 0;
+        verify(parameterTypes.length == parameterMetadatas.size() + lambdaInterfaces.size());
+        List<BytecodeExpression> expressions = new ArrayList<>();
+
+        for (int i = 0; i < parameterMetadatas.size(); i++) {
+            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+            Class<?> parameterType = parameterTypes[i];
+            BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
+            switch (parameterMetadata.getParameterType()) {
+                case STATE:
+                    expressions.add(scope.getThis().getField(stateField.get(stateIndex)));
+                    stateIndex++;
+                    break;
+                case BLOCK_INDEX:
+                    // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    expressions.add(constantInt(0));
+                    break;
+                case BLOCK_INPUT_CHANNEL:
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    expressions.add(index.invoke(
+                            "getSingleValueBlock",
+                            Block.class,
+                            getChannel,
+                            position));
+                    inputChannel++;
+                    break;
+                case INPUT_CHANNEL:
+                    if (parameterType == long.class) {
+                        expressions.add(index.invoke("getLong", long.class, getChannel, position));
+                    }
+                    else if (parameterType == double.class) {
+                        expressions.add(index.invoke("getDouble", double.class, getChannel, position));
+                    }
+                    else if (parameterType == boolean.class) {
+                        expressions.add(index.invoke("getBoolean", boolean.class, getChannel, position));
+                    }
+                    else if (parameterType == Slice.class) {
+                        expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
+                    }
+                    else if (parameterType == Block.class) {
+                        // Even though the method signature requires a Block parameter, we can pass an Object here.
+                        // A runtime check will assert that the Object passed as a parameter is actually of type Block.
+                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
+                    }
+                    else {
+                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+                    }
+
+                    inputChannel++;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
+            }
+        }
+
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            expressions.add(scope.getThis().getField(lambdaProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
+        }
+
+        return expressions;
+    }
+
     private static BytecodeBlock generateInputForLoop(
-            FieldDefinition stateField,
+            List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
             Variable masksBlock,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -256,7 +497,17 @@ public class AccumulatorCompiler
                 .putVariable(rowsVariable)
                 .initializeVariable(positionVariable);
 
-        BytecodeNode loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
+        BytecodeNode loopBody = generateInvokeInputFunction(
+                scope,
+                stateField,
+                positionVariable,
+                parameterVariables,
+                parameterMetadatas,
+                lambdaInterfaces,
+                lambdaProviderFields,
+                inputFunction,
+                callSiteBinder,
+                grouped);
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
@@ -306,10 +557,12 @@ public class AccumulatorCompiler
 
     private static BytecodeBlock generateInvokeInputFunction(
             Scope scope,
-            FieldDefinition stateField,
+            List<FieldDefinition> stateField,
             Variable position,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -324,11 +577,14 @@ public class AccumulatorCompiler
 
         Class<?>[] parameters = inputFunction.type().parameterArray();
         int inputChannel = 0;
-        for (int i = 0; i < parameters.length; i++) {
+        int stateIndex = 0;
+        verify(parameters.length == parameterMetadatas.size() + lambdaInterfaces.size());
+        for (int i = 0; i < parameterMetadatas.size(); i++) {
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             switch (parameterMetadata.getParameterType()) {
                 case STATE:
-                    block.append(scope.getThis().getField(stateField));
+                    block.append(scope.getThis().getField(stateField.get(stateIndex)));
+                    stateIndex++;
                     break;
                 case BLOCK_INDEX:
                     block.getVariable(position);
@@ -347,6 +603,11 @@ public class AccumulatorCompiler
                 default:
                     throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
             }
+        }
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            block.append(scope.getThis().getField(lambdaProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
         }
 
         block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
@@ -396,11 +657,10 @@ public class AccumulatorCompiler
 
     private static void generateAddIntermediateAsCombine(
             ClassDefinition definition,
-            FieldDefinition stateField,
-            FieldDefinition stateSerializerField,
-            FieldDefinition stateFactoryField,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
             MethodHandle combineFunction,
-            Class<?> singleStateClass,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
@@ -409,33 +669,73 @@ public class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        Variable block = scope.getVariable("block");
-        Variable scratchState = scope.declareVariable(singleStateClass, "scratchState");
-        Variable position = scope.declareVariable(int.class, "position");
+        int stateCount = stateFieldAndDescriptors.size();
+        List<Variable> scratchStates = new ArrayList<>();
+        for (int i = 0; i < stateCount; i++) {
+            Class<?> scratchStateClass = stateFieldAndDescriptors.get(i).getStateDescriptor().getFactory().getSingleStateClass();
+            scratchStates.add(scope.declareVariable(scratchStateClass, "scratchState_" + i));
+        }
 
-        body.comment("scratchState = stateFactory.createSingleState();")
-                .append(thisVariable.getField(stateFactoryField))
-                .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
-                .checkCast(scratchState.getType())
-                .putVariable(scratchState);
+        List<Variable> block;
+        if (stateCount == 1) {
+            block = ImmutableList.of(scope.getVariable("block"));
+        }
+        else {
+            // ColumnarRow is used to get the column blocks represents each state, this allows to
+            //  1. handle single state and multiple states in a unified way
+            //  2. avoid the cost of constructing SingleRowBlock for each group
+            Variable columnarRow = scope.declareVariable(ColumnarRow.class, "columnarRow");
+            body.append(columnarRow.set(
+                    invokeStatic(ColumnarRow.class, "toColumnarRow", ColumnarRow.class, scope.getVariable("block"))));
+
+            block = new ArrayList<>();
+            for (int i = 0; i < stateCount; i++) {
+                Variable columnBlock = scope.declareVariable(Block.class, "columnBlock_" + i);
+                body.append(columnBlock.set(
+                        columnarRow.invoke("getField", Block.class, constantInt(i))));
+                block.add(columnBlock);
+            }
+        }
+
+        Variable position = scope.declareVariable(int.class, "position");
+        for (int i = 0; i < stateCount; i++) {
+            FieldDefinition stateFactoryField = stateFieldAndDescriptors.get(i).getStateFactoryField();
+            body.comment(format("scratchState_%s = stateFactory[%s].createSingleState();", i, i))
+                    .append(thisVariable.getField(stateFactoryField))
+                    .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
+                    .checkCast(scratchStates.get(i).getType())
+                    .putVariable(scratchStates.get(i));
+        }
+
+        List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
+                .map(StateFieldAndDescriptor::getStateField)
+                .collect(toImmutableList());
 
         if (grouped) {
-            generateEnsureCapacity(scope, stateField, body);
+            generateEnsureCapacity(scope, stateFields, body);
         }
 
         BytecodeBlock loopBody = new BytecodeBlock();
 
-        if (grouped) {
-            Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
-            loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+        loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
+        for (FieldDefinition stateField : stateFields) {
+            if (grouped) {
+                Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
+                loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+            }
+            loopBody.append(thisVariable.getField(stateField));
         }
-
-        loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block, position, scratchState.cast(Object.class)));
-
-        loopBody.comment("combine(state, scratchState)")
-                .append(thisVariable.getField(stateField))
-                .append(scratchState)
-                .append(invoke(callSiteBinder.bind(combineFunction), "combine"));
+        for (int i = 0; i < stateCount; i++) {
+            FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
+            loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(Object.class)));
+            loopBody.append(scratchStates.get(i));
+        }
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            loopBody.append(scope.getThis().getField(lambdaProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
+        }
+        loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
         if (grouped) {
             // skip rows with null group id
@@ -450,19 +750,23 @@ public class AccumulatorCompiler
                 .ret();
     }
 
-    private static void generateSetGroupIdFromGroupIdsBlock(Scope scope, FieldDefinition stateField, BytecodeBlock block)
+    private static void generateSetGroupIdFromGroupIdsBlock(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block)
     {
         Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
         Variable position = scope.getVariable("position");
-        BytecodeExpression state = scope.getThis().getField(stateField);
-        block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+        for (FieldDefinition stateField : stateFields) {
+            BytecodeExpression state = scope.getThis().getField(stateField);
+            block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+        }
     }
 
-    private static void generateEnsureCapacity(Scope scope, FieldDefinition stateField, BytecodeBlock block)
+    private static void generateEnsureCapacity(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block)
     {
         Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
-        BytecodeExpression state = scope.getThis().getField(stateField);
-        block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
+        for (FieldDefinition stateField : stateFields) {
+            BytecodeExpression state = scope.getThis().getField(stateField);
+            block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
+        }
     }
 
     private static MethodDefinition declareAddIntermediate(ClassDefinition definition, boolean grouped)
@@ -511,23 +815,40 @@ public class AccumulatorCompiler
         return block;
     }
 
-    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
+    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
 
         Variable thisVariable = method.getThis();
-        BytecodeExpression state = thisVariable.getField(stateField);
-        BytecodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
+        BytecodeBlock body = method.getBody();
 
-        method.getBody()
-                .append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
-                .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
-                .ret();
+        if (stateFieldAndDescriptors.size() == 1) {
+            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
+            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+
+            body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
+                    .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
+                    .ret();
+        }
+        else {
+            Variable rowBuilder = method.getScope().declareVariable(BlockBuilder.class, "rowBuilder");
+            body.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
+
+            for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
+                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateSerializerField());
+                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateField());
+
+                body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
+                        .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), rowBuilder));
+            }
+            body.append(out.invoke("closeEntry", BlockBuilder.class).pop())
+                    .ret();
+        }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
     {
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
@@ -537,17 +858,32 @@ public class AccumulatorCompiler
                 out);
 
         Variable thisVariable = method.getThis();
-        BytecodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
-        BytecodeExpression state = thisVariable.getField(stateField);
+        BytecodeBlock body = method.getBody();
 
-        method.getBody()
-                .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
-                .ret();
+        if (stateFieldAndDescriptors.size() == 1) {
+            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
+            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+
+            body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
+                    .ret();
+        }
+        else {
+            Variable rowBuilder = method.getScope().declareVariable(BlockBuilder.class, "rowBuilder");
+            body.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
+
+            for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
+                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateSerializerField());
+                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateField());
+                body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), rowBuilder));
+            }
+            body.append(out.invoke("closeEntry", BlockBuilder.class).pop())
+                    .ret();
+        }
     }
 
     private static void generateGroupedEvaluateFinal(
             ClassDefinition definition,
-            FieldDefinition stateField,
+            List<FieldDefinition> stateFields,
             MethodHandle outputFunction,
             CallSiteBinder callSiteBinder)
     {
@@ -558,12 +894,16 @@ public class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        BytecodeExpression state = thisVariable.getField(stateField);
+        List<BytecodeExpression> states = new ArrayList<>();
 
-        body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)));
+        for (FieldDefinition stateField : stateFields) {
+            BytecodeExpression state = thisVariable.getField(stateField);
+            body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)));
+            states.add(state);
+        }
 
-        body.comment("output(state, out)");
-        body.append(state);
+        body.comment("output(state_0, state_1, ..., out)");
+        states.forEach(body::append);
         body.append(out);
         body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
 
@@ -572,7 +912,7 @@ public class AccumulatorCompiler
 
     private static void generateEvaluateFinal(
             ClassDefinition definition,
-            FieldDefinition stateField,
+            List<FieldDefinition> stateFields,
             MethodHandle outputFunction,
             CallSiteBinder callSiteBinder)
     {
@@ -586,35 +926,48 @@ public class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        BytecodeExpression state = thisVariable.getField(stateField);
+        List<BytecodeExpression> states = new ArrayList<>();
 
-        body.comment("output(state, out)");
-        body.append(state);
+        for (FieldDefinition stateField : stateFields) {
+            BytecodeExpression state = thisVariable.getField(stateField);
+            states.add(state);
+        }
+
+        body.comment("output(state_0, state_1, ..., out)");
+        states.forEach(body::append);
         body.append(out);
         body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
 
         body.ret();
     }
 
+    private static void generatePrepareFinal(ClassDefinition definition)
+    {
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                "prepareFinal",
+                type(void.class));
+        method.getBody().ret();
+    }
+
     private static void generateConstructor(
             ClassDefinition definition,
-            FieldDefinition stateSerializerField,
-            FieldDefinition stateFactoryField,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
-            FieldDefinition stateField,
+            List<FieldDefinition> lambdaProviderFields,
             boolean grouped)
     {
-        Parameter stateSerializer = arg("stateSerializer", AccumulatorStateSerializer.class);
-        Parameter stateFactory = arg("stateFactory", AccumulatorStateFactory.class);
+        Parameter stateDescriptors = arg("stateDescriptors", type(List.class, AccumulatorStateDescriptor.class));
         Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
         Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
+        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
-                stateSerializer,
-                stateFactory,
+                stateDescriptors,
                 inputChannels,
-                maskChannel);
+                maskChannel,
+                lambdaProviders);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -623,8 +976,25 @@ public class AccumulatorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
-        body.append(thisVariable.setField(stateSerializerField, generateRequireNotNull(stateSerializer)));
-        body.append(thisVariable.setField(stateFactoryField, generateRequireNotNull(stateFactory)));
+        for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
+            body.append(thisVariable.setField(
+                    stateFieldAndDescriptors.get(i).getStateSerializerField(),
+                    stateDescriptors.invoke("get", Object.class, constantInt(i))
+                            .cast(AccumulatorStateDescriptor.class)
+                            .invoke("getSerializer", AccumulatorStateSerializer.class)));
+            body.append(thisVariable.setField(
+                    stateFieldAndDescriptors.get(i).getStateFactoryField(),
+                    stateDescriptors.invoke("get", Object.class, constantInt(i))
+                            .cast(AccumulatorStateDescriptor.class)
+                            .invoke("getFactory", AccumulatorStateFactory.class)));
+        }
+        for (int i = 0; i < lambdaProviderFields.size(); i++) {
+            body.append(thisVariable.setField(
+                    lambdaProviderFields.get(i),
+                    lambdaProviders.invoke("get", Object.class, constantInt(i))
+                            .cast(LambdaProvider.class)));
+        }
+
         body.append(thisVariable.setField(inputChannelsField, generateRequireNotNull(inputChannels)));
         body.append(thisVariable.setField(maskChannelField, generateRequireNotNull(maskChannel)));
 
@@ -636,7 +1006,12 @@ public class AccumulatorCompiler
             createState = "createSingleState";
         }
 
-        body.append(thisVariable.setField(stateField, stateFactory.invoke(createState, Object.class).cast(stateField.getType())));
+        for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
+            FieldDefinition stateField = stateFieldAndDescriptor.getStateField();
+            BytecodeExpression stateFactory = thisVariable.getField(stateFieldAndDescriptor.getStateFactoryField());
+
+            body.append(thisVariable.setField(stateField, stateFactory.invoke(createState, Object.class).cast(stateField.getType())));
+        }
         body.ret();
     }
 
@@ -644,5 +1019,42 @@ public class AccumulatorCompiler
     {
         return invokeStatic(Objects.class, "requireNonNull", Object.class, variable.cast(Object.class), constantString(variable.getName() + " is null"))
                 .cast(variable.getType());
+    }
+
+    private static class StateFieldAndDescriptor
+    {
+        private final FieldDefinition stateSerializerField;
+        private final FieldDefinition stateFactoryField;
+        private final FieldDefinition stateField;
+
+        private final AccumulatorStateDescriptor stateDescriptor;
+
+        public StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField, AccumulatorStateDescriptor stateDescriptor)
+        {
+            this.stateSerializerField = requireNonNull(stateSerializerField, "stateSerializerField is null");
+            this.stateFactoryField = requireNonNull(stateFactoryField, "stateFactoryField is null");
+            this.stateField = requireNonNull(stateField, "stateField is null");
+            this.stateDescriptor = requireNonNull(stateDescriptor, "stateDescriptor is null");
+        }
+
+        public FieldDefinition getStateSerializerField()
+        {
+            return stateSerializerField;
+        }
+
+        public FieldDefinition getStateFactoryField()
+        {
+            return stateFactoryField;
+        }
+
+        public FieldDefinition getStateField()
+        {
+            return stateField;
+        }
+
+        public AccumulatorStateDescriptor getStateDescriptor()
+        {
+            return stateDescriptor;
+        }
     }
 }

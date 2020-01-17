@@ -28,7 +28,7 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
@@ -52,13 +52,12 @@ public class TestArrayBytecodeExpressions
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         for (Class<?> aClass : ImmutableList.of(boolean[].class, char[].class, float[].class, double[].class, byte[].class, short[].class, int[].class, long[].class, String[].class)) {
             MethodDefinition methodDefinition = defineSetAndGetMethod(aClass);
             typeMethodMap.put(aClass, methodDefinition);
         }
-        defineClass(classDefinition, Object.class, classLoader);
+        classGenerator(classLoader).defineClass(classDefinition, Object.class);
     }
 
     @Test

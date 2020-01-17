@@ -18,8 +18,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 public class ResourceGroupManagerPlugin
         implements Plugin
 {
@@ -27,12 +25,7 @@ public class ResourceGroupManagerPlugin
     public Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
         return ImmutableList.of(
-                new FileResourceGroupConfigurationManagerFactory(getClassLoader()),
-                new DbResourceGroupConfigurationManagerFactory(getClassLoader()));
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), ResourceGroupManagerPlugin.class.getClassLoader());
+                new FileResourceGroupConfigurationManagerFactory(),
+                new DbResourceGroupConfigurationManagerFactory());
     }
 }

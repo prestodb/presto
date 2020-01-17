@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -25,13 +26,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -64,7 +69,7 @@ public final class TupleDomain<T>
             if (containsNoneDomain(map)) {
                 return Optional.empty();
             }
-            return Optional.of(Collections.unmodifiableMap(normalizeAndCopy(map)));
+            return Optional.of(unmodifiableMap(normalizeAndCopy(map)));
         });
     }
 
@@ -96,7 +101,63 @@ public final class TupleDomain<T>
         return Optional.of(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+    }
+
+    /**
+     * Extract all column constraints that require exactly one value or only null in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, ConstantExpression>> extractFixedValuesToConstantExpressions(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tupleDomain.getDomains().get()
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().isNullableSingleValue())
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new ConstantExpression(entry.getValue().getNullableSingleValue(), entry.getValue().getType()))));
+    }
+
+    /**
+     * Extract all column constraints that require a set of one (or more) values in their respective Domains. All the
+     * ranges (see {@link SortedRangeSet}) must have fixed values.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, Set<NullableValue>>> extractFixedValueSets(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<T, Set<NullableValue>> fixedValues = new HashMap<>();
+        for (Map.Entry<T, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            Optional<Set<NullableValue>> values = extractFixedValueSet(entry.getValue());
+            if (values.isPresent()) {
+                fixedValues.put(entry.getKey(), values.get());
+            }
+        }
+
+        return Optional.of(fixedValues);
+    }
+
+    private static Optional<Set<NullableValue>> extractFixedValueSet(Domain domain)
+    {
+        ValueSet values = domain.getValues();
+        if (!values.getType().isOrderable()) {
+            return Optional.empty();
+        }
+
+        List<Range> ranges = values.getRanges().getOrderedRanges();
+        boolean allSingleValue = ranges.stream().allMatch(Range::isSingleValue);
+        if (!allSingleValue) {
+            return Optional.empty();
+        }
+
+        return Optional.of(ranges.stream()
+                .map(range -> new NullableValue(domain.getType(), range.getSingleValue()))
+                .collect(Collectors.toSet()));
     }
 
     /**
@@ -106,7 +167,7 @@ public final class TupleDomain<T>
     public static <T> TupleDomain<T> fromFixedValues(Map<T, NullableValue> fixedValues)
     {
         return TupleDomain.withColumnDomains(fixedValues.entrySet().stream()
-                .collect(toMap(
+                .collect(toLinkedMap(
                         Map.Entry::getKey,
                         entry -> {
                             Type type = entry.getValue().getType();
@@ -123,7 +184,7 @@ public final class TupleDomain<T>
             return none();
         }
         return withColumnDomains(columnDomains.get().stream()
-                .collect(toMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
+                .collect(toLinkedMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
     }
 
     @JsonProperty
@@ -144,7 +205,7 @@ public final class TupleDomain<T>
     {
         return domains.entrySet().stream()
                 .filter(entry -> !entry.getValue().isAll())
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toLinkedMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
@@ -186,7 +247,7 @@ public final class TupleDomain<T>
             return none();
         }
 
-        Map<T, Domain> intersected = new HashMap<>(this.getDomains().get());
+        Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
         for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
             Domain intersectionDomain = intersected.get(entry.getKey());
             if (intersectionDomain == null) {
@@ -265,7 +326,7 @@ public final class TupleDomain<T>
         }
 
         // group domains by column (only for common columns)
-        Map<T, List<Domain>> domainsByColumn = new HashMap<>(tupleDomains.size());
+        Map<T, List<Domain>> domainsByColumn = new LinkedHashMap<>(tupleDomains.size());
 
         for (TupleDomain<T> domain : tupleDomains) {
             if (!domain.isNone()) {
@@ -283,7 +344,7 @@ public final class TupleDomain<T>
         }
 
         // finally, do the column-wise union
-        Map<T, Domain> result = new HashMap<>(domainsByColumn.size());
+        Map<T, Domain> result = new LinkedHashMap<>(domainsByColumn.size());
         for (Map.Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
             result.put(entry.getKey(), Domain.union(entry.getValue()));
         }
@@ -327,10 +388,21 @@ public final class TupleDomain<T>
         return Objects.hash(domains);
     }
 
+    @Override
+    public String toString()
+    {
+        if (isAll()) {
+            return "TupleDomain{ALL}";
+        }
+        if (isNone()) {
+            return "TupleDomain{NONE}";
+        }
+        return "TupleDomain{...}";
+    }
+
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder()
-                .append("TupleDomain:");
+        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
             buffer.append("ALL");
         }
@@ -339,7 +411,7 @@ public final class TupleDomain<T>
         }
         else {
             buffer.append(domains.get().entrySet().stream()
-                    .collect(toMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
+                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
         }
         return buffer.toString();
     }
@@ -350,7 +422,7 @@ public final class TupleDomain<T>
             return TupleDomain.none();
         }
 
-        HashMap<U, Domain> result = new HashMap<>(domains.get().size());
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.get().size());
         for (Map.Entry<T, Domain> entry : domains.get().entrySet()) {
             U key = function.apply(entry.getKey());
 
@@ -366,6 +438,47 @@ public final class TupleDomain<T>
         }
 
         return TupleDomain.withColumnDomains(result);
+    }
+
+    public TupleDomain<T> simplify()
+    {
+        if (isNone()) {
+            return this;
+        }
+
+        Map<T, Domain> simplified = domains.get().entrySet().stream()
+                .collect(toLinkedMap(Map.Entry::getKey, e -> e.getValue().simplify()));
+
+        return TupleDomain.withColumnDomains(simplified);
+    }
+
+    public TupleDomain<T> compact(int threshold)
+    {
+        Map<T, Domain> compactedDomains = new HashMap<>();
+        getDomains().ifPresent(domains -> {
+            for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+                T hiveColumnHandle = entry.getKey();
+                Domain domain = entry.getValue();
+
+                ValueSet values = domain.getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                compactedDomains.put(hiveColumnHandle, Domain.create(compactValueSet, domain.isNullAllowed()));
+            }
+        });
+        return TupleDomain.withColumnDomains(unmodifiableMap(compactedDomains));
+    }
+
+    private static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
+    {
+        return toMap(
+                keyMapper,
+                valueMapper,
+                (u, v) -> { throw new IllegalStateException(String.format("Duplicate key %s", u)); },
+                LinkedHashMap::new);
     }
 
     // Available for Jackson serialization only!

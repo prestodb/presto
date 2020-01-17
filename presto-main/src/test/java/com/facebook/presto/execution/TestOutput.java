@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.ConnectorId;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -26,7 +25,6 @@ public class TestOutput
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
         Output expected = new Output(new ConnectorId("connectorId"), "schema", "table");
 

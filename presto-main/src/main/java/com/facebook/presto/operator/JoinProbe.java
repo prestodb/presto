@@ -14,19 +14,98 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 
-public interface JoinProbe
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+
+public class JoinProbe
 {
-    int getChannelCount();
+    public static class JoinProbeFactory
+    {
+        private final int[] probeOutputChannels;
+        private final List<Integer> probeJoinChannels;
+        private final OptionalInt probeHashChannel;
 
-    boolean advanceNextPosition();
+        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        {
+            this.probeOutputChannels = probeOutputChannels;
+            this.probeJoinChannels = probeJoinChannels;
+            this.probeHashChannel = probeHashChannel;
+        }
 
-    long getCurrentJoinPosition();
+        public JoinProbe createJoinProbe(Page page)
+        {
+            return new JoinProbe(probeOutputChannels, page, probeJoinChannels, probeHashChannel);
+        }
+    }
 
-    void appendTo(PageBuilder pageBuilder);
+    private final int[] probeOutputChannels;
+    private final int positionCount;
+    private final Block[] probeBlocks;
+    private final Page page;
+    private final Page probePage;
+    private final Optional<Block> probeHashBlock;
 
-    int getPosition();
+    private int position = -1;
 
-    Page getPage();
+    private JoinProbe(int[] probeOutputChannels, Page page, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+    {
+        this.probeOutputChannels = probeOutputChannels;
+        this.positionCount = page.getPositionCount();
+        this.probeBlocks = new Block[probeJoinChannels.size()];
+
+        for (int i = 0; i < probeJoinChannels.size(); i++) {
+            probeBlocks[i] = page.getBlock(probeJoinChannels.get(i));
+        }
+        this.page = page;
+        this.probePage = new Page(page.getPositionCount(), probeBlocks);
+        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
+    }
+
+    public int[] getOutputChannels()
+    {
+        return probeOutputChannels;
+    }
+
+    public boolean advanceNextPosition()
+    {
+        position++;
+        return position < positionCount;
+    }
+
+    public long getCurrentJoinPosition(LookupSource lookupSource)
+    {
+        if (currentRowContainsNull()) {
+            return -1;
+        }
+        if (probeHashBlock.isPresent()) {
+            long rawHash = BIGINT.getLong(probeHashBlock.get(), position);
+            return lookupSource.getJoinPosition(position, probePage, page, rawHash);
+        }
+        return lookupSource.getJoinPosition(position, probePage, page);
+    }
+
+    public int getPosition()
+    {
+        return position;
+    }
+
+    public Page getPage()
+    {
+        return page;
+    }
+
+    private boolean currentRowContainsNull()
+    {
+        for (Block probeBlock : probeBlocks) {
+            if (probeBlock.isNull(position)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

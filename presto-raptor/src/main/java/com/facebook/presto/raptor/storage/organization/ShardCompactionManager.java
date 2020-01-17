@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -25,14 +26,13 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -44,12 +44,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -79,12 +79,18 @@ public class ShardCompactionManager
     private final IDBI dbi;
 
     @Inject
-    public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardOrganizer organizer, StorageManagerConfig config)
+    public ShardCompactionManager(@ForMetadata IDBI dbi,
+            NodeManager nodeManager,
+            ShardManager shardManager,
+            ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
+            StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
                 organizer,
+                temporalFunction,
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
@@ -96,6 +102,7 @@ public class ShardCompactionManager
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
@@ -116,7 +123,7 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
-        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows);
+        this.compactionSetCreator = new CompactionSetCreator(temporalFunction, maxShardSize, maxShardRows);
     }
 
     @PostConstruct
@@ -167,12 +174,12 @@ public class ShardCompactionManager
 
         for (Entry<Long, List<ShardMetadata>> entry : Multimaps.asMap(tableShards).entrySet()) {
             long tableId = entry.getKey();
-            if (!metadataDao.isCompactionEnabled(tableId)) {
+            if (!metadataDao.isCompactionEligible(tableId)) {
                 continue;
             }
             List<ShardMetadata> shards = entry.getValue();
             Collection<OrganizationSet> organizationSets = filterAndCreateCompactionSets(tableId, shards);
-            log.info("Created %s organization set(s) for table ID %s", organizationSets.size(), tableId);
+            log.info("Created %s compaction set(s) from %s shards for table ID %s", organizationSets.size(), shards.size(), tableId);
 
             for (OrganizationSet set : organizationSets) {
                 organizer.enqueue(set);
@@ -223,6 +230,10 @@ public class ShardCompactionManager
         }
 
         if (shard.getRowCount() < (FILL_FACTOR * maxShardRows)) {
+            return true;
+        }
+
+        if (shard.getDeltaUuid().isPresent()) {
             return true;
         }
         return false;

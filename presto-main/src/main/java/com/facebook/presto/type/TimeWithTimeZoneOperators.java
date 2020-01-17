@@ -14,13 +14,23 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
+import org.joda.time.chrono.ISOChronology;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -28,30 +38,48 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class TimeWithTimeZoneOperators
 {
+    private static final long REFERENCE_TIMESTAMP_UTC = System.currentTimeMillis();
+
     private TimeWithTimeZoneOperators()
     {
     }
 
+    @ScalarOperator(SUBTRACT)
+    @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
+    public static long subtract(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    {
+        return unpackMillisUtc(left) - unpackMillisUtc(right);
+    }
+
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
     {
         return unpackMillisUtc(left) == unpackMillisUtc(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
     {
         return unpackMillisUtc(left) != unpackMillisUtc(right);
     }
@@ -95,14 +123,27 @@ public final class TimeWithTimeZoneOperators
     @SqlType(StandardTypes.TIME)
     public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        return unpackMillisUtc(value);
+        // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
+        // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
+        return castToTimestamp(session, value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        return unpackMillisUtc(value);
+        if (session.isLegacyTimestamp()) {
+            return unpackMillisUtc(value);
+        }
+        else {
+            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
+            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
+            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
+            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
+
+            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
+        }
     }
 
     @ScalarOperator(CAST)
@@ -120,6 +161,14 @@ public final class TimeWithTimeZoneOperators
         return utf8Slice(printTimeWithTimeZone(value));
     }
 
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
+    public static long castFromSlice(@SqlType("varchar(x)") Slice value)
+    {
+        return parseTimeWithTimeZone(value.toStringUtf8());
+    }
+
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
@@ -127,20 +176,53 @@ public final class TimeWithTimeZoneOperators
         return AbstractLongType.hash(unpackMillisUtc(value));
     }
 
-    @ScalarOperator(IS_DISTINCT_FROM)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(
-            @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left,
-            @IsNull boolean leftNull,
-            @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right,
-            @IsNull boolean rightNull)
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        if (leftNull != rightNull) {
-            return true;
+        return XxHash64.hash(unpackMillisUtc(value));
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    public static class TimeWithTimeZoneDistinctFromOperator
+    {
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left,
+                @IsNull boolean leftNull,
+                @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return notEqual(left, right);
         }
-        if (leftNull) {
-            return false;
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = StandardTypes.TIME_WITH_TIME_ZONE, nativeContainerType = long.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = StandardTypes.TIME_WITH_TIME_ZONE, nativeContainerType = long.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) && right.isNull(rightPosition)) {
+                return false;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            return notEqual(TIME_WITH_TIME_ZONE.getLong(left, leftPosition), TIME_WITH_TIME_ZONE.getLong(right, rightPosition));
         }
-        return notEqual(left, right);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }

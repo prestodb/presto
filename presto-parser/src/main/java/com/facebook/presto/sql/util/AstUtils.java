@@ -13,31 +13,31 @@
  */
 package com.facebook.presto.sql.util;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
-public class AstUtils
+import static com.google.common.collect.Streams.stream;
+import static java.util.Objects.requireNonNull;
+
+public final class AstUtils
 {
     public static boolean nodeContains(Node node, Node subNode)
     {
-        return new DefaultTraversalVisitor<Boolean, AtomicBoolean>()
-        {
-            @Override
-            public Boolean process(Node node, AtomicBoolean findResultHolder)
-            {
-                if (!findResultHolder.get()) {
-                    if (node == subNode) {
-                        findResultHolder.set(true);
-                    }
-                    else {
-                        super.process(node, findResultHolder);
-                    }
-                }
-                return findResultHolder.get();
-            }
-        }.process(node, new AtomicBoolean(false));
+        requireNonNull(node, "node is null");
+        requireNonNull(subNode, "subNode is null");
+
+        return preOrder(node)
+                .anyMatch(childNode -> childNode == subNode);
+    }
+
+    public static Stream<Node> preOrder(Node node)
+    {
+        return stream(
+                Traverser.forTree((SuccessorsFunction<Node>) Node::getChildren)
+                        .depthFirstPreOrder(requireNonNull(node, "node is null")));
     }
 
     private AstUtils() {}

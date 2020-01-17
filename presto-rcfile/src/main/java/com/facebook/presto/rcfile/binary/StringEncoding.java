@@ -14,17 +14,19 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.calculateTruncationLength;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.toIntExact;
 
 public class StringEncoding
         implements BinaryColumnEncoding
@@ -39,10 +41,36 @@ public class StringEncoding
     }
 
     @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                Slice slice = type.getSlice(block, position);
+                if (slice.length() == 0) {
+                    output.writeByte(HIVE_EMPTY_STRING_BYTE);
+                }
+                else {
+                    output.writeBytes(slice);
+                }
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(Block block, int position, SliceOutput output)
+    {
+        Slice slice = type.getSlice(block, position);
+        // Note strings nested in complex structures do no use the empty string marker
+        writeVInt(output, slice.length());
+        output.writeBytes(slice);
+    }
+
+    @Override
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), size);
+        BlockBuilder builder = type.createBlockBuilder(null, size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {
@@ -73,7 +101,7 @@ public class StringEncoding
     @Override
     public int getValueLength(Slice slice, int offset)
     {
-        return Ints.checkedCast(readVInt(slice, offset));
+        return toIntExact(readVInt(slice, offset));
     }
 
     @Override

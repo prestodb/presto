@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -32,6 +31,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorFactory
@@ -58,7 +58,7 @@ public class CassandraConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
 
@@ -66,7 +66,7 @@ public class CassandraConnectorFactory
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new JsonModule(),
-                    new CassandraClientModule(connectorId),
+                    new CassandraClientModule(catalogName),
                     new Module()
                     {
                         @Override
@@ -84,7 +84,8 @@ public class CassandraConnectorFactory
             return injector.getInstance(CassandraConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

@@ -13,11 +13,22 @@
  */
 package com.facebook.presto.failureDetector;
 
-import io.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.presto.spi.HostAddress;
 
 import java.util.Set;
 
 public interface FailureDetector
 {
     Set<ServiceDescriptor> getFailed();
+
+    State getState(HostAddress hostAddress);
+
+    enum State
+    {
+        UNKNOWN,
+        ALIVE,
+        GONE,
+        UNRESPONSIVE,
+    }
 }

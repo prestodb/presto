@@ -13,23 +13,21 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.Requirement;
-import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.query.QueryResult;
+import io.prestodb.tempto.Requirement;
+import io.prestodb.tempto.RequirementsProvider;
+import io.prestodb.tempto.configuration.Configuration;
+import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
+import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
-import static com.teradata.tempto.Requirements.compose;
-import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static com.teradata.tempto.query.QueryExecutor.query;
-import static com.teradata.tempto.query.QueryType.UPDATE;
+import static io.prestodb.tempto.Requirements.compose;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.query;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
@@ -42,11 +40,11 @@ public class TestTablePartitioningInsertInto
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
-                mutableTable(NATION_PARTITIONED_BY_REGIONKEY),
+                mutableTable(NATION_PARTITIONED_BY_BIGINT_REGIONKEY),
                 mutableTable(NATION, TARGET_NATION_NAME, CREATED));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {
@@ -71,14 +69,14 @@ public class TestTablePartitioningInsertInto
     private void testQuerySplitsNumber(String condition, int expectedProcessedSplits)
             throws Exception
     {
-        String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_REGIONKEY.getTableHandle()).getNameInDatabase();
+        String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getTableHandle()).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
         String query = String.format(
                 "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",
                 targetNation,
                 partitionedNation,
                 condition);
-        QueryResult queryResult = query(query, UPDATE);
+        QueryResult queryResult = query(query);
 
         long processedLinesCount = getProcessedLinesCount(query, queryResult);
         int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;

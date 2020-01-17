@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.testing;
 
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions
@@ -35,10 +37,16 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
+        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        assertFormattedSql(sqlParser, parsingOptions, expected);
+    }
+
+    public static void assertFormattedSql(SqlParser sqlParser, ParsingOptions parsingOptions, Node expected)
+    {
         String formatted = formatSql(expected, Optional.empty());
 
         // verify round-trip of formatting already-formatted SQL
-        Statement actual = parseFormatted(sqlParser, formatted, expected);
+        Statement actual = parseFormatted(sqlParser, parsingOptions, formatted, expected);
         assertEquals(formatSql(actual, Optional.empty()), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
@@ -49,15 +57,13 @@ public final class TreeAssertions
         assertEquals(actual, expected);
     }
 
-    private static Statement parseFormatted(SqlParser sqlParser, String sql, Node tree)
+    private static Statement parseFormatted(SqlParser sqlParser, ParsingOptions parsingOptions, String sql, Node tree)
     {
         try {
-            return sqlParser.createStatement(sql);
+            return sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {
-            throw new AssertionError(format(
-                    "failed to parse formatted SQL: %s\nerror: %s\ntree: %s",
-                    sql, e.getMessage(), tree));
+            throw new AssertionError(format("failed to parse formatted SQL: %s\nerror: %s\ntree: %s", sql, e.getMessage(), tree), e);
         }
     }
 

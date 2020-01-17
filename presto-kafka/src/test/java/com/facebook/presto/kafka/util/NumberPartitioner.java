@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.google.common.primitives.Ints;
 import kafka.producer.Partitioner;
 import kafka.utils.VerifiableProperties;
+
+import static java.lang.Math.toIntExact;
 
 public class NumberPartitioner
         implements Partitioner
@@ -30,7 +31,7 @@ public class NumberPartitioner
     public int partition(Object key, int numPartitions)
     {
         if (key instanceof Number) {
-            return Ints.checkedCast(((Number) key).longValue() % numPartitions);
+            return toIntExact(((Number) key).longValue() % numPartitions);
         }
         return 0;
     }

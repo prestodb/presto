@@ -14,32 +14,106 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-public class ValuesMatcher
-        implements RvalueMatcher
-{
-    int outputIndex;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
-    public ValuesMatcher(int outputIndex)
+public class ValuesMatcher
+        implements Matcher
+{
+    private final Map<String, Integer> outputSymbolAliases;
+    private final Optional<Integer> expectedOutputSymbolCount;
+    private final Optional<List<List<Expression>>> expectedRows;
+
+    public ValuesMatcher(
+            Map<String, Integer> outputSymbolAliases,
+            Optional<Integer> expectedOutputSymbolCount,
+            Optional<List<List<Expression>>> expectedRows)
     {
-        this.outputIndex = outputIndex;
+        this.outputSymbolAliases = ImmutableMap.copyOf(outputSymbolAliases);
+        this.expectedOutputSymbolCount = requireNonNull(expectedOutputSymbolCount, "expectedOutputSymbolCount is null");
+        this.expectedRows = requireNonNull(expectedRows, "expectedRows is null");
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof ValuesNode)) {
-            return Optional.empty();
-        }
+        return (node instanceof ValuesNode) &&
+                expectedOutputSymbolCount.map(Integer.valueOf(node.getOutputVariables().size())::equals).orElse(true);
+    }
 
+    @Override
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    {
+        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         ValuesNode valuesNode = (ValuesNode) node;
 
-        return Optional.of(valuesNode.getOutputSymbols().get(outputIndex));
+        if (!expectedRows.map(rows -> rows.equals(valuesNode.getRows()
+                .stream()
+                .map(rowExpressions -> rowExpressions.stream()
+                        .map(rowExpression -> {
+                            if (isExpression(rowExpression)) {
+                                return castToExpression(rowExpression);
+                            }
+                            ConstantExpression expression = (ConstantExpression) rowExpression;
+                            if (expression.getType().getJavaType() == boolean.class) {
+                                return new BooleanLiteral(String.valueOf(expression.getValue()));
+                            }
+                            if (expression.getType().getJavaType() == long.class) {
+                                return new LongLiteral(String.valueOf(expression.getValue()));
+                            }
+                            if (expression.getType().getJavaType() == double.class) {
+                                return new DoubleLiteral(String.valueOf(expression.getValue()));
+                            }
+                            if (expression.getType().getJavaType() == Slice.class) {
+                                return new StringLiteral(String.valueOf(expression.getValue()));
+                            }
+                            return new GenericLiteral(expression.getType().toString(), String.valueOf(expression.getValue()));
+                        })
+                        .collect(toImmutableList()))
+                .collect(toImmutableList())))
+                .orElse(true)) {
+            return NO_MATCH;
+        }
+
+        return match(SymbolAliases.builder()
+                .putAll(Maps.transformValues(outputSymbolAliases, index -> new SymbolReference(valuesNode.getOutputVariables().get(index).getName())))
+                .build());
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("outputSymbolAliases", outputSymbolAliases)
+                .add("expectedOutputSymbolCount", expectedOutputSymbolCount)
+                .add("expectedRows", expectedRows)
+                .toString();
     }
 }

@@ -13,18 +13,21 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Collections.synchronizedList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class BufferingSplitSource
         implements SplitSource
@@ -45,25 +48,22 @@ public class BufferingSplitSource
     }
 
     @Override
-    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
+    public ConnectorTransactionHandle getTransactionHandle()
     {
-        checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
-        List<Split> result = synchronizedList(new ArrayList<>(maxSize));
-        CompletableFuture<?> future = fetchSplits(Math.min(bufferSize, maxSize), maxSize, result);
-        return future.thenApply(ignored -> ImmutableList.copyOf(result));
+        return source.getTransactionHandle();
     }
 
-    private CompletableFuture<?> fetchSplits(int min, int max, List<Split> output)
+    @Override
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
     {
-        checkArgument(min <= max, "Min splits greater than max splits");
-        if (source.isFinished() || output.size() >= min) {
-            return completedFuture(null);
-        }
-        return source.getNextBatch(max - output.size())
-                .thenCompose(splits -> {
-                    output.addAll(splits);
-                    return fetchSplits(min, max, output);
-                });
+        checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
+        return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize, partitionHandle, lifespan);
+    }
+
+    @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        source.rewind(partitionHandle);
     }
 
     @Override
@@ -76,5 +76,55 @@ public class BufferingSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    private static class GetNextBatch
+    {
+        private final SplitSource splitSource;
+        private final int min;
+        private final int max;
+        private final ConnectorPartitionHandle partitionHandle;
+        private final Lifespan lifespan;
+
+        private final List<Split> splits = new ArrayList<>();
+        private boolean noMoreSplits;
+
+        public static ListenableFuture<SplitBatch> fetchNextBatchAsync(
+                SplitSource splitSource,
+                int min,
+                int max,
+                ConnectorPartitionHandle partitionHandle,
+                Lifespan lifespan)
+        {
+            GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max, partitionHandle, lifespan);
+            ListenableFuture<?> future = getNextBatch.fetchSplits();
+            return Futures.transform(future, ignored -> new SplitBatch(getNextBatch.splits, getNextBatch.noMoreSplits), directExecutor());
+        }
+
+        private GetNextBatch(SplitSource splitSource, int min, int max, ConnectorPartitionHandle partitionHandle, Lifespan lifespan)
+        {
+            this.splitSource = requireNonNull(splitSource, "splitSource is null");
+            checkArgument(min <= max, "Min splits greater than max splits");
+            this.min = min;
+            this.max = max;
+            this.partitionHandle = requireNonNull(partitionHandle, "partitionHandle is null");
+            this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        }
+
+        private ListenableFuture<?> fetchSplits()
+        {
+            if (splits.size() >= min) {
+                return immediateFuture(null);
+            }
+            ListenableFuture<SplitBatch> future = splitSource.getNextBatch(partitionHandle, lifespan, max - splits.size());
+            return Futures.transformAsync(future, splitBatch -> {
+                splits.addAll(splitBatch.getSplits());
+                if (splitBatch.isLastBatch()) {
+                    noMoreSplits = true;
+                    return immediateFuture(null);
+                }
+                return fetchSplits();
+            }, directExecutor());
+        }
     }
 }

@@ -13,18 +13,21 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
@@ -38,7 +41,7 @@ public class TestSignature
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
         Signature expected = new Signature(
-                "function",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "function"),
                 SCALAR,
                 parseTypeSignature(StandardTypes.BIGINT),
                 ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.VARCHAR)));
@@ -46,7 +49,7 @@ public class TestSignature
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
+        assertEquals(actual.getNameSuffix(), expected.getNameSuffix());
         assertEquals(actual.getKind(), expected.getKind());
         assertEquals(actual.getReturnType(), expected.getReturnType());
         assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());

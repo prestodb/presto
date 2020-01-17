@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedSet;
@@ -102,7 +103,7 @@ public class BenchmarkResultsPrinter
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMedian()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getStandardDeviation()))
-                .add(result.getStatus().toString().toLowerCase())
+                .add(result.getStatus().toString().toLowerCase(Locale.ENGLISH))
                 .add(errorMessage.orElse(""))
                 .build());
     }

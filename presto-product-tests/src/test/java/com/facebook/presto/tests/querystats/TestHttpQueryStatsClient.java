@@ -11,18 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.querystats;
 
+import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.io.Resources;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.http.client.testing.TestingResponse;
-import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -56,7 +55,6 @@ public class TestHttpQueryStatsClient
 
     @BeforeMethod
     public void setUp()
-            throws Exception
     {
         ObjectMapper objectMapper = new ObjectMapperProvider().get();
         TestingHttpClient httpClient = new TestingHttpClient(httpRequest -> httpResponse);
@@ -65,7 +63,6 @@ public class TestHttpQueryStatsClient
 
     @Test
     public void testGetInfoForQuery()
-            throws Exception
     {
         mockHttpResponse(SINGLE_QUERY_INFO);
         Optional<QueryStats> infoForQuery = queryStatsClient.getQueryStats("20150505_160116_00005_sdzex");
@@ -75,7 +72,6 @@ public class TestHttpQueryStatsClient
 
     @Test
     public void testGetInfoForUnknownQuery()
-            throws Exception
     {
         mockErrorHttpResponse(HttpStatus.GONE);
         Optional<QueryStats> infoForQuery = queryStatsClient.getQueryStats("20150505_160116_00005_sdzex");
@@ -83,13 +79,11 @@ public class TestHttpQueryStatsClient
     }
 
     private void mockHttpResponse(String answerJson)
-            throws IOException
     {
         httpResponse = new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), answerJson.getBytes());
     }
 
     private void mockErrorHttpResponse(HttpStatus statusCode)
-            throws IOException
     {
         httpResponse = new TestingResponse(statusCode, ImmutableListMultimap.of(), new byte[0]);
     }

@@ -37,7 +37,6 @@ public class TestMetadataDao
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
@@ -53,10 +52,9 @@ public class TestMetadataDao
 
     @Test
     public void testTemporalColumn()
-            throws Exception
     {
         Long columnId = 1L;
-        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0, false);
         dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNull(temporalColumnId);
@@ -66,7 +64,7 @@ public class TestMetadataDao
         assertNotNull(temporalColumnId);
         assertEquals(temporalColumnId, columnId);
 
-        long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
+        long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0, false);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
     }
@@ -75,7 +73,7 @@ public class TestMetadataDao
     public void testGetTableInformation()
     {
         Long columnId = 1L;
-        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0, false);
         dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
 
         Table info = dao.getTableInformation(tableId);

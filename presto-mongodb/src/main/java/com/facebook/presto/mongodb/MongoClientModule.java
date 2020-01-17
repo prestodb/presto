@@ -23,7 +23,7 @@ import com.mongodb.MongoClientOptions;
 
 import javax.inject.Singleton;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class MongoClientModule
@@ -52,13 +52,20 @@ public class MongoClientModule
                 .connectTimeout(config.getConnectionTimeout())
                 .socketTimeout(config.getSocketTimeout())
                 .socketKeepAlive(config.getSocketKeepAlive())
+                .sslEnabled(config.getSslEnabled())
                 .maxWaitTime(config.getMaxWaitTime())
                 .minConnectionsPerHost(config.getMinConnectionsPerHost())
-                .readPreference(config.getReadPreference().getReadPreference())
                 .writeConcern(config.getWriteConcern().getWriteConcern());
 
         if (config.getRequiredReplicaSetName() != null) {
             options.requiredReplicaSetName(config.getRequiredReplicaSetName());
+        }
+
+        if (config.getReadPreferenceTags().isEmpty()) {
+            options.readPreference(config.getReadPreference().getReadPreference());
+        }
+        else {
+            options.readPreference(config.getReadPreference().getReadPreferenceWithTags(config.getReadPreferenceTags()));
         }
 
         MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());

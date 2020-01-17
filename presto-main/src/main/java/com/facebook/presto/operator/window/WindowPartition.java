@@ -17,20 +17,20 @@ import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
-import com.facebook.presto.sql.tree.FrameBound;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public final class WindowPartition
 {
@@ -71,6 +71,11 @@ public final class WindowPartition
         updatePeerGroup();
     }
 
+    public int getPartitionStart()
+    {
+        return partitionStart;
+    }
+
     public int getPartitionEnd()
     {
         return partitionEnd;
@@ -104,8 +109,8 @@ public final class WindowPartition
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
-                    range.start,
-                    range.end);
+                    range.getStart(),
+                    range.getEnd());
             channel++;
         }
 
@@ -149,6 +154,11 @@ public final class WindowPartition
         int rowPosition = currentPosition - partitionStart;
         int endPosition = partitionEnd - partitionStart - 1;
 
+        // handle empty frame
+        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
+            return new Range(-1, -1);
+        }
+
         int frameStart;
         int frameEnd;
 
@@ -186,19 +196,13 @@ public final class WindowPartition
             frameEnd = rowPosition;
         }
 
-        // handle empty frame
-        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
-        }
-
         return new Range(frameStart, frameEnd);
     }
 
     private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
     {
-        FrameBound.Type startType = frameInfo.getStartType();
-        FrameBound.Type endType = frameInfo.getEndType();
+        BoundType startType = frameInfo.getStartType();
+        BoundType endType = frameInfo.getEndType();
 
         int positions = endPosition - rowPosition;
 
@@ -214,7 +218,7 @@ public final class WindowPartition
             return false;
         }
 
-        FrameBound.Type type = frameInfo.getStartType();
+        BoundType type = frameInfo.getStartType();
         if ((type != PRECEDING) && (type != FOLLOWING)) {
             return false;
         }
@@ -234,7 +238,7 @@ public final class WindowPartition
         if (value > rowPosition) {
             return 0;
         }
-        return Ints.checkedCast(rowPosition - value);
+        return toIntExact(rowPosition - value);
     }
 
     private static int following(int rowPosition, int endPosition, long value)
@@ -242,7 +246,7 @@ public final class WindowPartition
         if (value > (endPosition - rowPosition)) {
             return endPosition;
         }
-        return Ints.checkedCast(rowPosition + value);
+        return toIntExact(rowPosition + value);
     }
 
     private long getStartValue(FrameInfo frameInfo)

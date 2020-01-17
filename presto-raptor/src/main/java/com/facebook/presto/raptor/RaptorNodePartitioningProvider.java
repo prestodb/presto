@@ -18,21 +18,21 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -48,27 +48,27 @@ public class RaptorNodePartitioningProvider
     }
 
     @Override
-    public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
-        RaptorPartitioningHandle handle = checkType(partitioning, RaptorPartitioningHandle.class, "distributionHandle");
+        RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioning;
 
         Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
 
-        ImmutableMap.Builder<Integer, Node> bucketToNode = ImmutableMap.builder();
-        for (Entry<Integer, String> entry : handle.getBucketToNode().entrySet()) {
-            Node node = nodesById.get(entry.getValue());
+        ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
+        for (String nodeIdentifier : handle.getBucketToNode()) {
+            Node node = nodesById.get(nodeIdentifier);
             if (node == null) {
-                throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + entry.getValue());
+                throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeIdentifier);
             }
-            bucketToNode.put(entry.getKey(), node);
+            bucketToNode.add(node);
         }
-        return bucketToNode.build();
+        return createBucketNodeMap(bucketToNode.build());
     }
 
     @Override
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
-        return value -> checkType(value, RaptorSplit.class, "value").getBucketNumber().getAsInt();
+        return value -> ((RaptorSplit) value).getBucketNumber().getAsInt();
     }
 
     @Override

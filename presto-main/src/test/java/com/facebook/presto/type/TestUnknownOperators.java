@@ -17,8 +17,10 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -28,7 +30,8 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 public class TestUnknownOperators
         extends AbstractTestFunctions
 {
-    private TestUnknownOperators()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }
@@ -36,70 +39,61 @@ public class TestUnknownOperators
     @ScalarFunction(value = "null_function", deterministic = false)
     @SqlNullable
     @SqlType("unknown")
-    public static Void nullFunction()
+    public static Boolean nullFunction()
     {
         return null;
     }
 
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("NULL", UNKNOWN, null);
     }
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("NULL = NULL", BOOLEAN, null);
     }
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("NULL <> NULL", BOOLEAN, null);
     }
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("NULL < NULL", BOOLEAN, null);
     }
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("NULL <= NULL", BOOLEAN, null);
     }
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("NULL > NULL", BOOLEAN, null);
     }
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("NULL >= NULL", BOOLEAN, null);
     }
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("NULL BETWEEN NULL AND NULL", BOOLEAN, null);
     }
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(NULL as bigint)", BIGINT, null);
         assertFunction("cast(null_function() as bigint)", BIGINT, null);
@@ -107,7 +101,6 @@ public class TestUnknownOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(NULL as varchar)", VARCHAR, null);
         assertFunction("cast(null_function() as varchar)", VARCHAR, null);
@@ -115,7 +108,6 @@ public class TestUnknownOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(NULL as double)", DOUBLE, null);
         assertFunction("cast(null_function() as double)", DOUBLE, null);
@@ -123,7 +115,6 @@ public class TestUnknownOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(NULL as boolean)", BOOLEAN, null);
         assertFunction("cast(null_function() as boolean)", BOOLEAN, null);
@@ -131,8 +122,14 @@ public class TestUnknownOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+            throws Exception
+    {
+        assertOperator(INDETERMINATE, "null", BOOLEAN, true);
     }
 }

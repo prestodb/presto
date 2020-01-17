@@ -15,13 +15,16 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class TypedHeap
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedHeap.class).instanceSize();
+
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
 
@@ -39,7 +42,7 @@ public class TypedHeap
         this.type = type;
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
-        this.heapBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), capacity);
+        this.heapBlockBuilder = type.createBlockBuilder(null, capacity);
     }
 
     public int getCapacity()
@@ -49,7 +52,7 @@ public class TypedHeap
 
     public long getEstimatedSize()
     {
-        return heapBlockBuilder.getRetainedSizeInBytes() + capacity * Integer.BYTES;
+        return INSTANCE_SIZE + heapBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
     }
 
     public boolean isEmpty()
@@ -167,7 +170,7 @@ public class TypedHeap
         if (heapBlockBuilder.getSizeInBytes() < COMPACT_THRESHOLD_BYTES || heapBlockBuilder.getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
             return;
         }
-        BlockBuilder newHeapBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), heapBlockBuilder.getPositionCount());
+        BlockBuilder newHeapBlockBuilder = type.createBlockBuilder(null, heapBlockBuilder.getPositionCount());
         for (int i = 0; i < positionCount; i++) {
             type.appendTo(heapBlockBuilder, heapIndex[i], newHeapBlockBuilder);
             heapIndex[i] = i;

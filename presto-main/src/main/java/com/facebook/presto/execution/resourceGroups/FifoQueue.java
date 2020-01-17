@@ -24,7 +24,7 @@ final class FifoQueue<E>
     private final Set<E> delegate = new LinkedHashSet<>();
 
     @Override
-    public boolean addOrUpdate(E element, int priority)
+    public boolean addOrUpdate(E element, long priority)
     {
         return delegate.add(element);
     }
@@ -73,5 +73,11 @@ final class FifoQueue<E>
     public boolean isEmpty()
     {
         return delegate.isEmpty();
+    }
+
+    @Override
+    public Iterator<E> iterator()
+    {
+        return delegate.iterator();
     }
 }

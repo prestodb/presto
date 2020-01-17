@@ -13,30 +13,39 @@
  */
 package com.facebook.presto.failureDetector;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.discovery.client.ServiceSelector;
+import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
+import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
+import com.facebook.airlift.jaxrs.JaxrsModule;
+import com.facebook.airlift.jmx.testing.TestingJmxModule;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.node.testing.TestingNodeModule;
+import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.testing.TestingDiscoveryModule;
-import io.airlift.http.server.testing.TestingHttpServerModule;
-import io.airlift.jaxrs.JaxrsModule;
-import io.airlift.jmx.testing.TestingJmxModule;
-import io.airlift.json.JsonModule;
-import io.airlift.node.testing.TestingNodeModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.discovery.client.ServiceTypes.serviceType;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import java.net.SocketTimeoutException;
+import java.net.URI;
+
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static com.facebook.airlift.discovery.client.ServiceTypes.serviceType;
+import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHeartbeatFailureDetector
@@ -59,6 +68,7 @@ public class TestHeartbeatFailureDetector
                     @Override
                     public void configure(Binder binder)
                     {
+                        configBinder(binder).bindConfig(InternalCommunicationConfig.class);
                         configBinder(binder).bindConfig(QueryManagerConfig.class);
                         discoveryBinder(binder).bindSelector("presto");
                         discoveryBinder(binder).bindHttpAnnouncement("presto");
@@ -72,6 +82,7 @@ public class TestHeartbeatFailureDetector
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
 
         ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("presto")));
@@ -84,6 +95,23 @@ public class TestHeartbeatFailureDetector
         assertEquals(detector.getActiveCount(), 0);
         assertEquals(detector.getFailedCount(), 0);
         assertTrue(detector.getFailed().isEmpty());
+    }
+
+    @Test
+    public void testHeartbeatStatsSerialization()
+            throws Exception
+    {
+        ObjectMapper objectMapper = new ObjectMapperProvider().get();
+        Stats stats = new Stats(new URI("http://example.com"));
+        String serialized = objectMapper.writeValueAsString(stats);
+        JsonNode deserialized = objectMapper.readTree(serialized);
+        assertFalse(deserialized.has("lastFailureInfo"));
+
+        stats.recordFailure(new SocketTimeoutException("timeout"));
+        serialized = objectMapper.writeValueAsString(stats);
+        deserialized = objectMapper.readTree(serialized);
+        assertFalse(deserialized.get("lastFailureInfo").isNull());
+        assertEquals(deserialized.get("lastFailureInfo").get("type").asText(), SocketTimeoutException.class.getName());
     }
 
     @Path("/foo")

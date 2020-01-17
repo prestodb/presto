@@ -13,53 +13,47 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class DeleteOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
-
     public static class DeleteOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final int rowIdChannel;
+        private final JsonCodec<TableCommitContext> tableCommitContextCodec;
         private boolean closed;
 
-        public DeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, int rowIdChannel)
+        public DeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, int rowIdChannel, JsonCodec<TableCommitContext> tableCommitContextCodec)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.rowIdChannel = rowIdChannel;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
+            this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         }
 
         @Override
@@ -67,11 +61,11 @@ public class DeleteOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, DeleteOperator.class.getSimpleName());
-            return new DeleteOperator(context, rowIdChannel);
+            return new DeleteOperator(context, rowIdChannel, tableCommitContextCodec);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -79,7 +73,7 @@ public class DeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DeleteOperatorFactory(operatorId, planNodeId, rowIdChannel);
+            return new DeleteOperatorFactory(operatorId, planNodeId, rowIdChannel, tableCommitContextCodec);
         }
     }
 
@@ -90,6 +84,7 @@ public class DeleteOperator
 
     private final OperatorContext operatorContext;
     private final int rowIdChannel;
+    private final JsonCodec<TableCommitContext> tableCommitContextCodec;
 
     private State state = State.RUNNING;
     private long rowCount;
@@ -97,22 +92,17 @@ public class DeleteOperator
     private ListenableFuture<Collection<Slice>> finishFuture;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
-    public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
+    public DeleteOperator(OperatorContext operatorContext, int rowIdChannel, JsonCodec<TableCommitContext> tableCommitContextCodec)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.rowIdChannel = rowIdChannel;
+        this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
     }
 
     @Override
@@ -164,30 +154,51 @@ public class DeleteOperator
         }
         state = State.FINISHED;
 
+        // There are three channels in the output page of DeleteOperator
+        // 1. Row count (BIGINT)
+        // 2. Delete fragments (VARBINARY)
+        // 3. Table commit context (VARBINARY)
+        //
+        // Page layout:
+        //
+        // row     fragments     context
+        //  X         null          X
+        // null        X            X
+        // null        X            X
+        // null        X            X
+        // ...
         Collection<Slice> fragments = getFutureValue(finishFuture);
+        int positionCount = fragments.size() + 1;
 
-        PageBuilder page = new PageBuilder(TYPES);
-        BlockBuilder rowsBuilder = page.getBlockBuilder(0);
-        BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
+        // Output page will only be constructed once, and the table commit context channel will be constructed using RunLengthEncodedBlock.
+        // Thus individual BlockBuilder is used for each channel, instead of using PageBuilder.
+        BlockBuilder rowsBuilder = BIGINT.createBlockBuilder(null, positionCount);
+        BlockBuilder fragmentBuilder = VARBINARY.createBlockBuilder(null, positionCount);
 
         // write row count
-        page.declarePosition();
-        BIGINT.writeLong(rowsBuilder, rowCount);
+        rowsBuilder.writeLong(rowCount);
         fragmentBuilder.appendNull();
 
         // write fragments
         for (Slice fragment : fragments) {
-            page.declarePosition();
             rowsBuilder.appendNull();
             VARBINARY.writeSlice(fragmentBuilder, fragment);
         }
 
-        return page.build();
+        // create table commit context
+        TaskId taskId = operatorContext.getDriverContext().getPipelineContext().getTaskId();
+        Slice tableCommitContext = wrappedBuffer(tableCommitContextCodec.toJsonBytes(
+                new TableCommitContext(
+                        operatorContext.getDriverContext().getLifespan(),
+                        taskId,
+                        false,
+                        true)));
+
+        return new Page(positionCount, rowsBuilder.build(), fragmentBuilder.build(), RunLengthEncodedBlock.create(VARBINARY, tableCommitContext, positionCount));
     }
 
     @Override
     public void close()
-            throws Exception
     {
         if (!closed) {
             closed = true;

@@ -42,5 +42,5 @@ We use the following directory structure to deploy various Presto artifacts.
 
 The node.properties file requires the following two additional properties since our directory structure is different from what standard Presto expects.
 
-    plugin.config-dir=/etc/presto/catalog
+    catalog.config-dir=/etc/presto/catalog
     plugin.dir=/usr/lib/presto/lib/plugin

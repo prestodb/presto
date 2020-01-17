@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,23 +26,29 @@ public class LikePredicate
 {
     private final Expression value;
     private final Expression pattern;
-    private final Expression escape;
+    private final Optional<Expression> escape;
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        this(Optional.empty(), value, pattern, escape);
+        this(Optional.empty(), value, pattern, Optional.of(escape));
     }
 
-    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Expression escape)
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         this(Optional.of(location), value, pattern, escape);
     }
 
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
+    {
+        this(Optional.empty(), value, pattern, escape);
+    }
+
+    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         super(location);
         requireNonNull(value, "value is null");
         requireNonNull(pattern, "pattern is null");
+        requireNonNull(escape, "escape is null");
 
         this.value = value;
         this.pattern = pattern;
@@ -56,7 +65,7 @@ public class LikePredicate
         return pattern;
     }
 
-    public Expression getEscape()
+    public Optional<Expression> getEscape()
     {
         return escape;
     }
@@ -65,6 +74,18 @@ public class LikePredicate
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitLikePredicate(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> result = ImmutableList.<Node>builder()
+                .add(value)
+                .add(pattern);
+
+        escape.ifPresent(result::add);
+
+        return result.build();
     }
 
     @Override

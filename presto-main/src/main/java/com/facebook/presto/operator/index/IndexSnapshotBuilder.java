@@ -28,9 +28,11 @@ import io.airlift.units.DataSize;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
@@ -40,8 +42,9 @@ public class IndexSnapshotBuilder
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
-    private final Optional<Integer> keyOutputHashChannel;
+    private final OptionalInt keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
+    private final PagesIndex.Factory pagesIndexFactory;
 
     private final long maxMemoryInBytes;
     private PagesIndex outputPagesIndex;
@@ -51,20 +54,25 @@ public class IndexSnapshotBuilder
     private final List<Page> pages = new ArrayList<>();
     private long memoryInBytes;
 
+    private final PageBuilder missingKeysPageBuilder;
+
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
-            Optional<Integer> keyOutputHashChannel,
+            OptionalInt keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
         requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(keyOutputChannels, "keyOutputChannels is null");
         requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
+        this.pagesIndexFactory = pagesIndexFactory;
         this.session = driverContext.getSession();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
@@ -82,9 +90,11 @@ public class IndexSnapshotBuilder
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
-        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
+        this.outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        this.missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes.build(), expectedPositions);
         this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
+
+        this.missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
     }
 
     public List<Type> getOutputTypes()
@@ -121,25 +131,27 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty()).get();
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
-        PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
+        verify(missingKeysPageBuilder.isEmpty());
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
         while (indexKeysRecordCursor.advanceNextPosition()) {
-            Block[] blocks = indexKeysRecordCursor.getBlocks();
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
             if (lookupSource.getJoinPosition(position, page, page) < 0) {
                 missingKeysPageBuilder.declarePosition();
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    Block block = page.getBlock(i);
                     Type type = indexKeysRecordCursor.getType(i);
                     type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                 }
             }
         }
         Page missingKeysPage = missingKeysPageBuilder.build();
+        if (!missingKeysPageBuilder.isEmpty()) {
+            missingKeysPageBuilder.reset();
+        }
 
         memoryInBytes += missingKeysPage.getSizeInBytes();
         if (isMemoryExceeded()) {
@@ -147,7 +159,7 @@ public class IndexSnapshotBuilder
         }
 
         // only update missing keys if we have new missing keys
-        if (!missingKeysPageBuilder.isEmpty()) {
+        if (missingKeysPage.getPositionCount() != 0) {
             missingKeysIndex.addPage(missingKeysPage);
             missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
         }
@@ -159,7 +171,7 @@ public class IndexSnapshotBuilder
     {
         memoryInBytes = 0;
         pages.clear();
-        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions);
+        outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes, expectedPositions);
     }
 }

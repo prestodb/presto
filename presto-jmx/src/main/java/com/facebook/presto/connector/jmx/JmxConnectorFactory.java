@@ -13,23 +13,22 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.connector.jmx.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
-import com.google.inject.name.Names;
-import io.airlift.bootstrap.Bootstrap;
 
 import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
@@ -55,7 +54,7 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         try {
             Bootstrap app = new Bootstrap(
@@ -63,15 +62,13 @@ public class JmxConnectorFactory
                         configBinder(binder).bindConfig(JmxConnectorConfig.class);
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(String.class).annotatedWith(Names.named(JmxConnector.CONNECTOR_ID_PARAMETER)).toInstance(connectorId);
                         binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                         binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);
                         binder.bind(JmxMetadata.class).in(Scopes.SINGLETON);
                         binder.bind(JmxSplitManager.class).in(Scopes.SINGLETON);
                         binder.bind(JmxPeriodicSampler.class).in(Scopes.SINGLETON);
                         binder.bind(JmxRecordSetProvider.class).in(Scopes.SINGLETON);
-                    }
-            );
+                    });
 
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()
@@ -81,7 +78,8 @@ public class JmxConnectorFactory
             return injector.getInstance(JmxConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

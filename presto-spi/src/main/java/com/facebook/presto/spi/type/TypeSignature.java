@@ -17,24 +17,43 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 
+import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
-import static java.util.Objects.requireNonNull;
 
 public class TypeSignature
 {
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
+
+    private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-zA-Z_]([a-zA-Z0-9_:@])*");
+    private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
+            new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
+            new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+    static {
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
+
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIME_WITH_TIME_ZONE);
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_DAY_TO_SECOND);
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_YEAR_TO_MONTH);
+        SIMPLE_TYPE_WITH_SPACES.add("double precision");
+    }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
@@ -51,13 +70,6 @@ public class TypeSignature
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
         this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
-    }
-
-    // TODO: merge literalParameters for Row with TypeSignatureParameter
-    @Deprecated
-    public TypeSignature(String base, List<TypeSignature> typeSignatureParameters, List<String> literalParameters)
-    {
-        this(base, createNamedTypeParameters(typeSignatureParameters, literalParameters));
     }
 
     public String getBase()
@@ -97,16 +109,14 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
+            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
+                return VarcharType.createUnboundedVarcharType().getTypeSignature();
+            }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
-            return new TypeSignature(signature, new ArrayList<>());
+            return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
-        }
-        // TODO: remove the support of parsing old style row type
-        // when everything has been moved to use new style
-        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "<")) {
-            return parseOldStyleRowTypeSignature(signature, literalCalculationParameters);
         }
 
         String baseName = null;
@@ -123,7 +133,7 @@ public class TypeSignature
                 if (bracketCount == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
+                    baseName = canonicalizeBaseName(signature.substring(0, i));
                     checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
@@ -153,142 +163,146 @@ public class TypeSignature
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
     }
 
-    @Deprecated
+    private enum RowTypeSignatureParsingState
+    {
+        START_OF_FIELD,
+        DELIMITED_NAME,
+        DELIMITED_NAME_ESCAPED,
+        TYPE_OR_NAMED_TYPE,
+        TYPE,
+        FINISHED,
+    }
+
     private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
-        String baseName = null;
-        List<TypeSignature> parameters = new ArrayList<>();
-        List<String> fieldNames = new ArrayList<>();
-        int parameterStart = -1;
-        int bracketCount = 0;
-        boolean inFieldName = false;
+        checkArgument(signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "("), "Not a row type signature: '%s'", signature);
 
-        for (int i = 0; i < signature.length(); i++) {
+        RowTypeSignatureParsingState state = RowTypeSignatureParsingState.START_OF_FIELD;
+        int bracketLevel = 1;
+        int tokenStart = -1;
+        String delimitedColumnName = null;
+
+        List<TypeSignatureParameter> fields = new ArrayList<>();
+
+        for (int i = StandardTypes.ROW.length() + 1; i < signature.length(); i++) {
             char c = signature.charAt(i);
-            if (c == '(') {
-                if (bracketCount == 0) {
-                    verify(baseName == null, "Expected baseName to be null");
-                    verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
-                    parameterStart = i + 1;
-                    inFieldName = true;
-                }
-                bracketCount++;
-            }
-            else if (c == ' ') {
-                if (bracketCount == 1 && inFieldName) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    fieldNames.add(signature.substring(parameterStart, i));
-                    parameterStart = i + 1;
-                    inFieldName = false;
-                }
-            }
-            else if (c == ',') {
-                if (bracketCount == 1) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                    parameterStart = i + 1;
-                    inFieldName = true;
-                }
-            }
-            else if (c == ')') {
-                bracketCount--;
-                if (bracketCount == 0) {
-                    checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                    return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
-                }
-            }
-        }
-        throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
-    }
-
-    // TODO: remove this when old style row type is removed
-    @Deprecated
-    private static TypeSignature parseOldStyleRowTypeSignature(String signature, Set<String> literalParameters)
-    {
-        String baseName = null;
-        List<TypeSignature> parameters = new ArrayList<>();
-        List<String> fieldNames = new ArrayList<>();
-        int parameterStart = -1;
-        int bracketCount = 0;
-        boolean inLiteralParameters = false;
-
-        for (int i = 0; i < signature.length(); i++) {
-            char c = signature.charAt(i);
-            if (c == '<') {
-                if (bracketCount == 0) {
-                    verify(baseName == null, "Expected baseName to be null");
-                    verify(parameterStart == -1, "Expected parameter start to be -1");
-                    baseName = signature.substring(0, i);
-                    parameterStart = i + 1;
-                }
-                bracketCount++;
-            }
-            else if (c == '>') {
-                bracketCount--;
-                checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
-                if (bracketCount == 0) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                    parameterStart = i + 1;
-                }
-            }
-            else if (c == ',') {
-                if (bracketCount == 1) {
-                    if (!inLiteralParameters) {
-                        checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
-                        parameterStart = i + 1;
+            switch (state) {
+                case START_OF_FIELD:
+                    if (c == '"') {
+                        state = RowTypeSignatureParsingState.DELIMITED_NAME;
+                        tokenStart = i;
+                    }
+                    else if (isValidStartOfIdentifier(c)) {
+                        state = RowTypeSignatureParsingState.TYPE_OR_NAMED_TYPE;
+                        tokenStart = i;
                     }
                     else {
-                        checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                        fieldNames.add(parseFieldName(signature.substring(parameterStart, i)));
-                        parameterStart = i + 1;
+                        checkArgument(c == ' ', "Bad type signature: '%s'", signature);
                     }
-                }
-            }
-            else if (c == '(') {
-                if (bracketCount == 0) {
-                    inLiteralParameters = true;
-                    if (baseName == null) {
-                        verify(parameters.isEmpty(), "Expected no parameters");
-                        verify(parameterStart == -1, "Expected parameter start to be -1");
-                        baseName = signature.substring(0, i);
+                    break;
+
+                case DELIMITED_NAME:
+                    if (c == '"') {
+                        if (i + 1 < signature.length() && signature.charAt(i + 1) == '"') {
+                            state = RowTypeSignatureParsingState.DELIMITED_NAME_ESCAPED;
+                        }
+                        else {
+                            // Remove quotes around the delimited column name
+                            verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                            delimitedColumnName = signature.substring(tokenStart + 1, i);
+                            tokenStart = i + 1;
+                            state = RowTypeSignatureParsingState.TYPE;
+                        }
                     }
-                    parameterStart = i + 1;
-                }
-                bracketCount++;
-            }
-            else if (c == ')') {
-                bracketCount--;
-                if (bracketCount == 0) {
-                    checkArgument(inLiteralParameters, "Bad type signature: '%s'", signature);
-                    inLiteralParameters = false;
-                    checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    fieldNames.add(parseFieldName(signature.substring(parameterStart, i)));
-                    return new TypeSignature(baseName, createNamedTypeParameters(parameters, fieldNames));
-                }
+                    break;
+
+                case DELIMITED_NAME_ESCAPED:
+                    verify(c == '"', "Expect quote after escape");
+                    state = RowTypeSignatureParsingState.DELIMITED_NAME;
+                    break;
+
+                case TYPE_OR_NAMED_TYPE:
+                    if (c == '(') {
+                        bracketLevel++;
+                    }
+                    else if (c == ')' && bracketLevel > 1) {
+                        bracketLevel--;
+                    }
+                    else if (c == ')') {
+                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
+                        tokenStart = -1;
+                        state = RowTypeSignatureParsingState.FINISHED;
+                    }
+                    else if (c == ',' && bracketLevel == 1) {
+                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
+                        tokenStart = -1;
+                        state = RowTypeSignatureParsingState.START_OF_FIELD;
+                    }
+                    break;
+
+                case TYPE:
+                    if (c == '(') {
+                        bracketLevel++;
+                    }
+                    else if (c == ')' && bracketLevel > 1) {
+                        bracketLevel--;
+                    }
+                    else if (c == ')') {
+                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
+                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                                Optional.of(new RowFieldName(delimitedColumnName, true)),
+                                parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
+                        delimitedColumnName = null;
+                        tokenStart = -1;
+                        state = RowTypeSignatureParsingState.FINISHED;
+                    }
+                    else if (c == ',' && bracketLevel == 1) {
+                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
+                        fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                                Optional.of(new RowFieldName(delimitedColumnName, true)),
+                                parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
+                        delimitedColumnName = null;
+                        tokenStart = -1;
+                        state = RowTypeSignatureParsingState.START_OF_FIELD;
+                    }
+                    break;
+
+                case FINISHED:
+                    throw new IllegalStateException(format("Bad type signature: '%s'", signature));
+
+                default:
+                    throw new AssertionError(format("Unexpected RowTypeSignatureParsingState: %s", state));
             }
         }
 
-        throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+        checkArgument(state == RowTypeSignatureParsingState.FINISHED, "Bad type signature: '%s'", signature);
+        return new TypeSignature(signature.substring(0, StandardTypes.ROW.length()), fields);
     }
 
-    private static List<TypeSignatureParameter> createNamedTypeParameters(List<TypeSignature> parameters, List<String> fieldNames)
+    private static TypeSignatureParameter parseTypeOrNamedType(String typeOrNamedType, Set<String> literalParameters)
     {
-        requireNonNull(parameters, "parameters is null");
-        requireNonNull(fieldNames, "fieldNames is null");
-        verify(parameters.size() == fieldNames.size() || fieldNames.isEmpty(), "Number of parameters and fieldNames for ROW type doesn't match");
-        List<TypeSignatureParameter> result = new ArrayList<>();
-        for (int i = 0; i < parameters.size(); i++) {
-            // Use "field" + i instead of String.format to avoid expensive string formatting
-            String fieldName = fieldNames.isEmpty() ? ("field" + i) : fieldNames.get(i);
-            result.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldName, parameters.get(i))));
+        int split = typeOrNamedType.indexOf(' ');
+
+        // Type without space or simple type with spaces
+        if (split == -1 || SIMPLE_TYPE_WITH_SPACES.contains(typeOrNamedType)) {
+            return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
         }
-        return result;
+
+        // Assume the first part of a structured type always has non-alphabetical character.
+        // If the first part is a valid identifier, parameter is a named field.
+        String firstPart = typeOrNamedType.substring(0, split);
+        if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
+            return TypeSignatureParameter.of(new NamedTypeSignature(
+                    Optional.of(new RowFieldName(firstPart, false)),
+                    parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
+        }
+
+        // Structured type composed from types with spaces. i.e. array(timestamp with time zone)
+        return TypeSignatureParameter.of(new NamedTypeSignature(Optional.empty(), parseTypeSignature(typeOrNamedType, literalParameters)));
     }
 
     private static TypeSignatureParameter parseTypeSignatureParameter(
@@ -298,7 +312,7 @@ public class TypeSignature
             Set<String> literalCalculationParameters)
     {
         String parameterName = signature.substring(begin, end).trim();
-        if (Character.isDigit(signature.charAt(begin))) {
+        if (isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
         else if (literalCalculationParameters.contains(parameterName)) {
@@ -309,59 +323,35 @@ public class TypeSignature
         }
     }
 
-    // TODO: remove this when old style row type is removed
-    @Deprecated
-    private static String parseFieldName(String fieldName)
+    private static boolean isValidStartOfIdentifier(char c)
     {
-        checkArgument(fieldName != null && fieldName.length() >= 2, "Bad fieldName: '%s'", fieldName);
-        checkArgument(fieldName.startsWith("'") && fieldName.endsWith("'"), "Bad fieldName: '%s'", fieldName);
-        return fieldName.substring(1, fieldName.length() - 1);
+        return (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                c == '_';
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        // TODO: remove these hacks
-        if (base.equalsIgnoreCase(StandardTypes.ROW)) {
-            return rowToString();
-        }
-        else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
-                (parameters.size() == 1) &&
-                parameters.get(0).isLongLiteral() &&
-                parameters.get(0).getLongLiteral() == VarcharType.MAX_LENGTH) {
+        if (parameters.isEmpty()) {
             return base;
         }
-        else {
-            StringBuilder typeName = new StringBuilder(base);
-            if (!parameters.isEmpty()) {
-                typeName.append("(");
-                boolean first = true;
-                for (TypeSignatureParameter parameter : parameters) {
-                    if (!first) {
-                        typeName.append(",");
-                    }
-                    first = false;
-                    typeName.append(parameter.toString());
-                }
-                typeName.append(")");
-            }
-            return typeName.toString();
+
+        if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+                (parameters.size() == 1) &&
+                parameters.get(0).isLongLiteral() &&
+                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
+            return base;
         }
-    }
 
-    @Deprecated
-    private String rowToString()
-    {
-        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
-                format("Incorrect parameters for row type %s", parameters));
-
-        String fields = parameters.stream()
-                .map(TypeSignatureParameter::getNamedTypeSignature)
-                .map(parameter -> format("%s %s", parameter.getName(), parameter.getTypeSignature().toString()))
-                .collect(Collectors.joining(","));
-
-        return format("row(%s)", fields);
+        StringBuilder typeName = new StringBuilder(base);
+        typeName.append("(").append(parameters.get(0));
+        for (int i = 1; i < parameters.size(); i++) {
+            typeName.append(",").append(parameters.get(i));
+        }
+        typeName.append(")");
+        return typeName.toString();
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)
@@ -383,6 +373,15 @@ public class TypeSignature
         return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
     }
 
+    private static String canonicalizeBaseName(String baseName)
+    {
+        String canonicalBaseName = BASE_NAME_ALIAS_TO_CANONICAL.get(baseName);
+        if (canonicalBaseName == null) {
+            return baseName;
+        }
+        return canonicalBaseName;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -395,32 +394,13 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        // TODO remove this hack together with hack from toString()
-        if (magicVarcharEquals(other, this)) {
-            return true;
-        }
-
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
-    }
-
-    private static boolean magicVarcharEquals(TypeSignature first, TypeSignature second)
-    {
-        // treat varchar and varchar(MAX_LONG) as equivalent
-        // should replaced with hack in parser as soon as we change declarations of all functions taking varchar parameters to use parameterization
-        return first.getBase().equals(StandardTypes.VARCHAR)
-                && second.getBase().equals(StandardTypes.VARCHAR)
-                && ((first.getParameters().isEmpty() && second.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
-                || (second.getParameters().isEmpty() && first.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
     public int hashCode()
     {
-        // TODO remove this hack together with hack from toString()
-        if (getBase().equals(StandardTypes.VARCHAR) && parameters.isEmpty()) {
-            return VarcharType.createUnboundedVarcharType().getTypeSignature().hashCode();
-        }
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 }

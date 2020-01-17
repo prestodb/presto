@@ -14,14 +14,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.type.Type;
@@ -32,6 +31,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -41,20 +41,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Arrays.asList;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class CallTask
         implements DataDefinitionTask<Call>
@@ -66,9 +67,9 @@ public class CallTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        if (!stateMachine.isAutoCommit()) {
+        if (!transactionManager.getTransactionInfo(stateMachine.getSession().getRequiredTransactionId()).isAutoCommitContext()) {
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
@@ -126,7 +127,8 @@ public class CallTask
             Argument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
-            Type type = argument.getType();
+            Type type = metadata.getType(argument.getType());
+            checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 
@@ -161,16 +163,16 @@ public class CallTask
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(PROCEDURE_CALL_FAILED, t);
         }
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 
     private static Object toTypeObjectValue(Session session, Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         return type.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
     }

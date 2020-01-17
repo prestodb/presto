@@ -1,0 +1,16 @@
+datasource: presto
+query-names: presto/distributed_sort/${query}.sql
+runs: 2
+prewarm-runs: 1
+before-execution: sleep-4s, presto/distributed_sort/session_set_distributed_sort_flag.sql
+frequency: 7
+database: hive
+tpch_100: tpch_sf100_orc
+tpch_300: tpch_sf300_orc
+tpch_1000: tpch_sf1000_orc
+tpch_3000: tpch_sf3000_orc
+variables:
+  1:
+    query: sort_query_6_cols, sort_query_1_col
+    schema: ${tpch_100}, ${tpch_300}, ${tpch_1000}, ${tpch_3000}
+    distributed_sort: true, false

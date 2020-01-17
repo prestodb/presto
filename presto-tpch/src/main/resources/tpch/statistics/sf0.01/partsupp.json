@@ -1,0 +1,35 @@
+{
+  "rowCount" : 8000,
+  "columns" : {
+    "ps_partkey" : {
+      "distinctValuesCount" : 2000,
+      "min" : 1,
+      "max" : 2000,
+      "dataSize" : null
+    },
+    "ps_suppkey" : {
+      "distinctValuesCount" : 100,
+      "min" : 1,
+      "max" : 100,
+      "dataSize" : null
+    },
+    "ps_availqty" : {
+      "distinctValuesCount" : 5497,
+      "min" : 3,
+      "max" : 9998,
+      "dataSize" : null
+    },
+    "ps_supplycost" : {
+      "distinctValuesCount" : 7665,
+      "min" : 1.05,
+      "max" : 999.99,
+      "dataSize" : null
+    },
+    "ps_comment" : {
+      "distinctValuesCount" : 8000,
+      "min" : " about the instructions. carefully final platelets cajole carefully furiously regular requests. carefully regular theodolites along the carefully regular pinto beans haggle about ",
+      "max" : "zzle blithely about the furiously final foxes. pen",
+      "dataSize" : 992530
+    }
+  }
+}

@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  * @author Kevin Bourrillion
  * @since 1.0
  */
-final class Primitives
+public final class Primitives
 {
     private Primitives() {}
 
@@ -47,8 +47,8 @@ final class Primitives
     // Sad that we can't use a BiMap. :(
 
     static {
-        Map<Class<?>, Class<?>> primToWrap = new HashMap<Class<?>, Class<?>>(16);
-        Map<Class<?>, Class<?>> wrapToPrim = new HashMap<Class<?>, Class<?>>(16);
+        Map<Class<?>, Class<?>> primToWrap = new HashMap<>(16);
+        Map<Class<?>, Class<?>> wrapToPrim = new HashMap<>(16);
 
         add(primToWrap, wrapToPrim, boolean.class, Boolean.class);
         add(primToWrap, wrapToPrim, byte.class, Byte.class);
@@ -58,7 +58,6 @@ final class Primitives
         add(primToWrap, wrapToPrim, int.class, Integer.class);
         add(primToWrap, wrapToPrim, long.class, Long.class);
         add(primToWrap, wrapToPrim, short.class, Short.class);
-        add(primToWrap, wrapToPrim, void.class, Void.class);
 
         PRIMITIVE_TO_WRAPPER_TYPE = Collections.unmodifiableMap(primToWrap);
         WRAPPER_TO_PRIMITIVE_TYPE = Collections.unmodifiableMap(wrapToPrim);
@@ -84,8 +83,7 @@ final class Primitives
     }
 
     /**
-     * Returns an immutable set of all nine primitive-wrapper types (including
-     * {@link Void}).
+     * Returns an immutable set of all eight primitive-wrapper types
      *
      * @since 3.0
      */

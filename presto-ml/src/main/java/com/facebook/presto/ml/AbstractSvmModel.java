@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import libsvm.svm;
@@ -24,14 +23,17 @@ import libsvm.svm_problem;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -62,7 +64,7 @@ public abstract class AbstractSvmModel
             return Files.readAllBytes(file.toPath());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
         finally {
             if (file != null) {
@@ -81,16 +83,24 @@ public abstract class AbstractSvmModel
 
         ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%s"));
         try {
-            TimeLimiter limiter = new SimpleTimeLimiter(service);
+            TimeLimiter limiter = SimpleTimeLimiter.create(service);
             //TODO: this time limit should be configurable
-            model = limiter.callWithTimeout(getTrainingFunction(problem, params), 1, TimeUnit.HOURS, true);
+            model = limiter.callWithTimeout(getTrainingFunction(problem, params), 1, TimeUnit.HOURS);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                throwIfUnchecked(cause);
+                throw new RuntimeException(cause);
+            }
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
         finally {
             service.shutdownNow();

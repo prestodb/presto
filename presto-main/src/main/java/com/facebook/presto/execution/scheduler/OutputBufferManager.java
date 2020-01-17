@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,7 @@ public class RegexTemplate
             NAMED_GROUPS_METHOD.setAccessible(true);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new AssertionError(e);
         }
     }
 
@@ -61,8 +60,8 @@ public class RegexTemplate
         try {
             namedGroups = (Map<String, Integer>) NAMED_GROUPS_METHOD.invoke(pattern);
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
         ImmutableSortedMap<Integer, String> sortedGroups = ImmutableSortedMap.copyOf(ImmutableBiMap.copyOf(namedGroups).inverse());
         this.fieldNames = ImmutableList.copyOf(sortedGroups.values());

@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URL;
 import java.util.List;
@@ -47,7 +47,6 @@ public class ExampleClient
 
     @Inject
     public ExampleClient(ExampleConfig config, JsonCodec<Map<String, List<ExampleTable>>> catalogCodec)
-            throws IOException
     {
         requireNonNull(config, "config is null");
         requireNonNull(catalogCodec, "catalogCodec is null");
@@ -88,7 +87,7 @@ public class ExampleClient
                 return lookupSchemas(metadataUri, catalogCodec);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         };
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -27,6 +28,7 @@ public class ShardDelta
     private final List<UUID> oldShardUuids;
     private final List<ShardInfo> newShards;
 
+    @JsonCreator
     public ShardDelta(
             @JsonProperty("oldShardUuids") List<UUID> oldShardUuids,
             @JsonProperty("newShards") List<ShardInfo> newShards)

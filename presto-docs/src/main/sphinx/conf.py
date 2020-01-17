@@ -60,9 +60,9 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.1'
+needs_sphinx = '1.6.5'
 
-extensions = ['download']
+extensions = ['download', 'issue', 'pr', 'sphinx.ext.mathjax']
 
 templates_path = ['_templates']
 
@@ -75,7 +75,7 @@ project = u'Presto'
 version = get_version()
 release = version
 
-exclude_patterns = ['_build', 'rest*', 'overview/concepts*']
+exclude_patterns = ['_build', 'rest*']
 
 pygments_style = 'sphinx'
 

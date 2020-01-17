@@ -63,10 +63,10 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
-        TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
+        TpchIndexedData indexedData = new TpchIndexedData(catalogName, indexSpec);
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -80,7 +80,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
-                return new TpchIndexMetadata(connectorId, indexedData);
+                return new TpchIndexMetadata(catalogName, indexedData);
             }
 
             @Override

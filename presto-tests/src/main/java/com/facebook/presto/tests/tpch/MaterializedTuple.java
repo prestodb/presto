@@ -21,40 +21,40 @@ import static java.util.Objects.requireNonNull;
 
 // TODO merge this into MaterializedRow
 class MaterializedTuple
+{
+    private final List<Object> values;
+
+    public MaterializedTuple(List<Object> values)
     {
-        private final List<Object> values;
-
-        public MaterializedTuple(List<Object> values)
-        {
-            this.values = requireNonNull(values, "values is null");
-        }
-
-        public static MaterializedTuple from(Object... values)
-        {
-            return new MaterializedTuple(Arrays.asList(values));
-        }
-
-        public List<Object> getValues()
-        {
-            return values;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(values);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final MaterializedTuple other = (MaterializedTuple) obj;
-            return Objects.equals(this.values, other.values);
-        }
+        this.values = requireNonNull(values, "values is null");
     }
+
+    public static MaterializedTuple from(Object... values)
+    {
+        return new MaterializedTuple(Arrays.asList(values));
+    }
+
+    public List<Object> getValues()
+    {
+        return values;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(values);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final MaterializedTuple other = (MaterializedTuple) obj;
+        return Objects.equals(this.values, other.values);
+    }
+}

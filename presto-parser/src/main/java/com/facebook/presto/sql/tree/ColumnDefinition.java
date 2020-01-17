@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,27 +25,32 @@ import static java.util.Objects.requireNonNull;
 public final class ColumnDefinition
         extends TableElement
 {
-    private final String name;
+    private final Identifier name;
     private final String type;
+    private final boolean nullable;
+    private final List<Property> properties;
+    private final Optional<String> comment;
 
-    public ColumnDefinition(String name, String type)
+    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, type);
+        this(Optional.empty(), name, type, nullable, properties, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, String name, String type)
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, type);
+        this(Optional.of(location), name, type, nullable, properties, comment);
     }
-
-    private ColumnDefinition(Optional<NodeLocation> location, String name, String type)
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.nullable = nullable;
+        this.properties = requireNonNull(properties, "properties is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }
@@ -52,10 +60,31 @@ public final class ColumnDefinition
         return type;
     }
 
+    public boolean isNullable()
+    {
+        return nullable;
+    }
+
+    public List<Property> getProperties()
+    {
+        return properties;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitColumnDefinition(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override
@@ -69,13 +98,16 @@ public final class ColumnDefinition
         }
         ColumnDefinition o = (ColumnDefinition) obj;
         return Objects.equals(this.name, o.name) &&
-                Objects.equals(this.type, o.type);
+                Objects.equals(this.type, o.type) &&
+                this.nullable == o.nullable &&
+                Objects.equals(properties, o.properties) &&
+                Objects.equals(this.comment, o.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(name, type, properties, comment, nullable);
     }
 
     @Override
@@ -84,6 +116,9 @@ public final class ColumnDefinition
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("nullable", nullable)
+                .add("properties", properties)
+                .add("comment", comment)
                 .toString();
     }
 }

@@ -15,18 +15,17 @@ package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
 
+import javax.inject.Inject;
 import javax.security.sasl.Sasl;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -39,22 +38,26 @@ public class KerberosHiveMetastoreAuthentication
 {
     private final String hiveMetastoreServicePrincipal;
     private final HadoopAuthentication authentication;
+    private final boolean hdfsWireEncryptionEnabled;
 
     @Inject
-    public KerberosHiveMetastoreAuthentication(HiveClientConfig hiveClientConfig, @ForHiveMetastore HadoopAuthentication authentication)
+    public KerberosHiveMetastoreAuthentication(
+            MetastoreKerberosConfig config,
+            @ForHiveMetastore HadoopAuthentication authentication,
+            HiveClientConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getHiveMetastoreServicePrincipal(), authentication);
+        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled());
     }
 
-    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication)
+    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled)
     {
         this.hiveMetastoreServicePrincipal = requireNonNull(hiveMetastoreServicePrincipal, "hiveMetastoreServicePrincipal is null");
         this.authentication = requireNonNull(authentication, "authentication is null");
+        this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
     }
 
     @Override
     public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost)
-            throws TTransportException
     {
         try {
             String serverPrincipal = getServerPrincipal(hiveMetastoreServicePrincipal, hiveMetastoreHost);
@@ -63,9 +66,8 @@ public class KerberosHiveMetastoreAuthentication
                     "Kerberos principal name does NOT have the expected hostname part: %s", serverPrincipal);
 
             Map<String, String> saslProps = ImmutableMap.of(
-                    Sasl.QOP, "auth",
-                    Sasl.SERVER_AUTH, "true"
-            );
+                    Sasl.QOP, hdfsWireEncryptionEnabled ? "auth-conf" : "auth",
+                    Sasl.SERVER_AUTH, "true");
 
             TTransport saslTransport = new TSaslClientTransport(
                     KERBEROS.getMechanismName(),
@@ -79,7 +81,7 @@ public class KerberosHiveMetastoreAuthentication
             return new TUGIAssumingTransport(saslTransport, authentication.getUserGroupInformation());
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

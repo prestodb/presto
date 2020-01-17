@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSplitSource.ConnectorSplitBatch;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareSplitSource
@@ -31,7 +36,10 @@ public class ConnectorAwareSplitSource
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
-    public ConnectorAwareSplitSource(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(
+            ConnectorId connectorId,
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSplitSource source)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
@@ -45,10 +53,28 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
-    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
+    public ConnectorTransactionHandle getTransactionHandle()
     {
-        return source.getNextBatch(maxSize)
-                .thenApply(splits -> Lists.transform(splits, split -> new Split(connectorId, transactionHandle, split)));
+        return transactionHandle;
+    }
+
+    @Override
+    public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
+    {
+        ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(partitionHandle, maxSize));
+        return Futures.transform(nextBatch, splitBatch -> {
+            ImmutableList.Builder<Split> result = ImmutableList.builder();
+            for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
+                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
+            }
+            return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
+        }, directExecutor());
+    }
+
+    @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        source.rewind(partitionHandle);
     }
 
     @Override

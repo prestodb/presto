@@ -18,15 +18,16 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.testing.FileUtils;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 public class TestRaptorPlugin
 {
@@ -44,13 +45,13 @@ public class TestRaptorPlugin
             Map<String, String> config = ImmutableMap.<String, String>builder()
                     .put("metadata.db.type", "h2")
                     .put("metadata.db.filename", tmpDir.getAbsolutePath())
-                    .put("storage.data-directory", tmpDir.getAbsolutePath())
+                    .put("storage.data-directory", tmpDir.toURI().toString())
                     .build();
 
             factory.create("test", config, new TestingConnectorContext());
         }
         finally {
-            FileUtils.deleteRecursively(tmpDir);
+            deleteRecursively(tmpDir.toPath(), ALLOW_INSECURE);
         }
     }
 

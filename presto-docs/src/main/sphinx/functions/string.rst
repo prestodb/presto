@@ -32,15 +32,31 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
+.. function:: codepoint(string) -> integer
+
+    Returns the Unicode code point of the only character of ``string``.
+
 .. function:: concat(string1, ..., stringN) -> varchar
 
     Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: hamming_distance(string1, string2) -> bigint
+
+    Returns the Hamming distance of ``string1`` and ``string2``,
+    i.e. the number of positions at which the corresponding characters are different.
+    Note that the two strings must have the same length.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
+
+.. function:: levenshtein_distance(string1, string2) -> bigint
+
+    Returns the Levenshtein edit distance of ``string1`` and ``string2``,
+    i.e. the minimum number of single-character edits (insertions,
+    deletions or substitutions) needed to change ``string1`` into ``string2``.
 
 .. function:: lower(string) -> varchar
 
@@ -80,11 +96,11 @@ String Functions
 
     Removes trailing whitespace from ``string``.
 
-.. function:: split(string, delimiter) -> array<varchar>
+.. function:: split(string, delimiter) -> array(varchar)
 
     Splits ``string`` on ``delimiter`` and returns an array.
 
-.. function:: split(string, delimiter, limit) -> array<varchar>
+.. function:: split(string, delimiter, limit) -> array(varchar)
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -100,12 +116,50 @@ String Functions
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
-    each pair into key and value.
+    each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
+    interpreted literally, i.e., as full string matches.
+
+.. function:: split_to_map(string, entryDelimiter, keyValueDelimiter, function(K,V1,V2,R)) -> map<varchar, varchar>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
+    each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
+    interpreted literally, i.e., as full string matches. ``function(K,V1,V2,R)``
+    is invoked in cases of duplicate keys to resolve the value that should be in the map.
+
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))); -- {"a": "13", "b": "2"}
+
+.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar))
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map
+    containing an array of values for each unique key. ``entryDelimiter`` splits ``string``
+    into key-value pairs. ``keyValueDelimiter`` splits each pair into key and value. The
+    values for each key will be in the same order as they appeared in ``string``.
+    Note that ``entryDelimiter`` and ``keyValueDelimiter`` are interpreted literally,
+    i.e., as full string matches.
 
 .. function:: strpos(string, substring) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strpos(string, substring, instance) -> bigint
+
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
+    ``instance`` must be a positive number.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring) -> bigint
+
+    Returns the starting position of the last instance of ``substring`` in ``string``.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring, instance) -> bigint
+
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string`` starting from the end of the string.
+    ``instance`` must be a positive number.
+    Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: position(substring IN string) -> bigint
 
@@ -131,6 +185,14 @@ String Functions
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
+
+.. function:: word_stem(word) -> varchar
+
+    Returns the stem of ``word`` in the English language.
+
+.. function:: word_stem(word, lang) -> varchar
+
+    Returns the stem of ``word`` in the ``lang`` language.
 
 Unicode Functions
 -----------------

@@ -14,21 +14,23 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
+import com.facebook.presto.spi.function.Convention;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.google.common.base.Defaults.defaultValue;
 
 @ScalarOperator(IS_DISTINCT_FROM)
 public final class MapDistinctFromOperator
@@ -39,19 +41,14 @@ public final class MapDistinctFromOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"})
-                    MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"})
-                    MethodHandle keyHashcodeFunction,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"})
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
-            @TypeParameter("K") Type keyType,
-            @TypeParameter("V") Type valueType,
-            @SqlNullable @SqlType("map(K,V)") Block leftMapBlock,
-            @SqlNullable @SqlType("map(K,V)") Block rightMapBlock)
+            @TypeParameter("map(K, V)") Type mapType,
+            @SqlType("map(K,V)") Block leftMapBlock,
+            @IsNull boolean leftMapNull,
+            @SqlType("map(K,V)") Block rightMapBlock,
+            @IsNull boolean rightMapNull)
     {
-        boolean leftMapNull = leftMapBlock == null;
-        boolean rightMapNull = rightMapBlock == null;
         if (leftMapNull != rightMapNull) {
             return true;
         }
@@ -60,24 +57,30 @@ public final class MapDistinctFromOperator
         }
         // Note that we compare to NOT distinct here and so negate the result.
         return !MapGenericEquality.genericEqual(
-                keyEqualsFunction,
-                keyHashcodeFunction,
-                keyType,
+                ((MapType) mapType).getKeyType(),
                 leftMapBlock,
                 rightMapBlock,
-                (leftMapIndex, rightMapIndex) -> {
-                    Object leftValue = readNativeValue(valueType, leftMapBlock, leftMapIndex);
-                    boolean leftNull = leftValue == null;
-                    if (leftNull) {
-                        leftValue = defaultValue(valueType.getJavaType());
-                    }
-                    Object rightValue = readNativeValue(valueType, rightMapBlock, rightMapIndex);
-                    boolean rightNull = rightValue == null;
-                    if (rightNull) {
-                        rightValue = defaultValue(valueType.getJavaType());
-                    }
-                    return !(boolean) valueDistinctFromFunction.invoke(leftValue, leftNull, rightValue, rightNull);
-                }
-        );
+                (leftMapIndex, rightMapIndex) -> !(boolean) valueDistinctFromFunction.invokeExact(leftMapBlock, leftMapIndex, rightMapBlock, rightMapIndex));
+    }
+
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+                    MethodHandle valueDistinctFromFunction,
+            @TypeParameter("map(K, V)") Type mapType,
+            @BlockPosition @SqlType(value = "map(K,V)", nativeContainerType = Block.class) Block left,
+            @BlockIndex int leftPosition,
+            @BlockPosition @SqlType(value = "map(K,V)", nativeContainerType = Block.class) Block right,
+            @BlockIndex int rightPosition)
+    {
+        return isDistinctFrom(
+                valueDistinctFromFunction,
+                mapType,
+                (Block) mapType.getObject(left, leftPosition),
+                left.isNull(leftPosition),
+                (Block) mapType.getObject(right, rightPosition),
+                right.isNull(rightPosition));
     }
 }

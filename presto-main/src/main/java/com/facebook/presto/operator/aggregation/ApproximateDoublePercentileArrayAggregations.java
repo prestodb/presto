@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
@@ -36,25 +37,53 @@ public final class ApproximateDoublePercentileArrayAggregations
     private ApproximateDoublePercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, doubleToSortableLong(value), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType("array(double)") Block percentilesArrayBlock,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileArrayAggregations.input(state, doubleToSortableLong(value), percentilesArrayBlock, accuracy);
+    }
+
+    @InputFunction
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock);
     }
 
+    @InputFunction
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType("array(double)") Block percentilesArrayBlock,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock, accuracy);
+    }
+
     @CombineFunction
-    public static void combine(DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
+    public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
     {
         ApproximateLongPercentileArrayAggregations.combine(state, otherState);
     }
 
     @OutputFunction("array(double)")
-    public static void output(DigestAndPercentileArrayState state, BlockBuilder out)
+    public static void output(@AggregationState DigestAndPercentileArrayState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         List<Double> percentiles = state.getPercentiles();

@@ -13,133 +13,147 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.presto.hive.s3.S3FileSystemType;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.base.Splitter;
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
-        "hive.optimized-reader.enabled"
-})
+        "hive.max-sort-files-per-bucket",
+        "hive.bucket-writing",
+        "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private String timeZone = TimeZone.getDefault().getID();
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
+    private DataSize maxOutstandingSplitsSize = new DataSize(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
+    private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
+    private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
 
     private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentZeroRowFileCreations = 20;
 
     private boolean allowCorruptWritesForTesting;
-
-    private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
-    private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
-    private long metastoreCacheMaximumSize = 10000;
-    private long perTransactionMetastoreCacheMaximumSize = 1000;
-    private int maxMetastoreRefreshThreads = 100;
-    private HostAndPort metastoreSocksProxy;
-    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
-    private boolean verifyChecksum = true;
     private String domainSocketPath;
 
-    private String s3AwsAccessKey;
-    private String s3AwsSecretKey;
-    private String s3Endpoint;
-    private PrestoS3SignerType s3SignerType;
-    private boolean s3UseInstanceCredentials = true;
-    private boolean s3SslEnabled = true;
-    private boolean s3SseEnabled;
-    private String s3EncryptionMaterialsProvider;
-    private String s3KmsKeyId;
-    private int s3MaxClientRetries = 3;
-    private int s3MaxErrorRetries = 10;
-    private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
-    private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
-    private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
-    private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
-    private int s3MaxConnections = 500;
-    private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
-    private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
-    private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
-    private boolean useParquetColumnNames;
-    private boolean pinS3ClientToCurrentRegion;
-    private String s3UserAgentPrefix = "";
+    private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
-    private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
+    private HiveStorageFormat hiveStorageFormat = ORC;
+    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
+    private int maxOpenSortFiles = 50;
+    private int writeValidationThreads = 16;
 
-    private List<String> resourceConfigFiles;
+    private List<String> resourceConfigFiles = ImmutableList.of();
 
-    private boolean parquetOptimizedReaderEnabled;
+    private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
-    private boolean parquetPredicatePushdownEnabled;
+    private boolean useParquetColumnNames;
+    private boolean failOnCorruptedParquetStatistics = true;
+    private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
 
     private boolean assumeCanonicalPartitionKeys;
 
     private boolean useOrcColumnNames;
     private boolean orcBloomFiltersEnabled;
+    private double orcDefaultBloomFilterFpp = 0.05;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
+    private boolean orcLazyReadSmallRanges = true;
+    private boolean orcOptimizedWriterEnabled = true;
+    private double orcWriterValidationPercentage;
+    private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
-    private boolean rcfileOptimizedReaderEnabled;
+    private boolean rcfileOptimizedWriterEnabled = true;
+    private boolean rcfileWriterValidate;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
-    private String hiveMetastoreServicePrincipal;
-    private String hiveMetastoreClientPrincipal;
-    private String hiveMetastoreClientKeytab;
-
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
-    private String hdfsPrestoPrincipal;
-    private String hdfsPrestoKeytab;
+    private boolean hdfsWireEncryptionEnabled;
 
     private boolean skipDeletionForAlter;
+    private boolean skipTargetCleanupOnRollback;
 
     private boolean bucketExecutionEnabled = true;
-    private boolean bucketWritingEnabled = true;
+    private boolean sortedWritingEnabled = true;
+    private boolean ignoreTableBucketing;
+    private int maxBucketsForGroupedExecution = 1_000_000;
+    // TODO: Clean up this gatekeeper config and related code/session property once the roll out is done.
+    private boolean sortedWriteToTempPathEnabled;
+    private int sortedWriteTempPathSubdirectoryCount = 10;
 
     private int fileSystemMaxCacheSize = 1000;
+
+    private boolean optimizeMismatchedBucketCount;
+    private boolean writesToNonManagedTablesEnabled;
+    private boolean createsOfNonManagedTablesEnabled = true;
+
+    private boolean tableStatisticsEnabled = true;
+    private int partitionStatisticsSampleSize = 100;
+    private boolean ignoreCorruptedStatistics;
+    private boolean collectColumnStatisticsOnWrite;
+
+    private boolean s3SelectPushdownEnabled;
+    private int s3SelectPushdownMaxConnections = 500;
+
+    private boolean isTemporaryStagingDirectoryEnabled = true;
+    private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
+
+    private String temporaryTableSchema = "default";
+    private HiveStorageFormat temporaryTableStorageFormat = ORC;
+    private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+
+    private boolean pushdownFilterEnabled;
+    private boolean rangeFiltersOnSubscriptsEnabled;
+    private boolean adaptiveFilterReorderingEnabled = true;
+    private boolean zstdJniDecompressionEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -169,6 +183,19 @@ public class HiveClientConfig
     }
 
     @Min(1)
+    public int getSplitLoaderConcurrency()
+    {
+        return splitLoaderConcurrency;
+    }
+
+    @Config("hive.split-loader-concurrency")
+    public HiveClientConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
+    {
+        this.splitLoaderConcurrency = splitLoaderConcurrency;
+        return this;
+    }
+
+    @Min(1)
     public int getDomainCompactionThreshold()
     {
         return domainCompactionThreshold;
@@ -179,6 +206,20 @@ public class HiveClientConfig
     public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    @MaxDataSize("1GB")
+    public DataSize getWriterSortBufferSize()
+    {
+        return writerSortBufferSize;
+    }
+
+    @Config("hive.writer-sort-buffer-size")
+    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
+    {
+        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -207,16 +248,29 @@ public class HiveClientConfig
         return this;
     }
 
-    @Config("hive.recursive-directories")
-    public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+    @Min(1)
+    public int getMaxConcurrentZeroRowFileCreations()
     {
-        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return maxConcurrentZeroRowFileCreations;
+    }
+
+    @Config("hive.max-concurrent-zero-row-file-creations")
+    public HiveClientConfig setMaxConcurrentZeroRowFileCreations(int maxConcurrentZeroRowFileCreations)
+    {
+        this.maxConcurrentZeroRowFileCreations = maxConcurrentZeroRowFileCreations;
         return this;
     }
 
     public boolean getRecursiveDirWalkerEnabled()
     {
         return recursiveDirWalkerEnabled;
+    }
+
+    @Config("hive.recursive-directories")
+    public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+    {
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
     }
 
     public DateTimeZone getDateTimeZone()
@@ -271,9 +325,24 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-outstanding-splits")
+    @ConfigDescription("Target number of buffered splits for each table scan in a query, before the scheduler tries to pause itself")
     public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    public DataSize getMaxOutstandingSplitsSize()
+    {
+        return maxOutstandingSplitsSize;
+    }
+
+    @Config("hive.max-outstanding-splits-size")
+    @ConfigDescription("Maximum amount of memory allowed for split buffering for each table scan in a query, before the query is failed")
+    public HiveClientConfig setMaxOutstandingSplitsSize(DataSize maxOutstandingSplits)
+    {
+        this.maxOutstandingSplitsSize = maxOutstandingSplits;
         return this;
     }
 
@@ -305,98 +374,6 @@ public class HiveClientConfig
         return this;
     }
 
-    @NotNull
-    public Duration getMetastoreCacheTtl()
-    {
-        return metastoreCacheTtl;
-    }
-
-    @MinDuration("0ms")
-    @Config("hive.metastore-cache-ttl")
-    public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
-    {
-        this.metastoreCacheTtl = metastoreCacheTtl;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMetastoreRefreshInterval()
-    {
-        return metastoreRefreshInterval;
-    }
-
-    @MinDuration("1ms")
-    @Config("hive.metastore-refresh-interval")
-    public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
-    {
-        this.metastoreRefreshInterval = metastoreRefreshInterval;
-        return this;
-    }
-
-    public long getMetastoreCacheMaximumSize()
-    {
-        return metastoreCacheMaximumSize;
-    }
-
-    @Min(1)
-    @Config("hive.metastore-cache-maximum-size")
-    public HiveClientConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
-    {
-        this.metastoreCacheMaximumSize = metastoreCacheMaximumSize;
-        return this;
-    }
-
-    public long getPerTransactionMetastoreCacheMaximumSize()
-    {
-        return perTransactionMetastoreCacheMaximumSize;
-    }
-
-    @Min(1)
-    @Config("hive.per-transaction-metastore-cache-maximum-size")
-    public HiveClientConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
-    {
-        this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxMetastoreRefreshThreads()
-    {
-        return maxMetastoreRefreshThreads;
-    }
-
-    @Config("hive.metastore-refresh-max-threads")
-    public HiveClientConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
-    {
-        this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
-        return this;
-    }
-
-    public HostAndPort getMetastoreSocksProxy()
-    {
-        return metastoreSocksProxy;
-    }
-
-    @Config("hive.metastore.thrift.client.socks-proxy")
-    public HiveClientConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
-    {
-        this.metastoreSocksProxy = metastoreSocksProxy;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMetastoreTimeout()
-    {
-        return metastoreTimeout;
-    }
-
-    @Config("hive.metastore-timeout")
-    public HiveClientConfig setMetastoreTimeout(Duration metastoreTimeout)
-    {
-        this.metastoreTimeout = metastoreTimeout;
-        return this;
-    }
-
     @Min(1)
     public int getMinPartitionBatchSize()
     {
@@ -423,6 +400,7 @@ public class HiveClientConfig
         return this;
     }
 
+    @NotNull
     public List<String> getResourceConfigFiles()
     {
         return resourceConfigFiles;
@@ -431,13 +409,13 @@ public class HiveClientConfig
     @Config("hive.config.resources")
     public HiveClientConfig setResourceConfigFiles(String files)
     {
-        this.resourceConfigFiles = (files == null) ? null : SPLITTER.splitToList(files);
+        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
         return this;
     }
 
     public HiveClientConfig setResourceConfigFiles(List<String> files)
     {
-        this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
+        this.resourceConfigFiles = ImmutableList.copyOf(files);
         return this;
     }
 
@@ -508,15 +486,15 @@ public class HiveClientConfig
         return this;
     }
 
-    public HiveCompressionCodec getHiveCompressionCodec()
+    public HiveCompressionCodec getCompressionCodec()
     {
-        return hiveCompressionCodec;
+        return compressionCodec;
     }
 
     @Config("hive.compression-codec")
-    public HiveClientConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
+    public HiveClientConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
-        this.hiveCompressionCodec = hiveCompressionCodec;
+        this.compressionCodec = compressionCodec;
         return this;
     }
 
@@ -560,6 +538,34 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(2)
+    @Max(1000)
+    public int getMaxOpenSortFiles()
+    {
+        return maxOpenSortFiles;
+    }
+
+    @Config("hive.max-open-sort-files")
+    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
+    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
+    {
+        this.maxOpenSortFiles = maxOpenSortFiles;
+        return this;
+    }
+
+    public int getWriteValidationThreads()
+    {
+        return writeValidationThreads;
+    }
+
+    @Config("hive.write-validation-threads")
+    @ConfigDescription("Number of threads used for verifying data after a write")
+    public HiveClientConfig setWriteValidationThreads(int writeValidationThreads)
+    {
+        this.writeValidationThreads = writeValidationThreads;
+        return this;
+    }
+
     public String getDomainSocketPath()
     {
         return domainSocketPath;
@@ -573,320 +579,16 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isVerifyChecksum()
-    {
-        return verifyChecksum;
-    }
-
-    @Config("hive.dfs.verify-checksum")
-    public HiveClientConfig setVerifyChecksum(boolean verifyChecksum)
-    {
-        this.verifyChecksum = verifyChecksum;
-        return this;
-    }
-
-    public String getS3AwsAccessKey()
-    {
-        return s3AwsAccessKey;
-    }
-
-    @Config("hive.s3.aws-access-key")
-    public HiveClientConfig setS3AwsAccessKey(String s3AwsAccessKey)
-    {
-        this.s3AwsAccessKey = s3AwsAccessKey;
-        return this;
-    }
-
-    public String getS3AwsSecretKey()
-    {
-        return s3AwsSecretKey;
-    }
-
-    @Config("hive.s3.aws-secret-key")
-    public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
-    {
-        this.s3AwsSecretKey = s3AwsSecretKey;
-        return this;
-    }
-
-    public String getS3Endpoint()
-    {
-        return s3Endpoint;
-    }
-
-    @Config("hive.s3.endpoint")
-    public HiveClientConfig setS3Endpoint(String s3Endpoint)
-    {
-        this.s3Endpoint = s3Endpoint;
-        return this;
-    }
-
-    public PrestoS3SignerType getS3SignerType()
-    {
-        return s3SignerType;
-    }
-
-    @Config("hive.s3.signer-type")
-    public HiveClientConfig setS3SignerType(PrestoS3SignerType s3SignerType)
-    {
-        this.s3SignerType = s3SignerType;
-        return this;
-    }
-
-    public boolean isS3UseInstanceCredentials()
-    {
-        return s3UseInstanceCredentials;
-    }
-
-    @Config("hive.s3.use-instance-credentials")
-    public HiveClientConfig setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
-    {
-        this.s3UseInstanceCredentials = s3UseInstanceCredentials;
-        return this;
-    }
-
-    public boolean isS3SslEnabled()
-    {
-        return s3SslEnabled;
-    }
-
-    @Config("hive.s3.ssl.enabled")
-    public HiveClientConfig setS3SslEnabled(boolean s3SslEnabled)
-    {
-        this.s3SslEnabled = s3SslEnabled;
-        return this;
-    }
-
-    public String getS3EncryptionMaterialsProvider()
-    {
-        return s3EncryptionMaterialsProvider;
-    }
-
-    @Config("hive.s3.encryption-materials-provider")
-    @ConfigDescription("Use a custom encryption materials provider for S3 data encryption")
-    public HiveClientConfig setS3EncryptionMaterialsProvider(String s3EncryptionMaterialsProvider)
-    {
-        this.s3EncryptionMaterialsProvider = s3EncryptionMaterialsProvider;
-        return this;
-    }
-
-    public String getS3KmsKeyId()
-    {
-        return s3KmsKeyId;
-    }
-
-    @Config("hive.s3.kms-key-id")
-    @ConfigDescription("Use an AWS KMS key for S3 data encryption")
-    public HiveClientConfig setS3KmsKeyId(String s3KmsKeyId)
-    {
-        this.s3KmsKeyId = s3KmsKeyId;
-        return this;
-    }
-
-    public boolean isS3SseEnabled()
-    {
-        return s3SseEnabled;
-    }
-
-    @Config("hive.s3.sse.enabled")
-    @ConfigDescription("Enable S3 server side encryption")
-    public HiveClientConfig setS3SseEnabled(boolean s3SseEnabled)
-    {
-        this.s3SseEnabled = s3SseEnabled;
-        return this;
-    }
-
-    @Min(0)
-    public int getS3MaxClientRetries()
-    {
-        return s3MaxClientRetries;
-    }
-
-    @Config("hive.s3.max-client-retries")
-    public HiveClientConfig setS3MaxClientRetries(int s3MaxClientRetries)
-    {
-        this.s3MaxClientRetries = s3MaxClientRetries;
-        return this;
-    }
-
-    @Min(0)
-    public int getS3MaxErrorRetries()
-    {
-        return s3MaxErrorRetries;
-    }
-
-    @Config("hive.s3.max-error-retries")
-    public HiveClientConfig setS3MaxErrorRetries(int s3MaxErrorRetries)
-    {
-        this.s3MaxErrorRetries = s3MaxErrorRetries;
-        return this;
-    }
-
-    @MinDuration("1s")
     @NotNull
-    public Duration getS3MaxBackoffTime()
+    public S3FileSystemType getS3FileSystemType()
     {
-        return s3MaxBackoffTime;
+        return s3FileSystemType;
     }
 
-    @Config("hive.s3.max-backoff-time")
-    public HiveClientConfig setS3MaxBackoffTime(Duration s3MaxBackoffTime)
+    @Config("hive.s3-file-system-type")
+    public HiveClientConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
     {
-        this.s3MaxBackoffTime = s3MaxBackoffTime;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @NotNull
-    public Duration getS3MaxRetryTime()
-    {
-        return s3MaxRetryTime;
-    }
-
-    @Config("hive.s3.max-retry-time")
-    public HiveClientConfig setS3MaxRetryTime(Duration s3MaxRetryTime)
-    {
-        this.s3MaxRetryTime = s3MaxRetryTime;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @NotNull
-    public Duration getS3ConnectTimeout()
-    {
-        return s3ConnectTimeout;
-    }
-
-    @Config("hive.s3.connect-timeout")
-    public HiveClientConfig setS3ConnectTimeout(Duration s3ConnectTimeout)
-    {
-        this.s3ConnectTimeout = s3ConnectTimeout;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @NotNull
-    public Duration getS3SocketTimeout()
-    {
-        return s3SocketTimeout;
-    }
-
-    @Config("hive.s3.socket-timeout")
-    public HiveClientConfig setS3SocketTimeout(Duration s3SocketTimeout)
-    {
-        this.s3SocketTimeout = s3SocketTimeout;
-        return this;
-    }
-
-    @Min(1)
-    public int getS3MaxConnections()
-    {
-        return s3MaxConnections;
-    }
-
-    @Config("hive.s3.max-connections")
-    public HiveClientConfig setS3MaxConnections(int s3MaxConnections)
-    {
-        this.s3MaxConnections = s3MaxConnections;
-        return this;
-    }
-
-    @NotNull
-    public File getS3StagingDirectory()
-    {
-        return s3StagingDirectory;
-    }
-
-    @Config("hive.s3.staging-directory")
-    @ConfigDescription("Temporary directory for staging files before uploading to S3")
-    public HiveClientConfig setS3StagingDirectory(File s3StagingDirectory)
-    {
-        this.s3StagingDirectory = s3StagingDirectory;
-        return this;
-    }
-
-    @NotNull
-    @MinDataSize("16MB")
-    public DataSize getS3MultipartMinFileSize()
-    {
-        return s3MultipartMinFileSize;
-    }
-
-    @Config("hive.s3.multipart.min-file-size")
-    @ConfigDescription("Minimum file size for an S3 multipart upload")
-    public HiveClientConfig setS3MultipartMinFileSize(DataSize size)
-    {
-        this.s3MultipartMinFileSize = size;
-        return this;
-    }
-
-    @NotNull
-    @MinDataSize("5MB")
-    public DataSize getS3MultipartMinPartSize()
-    {
-        return s3MultipartMinPartSize;
-    }
-
-    @Config("hive.s3.multipart.min-part-size")
-    @ConfigDescription("Minimum part size for an S3 multipart upload")
-    public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
-    {
-        this.s3MultipartMinPartSize = size;
-        return this;
-    }
-
-    public boolean isPinS3ClientToCurrentRegion()
-    {
-        return pinS3ClientToCurrentRegion;
-    }
-
-    @Config("hive.s3.pin-client-to-current-region")
-    @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
-    public HiveClientConfig setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
-    {
-        this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
-        return this;
-    }
-
-    @NotNull
-    public String getS3UserAgentPrefix()
-    {
-        return s3UserAgentPrefix;
-    }
-
-    @Config("hive.s3.user-agent-prefix")
-    @ConfigDescription("The user agent prefix to use for S3 calls")
-    public HiveClientConfig setS3UserAgentPrefix(String s3UserAgentPrefix)
-    {
-        this.s3UserAgentPrefix = s3UserAgentPrefix;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isParquetPredicatePushdownEnabled()
-    {
-        return parquetPredicatePushdownEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.parquet-predicate-pushdown.enabled")
-    public HiveClientConfig setParquetPredicatePushdownEnabled(boolean parquetPredicatePushdownEnabled)
-    {
-        this.parquetPredicatePushdownEnabled = parquetPredicatePushdownEnabled;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isParquetOptimizedReaderEnabled()
-    {
-        return parquetOptimizedReaderEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.parquet-optimized-reader.enabled")
-    public HiveClientConfig setParquetOptimizedReaderEnabled(boolean parquetOptimizedReaderEnabled)
-    {
-        this.parquetOptimizedReaderEnabled = parquetOptimizedReaderEnabled;
+        this.s3FileSystemType = s3FileSystemType;
         return this;
     }
 
@@ -942,6 +644,48 @@ public class HiveClientConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getOrcTinyStripeThreshold()
+    {
+        return orcTinyStripeThreshold;
+    }
+
+    @Config("hive.orc.tiny-stripe-threshold")
+    public HiveClientConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
+    {
+        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxReadBlockSize()
+    {
+        return orcMaxReadBlockSize;
+    }
+
+    @Config("hive.orc.max-read-block-size")
+    public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
+    {
+        this.orcMaxReadBlockSize = orcMaxReadBlockSize;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOrcLazyReadSmallRanges()
+    {
+        return orcLazyReadSmallRanges;
+    }
+
+    // TODO remove config option once efficacy is proven
+    @Deprecated
+    @Config("hive.orc.lazy-read-small-ranges")
+    @ConfigDescription("ORC read small disk ranges lazily")
+    public HiveClientConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    {
+        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
+        return this;
+    }
+
     public boolean isOrcBloomFiltersEnabled()
     {
         return orcBloomFiltersEnabled;
@@ -954,17 +698,86 @@ public class HiveClientConfig
         return this;
     }
 
-    @Deprecated
-    public boolean isRcfileOptimizedReaderEnabled()
+    public double getOrcDefaultBloomFilterFpp()
     {
-        return rcfileOptimizedReaderEnabled;
+        return orcDefaultBloomFilterFpp;
+    }
+
+    @Config("hive.orc.default-bloom-filter-fpp")
+    @ConfigDescription("ORC Bloom filter false positive probability")
+    public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
+    {
+        this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
+        return this;
     }
 
     @Deprecated
-    @Config("hive.rcfile-optimized-reader.enabled")
-    public HiveClientConfig setRcfileOptimizedReaderEnabled(boolean rcfileOptimizedReaderEnabled)
+    public boolean isOrcOptimizedWriterEnabled()
     {
-        this.rcfileOptimizedReaderEnabled = rcfileOptimizedReaderEnabled;
+        return orcOptimizedWriterEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.orc.optimized-writer.enabled")
+    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
+    {
+        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getOrcWriterValidationPercentage()
+    {
+        return orcWriterValidationPercentage;
+    }
+
+    @Config("hive.orc.writer.validation-percentage")
+    @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
+    public HiveClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
+    {
+        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
+        return this;
+    }
+
+    @NotNull
+    public OrcWriteValidationMode getOrcWriterValidationMode()
+    {
+        return orcWriterValidationMode;
+    }
+
+    @Config("hive.orc.writer.validation-mode")
+    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
+    public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
+    {
+        this.orcWriterValidationMode = orcWriterValidationMode;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isRcfileOptimizedWriterEnabled()
+    {
+        return rcfileOptimizedWriterEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.rcfile-optimized-writer.enabled")
+    public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
+    {
+        this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
+        return this;
+    }
+
+    public boolean isRcfileWriterValidate()
+    {
+        return rcfileWriterValidate;
+    }
+
+    @Config("hive.rcfile.writer.validate")
+    @ConfigDescription("Validate RCFile after write by re-reading the whole file")
+    public HiveClientConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
+    {
+        this.rcfileWriterValidate = rcfileWriterValidate;
         return this;
     }
 
@@ -977,6 +790,22 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    @MinDataSize("1B")
+    @MaxDataSize("1GB")
+    @NotNull
+    public DataSize getTextMaxLineLength()
+    {
+        return textMaxLineLength;
+    }
+
+    @Config("hive.text.max-line-length")
+    @ConfigDescription("Maximum line length for text files")
+    public HiveClientConfig setTextMaxLineLength(DataSize textMaxLineLength)
+    {
+        this.textMaxLineLength = textMaxLineLength;
         return this;
     }
 
@@ -993,12 +822,65 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isFailOnCorruptedParquetStatistics()
+    {
+        return failOnCorruptedParquetStatistics;
+    }
+
+    @Config("hive.parquet.fail-on-corrupted-statistics")
+    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
+    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
+    {
+        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getParquetMaxReadBlockSize()
+    {
+        return parquetMaxReadBlockSize;
+    }
+
+    @Config("hive.parquet.max-read-block-size")
+    public HiveClientConfig setParquetMaxReadBlockSize(DataSize parquetMaxReadBlockSize)
+    {
+        this.parquetMaxReadBlockSize = parquetMaxReadBlockSize;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isOptimizeMismatchedBucketCount()
+    {
+        return optimizeMismatchedBucketCount;
+    }
+
+    @Deprecated
+    @Config("hive.optimize-mismatched-bucket-count")
+    public HiveClientConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
+    {
+        this.optimizeMismatchedBucketCount = optimizeMismatchedBucketCount;
+        return this;
+    }
+
+    public boolean isZstdJniDecompressionEnabled()
+    {
+        return zstdJniDecompressionEnabled;
+    }
+
+    @Config("hive.zstd-jni-decompression-enabled")
+    public HiveClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
+    {
+        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+        return this;
+    }
+
     public enum HiveMetastoreAuthenticationType
     {
         NONE,
         KERBEROS
     }
 
+    @NotNull
     public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
     {
         return hiveMetastoreAuthenticationType;
@@ -1012,51 +894,13 @@ public class HiveClientConfig
         return this;
     }
 
-    public String getHiveMetastoreServicePrincipal()
-    {
-        return hiveMetastoreServicePrincipal;
-    }
-
-    @Config("hive.metastore.service.principal")
-    @ConfigDescription("Hive Metastore service principal")
-    public HiveClientConfig setHiveMetastoreServicePrincipal(String hiveMetastoreServicePrincipal)
-    {
-        this.hiveMetastoreServicePrincipal = hiveMetastoreServicePrincipal;
-        return this;
-    }
-
-    public String getHiveMetastoreClientPrincipal()
-    {
-        return hiveMetastoreClientPrincipal;
-    }
-
-    @Config("hive.metastore.client.principal")
-    @ConfigDescription("Hive Metastore client principal")
-    public HiveClientConfig setHiveMetastoreClientPrincipal(String hiveMetastoreClientPrincipal)
-    {
-        this.hiveMetastoreClientPrincipal = hiveMetastoreClientPrincipal;
-        return this;
-    }
-
-    public String getHiveMetastoreClientKeytab()
-    {
-        return hiveMetastoreClientKeytab;
-    }
-
-    @Config("hive.metastore.client.keytab")
-    @ConfigDescription("Hive Metastore client keytab location")
-    public HiveClientConfig setHiveMetastoreClientKeytab(String hiveMetastoreClientKeytab)
-    {
-        this.hiveMetastoreClientKeytab = hiveMetastoreClientKeytab;
-        return this;
-    }
-
     public enum HdfsAuthenticationType
     {
         NONE,
         KERBEROS,
     }
 
+    @NotNull
     public HdfsAuthenticationType getHdfsAuthenticationType()
     {
         return hdfsAuthenticationType;
@@ -1083,29 +927,16 @@ public class HiveClientConfig
         return this;
     }
 
-    public String getHdfsPrestoPrincipal()
+    public boolean isHdfsWireEncryptionEnabled()
     {
-        return hdfsPrestoPrincipal;
+        return hdfsWireEncryptionEnabled;
     }
 
-    @Config("hive.hdfs.presto.principal")
-    @ConfigDescription("Presto principal used to access HDFS")
-    public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
+    @Config("hive.hdfs.wire-encryption.enabled")
+    @ConfigDescription("Should be turned on when HDFS wire encryption is enabled")
+    public HiveClientConfig setHdfsWireEncryptionEnabled(boolean hdfsWireEncryptionEnabled)
     {
-        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
-        return this;
-    }
-
-    public String getHdfsPrestoKeytab()
-    {
-        return hdfsPrestoKeytab;
-    }
-
-    @Config("hive.hdfs.presto.keytab")
-    @ConfigDescription("Presto keytab used to access HDFS")
-    public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
-    {
-        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
         return this;
     }
 
@@ -1122,6 +953,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isSkipTargetCleanupOnRollback()
+    {
+        return skipTargetCleanupOnRollback;
+    }
+
+    @Config("hive.skip-target-cleanup-on-rollback")
+    @ConfigDescription("Skip deletion of target directories when a metastore operation fails and the write mode is DIRECT_TO_TARGET_NEW_DIRECTORY")
+    public HiveClientConfig setSkipTargetCleanupOnRollback(boolean skipTargetCleanupOnRollback)
+    {
+        this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
+        return this;
+    }
+
     public boolean isBucketExecutionEnabled()
     {
         return bucketExecutionEnabled;
@@ -1135,17 +979,69 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isBucketWritingEnabled()
+    public boolean isSortedWritingEnabled()
     {
-        return bucketWritingEnabled;
+        return sortedWritingEnabled;
     }
 
-    @Config("hive.bucket-writing")
-    @ConfigDescription("Enable writing to bucketed tables")
-    public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
+    @Config("hive.sorted-writing")
+    @ConfigDescription("Enable writing to bucketed sorted tables")
+    public HiveClientConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
-        this.bucketWritingEnabled = bucketWritingEnabled;
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @Config("hive.ignore-table-bucketing")
+    @ConfigDescription("Ignore table bucketing to allow reading from unbucketed partitions")
+    public HiveClientConfig setIgnoreTableBucketing(boolean ignoreTableBucketing)
+    {
+        this.ignoreTableBucketing = ignoreTableBucketing;
+        return this;
+    }
+
+    public boolean isIgnoreTableBucketing()
+    {
+        return ignoreTableBucketing;
+    }
+
+    @Config("hive.max-buckets-for-grouped-execution")
+    @ConfigDescription("Maximum number of buckets to run with grouped execution")
+    public HiveClientConfig setMaxBucketsForGroupedExecution(int maxBucketsForGroupedExecution)
+    {
+        this.maxBucketsForGroupedExecution = maxBucketsForGroupedExecution;
+        return this;
+    }
+
+    public int getMaxBucketsForGroupedExecution()
+    {
+        return maxBucketsForGroupedExecution;
+    }
+
+    @Config("hive.sorted-write-to-temp-path-enabled")
+    @ConfigDescription("Enable writing temp files to temp path when writing to bucketed sorted tables")
+    public HiveClientConfig setSortedWriteToTempPathEnabled(boolean sortedWriteToTempPathEnabled)
+    {
+        this.sortedWriteToTempPathEnabled = sortedWriteToTempPathEnabled;
+        return this;
+    }
+
+    public boolean isSortedWriteToTempPathEnabled()
+    {
+        return sortedWriteToTempPathEnabled;
+    }
+
+    @Config("hive.sorted-write-temp-path-subdirectory-count")
+    @ConfigDescription("Number of directories per partition for temp files generated by writing sorted table")
+    public HiveClientConfig setSortedWriteTempPathSubdirectoryCount(int sortedWriteTempPathSubdirectoryCount)
+    {
+        this.sortedWriteTempPathSubdirectoryCount = sortedWriteTempPathSubdirectoryCount;
+        return this;
+    }
+
+    public int getSortedWriteTempPathSubdirectoryCount()
+    {
+        return sortedWriteTempPathSubdirectoryCount;
     }
 
     public int getFileSystemMaxCacheSize()
@@ -1158,6 +1054,216 @@ public class HiveClientConfig
     public HiveClientConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
+        return this;
+    }
+
+    public boolean getWritesToNonManagedTablesEnabled()
+    {
+        return writesToNonManagedTablesEnabled;
+    }
+
+    @Config("hive.non-managed-table-writes-enabled")
+    @ConfigDescription("Enable writes to non-managed (external) tables")
+    public HiveClientConfig setWritesToNonManagedTablesEnabled(boolean writesToNonManagedTablesEnabled)
+    {
+        this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
+        return this;
+    }
+
+    public boolean getCreatesOfNonManagedTablesEnabled()
+    {
+        return createsOfNonManagedTablesEnabled;
+    }
+
+    @Config("hive.non-managed-table-creates-enabled")
+    @ConfigDescription("Enable non-managed (external) table creates")
+    public HiveClientConfig setCreatesOfNonManagedTablesEnabled(boolean createsOfNonManagedTablesEnabled)
+    {
+        this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
+    }
+
+    @Config("hive.table-statistics-enabled")
+    @ConfigDescription("Enable use of table statistics")
+    public HiveClientConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getPartitionStatisticsSampleSize()
+    {
+        return partitionStatisticsSampleSize;
+    }
+
+    @Config("hive.partition-statistics-sample-size")
+    @ConfigDescription("Maximum sample size of the partitions column statistics")
+    public HiveClientConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
+    {
+        this.partitionStatisticsSampleSize = partitionStatisticsSampleSize;
+        return this;
+    }
+
+    public boolean isIgnoreCorruptedStatistics()
+    {
+        return ignoreCorruptedStatistics;
+    }
+
+    @Config("hive.ignore-corrupted-statistics")
+    @ConfigDescription("Ignore corrupted statistics rather than failing")
+    public HiveClientConfig setIgnoreCorruptedStatistics(boolean ignoreCorruptedStatistics)
+    {
+        this.ignoreCorruptedStatistics = ignoreCorruptedStatistics;
+        return this;
+    }
+
+    public boolean isCollectColumnStatisticsOnWrite()
+    {
+        return collectColumnStatisticsOnWrite;
+    }
+
+    @Config("hive.collect-column-statistics-on-write")
+    @ConfigDescription("Enables automatic column level statistics collection on write")
+    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
+    {
+        this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
+        return this;
+    }
+
+    public boolean isS3SelectPushdownEnabled()
+    {
+        return s3SelectPushdownEnabled;
+    }
+
+    @Config("hive.s3select-pushdown.enabled")
+    @ConfigDescription("Enable query pushdown to AWS S3 Select service")
+    public HiveClientConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
+    {
+        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getS3SelectPushdownMaxConnections()
+    {
+        return s3SelectPushdownMaxConnections;
+    }
+
+    @Config("hive.s3select-pushdown.max-connections")
+    public HiveClientConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
+    {
+        this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
+        return this;
+    }
+
+    public boolean isTemporaryStagingDirectoryEnabled()
+    {
+        return isTemporaryStagingDirectoryEnabled;
+    }
+
+    @Config("hive.temporary-staging-directory-enabled")
+    @ConfigDescription("Should use (if possible) temporary staging directory for write operations")
+    public HiveClientConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
+    {
+        this.isTemporaryStagingDirectoryEnabled = temporaryStagingDirectoryEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getTemporaryStagingDirectoryPath()
+    {
+        return temporaryStagingDirectoryPath;
+    }
+
+    @Config("hive.temporary-staging-directory-path")
+    @ConfigDescription("Location of temporary staging directory for write operations. Use ${USER} placeholder to use different location for each user.")
+    public HiveClientConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
+    {
+        this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
+        return this;
+    }
+
+    @NotNull
+    public String getTemporaryTableSchema()
+    {
+        return temporaryTableSchema;
+    }
+
+    @Config("hive.temporary-table-schema")
+    public HiveClientConfig setTemporaryTableSchema(String temporaryTableSchema)
+    {
+        this.temporaryTableSchema = temporaryTableSchema;
+        return this;
+    }
+
+    @NotNull
+    public HiveStorageFormat getTemporaryTableStorageFormat()
+    {
+        return temporaryTableStorageFormat;
+    }
+
+    @Config("hive.temporary-table-storage-format")
+    public HiveClientConfig setTemporaryTableStorageFormat(HiveStorageFormat temporaryTableStorageFormat)
+    {
+        this.temporaryTableStorageFormat = temporaryTableStorageFormat;
+        return this;
+    }
+
+    @NotNull
+    public HiveCompressionCodec getTemporaryTableCompressionCodec()
+    {
+        return temporaryTableCompressionCodec;
+    }
+
+    @Config("hive.temporary-table-compression-codec")
+    public HiveClientConfig setTemporaryTableCompressionCodec(HiveCompressionCodec temporaryTableCompressionCodec)
+    {
+        this.temporaryTableCompressionCodec = temporaryTableCompressionCodec;
+        return this;
+    }
+
+    public boolean isPushdownFilterEnabled()
+    {
+        return pushdownFilterEnabled;
+    }
+
+    @Config("hive.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: enable complex filter pushdown")
+    public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
+    {
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    public boolean isRangeFiltersOnSubscriptsEnabled()
+    {
+        return rangeFiltersOnSubscriptsEnabled;
+    }
+
+    @Config("hive.range-filters-on-subscripts-enabled")
+    @ConfigDescription("Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers")
+    public HiveClientConfig setRangeFiltersOnSubscriptsEnabled(boolean rangeFiltersOnSubscriptsEnabled)
+    {
+        this.rangeFiltersOnSubscriptsEnabled = rangeFiltersOnSubscriptsEnabled;
+        return this;
+    }
+
+    public boolean isAdaptiveFilterReorderingEnabled()
+    {
+        return adaptiveFilterReorderingEnabled;
+    }
+
+    @Config("hive.adaptive-filter-reordering-enabled")
+    @ConfigDescription("Experimental: enable adaptive filter reordering")
+    public HiveClientConfig setAdaptiveFilterReorderingEnabled(boolean adaptiveFilterReorderingEnabled)
+    {
+        this.adaptiveFilterReorderingEnabled = adaptiveFilterReorderingEnabled;
         return this;
     }
 }

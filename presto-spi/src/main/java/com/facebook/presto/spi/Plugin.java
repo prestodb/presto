@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.BlockEncodingFactory;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 
@@ -34,7 +36,7 @@ public interface Plugin
         return emptyList();
     }
 
-    default Iterable<BlockEncodingFactory<?>> getBlockEncodingFactories(BlockEncodingSerde serde)
+    default Iterable<BlockEncoding> getBlockEncodings()
     {
         return emptyList();
     }
@@ -59,12 +61,27 @@ public interface Plugin
         return emptyList();
     }
 
+    default Iterable<PasswordAuthenticatorFactory> getPasswordAuthenticatorFactories()
+    {
+        return emptyList();
+    }
+
     default Iterable<EventListenerFactory> getEventListenerFactories()
     {
         return emptyList();
     }
 
     default Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
     {
         return emptyList();
     }

@@ -11,17 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.RowType;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
-
-import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -32,6 +28,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.util.Arrays.asList;
 
 public class TestArrayTransformFunction
@@ -44,15 +41,14 @@ public class TestArrayTransformFunction
 
     @Test
     public void testBasic()
-            throws Exception
     {
+        assertFunction("transform(ARRAY [5, 6], x -> 9)", new ArrayType(INTEGER), ImmutableList.of(9, 9));
         assertFunction("transform(ARRAY [5, 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
         assertFunction("transform(ARRAY [5 + RANDOM(1), 6], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(6, 7));
     }
 
     @Test
     public void testNull()
-            throws Exception
     {
         assertFunction("transform(ARRAY [3], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(4));
         assertFunction("transform(ARRAY [NULL, NULL], x -> x + 1)", new ArrayType(INTEGER), asList(null, null));
@@ -65,7 +61,6 @@ public class TestArrayTransformFunction
 
     @Test
     public void testSessionDependent()
-            throws Exception
     {
         assertFunction("transform(ARRAY['timezone: ', 'tz: '], x -> x || current_timezone())", new ArrayType(VARCHAR), ImmutableList.of("timezone: Pacific/Kiritimati", "tz: Pacific/Kiritimati"));
     }
@@ -79,36 +74,35 @@ public class TestArrayTransformFunction
 
     @Test
     public void testTypeCombinations()
-            throws Exception
     {
         assertFunction("transform(ARRAY [25, 26], x -> x + 1)", new ArrayType(INTEGER), ImmutableList.of(26, 27));
-        assertFunction("transform(ARRAY [25, 26], x -> x + 1.0)", new ArrayType(DOUBLE), ImmutableList.of(26.0, 27.0));
+        assertFunction("transform(ARRAY [25, 26], x -> x + 1.0E0)", new ArrayType(DOUBLE), ImmutableList.of(26.0, 27.0));
         assertFunction("transform(ARRAY [25, 26], x -> x = 25)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("transform(ARRAY [25, 26], x -> to_base(x, 16))", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("19", "1a"));
+        assertFunction("transform(ARRAY [25, 26], x -> to_base(x, 16))", new ArrayType(createVarcharType(64)), ImmutableList.of("19", "1a"));
         assertFunction("transform(ARRAY [25, 26], x -> ARRAY[x + 1])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(26), ImmutableList.of(27)));
 
-        assertFunction("transform(ARRAY [25.6, 27.3], x -> CAST(x AS BIGINT))", new ArrayType(BIGINT), ImmutableList.of(26L, 27L));
-        assertFunction("transform(ARRAY [25.6, 27.3], x -> x + 1.0)", new ArrayType(DOUBLE), ImmutableList.of(26.6, 28.3));
-        assertFunction("transform(ARRAY [25.6, 27.3], x -> x = 25.6)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("transform(ARRAY [25.6, 27.3], x -> CAST(x AS VARCHAR))", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("25.6", "27.3"));
+        assertFunction("transform(ARRAY [25.6E0, 27.3E0], x -> CAST(x AS BIGINT))", new ArrayType(BIGINT), ImmutableList.of(26L, 27L));
+        assertFunction("transform(ARRAY [25.6E0, 27.3E0], x -> x + 1.0E0)", new ArrayType(DOUBLE), ImmutableList.of(26.6, 28.3));
+        assertFunction("transform(ARRAY [25.6E0, 27.3E0], x -> x = 25.6E0)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
+        assertFunction("transform(ARRAY [25.6E0, 27.3E0], x -> CAST(x AS VARCHAR))", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("25.6", "27.3"));
         assertFunction(
-                "transform(ARRAY [25.6, 27.3], x -> MAP(ARRAY[x + 1], ARRAY[true]))",
-                new ArrayType(new MapType(DOUBLE, BOOLEAN)),
+                "transform(ARRAY [25.6E0, 27.3E0], x -> MAP(ARRAY[x + 1], ARRAY[true]))",
+                new ArrayType(mapType(DOUBLE, BOOLEAN)),
                 ImmutableList.of(ImmutableMap.of(26.6, true), ImmutableMap.of(28.3, true)));
 
         assertFunction("transform(ARRAY [true, false], x -> if(x, 25, 26))", new ArrayType(INTEGER), ImmutableList.of(25, 26));
-        assertFunction("transform(ARRAY [false, true], x -> if(x, 25.6, 28.9))", new ArrayType(DOUBLE), ImmutableList.of(28.9, 25.6));
+        assertFunction("transform(ARRAY [false, true], x -> if(x, 25.6E0, 28.9E0))", new ArrayType(DOUBLE), ImmutableList.of(28.9, 25.6));
         assertFunction("transform(ARRAY [true, false], x -> not x)", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("transform(ARRAY [false, true], x -> CAST(x AS VARCHAR))", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("false", "true"));
         assertFunction("transform(ARRAY [true, false], x -> ARRAY[x])", new ArrayType(new ArrayType(BOOLEAN)), ImmutableList.of(ImmutableList.of(true), ImmutableList.of(false)));
 
         assertFunction("transform(ARRAY ['41', '42'], x -> from_base(x, 16))", new ArrayType(BIGINT), ImmutableList.of(65L, 66L));
-        assertFunction("transform(ARRAY ['25.6', '27.3'], x -> CAST(x AS DOUBLE))", new ArrayType(DOUBLE), ImmutableList.of(25.6, 27.3));
+        assertFunction("transform(ARRAY ['25.6E0', '27.3E0'], x -> CAST(x AS DOUBLE))", new ArrayType(DOUBLE), ImmutableList.of(25.6, 27.3));
         assertFunction("transform(ARRAY ['abc', 'def'], x -> 'abc' = x)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("transform(ARRAY ['abc', 'def'], x -> x || x)", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("abcabc", "defdef"));
         assertFunction(
                 "transform(ARRAY ['123', '456'], x -> ROW(x, CAST(x AS INTEGER), x > '3'))",
-                new ArrayType(new RowType(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN))),
                 ImmutableList.of(ImmutableList.of("123", 123, false), ImmutableList.of("456", 456, true)));
 
         assertFunction(

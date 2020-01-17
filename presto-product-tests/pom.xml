@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.161-SNAPSHOT</version>
+        <version>0.232-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -14,18 +14,22 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
-
-        <!--
-        Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
-        children of AbstractTestHiveClient doesn't always get called. Therefore, an older
-        version is used for other artifacts in Presto. This artifact overrides it with a
-        newer version because it is required for Tempto
-        TODO: remove once we can upgrade to a version that fixes it
-        -->
-        <dep.testng.version>6.9.6</dep.testng.version>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.8.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <version>1.1.2.6</version>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-jdbc</artifactId>
@@ -33,13 +37,27 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.teradata.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
+            <artifactId>tempto-ldap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.prestodb.tempto</groupId>
+            <artifactId>tempto-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>
@@ -63,11 +81,15 @@
             <artifactId>testng</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>testing</artifactId>
+        </dependency>
+        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
         <dependency>
@@ -75,7 +97,7 @@
             <artifactId>units</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
         <dependency>
@@ -83,7 +105,7 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>
@@ -105,6 +127,15 @@
             <artifactId>mysql-connector-java</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto.cassandra</groupId>
+            <artifactId>cassandra-driver</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -124,6 +155,7 @@
                 </excludes>
             </resource>
         </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -135,6 +167,24 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <!--
+                            Presto-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
+                            Its invalidated when we repackage it into an uber jar. Hence to avoid
+                            Error: A JNI error has occurred, please check your installation and try again
+                            Exception in thread "main" java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+
+                            We remove signed information from META-INF
+                            -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>executable</shadedClassifierName>
                             <transformers>

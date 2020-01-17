@@ -14,7 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
@@ -24,9 +24,9 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -37,11 +37,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -58,14 +58,15 @@ public class HandTpchQuery1
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        longAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-        doubleAverage = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        countFunction = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        longAverage = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("avg", fromTypes(BIGINT)));
+        doubleAverage = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("avg", fromTypes(DOUBLE)));
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
+        countFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("count", ImmutableList.of()));
     }
 
     @Override
@@ -109,7 +110,7 @@ public class HandTpchQuery1
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
+                getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
                 ImmutableList.of(),
                 Step.SINGLE,
@@ -120,12 +121,13 @@ public class HandTpchQuery1
                         longAverage.bind(ImmutableList.of(2), Optional.empty()),
                         doubleAverage.bind(ImmutableList.of(5), Optional.empty()),
                         doubleAverage.bind(ImmutableList.of(6), Optional.empty()),
-                        countFunction.bind(ImmutableList.of(2), Optional.empty())
-                        ),
+                        countFunction.bind(ImmutableList.of(2), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
-                new DataSize(16, MEGABYTE));
+                Optional.of(new DataSize(16, MEGABYTE)),
+                JOIN_COMPILER,
+                false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }
@@ -153,12 +155,6 @@ public class HandTpchQuery1
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return TYPES;
-            }
-
-            @Override
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());
@@ -166,7 +162,7 @@ public class HandTpchQuery1
             }
 
             @Override
-            public void close()
+            public void noMoreOperators()
             {
             }
 
@@ -191,12 +187,6 @@ public class HandTpchQuery1
         public OperatorContext getOperatorContext()
         {
             return operatorContext;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
         }
 
         @Override

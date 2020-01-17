@@ -14,6 +14,7 @@
 package com.facebook.presto.array;
 
 import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
@@ -27,6 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfLongArray;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class LongBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongBigArray.class).instanceSize();
     private static final long SIZE_OF_SEGMENT = sizeOfLongArray(SEGMENT_SIZE);
 
     private final long initialValue;
@@ -58,7 +60,7 @@ public final class LongBigArray
      */
     public long sizeOf()
     {
-        return SizeOf.sizeOf(array) + (segments * SIZE_OF_SEGMENT);
+        return INSTANCE_SIZE + SizeOf.sizeOf(array) + (segments * SIZE_OF_SEGMENT);
     }
 
     /**

@@ -18,21 +18,21 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
+import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 
 public class TpchNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -48,32 +48,24 @@ public class TpchNodePartitioningProvider
     }
 
     @Override
-    public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         // Split the data using split and skew by the number of nodes available.
-        ImmutableMap.Builder<Integer, Node> bucketToNode = ImmutableMap.builder();
-        int partNumber = 0;
-        for (Node node : nodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                bucketToNode.put(partNumber, node);
-                partNumber++;
-            }
-        }
-        return bucketToNode.build();
+        return createBucketNodeMap(toIntExact((long) nodes.size() * splitsPerNode));
     }
 
     @Override
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> checkType(value, TpchSplit.class, "value").getPartNumber();
+        return value -> ((TpchSplit) value).getPartNumber();
     }
 
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
     {
-        long totalRows = checkType(partitioningHandle, TpchPartitioningHandle.class, "functionHandle").getTotalRows();
+        long totalRows = ((TpchPartitioningHandle) partitioningHandle).getTotalRows();
         long rowsPerBucket = totalRows / bucketCount;
         checkArgument(partitionChannelTypes.equals(ImmutableList.of(BIGINT)), "Expected one BIGINT parameter");
         return new TpchBucketFunction(bucketCount, rowsPerBucket);

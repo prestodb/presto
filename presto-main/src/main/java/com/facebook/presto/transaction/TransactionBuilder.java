@@ -20,6 +20,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -104,7 +105,7 @@ public class TransactionBuilder
         }
         finally {
             if (success) {
-                transactionManager.asyncCommit(transactionId).join();
+                getFutureValue(transactionManager.asyncCommit(transactionId));
             }
             else {
                 transactionManager.asyncAbort(transactionId);
@@ -151,9 +152,9 @@ public class TransactionBuilder
             return result;
         }
         finally {
-            if (managedTransaction) {
+            if (managedTransaction && transactionSession.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).isPresent()) {
                 if (success) {
-                    transactionManager.asyncCommit(transactionSession.getTransactionId().get()).join();
+                    getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));
                 }
                 else {
                     transactionManager.asyncAbort(transactionSession.getTransactionId().get());

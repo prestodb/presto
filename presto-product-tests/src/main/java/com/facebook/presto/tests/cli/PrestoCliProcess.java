@@ -13,20 +13,18 @@
  */
 package com.facebook.presto.tests.cli;
 
-import com.teradata.tempto.process.LocalCliProcess;
+import io.prestodb.tempto.process.LocalCliProcess;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static java.util.regex.Pattern.quote;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class PrestoCliProcess
         extends LocalCliProcess
 {
-    private static final String PRESTO_PROMPT = "presto>";
-    private static final Pattern PRESTO_PROMPT_PATTERN = Pattern.compile(quote(PRESTO_PROMPT));
+    private static final Pattern PRESTO_PROMPT_PATTERN = Pattern.compile("presto(:[a-z0-9_]+)?>");
 
     public PrestoCliProcess(Process process)
     {
@@ -45,6 +43,6 @@ public final class PrestoCliProcess
 
     public void waitForPrompt()
     {
-        assertThat(nextOutputToken()).isEqualTo(PRESTO_PROMPT);
+        assertThat(nextOutputToken()).matches(PRESTO_PROMPT_PATTERN);
     }
 }

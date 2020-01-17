@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,25 +27,25 @@ public class DereferenceExpression
         extends Expression
 {
     private final Expression base;
-    private final String fieldName;
+    private final Identifier field;
 
-    public DereferenceExpression(Expression base, String fieldName)
+    public DereferenceExpression(Expression base, Identifier field)
     {
-        this(Optional.empty(), base, fieldName);
+        this(Optional.empty(), base, field);
     }
 
-    public DereferenceExpression(NodeLocation location, Expression base, String fieldName)
+    public DereferenceExpression(NodeLocation location, Expression base, Identifier field)
     {
-        this(Optional.of(location), base, fieldName);
+        this(Optional.of(location), base, field);
     }
 
-    private DereferenceExpression(Optional<NodeLocation> location, Expression base, String fieldName)
+    private DereferenceExpression(Optional<NodeLocation> location, Expression base, Identifier field)
     {
         super(location);
         checkArgument(base != null, "base is null");
-        checkArgument(fieldName != null, "fieldName is null");
+        checkArgument(field != null, "fieldName is null");
         this.base = base;
-        this.fieldName = fieldName.toLowerCase();
+        this.field = field;
     }
 
     @Override
@@ -51,14 +54,20 @@ public class DereferenceExpression
         return visitor.visitDereferenceExpression(this, context);
     }
 
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(base);
+    }
+
     public Expression getBase()
     {
         return base;
     }
 
-    public String getFieldName()
+    public Identifier getField()
     {
-        return fieldName;
+        return field;
     }
 
     /**
@@ -67,16 +76,30 @@ public class DereferenceExpression
      */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
-        List<String> parts = tryParseParts(expression.base, expression.fieldName);
+        List<String> parts = tryParseParts(expression.base, expression.field.getValue().toLowerCase(Locale.ENGLISH));
         return parts == null ? null : QualifiedName.of(parts);
+    }
+
+    public static Expression from(QualifiedName name)
+    {
+        Expression result = null;
+
+        for (String part : name.getParts()) {
+            if (result == null) {
+                result = new Identifier(part);
+            }
+            else {
+                result = new DereferenceExpression(result, new Identifier(part));
+            }
+        }
+
+        return result;
     }
 
     private static List<String> tryParseParts(Expression base, String fieldName)
     {
-        if (base instanceof QualifiedNameReference) {
-            List<String> newList = new ArrayList<>(((QualifiedNameReference) base).getName().getParts());
-            newList.add(fieldName);
-            return newList;
+        if (base instanceof Identifier) {
+            return ImmutableList.of(((Identifier) base).getValue(), fieldName);
         }
         else if (base instanceof DereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) base);
@@ -100,12 +123,12 @@ public class DereferenceExpression
         }
         DereferenceExpression that = (DereferenceExpression) o;
         return Objects.equals(base, that.base) &&
-                Objects.equals(fieldName, that.fieldName);
+                Objects.equals(field, that.field);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, fieldName);
+        return Objects.hash(base, field);
     }
 }

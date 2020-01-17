@@ -17,7 +17,7 @@ import com.facebook.presto.bytecode.control.DoWhileLoop;
 import com.facebook.presto.bytecode.control.FlowControl;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.control.LookupSwitch;
+import com.facebook.presto.bytecode.control.SwitchStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.control.WhileLoop;
 import com.facebook.presto.bytecode.debug.DebugNode;
@@ -156,9 +156,9 @@ public class BytecodeVisitor<T>
         return visitFlowControl(parent, doWhileLoop);
     }
 
-    public T visitLookupSwitch(BytecodeNode parent, LookupSwitch lookupSwitch)
+    public T visitSwitch(BytecodeNode parent, SwitchStatement switchStatement)
     {
-        return visitFlowControl(parent, lookupSwitch);
+        return visitFlowControl(parent, switchStatement);
     }
 
     //

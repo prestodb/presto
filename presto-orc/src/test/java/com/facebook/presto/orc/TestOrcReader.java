@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 @Test
 public class TestOrcReader
-    extends AbstractTestOrcReader
+        extends AbstractTestOrcReader
 {
     public TestOrcReader()
     {

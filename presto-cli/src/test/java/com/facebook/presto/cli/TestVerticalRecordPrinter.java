@@ -36,10 +36,10 @@ public class TestVerticalRecordPrinter
         OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(
-                        row("hello", "world", 123),
-                        row("a", null, 4.5),
-                        row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
-                        row("bye", "done", -15)),
+                row("hello", "world", 123),
+                row("a", null, 4.5),
+                row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
+                row("bye", "done", -15)),
                 true);
         printer.finish();
 
@@ -181,9 +181,9 @@ public class TestVerticalRecordPrinter
         OutputPrinter printer = new VerticalRecordPrinter(fieldNames, writer);
 
         printer.printRows(rows(
-                        row("hello", bytes("hello"), "world"),
-                        row("a", bytes("some long text that is more than 16 bytes"), "b"),
-                        row("cat", bytes(""), "dog")),
+                row("hello", bytes("hello"), "world"),
+                row("a", bytes("some long text that is more than 16 bytes"), "b"),
+                row("cat", bytes(""), "dog")),
                 true);
         printer.finish();
 

@@ -14,7 +14,7 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -22,7 +22,6 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.GregorianCalendar;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -43,7 +42,6 @@ public class TestRow
 {
     @Test
     public void testRow()
-            throws Exception
     {
         Row r1 = new Row();
         r1.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
@@ -70,7 +68,6 @@ public class TestRow
 
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "type is null")
     public void testRowTypeIsNull()
-            throws Exception
     {
         Row r1 = new Row();
         r1.addField(VARCHAR, null);
@@ -78,12 +75,11 @@ public class TestRow
 
     @Test
     public void testRowFromString()
-            throws Exception
     {
         Row expected = new Row();
         expected.addField(new Field(AccumuloRowSerializer.getBlockFromArray(VARCHAR, ImmutableList.of("a", "b", "c")), new ArrayType(VARCHAR)));
         expected.addField(true, BOOLEAN);
-        expected.addField(new Field(new Date(TimeUnit.MILLISECONDS.toDays(new GregorianCalendar(1999, 0, 1).getTime().getTime())), DATE));
+        expected.addField(new Field(new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime()), DATE));
         expected.addField(123.45678, DOUBLE);
         expected.addField(new Field(123.45678f, REAL));
         expected.addField(12345678, INTEGER);
@@ -112,7 +108,7 @@ public class TestRow
         schema.addColumn("m", Optional.of("m"), Optional.of("m"), VARCHAR);
         schema.addColumn("n", Optional.of("n"), Optional.of("n"), VARCHAR);
 
-        Row actual = Row.fromString(schema, "a,b,c|true|1999-01-01|123.45678|123.45678|12345678|12345678|12345|12:30:00|1999-01-01 12:30:00.0|123|O'Leary|O'Leary|", '|');
+        Row actual = Row.fromString(schema, "a,b,c|true|1999-01-01|123.45678|123.45678|12345678|12345678|12345|12:30:00|1999-01-01 12:30:00.000|123|O'Leary|O'Leary|", '|');
         assertEquals(actual, expected);
     }
 }

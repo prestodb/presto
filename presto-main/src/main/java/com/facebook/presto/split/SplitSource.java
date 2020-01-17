@@ -13,22 +13,58 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+
+import static java.util.Objects.requireNonNull;
 
 public interface SplitSource
         extends Closeable
 {
     ConnectorId getConnectorId();
 
-    CompletableFuture<List<Split>> getNextBatch(int maxSize);
+    ConnectorTransactionHandle getTransactionHandle();
+
+    ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize);
+
+    void rewind(ConnectorPartitionHandle partitionHandle);
 
     @Override
     void close();
 
     boolean isFinished();
+
+    class SplitBatch
+    {
+        private final List<Split> splits;
+        private final boolean lastBatch;
+
+        public SplitBatch(List<Split> splits, boolean lastBatch)
+        {
+            this.splits = requireNonNull(splits, "splits is null");
+            this.lastBatch = lastBatch;
+        }
+
+        public List<Split> getSplits()
+        {
+            return splits;
+        }
+
+        /**
+         * Returns <tt>true</tt> if all splits for the requested driver group have been returned.
+         * In other hands, splits returned from this and all previous invocations of {@link #getNextBatch}
+         * form the complete set of splits in the requested driver group.
+         */
+        public boolean isLastBatch()
+        {
+            return lastBatch;
+        }
+    }
 }

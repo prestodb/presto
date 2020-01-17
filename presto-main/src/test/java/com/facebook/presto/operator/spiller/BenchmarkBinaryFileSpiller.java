@@ -18,12 +18,13 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.BinarySpillerFactory;
+import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.Spiller;
+import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -59,7 +61,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARCHAR)));
+    private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new TypeRegistry());
     private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
@@ -86,24 +88,41 @@ public class BenchmarkBinaryFileSpiller
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private final ListeningExecutorService executor = MoreExecutors.newDirectExecutorService();
-        private final BinarySpillerFactory spillerFactory = new BinarySpillerFactory(executor, BLOCK_ENCODING_MANAGER, SPILL_PATH);
+        private final SpillerStats spillerStats = new SpillerStats();
 
-        @Param({"10000"})
+        @Param("10000")
         private int rowsPerPage = 10000;
 
-        @Param({"10"})
+        @Param("10")
         private int pagesCount = 10;
+
+        @Param("false")
+        private boolean compressionEnabled;
+
+        @Param("false")
+        private boolean encryptionEnabled;
 
         private List<Page> pages;
         private Spiller readSpiller;
+
+        private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
+        private SpillerFactory spillerFactory;
 
         @Setup
         public void setup()
                 throws ExecutionException, InterruptedException
         {
+            singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                    MoreExecutors.newDirectExecutorService(),
+                    BLOCK_ENCODING_MANAGER,
+                    spillerStats,
+                    ImmutableList.of(SPILL_PATH),
+                    1.0,
+                    compressionEnabled,
+                    encryptionEnabled);
+            spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES);
+            readSpiller = spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -111,7 +130,7 @@ public class BenchmarkBinaryFileSpiller
         public void tearDown()
         {
             readSpiller.close();
-            MoreExecutors.shutdownAndAwaitTermination(executor, 5, SECONDS);
+            singleStreamSpillerFactory.destroy();
         }
 
         private List<Page> createInputPages()
@@ -133,6 +152,7 @@ public class BenchmarkBinaryFileSpiller
                     DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), lineItem.getExtendedPrice());
                 }
                 pages.add(pageBuilder.build());
+                pageBuilder.reset();
             }
 
             return pages.build();
@@ -148,14 +168,9 @@ public class BenchmarkBinaryFileSpiller
             return readSpiller;
         }
 
-        public ListeningExecutorService getExecutor()
-        {
-            return executor;
-        }
-
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES);
+            return spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
         }
     }
 }

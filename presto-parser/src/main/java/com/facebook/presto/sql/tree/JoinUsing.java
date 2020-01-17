@@ -25,16 +25,16 @@ import static java.util.Objects.requireNonNull;
 public class JoinUsing
         extends JoinCriteria
 {
-    private final List<String> columns;
+    private final List<Identifier> columns;
 
-    public JoinUsing(List<String> columns)
+    public JoinUsing(List<Identifier> columns)
     {
         requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         this.columns = ImmutableList.copyOf(columns);
     }
 
-    public List<String> getColumns()
+    public List<Identifier> getColumns()
     {
         return columns;
     }
@@ -64,5 +64,11 @@ public class JoinUsing
         return toStringHelper(this)
                 .addValue(columns)
                 .toString();
+    }
+
+    @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.of();
     }
 }

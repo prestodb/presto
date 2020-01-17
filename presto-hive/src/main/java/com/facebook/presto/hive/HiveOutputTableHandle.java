@@ -36,7 +36,6 @@ public class HiveOutputTableHandle
 
     @JsonCreator
     public HiveOutputTableHandle(
-            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
@@ -45,13 +44,13 @@ public class HiveOutputTableHandle
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
     {
         super(
-                clientId,
                 schemaName,
                 tableName,
                 inputColumns,
@@ -60,7 +59,8 @@ public class HiveOutputTableHandle
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                compressionCodec);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");

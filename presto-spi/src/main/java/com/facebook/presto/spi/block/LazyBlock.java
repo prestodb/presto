@@ -16,7 +16,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,31 +43,38 @@ public class LazyBlock
     }
 
     @Override
-    public int getLength(int position)
+    public int getSliceLength(int position)
     {
         assureLoaded();
-        return block.getLength(position);
+        return block.getSliceLength(position);
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         assureLoaded();
-        return block.getByte(position, offset);
+        return block.getByte(position);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         assureLoaded();
-        return block.getShort(position, offset);
+        return block.getShort(position);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         assureLoaded();
-        return block.getInt(position, offset);
+        return block.getInt(position);
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        assureLoaded();
+        return block.getLong(position);
     }
 
     @Override
@@ -85,10 +92,10 @@ public class LazyBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
         assureLoaded();
-        return block.getObject(position, clazz);
+        return block.getBlock(position);
     }
 
     @Override
@@ -164,31 +171,67 @@ public class LazyBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
         assureLoaded();
         return block.getSizeInBytes();
     }
 
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRegionSizeInBytes(int position, int length)
+    {
+        assureLoaded();
+        return block.getRegionSizeInBytes(position, length);
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        assureLoaded();
+        return block.getPositionsSizeInBytes(positions);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
     {
         assureLoaded();
         return INSTANCE_SIZE + block.getRetainedSizeInBytes();
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public long getEstimatedDataSizeForStats(int position)
     {
         assureLoaded();
-        return new LazyBlockEncoding(block.getEncoding());
+        return block.getEstimatedDataSizeForStats(position);
     }
 
     @Override
-    public Block copyPositions(List<Integer> positions)
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         assureLoaded();
-        return block.copyPositions(positions);
+        block.retainedBytesForEachPart(consumer);
+        consumer.accept(this, (long) INSTANCE_SIZE);
+    }
+
+    @Override
+    public String getEncodingName()
+    {
+        assureLoaded();
+        return LazyBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block getPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.getPositions(positions, offset, length);
+    }
+
+    @Override
+    public Block copyPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.copyPositions(positions, offset, length);
     }
 
     @Override
@@ -212,12 +255,6 @@ public class LazyBlock
         return block.isNull(position);
     }
 
-    public Block getBlock()
-    {
-        assureLoaded();
-        return block;
-    }
-
     public void setBlock(Block block)
     {
         if (this.block != null) {
@@ -226,8 +263,19 @@ public class LazyBlock
         this.block = requireNonNull(block, "block is null");
     }
 
+    public boolean isLoaded()
+    {
+        return block != null;
+    }
+
     @Override
-    public void assureLoaded()
+    public Block getLoadedBlock()
+    {
+        assureLoaded();
+        return block;
+    }
+
+    private void assureLoaded()
     {
         if (block != null) {
             return;
@@ -240,5 +288,74 @@ public class LazyBlock
 
         // clear reference to loader to free resources, since load was successful
         loader = null;
+    }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getByte(internalPosition);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getShort(internalPosition);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getInt(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getLong(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        assert block != null : "block is not loaded";
+        return block.getLong(internalPosition, offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        assert block != null : "block is not loaded";
+        return block.getSlice(internalPosition, offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getSliceLength(internalPosition);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getBlock(internalPosition);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.isNull(internalPosition);
     }
 }

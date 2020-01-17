@@ -16,12 +16,12 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @WindowFunctionSignature(name = "nth_value", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 public class NthValueFunction
@@ -46,11 +46,28 @@ public class NthValueFunction
             long offset = windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
-            // offset is base 1
-            long valuePosition = frameStart + (offset - 1);
+            long valuePosition;
+
+            if (ignoreNulls) {
+                long count = 0;
+                valuePosition = frameStart;
+                while (valuePosition >= 0 && valuePosition <= frameEnd) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        count++;
+                        if (count == offset) {
+                            break;
+                        }
+                    }
+                    valuePosition++;
+                }
+            }
+            else {
+                // offset is base 1
+                valuePosition = frameStart + (offset - 1);
+            }
 
             if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
-                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else {
                 output.appendNull();

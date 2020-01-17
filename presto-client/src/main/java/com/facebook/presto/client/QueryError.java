@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -52,7 +51,6 @@ public class QueryError
         this.failureInfo = failureInfo;
     }
 
-    @NotNull
     @JsonProperty
     public String getMessage()
     {
@@ -72,14 +70,12 @@ public class QueryError
         return errorCode;
     }
 
-    @NotNull
     @JsonProperty
     public String getErrorName()
     {
         return errorName;
     }
 
-    @NotNull
     @JsonProperty
     public String getErrorType()
     {

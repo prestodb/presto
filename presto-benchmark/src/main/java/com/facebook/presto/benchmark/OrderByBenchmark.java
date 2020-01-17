@@ -16,7 +16,9 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -38,18 +40,20 @@ public class OrderByBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
+        List<Type> tableScanTypes = getColumnTypes("orders", "totalprice", "clerk");
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice", "clerk");
 
-        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, new PlanNodeId("test"), tableScanOperator.getTypes(), ROWS);
+        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, new PlanNodeId("test"), ROWS);
 
         OrderByOperatorFactory orderByOperator = new OrderByOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                limitOperator.getTypes(),
+                tableScanTypes,
                 ImmutableList.of(1),
                 ROWS,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false));
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

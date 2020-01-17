@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.RowType;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.ZipFunction.MAX_ARITY;
@@ -38,7 +37,6 @@ public class TestZipFunction
 {
     @Test
     public void testSameLength()
-            throws Exception
     {
         assertFunction("zip(ARRAY[1, 2], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
@@ -83,7 +81,6 @@ public class TestZipFunction
 
     @Test
     public void testDifferentLength()
-            throws Exception
     {
         assertFunction("zip(ARRAY[1], ARRAY['a', 'b'])",
                 zipReturnType(INTEGER, createVarcharType(1)),
@@ -104,7 +101,6 @@ public class TestZipFunction
 
     @Test
     public void testWithNull()
-            throws Exception
     {
         assertFunction("zip(CAST(NULL AS ARRAY(UNKNOWN)), ARRAY[],  ARRAY[1])",
                 zipReturnType(UNKNOWN, UNKNOWN, INTEGER),
@@ -113,7 +109,6 @@ public class TestZipFunction
 
     @Test
     public void testAllArities()
-            throws Exception
     {
         for (int arity = MIN_ARITY; arity <= MAX_ARITY; arity++) {
             String[] arguments = IntStream.rangeClosed(1, arity)
@@ -131,7 +126,7 @@ public class TestZipFunction
 
     private static Type zipReturnType(Type... types)
     {
-        return new ArrayType(new RowType(list(types), Optional.empty()));
+        return new ArrayType(RowType.anonymous(list(types)));
     }
 
     @SafeVarargs

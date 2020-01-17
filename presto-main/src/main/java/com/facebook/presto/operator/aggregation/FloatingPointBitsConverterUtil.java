@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-final class FloatingPointBitsConverterUtil
+public final class FloatingPointBitsConverterUtil
 {
     private FloatingPointBitsConverterUtil() {}
 
@@ -56,7 +56,7 @@ final class FloatingPointBitsConverterUtil
      */
     public static float sortableIntToFloat(int value)
     {
-        value = value ^ (value >> 31)  & Integer.MAX_VALUE;
+        value = value ^ (value >> 31) & Integer.MAX_VALUE;
         return Float.intBitsToFloat(value);
     }
 }

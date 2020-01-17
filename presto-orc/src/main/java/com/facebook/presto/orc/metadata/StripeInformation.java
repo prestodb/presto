@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class StripeInformation
 {
@@ -25,6 +26,9 @@ public class StripeInformation
 
     public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength)
     {
+        // dataLength can be zero when the stripe only contains empty flat maps.
+        checkArgument(numberOfRows > 0, "Stripe must have at least one row");
+        checkArgument(footerLength > 0, "Stripe must have a footer section");
         this.numberOfRows = numberOfRows;
         this.offset = offset;
         this.indexLength = indexLength;

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 
@@ -48,11 +49,9 @@ public interface Type
 
     /**
      * Gets the Java class type used to represent this value on the stack during
-     * expression execution. This value is used to determine which method should
-     * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
-     * this type.
+     * expression execution.
      * <p>
-     * Currently, this must be boolean, long, double, or Slice.
+     * Currently, this must be boolean, long, double, Slice or Block.
      */
     Class<?> getJavaType();
 
@@ -86,9 +85,21 @@ public interface Type
     boolean getBoolean(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a boolean
+     * without boundary checks.
+     */
+    boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as a long.
      */
     long getLong(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a long
+     * without boundary checks.
+     */
+    long getLongUnchecked(UncheckedBlock block, int internalPosition);
 
     /**
      * Gets the value at the {@code block} {@code position} as a double.
@@ -96,14 +107,32 @@ public interface Type
     double getDouble(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a double
+     * without boundary checks.
+     */
+    double getDoubleUnchecked(UncheckedBlock block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as a Slice.
      */
     Slice getSlice(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code position} as a Slice
+     * without boundary checks
+     */
+    Slice getSliceUnchecked(Block block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as an Object.
      */
     Object getObject(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a block
+     * without boundary checks.
+     */
+    Block getBlockUnchecked(Block block, int internalPosition);
 
     /**
      * Writes the boolean value into the {@code BlockBuilder}.
@@ -142,6 +171,8 @@ public interface Type
 
     /**
      * Are the values in the specified blocks at the specified positions equal?
+     * <p>
+     * This method assumes input is not null.
      */
     boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 

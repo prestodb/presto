@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTimestamp;
 
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -30,7 +29,7 @@ public class TestTimestampType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(null, 15);
         TIMESTAMP.writeLong(blockBuilder, 1111);
         TIMESTAMP.writeLong(blockBuilder, 1111);
         TIMESTAMP.writeLong(blockBuilder, 1111);

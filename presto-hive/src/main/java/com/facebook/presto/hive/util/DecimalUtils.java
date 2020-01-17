@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.type.Decimals;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 
 public final class DecimalUtils
@@ -51,7 +51,8 @@ public final class DecimalUtils
 
     public static Slice getLongDecimalValue(HiveDecimalWritable writable, int columnScale)
     {
-        BigInteger value = writable.getHiveDecimal().unscaledValue();
-        return Decimals.encodeUnscaledValue(rescale(value, writable.getScale(), columnScale));
+        BigInteger value = new BigInteger(writable.getInternalStorage());
+        value = rescale(value, writable.getScale(), columnScale);
+        return encodeUnscaledValue(value);
     }
 }

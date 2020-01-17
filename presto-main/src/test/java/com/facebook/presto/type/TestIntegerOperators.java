@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -33,7 +34,6 @@ public class TestIntegerOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("INTEGER'37'", INTEGER, 37);
         assertFunction("INTEGER'17'", INTEGER, 17);
@@ -42,7 +42,6 @@ public class TestIntegerOperators
 
     @Test
     public void testUnaryPlus()
-            throws Exception
     {
         assertFunction("+INTEGER'37'", INTEGER, 37);
         assertFunction("+INTEGER'17'", INTEGER, 17);
@@ -50,7 +49,6 @@ public class TestIntegerOperators
 
     @Test
     public void testUnaryMinus()
-            throws Exception
     {
         assertFunction("INTEGER'-37'", INTEGER, -37);
         assertFunction("INTEGER'-17'", INTEGER, -17);
@@ -59,7 +57,6 @@ public class TestIntegerOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("INTEGER'37' + INTEGER'37'", INTEGER, 37 + 37);
         assertFunction("INTEGER'37' + INTEGER'17'", INTEGER, 37 + 17);
@@ -70,7 +67,6 @@ public class TestIntegerOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("INTEGER'37' - INTEGER'37'", INTEGER, 0);
         assertFunction("INTEGER'37' - INTEGER'17'", INTEGER, 37 - 17);
@@ -81,7 +77,6 @@ public class TestIntegerOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("INTEGER'37' * INTEGER'37'", INTEGER, 37 * 37);
         assertFunction("INTEGER'37' * INTEGER'17'", INTEGER, 37 * 17);
@@ -92,7 +87,6 @@ public class TestIntegerOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("INTEGER'37' / INTEGER'37'", INTEGER, 1);
         assertFunction("INTEGER'37' / INTEGER'17'", INTEGER, 37 / 17);
@@ -103,7 +97,6 @@ public class TestIntegerOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("INTEGER'37' % INTEGER'37'", INTEGER, 0);
         assertFunction("INTEGER'37' % INTEGER'17'", INTEGER, 37 % 17);
@@ -114,7 +107,6 @@ public class TestIntegerOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-(INTEGER'37')", INTEGER, -37);
         assertFunction("-(INTEGER'17')", INTEGER, -17);
@@ -124,7 +116,6 @@ public class TestIntegerOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("INTEGER'37' = INTEGER'37'", BOOLEAN, true);
         assertFunction("INTEGER'37' = INTEGER'17'", BOOLEAN, false);
@@ -134,7 +125,6 @@ public class TestIntegerOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("INTEGER'37' <> INTEGER'37'", BOOLEAN, false);
         assertFunction("INTEGER'37' <> INTEGER'17'", BOOLEAN, true);
@@ -144,7 +134,6 @@ public class TestIntegerOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("INTEGER'37' < INTEGER'37'", BOOLEAN, false);
         assertFunction("INTEGER'37' < INTEGER'17'", BOOLEAN, false);
@@ -154,7 +143,6 @@ public class TestIntegerOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("INTEGER'37' <= INTEGER'37'", BOOLEAN, true);
         assertFunction("INTEGER'37' <= INTEGER'17'", BOOLEAN, false);
@@ -164,7 +152,6 @@ public class TestIntegerOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("INTEGER'37' > INTEGER'37'", BOOLEAN, false);
         assertFunction("INTEGER'37' > INTEGER'17'", BOOLEAN, true);
@@ -174,7 +161,6 @@ public class TestIntegerOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("INTEGER'37' >= INTEGER'37'", BOOLEAN, true);
         assertFunction("INTEGER'37' >= INTEGER'17'", BOOLEAN, true);
@@ -184,7 +170,6 @@ public class TestIntegerOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("INTEGER'37' BETWEEN INTEGER'37' AND INTEGER'37'", BOOLEAN, true);
         assertFunction("INTEGER'37' BETWEEN INTEGER'37' AND INTEGER'17'", BOOLEAN, false);
@@ -201,7 +186,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as bigint)", BIGINT, 37L);
         assertFunction("cast(INTEGER'17' as bigint)", BIGINT, 17L);
@@ -209,7 +193,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToSmallint()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as smallint)", SMALLINT, (short) 37);
         assertFunction("cast(INTEGER'17' as smallint)", SMALLINT, (short) 17);
@@ -217,7 +200,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToTinyint()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as tinyint)", TINYINT, (byte) 37);
         assertFunction("cast(INTEGER'17' as tinyint)", TINYINT, (byte) 17);
@@ -225,7 +207,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as varchar)", VARCHAR, "37");
         assertFunction("cast(INTEGER'17' as varchar)", VARCHAR, "17");
@@ -233,7 +214,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as double)", DOUBLE, 37.0);
         assertFunction("cast(INTEGER'17' as double)", DOUBLE, 17.0);
@@ -241,7 +221,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToFloat()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as real)", REAL, 37.0f);
         assertFunction("cast(INTEGER'-2147483648' as real)", REAL, -2147483648.0f);
@@ -250,7 +229,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(INTEGER'37' as boolean)", BOOLEAN, true);
         assertFunction("cast(INTEGER'17' as boolean)", BOOLEAN, true);
@@ -259,7 +237,6 @@ public class TestIntegerOperators
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
         assertFunction("cast('37' as integer)", INTEGER, 37);
         assertFunction("cast('17' as integer)", INTEGER, 17);
@@ -267,12 +244,21 @@ public class TestIntegerOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS INTEGER) IS DISTINCT FROM CAST(NULL AS INTEGER)", BOOLEAN, false);
         assertFunction("37 IS DISTINCT FROM 37", BOOLEAN, false);
         assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
         assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as integer)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "12", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "0", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "-23", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.4 as integer)", BOOLEAN, false);
     }
 }

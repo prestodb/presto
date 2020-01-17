@@ -1,0 +1,59 @@
+{
+  "rowCount" : 7333,
+  "columns" : {
+    "o_orderkey" : {
+      "distinctValuesCount" : 7333,
+      "min" : 1,
+      "max" : 59974,
+      "dataSize" : null
+    },
+    "o_custkey" : {
+      "distinctValuesCount" : 998,
+      "min" : 1,
+      "max" : 1499,
+      "dataSize" : null
+    },
+    "o_orderstatus" : {
+      "distinctValuesCount" : 1,
+      "min" : "O",
+      "max" : "O",
+      "dataSize" : 1
+    },
+    "o_totalprice" : {
+      "distinctValuesCount" : 7331,
+      "min" : 974.04,
+      "max" : 466001.28,
+      "dataSize" : null
+    },
+    "o_orderdate" : {
+      "distinctValuesCount" : 1213,
+      "min" : 9197,
+      "max" : 10440,
+      "dataSize" : null
+    },
+    "o_orderpriority" : {
+      "distinctValuesCount" : 5,
+      "min" : "1-URGENT",
+      "max" : "5-LOW",
+      "dataSize" : 42
+    },
+    "o_clerk" : {
+      "distinctValuesCount" : 1000,
+      "min" : "Clerk#000000001",
+      "max" : "Clerk#000001000",
+      "dataSize" : 15000
+    },
+    "o_shippriority" : {
+      "distinctValuesCount" : 1,
+      "min" : 0,
+      "max" : 0,
+      "dataSize" : null
+    },
+    "o_comment" : {
+      "distinctValuesCount" : 7333,
+      "min" : " about the accounts. slyly express accounts wa",
+      "max" : "zzle. carefully enticing deposits nag furio",
+      "dataSize" : 354754
+    }
+  }
+}

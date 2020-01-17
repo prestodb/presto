@@ -1,0 +1,103 @@
+{
+  "rowCount" : 1,
+  "columns" : {
+    "w_warehouse_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "w_warehouse_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAABAAAAAAA",
+      "dataSize" : 16
+    },
+    "w_warehouse_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Conventional childr",
+      "max" : "Conventional childr",
+      "dataSize" : 19
+    },
+    "w_warehouse_sq_ft" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 977787,
+      "max" : 977787,
+      "dataSize" : null
+    },
+    "w_street_number" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "651",
+      "max" : "651",
+      "dataSize" : 3
+    },
+    "w_street_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "6th ",
+      "max" : "6th ",
+      "dataSize" : 4
+    },
+    "w_street_type" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Parkway",
+      "max" : "Parkway",
+      "dataSize" : 7
+    },
+    "w_suite_number" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Suite 470",
+      "max" : "Suite 470",
+      "dataSize" : 9
+    },
+    "w_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway",
+      "dataSize" : 6
+    },
+    "w_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "w_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "w_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904",
+      "dataSize" : 5
+    },
+    "w_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "w_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    }
+  }
+}

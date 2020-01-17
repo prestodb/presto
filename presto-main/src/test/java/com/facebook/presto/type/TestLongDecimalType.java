@@ -11,12 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import io.airlift.slice.Slice;
@@ -29,6 +27,7 @@ import java.math.BigInteger;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType
@@ -53,7 +52,7 @@ public class TestLongDecimalType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createBlockBuilder(null, 15);
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
@@ -85,6 +84,6 @@ public class TestLongDecimalType
 
     private static BigDecimal toBigDecimal(Slice valueSlice, int scale)
     {
-        return new BigDecimal(new BigInteger(valueSlice.getBytes()), scale);
+        return new BigDecimal(unscaledDecimalToBigInteger(valueSlice), scale);
     }
 }

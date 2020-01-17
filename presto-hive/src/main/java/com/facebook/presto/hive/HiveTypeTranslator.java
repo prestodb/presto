@@ -37,9 +37,9 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
-import static com.facebook.presto.hive.HiveUtil.isArrayType;
-import static com.facebook.presto.hive.HiveUtil.isMapType;
-import static com.facebook.presto.hive.HiveUtil.isRowType;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -92,7 +92,7 @@ public class HiveTypeTranslator
             if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharLength);
             }
-            else if (varcharLength == VarcharType.MAX_LENGTH) {
+            else if (varcharLength == VarcharType.UNBOUNDED_LENGTH) {
                 return HIVE_STRING.getTypeInfo();
             }
             else {
@@ -138,7 +138,10 @@ public class HiveTypeTranslator
                     throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
                 }
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldNames.add(namedTypeSignature.getName());
+                if (!namedTypeSignature.getName().isPresent()) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
+                }
+                fieldNames.add(namedTypeSignature.getName().get());
             }
             return getStructTypeInfo(
                     fieldNames.build(),

@@ -15,32 +15,27 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.List;
+import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceOperator
         implements Operator, Closeable
 {
     private final ConnectorPageSource pageSource;
-    private final List<Type> types;
     private final OperatorContext operatorContext;
     private long completedBytes;
     private long readTimeNanos;
 
-    public PageSourceOperator(ConnectorPageSource pageSource, List<Type> types, OperatorContext operatorContext)
+    public PageSourceOperator(ConnectorPageSource pageSource, OperatorContext operatorContext)
     {
         this.pageSource = requireNonNull(pageSource, "pageSource is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
     }
 
@@ -51,19 +46,13 @@ public class PageSourceOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public void finish()
     {
         try {
             pageSource.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -103,9 +92,13 @@ public class PageSourceOperator
         // update operator stats
         long endCompletedBytes = pageSource.getCompletedBytes();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
-        operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+        operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+        operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;
+
+        // assure the page is in memory before handing to another operator
+        page = page.getLoadedPage();
 
         return page;
     }

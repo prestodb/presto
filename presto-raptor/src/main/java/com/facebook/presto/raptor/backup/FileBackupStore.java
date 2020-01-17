@@ -29,7 +29,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
-import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
+import static com.facebook.presto.raptor.filesystem.LocalFileStorageService.getFileSystemPath;
 import static java.nio.file.Files.deleteIfExists;
 import static java.util.Objects.requireNonNull;
 

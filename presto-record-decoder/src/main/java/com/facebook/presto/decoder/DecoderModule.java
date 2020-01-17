@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.decoder;
 
-import com.facebook.presto.decoder.csv.CsvDecoderModule;
-import com.facebook.presto.decoder.dummy.DummyDecoderModule;
-import com.facebook.presto.decoder.json.JsonDecoderModule;
-import com.facebook.presto.decoder.raw.RawDecoderModule;
+import com.facebook.presto.decoder.avro.AvroRowDecoder;
+import com.facebook.presto.decoder.avro.AvroRowDecoderFactory;
+import com.facebook.presto.decoder.csv.CsvRowDecoder;
+import com.facebook.presto.decoder.csv.CsvRowDecoderFactory;
+import com.facebook.presto.decoder.dummy.DummyRowDecoder;
+import com.facebook.presto.decoder.dummy.DummyRowDecoderFactory;
+import com.facebook.presto.decoder.json.JsonRowDecoder;
+import com.facebook.presto.decoder.json.JsonRowDecoderFactory;
+import com.facebook.presto.decoder.raw.RawRowDecoder;
+import com.facebook.presto.decoder.raw.RawRowDecoderFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
-import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.MapBinder;
+
+import static com.google.inject.Scopes.SINGLETON;
 
 /**
  * Default decoder module. Installs the registry and all known decoder submodules.
@@ -32,23 +38,13 @@ public class DecoderModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(DecoderRegistry.class).in(Scopes.SINGLETON);
+        MapBinder<String, RowDecoderFactory> decoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowDecoderFactory.class);
+        decoderFactoriesByName.addBinding(DummyRowDecoder.NAME).to(DummyRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
+        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
 
-        binder.install(new DummyDecoderModule());
-        binder.install(new CsvDecoderModule());
-        binder.install(new JsonDecoderModule());
-        binder.install(new RawDecoderModule());
-    }
-
-    public static void bindRowDecoder(Binder binder, Class<? extends RowDecoder> decoderClass)
-    {
-        Multibinder<RowDecoder> rowDecoderBinder = Multibinder.newSetBinder(binder, RowDecoder.class);
-        rowDecoderBinder.addBinding().to(decoderClass).in(Scopes.SINGLETON);
-    }
-
-    public static void bindFieldDecoder(Binder binder, Class<? extends FieldDecoder<?>> decoderClass)
-    {
-        Multibinder<FieldDecoder<?>> fieldDecoderBinder = Multibinder.newSetBinder(binder, new TypeLiteral<FieldDecoder<?>>() {});
-        fieldDecoderBinder.addBinding().to(decoderClass).in(Scopes.SINGLETON);
+        binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }

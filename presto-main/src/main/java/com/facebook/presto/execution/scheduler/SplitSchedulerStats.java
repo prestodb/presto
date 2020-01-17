@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
-import io.airlift.stats.TimeStat;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -27,8 +27,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class SplitSchedulerStats
 {
     private final TimeStat sleepTime = new TimeStat(MILLISECONDS);
+    private final TimeStat getSplitTime = new TimeStat(MILLISECONDS);
     private final CounterStat waitingForSource = new CounterStat();
     private final CounterStat splitQueuesFull = new CounterStat();
+    private final CounterStat mixedSplitQueuesFullAndWaitingForSource = new CounterStat();
+    private final CounterStat noActiveDriverGroup = new CounterStat();
     private final DistributionStat splitsPerIteration = new DistributionStat();
 
     @Managed
@@ -36,6 +39,13 @@ public class SplitSchedulerStats
     public TimeStat getSleepTime()
     {
         return sleepTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getGetSplitTime()
+    {
+        return getSplitTime;
     }
 
     @Managed
@@ -57,5 +67,19 @@ public class SplitSchedulerStats
     public CounterStat getSplitQueuesFull()
     {
         return splitQueuesFull;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getMixedSplitQueuesFullAndWaitingForSource()
+    {
+        return mixedSplitQueuesFullAndWaitingForSource;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getNoActiveDriverGroup()
+    {
+        return noActiveDriverGroup;
     }
 }

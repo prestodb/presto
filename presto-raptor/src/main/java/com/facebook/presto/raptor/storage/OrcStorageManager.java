@@ -13,60 +13,67 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.FileOrcDataSource;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcReaderOptions;
+import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
-import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
+import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.joda.time.DateTimeZone;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +88,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
@@ -89,28 +102,29 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_DISK_FULL;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
-import static io.airlift.concurrent.MoreFutures.allAsList;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static java.lang.Math.min;
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -119,13 +133,21 @@ import static org.joda.time.DateTimeZone.UTC;
 public class OrcStorageManager
         implements StorageManager
 {
+    // Raptor does not store time-related data types as they are in ORC.
+    // They will be casted to BIGINT or INTEGER to avoid timezone conversion.
+    // This is due to the historical reason of using the legacy ORC read/writer that does not support timestamp types.
+    // In order to be consistent, we still enforce the conversion.
+    // The following DEFAULT_STORAGE_TIMEZONE is not used by the optimized ORC read/writer given we never read/write timestamp types.
+    public static final DateTimeZone DEFAULT_STORAGE_TIMEZONE = UTC;
+    // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
+    public static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
+
     private static final long MAX_ROWS = 1_000_000_000;
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
-    private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final ReaderAttributes defaultReaderAttributes;
     private final BackupManager backupManager;
     private final ShardRecoveryManager recoveryManager;
@@ -134,62 +156,78 @@ public class OrcStorageManager
     private final long maxShardRows;
     private final DataSize maxShardSize;
     private final DataSize minAvailableSpace;
+    private final CompressionKind compression;
+    private final OrcOptimizedWriterStage orcOptimizedWriterStage;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
     private final ExecutorService commitExecutor;
+    private final OrcDataEnvironment orcDataEnvironment;
+    private final OrcFileRewriter fileRewriter;
+    private final OrcWriterStats stats = new OrcWriterStats();
+    private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
 
     @Inject
     public OrcStorageManager(
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            JsonCodec<ShardDelta> shardDeltaCodec,
             ReaderAttributes readerAttributes,
             StorageManagerConfig config,
             RaptorConnectorId connectorId,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            OrcDataEnvironment orcDataEnvironment,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
                 backupStore,
-                shardDeltaCodec,
                 readerAttributes,
                 backgroundBackupManager,
                 recoveryManager,
                 shardRecorder,
                 typeManager,
+                orcDataEnvironment,
                 connectorId.toString(),
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
-                config.getMinAvailableSpace());
+                config.getMinAvailableSpace(),
+                config.getOrcCompressionKind(),
+                config.getOrcOptimizedWriterStage(),
+                orcFileTailSource,
+                stripeMetadataSource);
     }
 
     public OrcStorageManager(
             String nodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            JsonCodec<ShardDelta> shardDeltaCodec,
             ReaderAttributes readerAttributes,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
             TypeManager typeManager,
+            OrcDataEnvironment orcDataEnvironment,
             String connectorId,
             int deletionThreads,
             Duration shardRecoveryTimeout,
             long maxShardRows,
             DataSize maxShardSize,
-            DataSize minAvailableSpace)
+            DataSize minAvailableSpace,
+            CompressionKind compression,
+            OrcOptimizedWriterStage orcOptimizedWriterStage,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
         this.defaultReaderAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
@@ -204,6 +242,20 @@ public class OrcStorageManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
+        this.compression = requireNonNull(compression, "compression is null");
+        this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
+        this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
+        this.fileRewriter = new OrcFileRewriter(
+                readerAttributes,
+                orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED),
+                stats,
+                typeManager,
+                orcDataEnvironment,
+                compression,
+                orcFileTailSource,
+                stripeMetadataSource);
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
     }
 
     @PreDestroy
@@ -215,20 +267,30 @@ public class OrcStorageManager
 
     @Override
     public ConnectorPageSource getPageSource(
+            FileSystemContext fileSystemContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> allColumnTypes)
     {
-        OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
+        FileSystem fileSystem = orcDataEnvironment.getFileSystem(fileSystemContext);
+        OrcDataSource dataSource = openShard(fileSystem, shardUuid, readerAttributes);
 
-        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize());
+            OrcReader reader = new OrcReader(
+                    dataSource,
+                    ORC,
+                    orcFileTailSource,
+                    stripeMetadataSource,
+                    new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()));
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -246,20 +308,46 @@ public class OrcStorageManager
                 }
                 else {
                     columnIndexes.add(index);
-                    includedColumns.put(index, columnTypes.get(i));
+                    includedColumns.put(index, toOrcFileType(columnTypes.get(i), typeManager));
                 }
             }
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC, systemMemoryUsage);
+            StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns.build()), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
+                checkState(allColumnTypes.isPresent());
+                if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
+                    throw new PrestoException(RAPTOR_ERROR, "File has too many rows, failed to read file: " + shardUuid);
+                }
+                shardRewriter = Optional.of(createShardRewriter(
+                        fileSystemContext,
+                        fileSystem,
+                        transactionId.getAsLong(),
+                        bucketNumber,
+                        shardUuid,
+                        toIntExact(reader.getFooter().getNumberOfRows()),
+                        deltaShardUuid,
+                        tableSupportsDeltaDelete,
+                        allColumnTypes.get()));
             }
-
-            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
+            return new OrcUpdatablePageSource(
+                    shardRewriter,
+                    recordReader,
+                    new OrcPageSource(
+                            recordReader,
+                            dataSource,
+                            columnIds,
+                            columnTypes,
+                            columnIndexes.build(),
+                            shardUuid,
+                            bucketNumber,
+                            systemMemoryUsage,
+                            new DeltaShardLoader(deltaShardUuid, tableSupportsDeltaDelete, this, fileSystem)));
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);
@@ -268,6 +356,50 @@ public class OrcStorageManager
         catch (Throwable t) {
             closeQuietly(dataSource);
             throw t;
+        }
+    }
+
+    Optional<BitSet> getRowsFromUuid(FileSystem fileSystem, Optional<UUID> deltaShardUuid)
+    {
+        if (!deltaShardUuid.isPresent()) {
+            return Optional.empty();
+        }
+
+        try (OrcDataSource dataSource = openShard(fileSystem, deltaShardUuid.get(), defaultReaderAttributes)) {
+            AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+            OrcReader reader = new OrcReader(
+                    dataSource,
+                    ORC,
+                    orcFileTailSource,
+                    new StorageStripeMetadataSource(),
+                    new OrcReaderOptions(
+                            defaultReaderAttributes.getMaxMergeDistance(),
+                            defaultReaderAttributes.getTinyStripeThreshold(),
+                            HUGE_MAX_READ_BLOCK_SIZE,
+                            defaultReaderAttributes.isZstdJniDecompressionEnabled()));
+
+            if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
+                throw new IOException("File has too many rows");
+            }
+
+            try (OrcBatchRecordReader recordReader = reader.createBatchRecordReader(
+                    ImmutableMap.of(0, BIGINT),
+                    OrcPredicate.TRUE,
+                    DEFAULT_STORAGE_TIMEZONE,
+                    systemMemoryUsage,
+                    INITIAL_BATCH_SIZE)) {
+                BitSet bitSet = new BitSet();
+                while (recordReader.nextBatch() > 0) {
+                    Block block = recordReader.readBlock(0);
+                    for (int i = 0; i < block.getPositionCount(); i++) {
+                        bitSet.set(toIntExact(block.getLong(i)));
+                    }
+                }
+                return Optional.of(bitSet);
+            }
+        }
+        catch (IOException | RuntimeException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + deltaShardUuid, e);
         }
     }
 
@@ -286,59 +418,92 @@ public class OrcStorageManager
     }
 
     @Override
-    public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace)
+    public StoragePageSink createStoragePageSink(
+            FileSystemContext fileSystemContext,
+            long transactionId,
+            OptionalInt bucketNumber,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            boolean checkSpace)
     {
-        if (storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
+        if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
             throw new PrestoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
         }
-        return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
+        return new OrcStoragePageSink(orcDataEnvironment.getFileSystem(fileSystemContext), transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    ShardRewriter createShardRewriter(
+            FileSystemContext fileSystemContext,
+            FileSystem fileSystem,
+            long transactionId,
+            OptionalInt bucketNumber,
+            UUID shardUuid,
+            int shardRowCount,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
+            Map<String, Type> columns)
     {
-        return rowsToDelete -> {
-            if (rowsToDelete.isEmpty()) {
-                return completedFuture(ImmutableList.of());
-            }
-            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
-        };
+        if (tableSupportsDeltaDelete) {
+            return new DeltaShardRewriter(
+                    shardUuid,
+                    shardRowCount,
+                    deltaShardUuid,
+                    deletionExecutor,
+                    transactionId,
+                    bucketNumber,
+                    this,
+                    fileSystemContext,
+                    fileSystem);
+        }
+        return new InplaceShardRewriter(
+                shardUuid,
+                columns,
+                deletionExecutor,
+                transactionId,
+                bucketNumber,
+                nodeId,
+                this,
+                fileSystem,
+                storageService,
+                shardRecorder,
+                backupManager);
     }
 
-    private void writeShard(UUID shardUuid)
+    void writeShard(UUID shardUuid)
     {
         if (backupStore.isPresent() && !backupStore.get().shardExists(shardUuid)) {
             throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
         }
 
-        File stagingFile = storageService.getStagingFile(shardUuid);
-        File storageFile = storageService.getStorageFile(shardUuid);
-
-        storageService.createParents(storageFile);
-
-        try {
-            Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
-        }
+        storageService.promoteFromStagingToStorage(shardUuid);
     }
 
     @VisibleForTesting
-    OrcDataSource openShard(UUID shardUuid, ReaderAttributes readerAttributes)
+    OrcDataSource openShard(FileSystem fileSystem, UUID shardUuid, ReaderAttributes readerAttributes)
     {
-        File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
+        Path file = storageService.getStorageFile(shardUuid);
 
-        if (!file.exists() && backupStore.isPresent()) {
+        boolean exists;
+        try {
+            exists = fileSystem.exists(file);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Error locating file " + file, e.getCause());
+        }
+
+        if (!exists && backupStore.isPresent()) {
             try {
                 Future<?> future = recoveryManager.recoverShard(shardUuid);
                 future.get(recoveryTimeout.toMillis(), TimeUnit.MILLISECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
             catch (ExecutionException e) {
-                propagateIfInstanceOf(e.getCause(), PrestoException.class);
+                if (e.getCause() != null) {
+                    throwIfInstanceOf(e.getCause(), PrestoException.class);
+                }
                 throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Error recovering shard " + shardUuid, e.getCause());
             }
             catch (TimeoutException e) {
@@ -347,32 +512,36 @@ public class OrcStorageManager
         }
 
         try {
-            return fileOrcDataSource(readerAttributes, file);
+            return orcDataEnvironment.createOrcDataSource(fileSystem, file, readerAttributes);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
         }
     }
 
-    private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
-            throws FileNotFoundException
+    ShardInfo createShardInfo(FileSystem fileSystem, UUID shardUuid, OptionalInt bucketNumber, Path file, Set<String> nodes, long rowCount, long uncompressedSize)
     {
-        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize());
+        try {
+            return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(fileSystem, file), rowCount, fileSystem.getFileStatus(file).getLen(), uncompressedSize, xxhash64(fileSystem, file));
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to get file status: " + file, e);
+        }
     }
 
-    private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
+    private List<ColumnStats> computeShardStats(FileSystem fileSystem, Path file)
     {
-        return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(file), rowCount, file.length(), uncompressedSize);
-    }
-
-    private List<ColumnStats> computeShardStats(File file)
-    {
-        try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize());
+        try (OrcDataSource dataSource = orcDataEnvironment.createOrcDataSource(fileSystem, file, defaultReaderAttributes)) {
+            OrcReader reader = new OrcReader(
+                    dataSource,
+                    ORC,
+                    orcFileTailSource,
+                    stripeMetadataSource,
+                    new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()));
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
-                computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);
+                computeColumnStats(reader, info.getColumnId(), info.getType(), typeManager).ifPresent(list::add);
             }
             return list.build();
         }
@@ -381,50 +550,10 @@ public class OrcStorageManager
         }
     }
 
-    @VisibleForTesting
-    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete)
-    {
-        if (rowsToDelete.isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        UUID newShardUuid = UUID.randomUUID();
-        File input = storageService.getStorageFile(shardUuid);
-        File output = storageService.getStagingFile(newShardUuid);
-
-        OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
-        long rowCount = info.getRowCount();
-
-        if (rowCount == 0) {
-            return shardDelta(shardUuid, Optional.empty());
-        }
-
-        shardRecorder.recordCreatedShard(transactionId, newShardUuid);
-
-        // submit for backup and wait until it finishes
-        getFutureValue(backupManager.submit(newShardUuid, output));
-
-        Set<String> nodes = ImmutableSet.of(nodeId);
-        long uncompressedSize = info.getUncompressedSize();
-
-        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize);
-
-        writeShard(newShardUuid);
-
-        return shardDelta(shardUuid, Optional.of(shard));
-    }
-
-    private Collection<Slice> shardDelta(UUID oldShardUuid, Optional<ShardInfo> shardInfo)
-    {
-        List<ShardInfo> newShards = shardInfo.map(ImmutableList::of).orElse(ImmutableList.of());
-        ShardDelta delta = new ShardDelta(ImmutableList.of(oldShardUuid), newShards);
-        return ImmutableList.of(Slices.wrappedBuffer(shardDeltaCodec.toJsonBytes(delta)));
-    }
-
-    private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    OrcFileInfo rewriteFile(FileSystem fileSystem, Map<String, Type> columns, Path input, Path output, BitSet rowsToDelete)
     {
         try {
-            return OrcFileRewriter.rewrite(input, output, rowsToDelete);
+            return fileRewriter.rewrite(fileSystem, columns, input, output, rowsToDelete);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
@@ -483,6 +612,10 @@ public class OrcStorageManager
                 return DOUBLE;
             case STRING:
                 return createUnboundedVarcharType();
+            case VARCHAR:
+                return createVarcharType(type.getLength().get());
+            case CHAR:
+                return createCharType(type.getLength().get());
             case BINARY:
                 return VARBINARY;
             case DECIMAL:
@@ -498,11 +631,37 @@ public class OrcStorageManager
                 List<String> fieldNames = type.getFieldNames();
                 ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
                 for (int i = 0; i < type.getFieldCount(); i++) {
-                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(fieldNames.get(i), getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
+                    fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                            Optional.of(new RowFieldName(fieldNames.get(i), false)),
+                            getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
         }
         throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
+    }
+
+    static Type toOrcFileType(Type raptorType, TypeManager typeManager)
+    {
+        // TIMESTAMPS are stored as BIGINT to void the poor encoding in ORC
+        if (raptorType == TimestampType.TIMESTAMP) {
+            return BIGINT;
+        }
+        if (raptorType instanceof ArrayType) {
+            Type elementType = toOrcFileType(((ArrayType) raptorType).getElementType(), typeManager);
+            return new ArrayType(elementType);
+        }
+        if (raptorType instanceof MapType) {
+            TypeSignature keyType = toOrcFileType(((MapType) raptorType).getKeyType(), typeManager).getTypeSignature();
+            TypeSignature valueType = toOrcFileType(((MapType) raptorType).getValueType(), typeManager).getTypeSignature();
+            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+        }
+        if (raptorType instanceof RowType) {
+            List<RowType.Field> fields = ((RowType) raptorType).getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), toOrcFileType(field.getType(), typeManager)))
+                    .collect(toImmutableList());
+            return RowType.from(fields);
+        }
+        return raptorType;
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
@@ -514,7 +673,7 @@ public class OrcStorageManager
                 columns.add(new ColumnReference<>(column, index, column.getColumnType()));
             }
         }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false);
+        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false, Optional.empty());
     }
 
     private static Map<Long, Integer> columnIdIndex(List<String> columnNames)
@@ -534,16 +693,23 @@ public class OrcStorageManager
         private final List<Type> columnTypes;
         private final OptionalInt bucketNumber;
 
-        private final List<File> stagingFiles = new ArrayList<>();
+        private final List<Path> stagingFiles = new ArrayList<>();
         private final List<ShardInfo> shards = new ArrayList<>();
         private final List<CompletableFuture<?>> futures = new ArrayList<>();
+        private final FileSystem fileSystem;
 
         private boolean committed;
-        private OrcFileWriter writer;
+        private FileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
+        public OrcStoragePageSink(
+                FileSystem fileSystem,
+                long transactionId,
+                List<Long> columnIds,
+                List<Type> columnTypes,
+                OptionalInt bucketNumber)
         {
+            this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
             this.transactionId = transactionId;
             this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -565,13 +731,6 @@ public class OrcStorageManager
         }
 
         @Override
-        public void appendRow(Row row)
-        {
-            createWriterIfNecessary();
-            writer.appendRow(row);
-        }
-
-        @Override
         public boolean isFull()
         {
             if (writer == null) {
@@ -584,18 +743,23 @@ public class OrcStorageManager
         public void flush()
         {
             if (writer != null) {
-                writer.close();
+                try {
+                    writer.close();
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+                }
 
                 shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
-                File stagingFile = storageService.getStagingFile(shardUuid);
+                Path stagingFile = storageService.getStagingFile(shardUuid);
                 futures.add(backupManager.submit(shardUuid, stagingFile));
 
                 Set<String> nodes = ImmutableSet.of(nodeId);
                 long rowCount = writer.getRowCount();
                 long uncompressedSize = writer.getUncompressedSize();
 
-                shards.add(createShardInfo(shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize));
+                shards.add(createShardInfo(fileSystem, shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize));
 
                 writer = null;
                 shardUuid = null;
@@ -624,13 +788,25 @@ public class OrcStorageManager
         {
             try {
                 if (writer != null) {
-                    writer.close();
-                    writer = null;
+                    try {
+                        writer.close();
+                    }
+                    catch (IOException e) {
+                        throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+                    }
+                    finally {
+                        writer = null;
+                    }
                 }
             }
             finally {
-                for (File file : stagingFiles) {
-                    file.delete();
+                for (Path file : stagingFiles) {
+                    try {
+                        fileSystem.delete(file, false);
+                    }
+                    catch (IOException e) {
+                        // ignore
+                    }
                 }
 
                 // cancel incomplete backup jobs
@@ -649,10 +825,17 @@ public class OrcStorageManager
         {
             if (writer == null) {
                 shardUuid = UUID.randomUUID();
-                File stagingFile = storageService.getStagingFile(shardUuid);
+                Path stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                OrcDataSink sink;
+                try {
+                    sink = orcDataEnvironment.createOrcDataSink(fileSystem, stagingFile);
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, format("Failed to create staging file %s", stagingFile), e);
+                }
+                writer = new OrcFileWriter(columnIds, columnTypes, sink, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
             }
         }
     }

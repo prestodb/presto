@@ -19,8 +19,7 @@ import com.facebook.presto.spi.PageBuilder;
 public interface PagesHashStrategy
 {
     /**
-     * Gets the total of the columns held in in this PagesHashStrategy.  This includes both the hashed
-     * and non-hashed columns.
+     * Gets the number of columns appended by this PagesHashStrategy.
      */
     int getChannelCount();
 
@@ -65,7 +64,7 @@ public interface PagesHashStrategy
      * values are compared positionally, so {@code rightPage} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
      * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
-     *
+     * <p>
      * This method does not perform any null checks.
      */
     boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
@@ -78,13 +77,21 @@ public interface PagesHashStrategy
     boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels);
 
     /**
+     * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page.
+     * The values are compared positionally under "not distinct from" semantics.
+     * {@code rightChannels} must have the same number of entries as the hashed columns
+     * and each entry is expected to be the same type.
+     */
+    boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels);
+
+    /**
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      */
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
-     *
+     * <p>
      * This method does not perform any null checks.
      */
     boolean positionEqualsPositionIgnoreNulls(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
@@ -93,4 +100,14 @@ public interface PagesHashStrategy
      * Checks if any of the hashed columns is null
      */
     boolean isPositionNull(int blockIndex, int blockPosition);
+
+    /**
+     * Compares sort channel (if applicable) values at the specified positions.
+     */
+    int compareSortChannelPositions(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
+
+    /**
+     * Checks if sort channel is null at the specified position
+     */
+    boolean isSortChannelPositionNull(int blockIndex, int blockPosition);
 }

@@ -17,26 +17,38 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.LiteralParameter;
-import com.facebook.presto.type.MapType;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.google.common.base.Strings.repeat;
+import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 
 public class TestStringFunctions
         extends AbstractTestFunctions
 {
-    private TestStringFunctions()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }
@@ -57,6 +69,11 @@ public class TestStringFunctions
         return binary;
     }
 
+    public static String padRight(String s, int n)
+    {
+        return String.format("%1$-" + n + "s", s);
+    }
+
     @Test
     public void testChr()
     {
@@ -70,9 +87,23 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCodepoint()
+    {
+        assertFunction("CODEPOINT('x')", INTEGER, 0x78);
+        assertFunction("CODEPOINT('\u840C')", INTEGER, 0x840C);
+
+        assertFunction("CODEPOINT(CHR(128077))", INTEGER, 128077);
+        assertFunction("CODEPOINT(CHR(33804))", INTEGER, 33804);
+
+        assertInvalidFunction("CODEPOINT('hello')", FUNCTION_NOT_FOUND);
+        assertInvalidFunction("CODEPOINT('\u666E\u5217\u65AF\u6258')", FUNCTION_NOT_FOUND);
+
+        assertInvalidFunction("CODEPOINT('')", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testConcat()
     {
-        assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
         assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
         assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
         assertFunction("CONCAT('', '')", VARCHAR, "");
@@ -80,12 +111,16 @@ public class TestStringFunctions
         assertFunction("CONCAT('', 'what')", VARCHAR, "what");
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
-        //
+
         // Test concat for non-ASCII
         assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
         assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
         assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+
+        // Test argument count limit
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(254, "'1'")) + ")", VARCHAR, Joiner.on("").join(nCopies(254, "1")));
+        assertNotSupported("CONCAT(" + Joiner.on(", ").join(nCopies(255, "'1'")) + ")", "Too many arguments for string concatenation");
     }
 
     @Test
@@ -102,26 +137,103 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharLength()
+    {
+        assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
+        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(13)))", BIGINT, 13L);
+        assertFunction("LENGTH(CAST('' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('hello' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(20)))", BIGINT, 20L);
+
+        // Test length for non-ASCII
+        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(17)))", BIGINT, 17L);
+        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(4)))", BIGINT, 4L);
+        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)))", BIGINT, 7L);
+        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(20)))", BIGINT, 20L);
+        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(20)))", BIGINT, 20L);
+    }
+
+    @Test
+    public void testLevenshteinDistance()
+    {
+        assertFunction("LEVENSHTEIN_DISTANCE('', '')", BIGINT, 0L);
+        assertFunction("LEVENSHTEIN_DISTANCE('', 'hello')", BIGINT, 5L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', '')", BIGINT, 5L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello')", BIGINT, 0L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello world')", BIGINT, 6L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hel wold')", BIGINT, 3L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hellq wodld')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('helo word', 'hello world')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello word', 'dello world')", BIGINT, 2L);
+
+        // Test for non-ASCII
+        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", BIGINT, 3L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,love,\u5E0C\u671B')", BIGINT, 4L);
+
+        // Test for invalid utf-8 characters
+        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+
+        // Test for maximum length
+        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("e", 100_000)), BIGINT, 99999L);
+        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("l", 100_000)), BIGINT, 99998L);
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+    }
+
+    @Test
+    public void testHammingDistance()
+    {
+        assertFunction("HAMMING_DISTANCE('', '')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'hello')", BIGINT, 0L);
+        assertFunction("HAMMING_DISTANCE('hello', 'jello')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('like', 'hate')", BIGINT, 3L);
+        assertFunction("HAMMING_DISTANCE('hello', 'world')", BIGINT, 4L);
+        assertFunction("HAMMING_DISTANCE(NULL, NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE('hello', NULL)", BIGINT, null);
+        assertFunction("HAMMING_DISTANCE(NULL, 'world')", BIGINT, null);
+
+        // Test for unicode
+        assertFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("HAMMING_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+
+        // Test for invalid arguments
+        assertInvalidFunction("HAMMING_DISTANCE('hello', '')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello', 'o')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('h', 'hello')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", "The input strings to hamming_distance function must have the same length");
+        assertInvalidFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", "The input strings to hamming_distance function must have the same length");
+    }
+
+    @Test
     public void testReplace()
     {
-        assertFunction("REPLACE('aaa', 'a', 'aa')", VARCHAR, "aaaaaa");
-        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", VARCHAR, "abXXefabXXef");
-        assertFunction("REPLACE('abcdefabcdef', 'cd')", VARCHAR, "abefabef");
-        assertFunction("REPLACE('123123tech', '123')", VARCHAR, "tech");
-        assertFunction("REPLACE('123tech123', '123')", VARCHAR, "tech");
-        assertFunction("REPLACE('222tech', '2', '3')", VARCHAR, "333tech");
-        assertFunction("REPLACE('0000123', '0')", VARCHAR, "123");
-        assertFunction("REPLACE('0000123', '0', ' ')", VARCHAR, "    123");
-        assertFunction("REPLACE('foo', '')", VARCHAR, "foo");
-        assertFunction("REPLACE('foo', '', '')", VARCHAR, "foo");
-        assertFunction("REPLACE('foo', 'foo', '')", VARCHAR, "");
-        assertFunction("REPLACE('abc', '', 'xx')", VARCHAR, "xxaxxbxxcxx");
-        assertFunction("REPLACE('', '', 'xx')", VARCHAR, "xx");
-        assertFunction("REPLACE('', '')", VARCHAR, "");
-        assertFunction("REPLACE('', '', '')", VARCHAR, "");
-        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", VARCHAR, "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
-        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", VARCHAR, "\uD801\uDC2D");
-        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", VARCHAR, "Oesterreich");
+        assertFunction("REPLACE('aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
+        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", createVarcharType(38), "abXXefabXXef");
+        assertFunction("REPLACE('abcdefabcdef', 'cd')", createVarcharType(12), "abefabef");
+        assertFunction("REPLACE('123123tech', '123')", createVarcharType(10), "tech");
+        assertFunction("REPLACE('123tech123', '123')", createVarcharType(10), "tech");
+        assertFunction("REPLACE('222tech', '2', '3')", createVarcharType(15), "333tech");
+        assertFunction("REPLACE('0000123', '0')", createVarcharType(7), "123");
+        assertFunction("REPLACE('0000123', '0', ' ')", createVarcharType(15), "    123");
+        assertFunction("REPLACE('foo', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE('foo', '', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE('foo', 'foo', '')", createVarcharType(3), "");
+        assertFunction("REPLACE('abc', '', 'xx')", createVarcharType(11), "xxaxxbxxcxx");
+        assertFunction("REPLACE('', '', 'xx')", createVarcharType(2), "xx");
+        assertFunction("REPLACE('', '')", createVarcharType(0), "");
+        assertFunction("REPLACE('', '', '')", createVarcharType(0), "");
+        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", createVarcharType(15), "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
+        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", createVarcharType(5), "\uD801\uDC2D"); //\uD801\uDC2D is one character
+        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", createVarcharType(32), "Oesterreich");
 
         assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X'}));
 
@@ -174,6 +286,54 @@ public class TestStringFunctions
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
+
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
+        // Assert invalid instance argument
+        assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "'instance' must be a positive number.");
+        assertInvalidFunction("STRPOS('', '', 0)", "'instance' must be a positive number.");
+        assertInvalidFunction("STRPOS('highhigh', 'ig', -1)", "'instance' must be a positive number.");
+        assertInvalidFunction("STRPOS('foobarfoo', 'oo', -2)", "'instance' must be a positive number.");
+    }
+
+    @Test
+    public void testStringReversePosition()
+    {
+        assertFunction("STRRPOS('high', 'ig')", BIGINT, 2L);
+        assertFunction("STRRPOS('high', 'igx')", BIGINT, 0L);
+        assertFunction("STRRPOS('Quadratically', 'a')", BIGINT, 10L);
+        assertFunction("STRRPOS('foobar', 'foobar')", BIGINT, 1L);
+        assertFunction("STRRPOS('foobar', 'obar')", BIGINT, 3L);
+        assertFunction("STRRPOS('zoo!', '!')", BIGINT, 4L);
+        assertFunction("STRRPOS('x', '')", BIGINT, 1L);
+        assertFunction("STRRPOS('', '')", BIGINT, 1L);
+
+        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 2L);
+        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 3L);
+        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0L);
+
+        assertFunction("STRRPOS(NULL, '')", BIGINT, null);
+        assertFunction("STRRPOS('', NULL)", BIGINT, null);
+        assertFunction("STRRPOS(NULL, NULL)", BIGINT, null);
+
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/')", BIGINT, 12L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 12L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 4L);
+        assertFunction("STRRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRRPOS('highhigh', 'ig', 1)", BIGINT, 6L);
+        assertFunction("STRRPOS('highhigh', 'ig', 2)", BIGINT, 2L);
+        assertFunction("STRRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRRPOS('foobarfoo', 'oo', 1)", BIGINT, 8L);
+        // Assert invalid instance argument
+        assertInvalidFunction("STRRPOS('abc/xyz/foo/bar', '/', 0)", "'instance' must be a positive number.");
+        assertInvalidFunction("STRRPOS('', '', 0)", "'instance' must be a positive number.");
+        assertInvalidFunction("STRRPOS('foobarfoo', 'obar', -1)", "'instance' must be a positive number.");
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
@@ -181,8 +341,8 @@ public class TestStringFunctions
         string = (string == null) ? "NULL" : ("'" + string + "'");
         substring = (substring == null) ? "NULL" : ("'" + substring + "'");
 
-        assertFunction(String.format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
-        assertFunction(String.format("POSITION(%s in %s)", substring, string), BIGINT, expected);
+        assertFunction(format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
+        assertFunction(format("POSITION(%s in %s)", substring, string), BIGINT, expected);
     }
 
     @Test
@@ -223,6 +383,46 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharSubstring()
+    {
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createCharType(13), padRight("call", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createCharType(7), padRight("abc", 7));
+
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createCharType(13), padRight("", 13));
+
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createCharType(13), padRight("ratica", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createCharType(13), padRight("ratically", 13));
+        //
+        // Test SUBSTRING for non-ASCII
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createCharType(7), padRight("\u4FE1", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createCharType(7), padRight(",\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createCharType(7), padRight("\u7231,\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createCharType(7), padRight("\u5E0C\u671B", 7));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createCharType(4), padRight("\uD801\uDC2D", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createCharType(4), padRight("end", 4));
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createCharType(40), padRight("end", 40));
+    }
+
+    @Test
     public void testSplit()
     {
         assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
@@ -238,6 +438,7 @@ public class TestStringFunctions
         assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c."));
         assertFunction("SPLIT('...', '.')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "", "", ""));
         assertFunction("SPLIT('..a...a..', '.')", new ArrayType(createVarcharType(9)), ImmutableList.of("", "", "a", "", "", "a", "", ""));
+        assertFunction("SPLIT('a.b.', '')", new ArrayType(createVarcharType(4)), ImmutableList.of("a", ".", "b", ".", ""));
 
         // Test SPLIT for non-ASCII
         assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
@@ -249,7 +450,6 @@ public class TestStringFunctions
         assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "", "b..c"));
         assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "."));
 
-        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
@@ -258,13 +458,15 @@ public class TestStringFunctions
     @Test
     public void testSplitToMap()
     {
-        MapType expectedType = new MapType(VARCHAR, VARCHAR);
+        MapType expectedType = mapType(VARCHAR, VARCHAR);
 
         assertFunction("SPLIT_TO_MAP('', ',', '=')", expectedType, ImmutableMap.of());
         assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')", expectedType, ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
         assertFunction("SPLIT_TO_MAP('=', ',', '=')", expectedType, ImmutableMap.of("", ""));
         assertFunction("SPLIT_TO_MAP('key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", "value"));
         assertFunction("SPLIT_TO_MAP('key => value', ',', '=>')", expectedType, ImmutableMap.of("key ", " value"));
+        assertFunction("SPLIT_TO_MAP('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)", expectedType, ImmutableMap.of("a", "1", "b", "2"));
+        assertFunction("SPLIT_TO_MAP('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))", expectedType, ImmutableMap.of("a", "13", "b", "2"));
 
         // Test SPLIT_TO_MAP for non-ASCII
         assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", "\u4EA1"));
@@ -278,13 +480,69 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
 
         // Duplicate keys are not allowed to exist.
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed");
-        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", "Duplicate keys (\u4EA0) are not allowed");
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed. Specifying a lambda to resolve conflicts can avoid this error");
+        assertInvalidFunction(
+                "SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
+                "Duplicate keys (\u4EA0) are not allowed. Specifying a lambda to resolve conflicts can avoid this error");
 
         // Key-value delimiter must appear exactly once in each entry.
         assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
         assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
         assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')");
+    }
+
+    @Test
+    public void testSplitToMultimap()
+    {
+        MapType expectedType = mapType(VARCHAR, new ArrayType(VARCHAR));
+
+        assertFunction("SPLIT_TO_MULTIMAP('', ',', '=')", expectedType, ImmutableMap.of());
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')",
+                expectedType,
+                ImmutableMap.of(
+                        "a", ImmutableList.of("123"),
+                        "b", ImmutableList.of(".4"),
+                        "c", ImmutableList.of(""),
+                        "", ImmutableList.of("d")));
+        assertFunction("SPLIT_TO_MULTIMAP('=', ',', '=')", expectedType, ImmutableMap.of("", ImmutableList.of("")));
+
+        // Test multiple values of the same key preserve the order as they appear in input
+        assertFunction("SPLIT_TO_MULTIMAP('a=123,a=.4,a=5.67', ',', '=')", expectedType, ImmutableMap.of("a", ImmutableList.of("123", ".4", "5.67")));
+
+        // Test multi-character delimiters
+        assertFunction("SPLIT_TO_MULTIMAP('key=>value,key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", ImmutableList.of("value", "value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ',', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value"),
+                        " key ", ImmutableList.of(" value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ', ', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value", " value")));
+
+        // Test non-ASCII
+        assertFunction("SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
+                expectedType,
+                ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
+
+        // Entry delimiter and key-value delimiter must not be the same.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
+
+        // Key-value delimiter must appear exactly once in each entry.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')");
     }
 
     @Test
@@ -359,6 +617,21 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharLeftTrim()
+    {
+        assertFunction("LTRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("hello", 9));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight("hello world", 13));
+
+        assertFunction("LTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("LTRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+    }
+
+    @Test
     public void testRightTrim()
     {
         assertFunction("RTRIM('')", createVarcharType(0), "");
@@ -372,6 +645,21 @@ public class TestStringFunctions
         assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+    }
+
+    @Test
+    public void testCharRightTrim()
+    {
+        assertFunction("RTRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight(" hello world", 13));
+
+        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("RTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("RTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
     }
 
     @Test
@@ -389,6 +677,22 @@ public class TestStringFunctions
         assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+    }
+
+    @Test
+    public void testCharTrim()
+    {
+        assertFunction("TRIM(CAST('' AS CHAR(20)))", createCharType(20), padRight("", 20));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)))", createCharType(9), padRight("hello", 9));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)))", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)))", createCharType(13), padRight("hello world", 13));
+
+        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
+        assertFunction("TRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createCharType(9), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 9));
+        assertFunction("TRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createCharType(10), padRight("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", 10));
     }
 
     @Test
@@ -416,8 +720,28 @@ public class TestStringFunctions
         assertFunction("CAST(LTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
-        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testCharLeftTrimParametrized()
+    {
+        assertFunction("LTRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("LTRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("hello", 9));
+        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("llo", 9));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("llo", 7));
+        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight("hello world", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+
+        // non latin characters
+        assertFunction("LTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u00f3\u017a')", createCharType(4), padRight("\u0142\u0107", 4));
     }
 
     private static SqlVarbinary varbinary(int... bytesAsInts)
@@ -444,6 +768,7 @@ public class TestStringFunctions
         assertFunction("RTRIM(' hello world ', ' ld')", createVarcharType(13), " hello wor");
         assertFunction("RTRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
         assertFunction("RTRIM(' hello world ', ' x')", createVarcharType(13), " hello world");
+        assertFunction("RTRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
 
         // non latin characters
         assertFunction("RTRIM('\u017a\u00f3\u0142\u0107', '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
@@ -453,8 +778,28 @@ public class TestStringFunctions
         assertFunction("CAST(RTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
         assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testCharRightTrimParametrized()
+    {
+        assertFunction("RTRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("RTRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("  hello", 9));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("  hello", 7));
+        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight(" hello world", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight(" hello world", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight(" hello world", 13));
+
+        // non latin characters
+        assertFunction("RTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u0107\u0142')", createCharType(4), padRight("\u017a\u00f3", 4));
     }
 
     @Test
@@ -484,14 +829,35 @@ public class TestStringFunctions
         assertFunction("CAST(TRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("TRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("TRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testCharTrimParametrized()
+    {
+        assertFunction("TRIM(CAST('' AS CHAR(1)), '')", createCharType(1), padRight("", 1));
+        assertFunction("TRIM(CAST('   ' AS CHAR(3)), '')", createCharType(3), padRight("", 3));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), '')", createCharType(9), padRight("  hello", 9));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createCharType(9), padRight("hello", 9));
+        assertFunction("TRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createCharType(9), padRight("llo", 9));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), ' ')", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST('  hello' AS CHAR(7)), 'e h')", createCharType(7), padRight("llo", 7));
+        assertFunction("TRIM(CAST('hello  ' AS CHAR(7)), 'l')", createCharType(7), padRight("hello", 7));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createCharType(13), padRight("hello world", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createCharType(13), padRight("llo world", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createCharType(13), padRight("", 13));
+        assertFunction("TRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createCharType(13), padRight("hello world", 13));
+        assertFunction("TRIM(CAST('abc def' AS CHAR(7)), 'def')", createCharType(7), padRight("abc", 7));
+
+        // non latin characters
+        assertFunction("TRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u017a\u0107\u0142')", createCharType(4), padRight("\u00f3", 4));
     }
 
     @Test
     public void testVarcharToVarcharX()
     {
-        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createVarcharType(Integer.MAX_VALUE), "hello");
+        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createUnboundedVarcharType(), "hello");
     }
 
     @Test
@@ -510,17 +876,37 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharLower()
+    {
+        assertFunction("LOWER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
+        assertFunction("LOWER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("hello world", 11));
+        assertFunction("LOWER(CAST('WHAT!!' AS CHAR(6)))", createCharType(6), padRight("what!!", 6));
+        assertFunction("LOWER(CAST('\u00D6STERREICH' AS CHAR(10)))", createCharType(10), padRight(lowerByCodePoint("\u00D6sterreich"), 10));
+        assertFunction("LOWER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight(lowerByCodePoint("from\uD801\uDC2Dto"), 7));
+    }
+
+    @Test
     public void testUpper()
     {
         assertFunction("UPPER('')", createVarcharType(0), "");
         assertFunction("UPPER('Hello World')", createVarcharType(11), "HELLO WORLD");
         assertFunction("UPPER('what!!')", createVarcharType(6), "WHAT!!");
-        assertFunction("UPPER('\u00D6sterreich')", createVarcharType(10), upperByCodePoint("\u00D6STERREICH"));
-        assertFunction("UPPER('From\uD801\uDC2DTo')", createVarcharType(7), upperByCodePoint("FROM\uD801\uDC2DTO"));
+        assertFunction("UPPER('\u00D6sterreich')", createVarcharType(10), upperByCodePoint("\u00D6") + "STERREICH");
+        assertFunction("UPPER('From\uD801\uDC2DTo')", createVarcharType(7), "FROM" + upperByCodePoint("\uD801\uDC2D") + "TO");
 
         assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'H', 'E', 'L', 'L', 'O', (byte) 0xCE}));
         assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'H', 'E', 'L', 'L', 'O'}));
+    }
+
+    @Test
+    public void testCharUpper()
+    {
+        assertFunction("UPPER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
+        assertFunction("UPPER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("HELLO WORLD", 11));
+        assertFunction("UPPER(CAST('what!!' AS CHAR(6)))", createCharType(6), padRight("WHAT!!", 6));
+        assertFunction("UPPER(CAST('\u00D6sterreich' AS CHAR(10)))", createCharType(10), padRight(upperByCodePoint("\u00D6") + "STERREICH", 10));
+        assertFunction("UPPER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight("FROM" + upperByCodePoint("\uD801\uDC2D") + "TO", 7));
     }
 
     @Test
@@ -635,5 +1021,24 @@ public class TestStringFunctions
 
         assertInvalidFunction("from_utf8(to_utf8('hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("from_utf8(to_utf8('hello'), 1114112)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testCharConcat()
+    {
+        assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
+        assertFunction("concat('ab ', cast(' ' as char(1))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
+        assertFunction("concat('ab ', cast('a' as char(2))) = 'ab a'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('' as char(0)))", createCharType(3), "ab ");
+        assertFunction("concat('ab ', cast('' as char(0))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
+
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length scale must be in range [0, 65536]");
+
+        assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
 }

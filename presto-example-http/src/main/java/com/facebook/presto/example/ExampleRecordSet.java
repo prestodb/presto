@@ -16,7 +16,6 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
@@ -48,7 +47,7 @@ public class ExampleRecordSet
             byteSource = Resources.asByteSource(split.getUri().toURL());
         }
         catch (MalformedURLException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

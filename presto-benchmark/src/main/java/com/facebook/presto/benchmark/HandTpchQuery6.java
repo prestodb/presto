@@ -13,31 +13,38 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.project.InputChannels;
+import com.facebook.presto.operator.project.PageFilter;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.Expressions.field;
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -47,9 +54,9 @@ public class HandTpchQuery6
     public HandTpchQuery6(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
-
-        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
     }
 
     @Override
@@ -64,67 +71,67 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new PlanNodeId("test"), () -> new TpchQuery6Processor(), ImmutableList.of(DOUBLE));
+        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(session.getSqlFunctionProperties(), field(0, BIGINT), Optional.empty());
+
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
+                ImmutableList.of(DOUBLE),
+                new DataSize(0, BYTE),
+                0);
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())
-                ));
+                        doubleSum.bind(ImmutableList.of(0), Optional.empty())),
+                false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }
 
-    public static class TpchQuery6Processor
-            implements PageProcessor
+    public static class TpchQuery6Filter
+            implements PageFilter
     {
         private static final int MIN_SHIP_DATE = DateTimeUtils.parseDate("1994-01-01");
         private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
+        private static final InputChannels INPUT_CHANNELS = new InputChannels(1, 2, 3);
+
+        private boolean[] selectedPositions = new boolean[0];
 
         @Override
-        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
+        public boolean isDeterministic()
         {
-            Block discountBlock = page.getBlock(1);
-            int position = start;
-            for (; position < end; position++) {
-                // where shipdate >= '1994-01-01'
-                //    and shipdate < '1995-01-01'
-                //    and discount >= 0.05
-                //    and discount <= 0.07
-                //    and quantity < 24;
-                if (filter(position, discountBlock, page.getBlock(2), page.getBlock(3))) {
-                    project(position, pageBuilder, page.getBlock(0), discountBlock);
-                }
-            }
-            return position;
+            return true;
         }
 
         @Override
-        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+        public InputChannels getInputChannels()
         {
-            throw new UnsupportedOperationException();
+            return INPUT_CHANNELS;
         }
 
         @Override
-        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
+        public SelectedPositions filter(ConnectorSession session, Page page)
         {
-            throw new UnsupportedOperationException();
+            if (selectedPositions.length < page.getPositionCount()) {
+                selectedPositions = new boolean[page.getPositionCount()];
+            }
+
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                selectedPositions[position] = filter(page, position);
+            }
+
+            return PageFilter.positionsArrayToSelectedPositions(selectedPositions, page.getPositionCount());
         }
 
-        private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
+        private static boolean filter(Page page, int position)
         {
-            if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
-                pageBuilder.getBlockBuilder(0).appendNull();
-            }
-            else {
-                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), DOUBLE.getDouble(extendedPriceBlock, position) * DOUBLE.getDouble(discountBlock, position));
-            }
-        }
-
-        private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
-        {
+            Block discountBlock = page.getBlock(0);
+            Block shipDateBlock = page.getBlock(1);
+            Block quantityBlock = page.getBlock(2);
             return !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) >= MIN_SHIP_DATE &&
                     !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) < MAX_SHIP_DATE &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&

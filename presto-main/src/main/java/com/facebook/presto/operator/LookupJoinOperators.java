@@ -13,45 +13,90 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spiller.PartitioningSpillerFactory;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.stream.IntStream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class LookupJoinOperators
 {
-    public enum JoinType {
+    public enum JoinType
+    {
         INNER,
         PROBE_OUTER, // the Probe is the outer side of the join
         LOOKUP_OUTER, // The LookupSource is the outer side of the join
         FULL_OUTER,
     }
 
-    private LookupJoinOperators()
+    @Inject
+    public LookupJoinOperators()
     {
     }
 
-    private static final JoinProbeCompiler JOIN_PROBE_COMPILER = new JoinProbeCompiler();
-
-    public static OperatorFactory innerJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public OperatorFactory innerJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.INNER, filterFunctionPresent);
+        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.INNER, totalOperatorsCount, partitioningSpillerFactory);
     }
 
-    public static OperatorFactory probeOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public OperatorFactory probeOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.PROBE_OUTER, filterFunctionPresent);
+        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.PROBE_OUTER, totalOperatorsCount, partitioningSpillerFactory);
     }
 
-    public static OperatorFactory lookupOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public OperatorFactory lookupOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.LOOKUP_OUTER, filterFunctionPresent);
+        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.LOOKUP_OUTER, totalOperatorsCount, partitioningSpillerFactory);
     }
 
-    public static OperatorFactory fullOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public OperatorFactory fullOuterJoin(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory, List<Type> probeTypes, List<Integer> probeJoinChannel, OptionalInt probeHashChannel, Optional<List<Integer>> probeOutputChannels, OptionalInt totalOperatorsCount, PartitioningSpillerFactory partitioningSpillerFactory)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.FULL_OUTER, filterFunctionPresent);
+        return createJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, probeOutputChannels.orElse(rangeList(probeTypes.size())), JoinType.FULL_OUTER, totalOperatorsCount, partitioningSpillerFactory);
+    }
+
+    private static List<Integer> rangeList(int endExclusive)
+    {
+        return IntStream.range(0, endExclusive)
+                .boxed()
+                .collect(toImmutableList());
+    }
+
+    private OperatorFactory createJoinOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            OptionalInt probeHashChannel,
+            List<Integer> probeOutputChannels,
+            JoinType joinType,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory)
+    {
+        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
+                .map(probeTypes::get)
+                .collect(toImmutableList());
+
+        return new LookupJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactoryManager,
+                probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactoryManager.getBuildOutputTypes(),
+                joinType,
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                totalOperatorsCount,
+                probeJoinChannel,
+                probeHashChannel,
+                partitioningSpillerFactory);
     }
 }

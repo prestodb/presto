@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -34,11 +34,12 @@ public class BackupStats
 
     private final CounterStat backupSuccess = new CounterStat();
     private final CounterStat backupFailure = new CounterStat();
+    private final CounterStat backupCorruption = new CounterStat();
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
-        copyToBackupBytesPerSecond.add(Math.round(rate.toBytes()));
+        copyToBackupBytesPerSecond.add(rate.toBytes());
         copyToBackupShardSizeBytes.add(size.toBytes());
         copyToBackupTimeInMilliSeconds.add(duration.toMillis());
     }
@@ -56,6 +57,11 @@ public class BackupStats
     public void incrementBackupFailure()
     {
         backupFailure.update(1);
+    }
+
+    public void incrementBackupCorruption()
+    {
+        backupCorruption.update(1);
     }
 
     @Managed
@@ -98,5 +104,12 @@ public class BackupStats
     public CounterStat getBackupFailure()
     {
         return backupFailure;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupCorruption()
+    {
+        return backupCorruption;
     }
 }

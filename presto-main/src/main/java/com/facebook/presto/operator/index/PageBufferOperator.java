@@ -18,12 +18,8 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -46,12 +42,6 @@ public class PageBufferOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageBufferOperator.class.getSimpleName());
@@ -59,7 +49,7 @@ public class PageBufferOperator
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
         }
 
@@ -85,12 +75,6 @@ public class PageBufferOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override
@@ -136,7 +120,7 @@ public class PageBufferOperator
         if (!future.isDone()) {
             this.blocked = future;
         }
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

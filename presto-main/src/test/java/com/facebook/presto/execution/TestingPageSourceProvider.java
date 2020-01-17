@@ -20,16 +20,15 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.testing.TestingSplit;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TestingPageSourceProvider
@@ -44,10 +43,9 @@ public class TestingPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
-        checkType(split, TestingSplit.class, "split");
 
         ImmutableList<Block> blocks = columns.stream()
-                .map(column -> new FixedWidthBlockBuilder(0, 1).appendNull().build())
+                .map(column -> new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]))
                 .collect(toImmutableList());
 
         return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));

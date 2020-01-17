@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
+import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
@@ -41,9 +43,16 @@ public final class BooleanType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
+        }
         return new ByteArrayBlockBuilder(
                 blockBuilderStatus,
-                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / Byte.BYTES));
+                Math.min(expectedEntries, maxBlockSizeInBytes / Byte.BYTES));
     }
 
     @Override
@@ -55,7 +64,7 @@ public final class BooleanType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ByteArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new ByteArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -77,29 +86,29 @@ public final class BooleanType
             return null;
         }
 
-        return block.getByte(position, 0) != 0;
+        return block.getByte(position) != 0;
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        boolean leftValue = leftBlock.getByte(leftPosition, 0) != 0;
-        boolean rightValue = rightBlock.getByte(rightPosition, 0) != 0;
+        boolean leftValue = leftBlock.getByte(leftPosition) != 0;
+        boolean rightValue = rightBlock.getByte(rightPosition) != 0;
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        boolean value = block.getByte(position, 0) != 0;
+        boolean value = block.getByte(position) != 0;
         return value ? 1231 : 1237;
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        boolean leftValue = leftBlock.getByte(leftPosition, 0) != 0;
-        boolean rightValue = rightBlock.getByte(rightPosition, 0) != 0;
+        boolean leftValue = leftBlock.getByte(leftPosition) != 0;
+        boolean rightValue = rightBlock.getByte(rightPosition) != 0;
         return Boolean.compare(leftValue, rightValue);
     }
 
@@ -110,14 +119,20 @@ public final class BooleanType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeByte(block.getByte(position, 0)).closeEntry();
+            blockBuilder.writeByte(block.getByte(position)).closeEntry();
         }
     }
 
     @Override
     public boolean getBoolean(Block block, int position)
     {
-        return block.getByte(position, 0) != 0;
+        return block.getByte(position) != 0;
+    }
+
+    @Override
+    public boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return block.getByteUnchecked(internalPosition) != 0;
     }
 
     @Override

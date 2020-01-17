@@ -14,20 +14,33 @@
 package com.facebook.presto.spi.security;
 
 import java.security.Principal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class Identity
 {
     private final String user;
     private final Optional<Principal> principal;
+    private final Map<String, SelectedRole> roles;
+    private final Map<String, String> extraCredentials;
 
     public Identity(String user, Optional<Principal> principal)
     {
+        this(user, principal, emptyMap(), emptyMap());
+    }
+
+    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
+        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
     }
 
     public String getUser()
@@ -38,6 +51,27 @@ public class Identity
     public Optional<Principal> getPrincipal()
     {
         return principal;
+    }
+
+    public Map<String, SelectedRole> getRoles()
+    {
+        return roles;
+    }
+
+    public Map<String, String> getExtraCredentials()
+    {
+        return extraCredentials;
+    }
+
+    public ConnectorIdentity toConnectorIdentity()
+    {
+        return new ConnectorIdentity(user, principal, Optional.empty(), extraCredentials);
+    }
+
+    public ConnectorIdentity toConnectorIdentity(String catalog)
+    {
+        requireNonNull(catalog, "catalog is null");
+        return new ConnectorIdentity(user, principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
     }
 
     @Override
@@ -64,9 +98,9 @@ public class Identity
     {
         StringBuilder sb = new StringBuilder("Identity{");
         sb.append("user='").append(user).append('\'');
-        if (principal.isPresent()) {
-            sb.append(", principal=").append(principal.get());
-        }
+        principal.ifPresent(principal -> sb.append(", principal=").append(principal));
+        sb.append(", roles=").append(roles);
+        sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append('}');
         return sb.toString();
     }

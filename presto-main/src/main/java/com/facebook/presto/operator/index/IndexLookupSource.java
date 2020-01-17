@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -31,12 +29,18 @@ public class IndexLookupSource
 {
     private final IndexLoader indexLoader;
     private IndexedData indexedData;
-    private FilterFunction filterFunction;
 
     public IndexLookupSource(IndexLoader indexLoader)
     {
         this.indexLoader = requireNonNull(indexLoader, "indexLoader is null");
         this.indexedData = indexLoader.getIndexSnapshot();
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        // since the data is not loaded, we don't know if it is empty
+        return false;
     }
 
     @Override
@@ -46,15 +50,21 @@ public class IndexLookupSource
     }
 
     @Override
-    public int getJoinPositionCount()
+    public long getJoinPositionCount()
     {
-        throw new UnsupportedOperationException("Index can not be used in a RIGHT or FULL outer join");
+        return 0;
     }
 
     @Override
     public long getInMemorySizeInBytes()
     {
         return 0;
+    }
+
+    @Override
+    public long joinPositionWithinPartition(long joinPosition)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -67,11 +77,10 @@ public class IndexLookupSource
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        Block[] blocks = hashChannelsPage.getBlocks();
         long joinPosition = indexedData.getJoinPosition(position, hashChannelsPage);
         if (joinPosition == UNLOADED_INDEX_KEY) {
             indexedData.close(); // Close out the old indexedData
-            indexedData = indexLoader.getIndexedDataForKeys(position, blocks);
+            indexedData = indexLoader.getIndexedDataForKeys(position, hashChannelsPage);
             joinPosition = indexedData.getJoinPosition(position, hashChannelsPage);
             checkState(joinPosition != UNLOADED_INDEX_KEY);
         }
@@ -86,6 +95,12 @@ public class IndexLookupSource
         checkState(nextPosition != UNLOADED_INDEX_KEY);
         // INVARIANT: currentPosition is -1 or a valid currentPosition greater than or equal to zero
         return nextPosition;
+    }
+
+    @Override
+    public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        return true;
     }
 
     @Override

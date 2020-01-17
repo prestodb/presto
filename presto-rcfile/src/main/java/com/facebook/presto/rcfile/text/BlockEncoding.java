@@ -14,18 +14,19 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 public abstract class BlockEncoding
         implements TextColumnEncoding
 {
     private final Type type;
-    private final Slice nullSequence;
+    protected final Slice nullSequence;
     private final byte[] separators;
     private final Byte escapeByte;
 
@@ -38,13 +39,28 @@ public abstract class BlockEncoding
     }
 
     @Override
+    public final void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+            throws RcFileCorruptionException
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                encodeValueInto(1, block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
     public final Block decodeColumn(ColumnData columnData)
             throws RcFileCorruptionException
     {
         int size = columnData.rowCount();
 
         Slice slice = columnData.getSlice();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), size);
+        BlockBuilder builder = type.createBlockBuilder(null, size);
         for (int i = 0; i < size; i++) {
             int length = columnData.getLength(i);
             int offset = columnData.getOffset(i);

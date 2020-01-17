@@ -13,42 +13,52 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;
+import java.util.Map;
 import java.util.Set;
 
 public class NodeMap
 {
-    private final SetMultimap<HostAddress, Node> nodesByHostAndPort;
-    private final SetMultimap<InetAddress, Node> nodesByHost;
-    private final SetMultimap<NetworkLocation, Node> workersByNetworkPath;
+    private final Map<String, InternalNode> nodesByNodeId;
+    private final SetMultimap<HostAddress, InternalNode> nodesByHostAndPort;
+    private final SetMultimap<InetAddress, InternalNode> nodesByHost;
+    private final SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
 
-    public NodeMap(SetMultimap<HostAddress, Node> nodesByHostAndPort,
-            SetMultimap<InetAddress, Node> nodesByHost,
-            SetMultimap<NetworkLocation, Node> workersByNetworkPath,
+    public NodeMap(
+            Map<String, InternalNode> nodesByNodeId,
+            SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
+            SetMultimap<InetAddress, InternalNode> nodesByHost,
+            SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath,
             Set<String> coordinatorNodeIds)
     {
+        this.nodesByNodeId = nodesByNodeId;
         this.nodesByHostAndPort = nodesByHostAndPort;
         this.nodesByHost = nodesByHost;
         this.workersByNetworkPath = workersByNetworkPath;
         this.coordinatorNodeIds = coordinatorNodeIds;
     }
 
-    public SetMultimap<HostAddress, Node> getNodesByHostAndPort()
+    public Map<String, InternalNode> getNodesByNodeId()
+    {
+        return nodesByNodeId;
+    }
+
+    public SetMultimap<HostAddress, InternalNode> getNodesByHostAndPort()
     {
         return nodesByHostAndPort;
     }
 
-    public SetMultimap<InetAddress, Node> getNodesByHost()
+    public SetMultimap<InetAddress, InternalNode> getNodesByHost()
     {
         return nodesByHost;
     }
 
-    public SetMultimap<NetworkLocation, Node> getWorkersByNetworkPath()
+    public SetMultimap<NetworkLocation, InternalNode> getWorkersByNetworkPath()
     {
         return workersByNetworkPath;
     }

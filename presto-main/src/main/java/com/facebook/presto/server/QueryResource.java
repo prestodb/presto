@@ -15,21 +15,28 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
+import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,18 +54,16 @@ public class QueryResource
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo()
+    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter)
     {
-        return extractBasicQueryInfo(queryManager.getAllQueryInfo());
-    }
-
-    private static List<BasicQueryInfo> extractBasicQueryInfo(List<QueryInfo> allQueryInfo)
-    {
-        ImmutableList.Builder<BasicQueryInfo> basicQueryInfo = ImmutableList.builder();
-        for (QueryInfo queryInfo : allQueryInfo) {
-            basicQueryInfo.add(new BasicQueryInfo(queryInfo));
+        QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
+        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
+            if (stateFilter == null || queryInfo.getState() == expectedState) {
+                builder.add(queryInfo);
+            }
         }
-        return basicQueryInfo.build();
+        return builder.build();
     }
 
     @GET
@@ -68,7 +73,7 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {
@@ -82,6 +87,46 @@ public class QueryResource
     {
         requireNonNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
+    }
+
+    @PUT
+    @Path("{queryId}/killed")
+    public Response killQuery(@PathParam("queryId") QueryId queryId, String message)
+    {
+        return failQuery(queryId, createKillQueryException(message));
+    }
+
+    @PUT
+    @Path("{queryId}/preempted")
+    public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message)
+    {
+        return failQuery(queryId, createPreemptQueryException(message));
+    }
+
+    private Response failQuery(QueryId queryId, PrestoException queryException)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        try {
+            QueryState state = queryManager.getQueryState(queryId);
+
+            // check before killing to provide the proper error code (this is racy)
+            if (state.isDone()) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            queryManager.failQuery(queryId, queryException);
+
+            // verify if the query was failed (if not, we lost the race)
+            if (!queryException.getErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            return Response.status(Status.OK).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
     }
 
     @DELETE

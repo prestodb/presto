@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

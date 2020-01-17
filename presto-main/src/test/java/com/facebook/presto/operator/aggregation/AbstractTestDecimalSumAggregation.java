@@ -11,12 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 
@@ -32,7 +30,7 @@ public abstract class AbstractTestDecimalSumAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = getDecimalType().createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = getDecimalType().createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             writeDecimalToBlock(getBigDecimalForCounter(i), blockBuilder);
         }

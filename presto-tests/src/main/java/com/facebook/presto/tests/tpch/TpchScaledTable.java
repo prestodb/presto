@@ -17,7 +17,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-class TpchScaledTable
+public class TpchScaledTable
 {
     private final String tableName;
     private final double scaleFactor;

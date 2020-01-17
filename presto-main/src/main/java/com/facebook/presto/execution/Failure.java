@@ -27,7 +27,7 @@ public class Failure
 
     Failure(String type, String message, @Nullable ErrorCode errorCode, Failure cause)
     {
-        super(message, cause, true, true);
+        super(message, cause);
         this.type = requireNonNull(type, "type is null");
         this.errorCode = errorCode;
     }

@@ -14,12 +14,14 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.math.BigDecimal;
 
@@ -27,6 +29,7 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.math.RoundingMode.HALF_UP;
 
 public class DecimalEncoding
@@ -43,10 +46,40 @@ public class DecimalEncoding
     }
 
     @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                encodeValue(block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        encodeValue(block, position, output);
+    }
+
+    private void encodeValue(Block block, int position, SliceOutput output)
+    {
+        if (isShortDecimal(type)) {
+            output.writeBytes(utf8Slice(Decimals.toString(type.getLong(block, position), type.getScale())));
+        }
+        else {
+            output.writeBytes(utf8Slice(Decimals.toString(type.getSlice(block, position), type.getScale())));
+        }
+    }
+
+    @Override
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), size);
+        BlockBuilder builder = type.createBlockBuilder(null, size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {

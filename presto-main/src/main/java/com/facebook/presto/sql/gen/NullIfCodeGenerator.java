@@ -16,25 +16,34 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.metadata.CastType;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
 public class NullIfCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Scope scope = generatorContext.getScope();
 
@@ -44,23 +53,28 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
+        Variable firstValue = scope.createTempVariable(first.getType().getJavaType());
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
-                .append(generatorContext.generate(first))
-                .append(BytecodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
+                .append(generatorContext.generate(first, Optional.empty()))
+                .append(ifWasNullPopAndGoto(scope, notMatch, void.class))
+                .dup(first.getType().getJavaType())
+                .putVariable(firstValue);
 
         Type firstType = first.getType();
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
+        FunctionManager functionManager = generatorContext.getFunctionManager();
+        FunctionHandle equalFunction = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionMetadata equalFunctionMetadata = functionManager.getFunctionMetadata(equalFunction);
+        BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
-                equalsSignature.getName(),
+                EQUAL.name(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new BytecodeBlock().dup(firstType.getJavaType()), firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        cast(generatorContext, firstValue, firstType, equalFunctionMetadata.getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalFunctionMetadata.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -78,6 +92,7 @@ public class NullIfCodeGenerator
                 .ifTrue(trueBlock)
                 .ifFalse(notMatch));
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 
@@ -91,11 +106,11 @@ public class NullIfCodeGenerator
             return argument;
         }
 
-        Signature function = generatorContext
-                .getRegistry()
-                .getCoercion(actualType.getTypeSignature(), requiredType);
+        FunctionHandle functionHandle = generatorContext
+                .getFunctionManager()
+                .lookupCast(CastType.CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
+        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
     }
 }

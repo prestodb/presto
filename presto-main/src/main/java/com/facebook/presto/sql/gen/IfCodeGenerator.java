@@ -17,35 +17,38 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
 public class IfCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Preconditions.checkArgument(arguments.size() == 3);
 
         Variable wasNull = context.wasNull();
         BytecodeBlock condition = new BytecodeBlock()
-                .append(context.generate(arguments.get(0)))
+                .append(context.generate(arguments.get(0), Optional.empty()))
                 .comment("... and condition value was not null")
                 .append(wasNull)
                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
                 .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
                 .append(wasNull.set(constantFalse()));
 
-        return new IfStatement()
-                .condition(condition)
-                .ifTrue(context.generate(arguments.get(1)))
-                .ifFalse(context.generate(arguments.get(2)));
+        BytecodeBlock block = new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(condition)
+                        .ifTrue(context.generate(arguments.get(1), Optional.empty()))
+                        .ifFalse(context.generate(arguments.get(2), Optional.empty())));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, returnType, output)));
+        return block;
     }
 }

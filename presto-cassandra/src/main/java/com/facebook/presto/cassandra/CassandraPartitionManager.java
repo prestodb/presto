@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -35,15 +31,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
-import static com.facebook.presto.cassandra.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_EXTERNAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -51,21 +42,19 @@ public class CassandraPartitionManager
 {
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
 
-    private final CachingCassandraSchemaProvider schemaProvider;
-    private final ListeningExecutorService executor;
+    private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraPartitionManager(CachingCassandraSchemaProvider schemaProvider, @ForCassandra ExecutorService executor)
+    public CassandraPartitionManager(CassandraSession cassandraSession)
     {
-        this.schemaProvider = requireNonNull(schemaProvider, "schemaProvider is null");
-        this.executor = listeningDecorator(requireNonNull(executor, "executor is null"));
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
     public CassandraPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
 
-        CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
+        CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
         // fetch the partitions
@@ -125,36 +114,18 @@ public class CassandraPartitionManager
             return ImmutableList.of();
         }
 
-        Set<List<Object>> partitionKeysSet = getPartitionKeysSet(table, tupleDomain);
+        List<Set<Object>> partitionKeysList = getPartitionKeysList(table, tupleDomain);
 
-        // empty filter means, all partitions
-        if (partitionKeysSet.isEmpty()) {
-            return schemaProvider.getAllPartitions(table);
+        Set<List<Object>> filterList = Sets.cartesianProduct(partitionKeysList);
+        // empty filters means, all partitions
+        if (filterList.isEmpty()) {
+            return cassandraSession.getPartitions(table, ImmutableList.of());
         }
 
-        ImmutableList.Builder<ListenableFuture<List<CassandraPartition>>> getPartitionResults = ImmutableList.builder();
-        for (List<Object> partitionKeys : partitionKeysSet) {
-            getPartitionResults.add(executor.submit(() -> schemaProvider.getPartitions(table, partitionKeys)));
-        }
-
-        ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builder();
-        for (ListenableFuture<List<CassandraPartition>> result : getPartitionResults.build()) {
-            try {
-                partitions.addAll(result.get());
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (ExecutionException e) {
-                throw new PrestoException(GENERIC_EXTERNAL, "Error fetching cassandra partitions", e);
-            }
-        }
-
-        return partitions.build();
+        return cassandraSession.getPartitions(table, partitionKeysList);
     }
 
-    private static Set<List<Object>> getPartitionKeysSet(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private static List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
@@ -162,12 +133,12 @@ public class CassandraPartitionManager
 
             // if there is no constraint on a partition key, return an empty set
             if (domain == null) {
-                return ImmutableSet.of();
+                return ImmutableList.of();
             }
 
             // todo does cassandra allow null partition keys?
             if (domain.isNullAllowed()) {
-                return ImmutableSet.of();
+                return ImmutableList.of();
             }
 
             Set<Object> values = domain.getValues().getValuesProcessor().transform(
@@ -194,6 +165,6 @@ public class CassandraPartitionManager
                     allOrNone -> ImmutableSet.of());
             partitionColumnValues.add(values);
         }
-        return Sets.cartesianProduct(partitionColumnValues.build());
+        return partitionColumnValues.build();
     }
 }

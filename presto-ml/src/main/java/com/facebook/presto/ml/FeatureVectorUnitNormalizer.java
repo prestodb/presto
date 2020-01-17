@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Normalizes features by making every feature vector unit length.
- *
+ * <p>
  * NOTE: This is generally not a good way to normalize features, and is mainly provided as an example.
  */
 public class FeatureVectorUnitNormalizer

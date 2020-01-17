@@ -22,7 +22,6 @@ public class TestHostAddress
 {
     @Test
     public void testEquality()
-            throws Exception
     {
         HostAddress address1 = HostAddress.fromParts("[1111:2222:3333:4444:5555:6666:7777:8888]", 1234);
         HostAddress address1NoBrackets = HostAddress.fromParts("1111:2222:3333:4444:5555:6666:7777:8888", 1234);
@@ -40,7 +39,6 @@ public class TestHostAddress
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
         HostAddress address = HostAddress.fromParts("[1111:2222:3333:4444:5555:6666:7777:8888]", 1234);
         HostAddress fromParts = HostAddress.fromParts(address.getHostText(), address.getPort());

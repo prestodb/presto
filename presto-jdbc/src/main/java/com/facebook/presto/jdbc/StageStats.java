@@ -30,7 +30,6 @@ public final class StageStats
     private final int queuedSplits;
     private final int runningSplits;
     private final int completedSplits;
-    private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
     private final long processedRows;
@@ -46,7 +45,6 @@ public final class StageStats
             int queuedSplits,
             int runningSplits,
             int completedSplits,
-            long userTimeMillis,
             long cpuTimeMillis,
             long wallTimeMillis,
             long processedRows,
@@ -61,7 +59,6 @@ public final class StageStats
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
-        this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
         this.processedRows = processedRows;
@@ -80,7 +77,6 @@ public final class StageStats
                 stats.getQueuedSplits(),
                 stats.getRunningSplits(),
                 stats.getCompletedSplits(),
-                stats.getUserTimeMillis(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
                 stats.getProcessedRows(),
@@ -128,11 +124,6 @@ public final class StageStats
     public int getCompletedSplits()
     {
         return completedSplits;
-    }
-
-    public long getUserTimeMillis()
-    {
-        return userTimeMillis;
     }
 
     public long getCpuTimeMillis()

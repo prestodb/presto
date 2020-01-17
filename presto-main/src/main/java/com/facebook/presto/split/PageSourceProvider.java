@@ -17,10 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.TableHandle;
 
 import java.util.List;
 
 public interface PageSourceProvider
 {
-    ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns);
+    ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns);
 }

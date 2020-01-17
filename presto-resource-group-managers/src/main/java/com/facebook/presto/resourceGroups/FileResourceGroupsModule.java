@@ -17,8 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
 public class FileResourceGroupsModule
         implements Module
@@ -26,7 +25,6 @@ public class FileResourceGroupsModule
     @Override
     public void configure(Binder binder)
     {
-        jsonCodecBinder(binder).bindJsonCodec(ManagerSpec.class);
         configBinder(binder).bindConfig(FileResourceGroupConfig.class);
         binder.bind(FileResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
     }

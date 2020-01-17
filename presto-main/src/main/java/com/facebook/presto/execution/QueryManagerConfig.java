@@ -13,55 +13,64 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.configuration.Config;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.presto.connector.system.GlobalSystemConnector;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"query.max-pending-splits-per-node",
-                "experimental.big-query-initial-hash-partitions",
-                "experimental.max-concurrent-big-queries",
-                "experimental.max-queued-big-queries",
-                "query.remote-task.max-consecutive-error-count"})
+@DefunctConfig({
+        "query.max-pending-splits-per-node",
+        "query.queue-config-file",
+        "experimental.big-query-initial-hash-partitions",
+        "experimental.max-concurrent-big-queries",
+        "experimental.max-queued-big-queries",
+        "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
-    private String queueConfigFile;
 
-    private int initialHashPartitions = 100;
+    private int hashPartitionCount = 100;
+    private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
+    private int maxQueryLength = 1_000_000;
+    private int maxStageCount = 100;
+    private int stageCountWarningThreshold = 50;
+    private int maxTotalRunningTaskCount = Integer.MAX_VALUE;
+    private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
+
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
 
-    private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
+    private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
-    public String getQueueConfigFile()
-    {
-        return queueConfigFile;
-    }
+    private int initializationRequiredWorkers = 1;
+    private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    @Config("query.queue-config-file")
-    public QueryManagerConfig setQueueConfigFile(String queueConfigFile)
-    {
-        this.queueConfigFile = queueConfigFile;
-        return this;
-    }
+    private int requiredWorkers = 1;
+    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+
+    private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -120,15 +129,44 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getInitialHashPartitions()
+    public int getHashPartitionCount()
     {
-        return initialHashPartitions;
+        return hashPartitionCount;
     }
 
-    @Config("query.initial-hash-partitions")
-    public QueryManagerConfig setInitialHashPartitions(int initialHashPartitions)
+    @LegacyConfig("query.initial-hash-partitions")
+    @Config("query.hash-partition-count")
+    public QueryManagerConfig setHashPartitionCount(int hashPartitionCount)
     {
-        this.initialHashPartitions = initialHashPartitions;
+        this.hashPartitionCount = hashPartitionCount;
+        return this;
+    }
+
+    @NotNull
+    public String getPartitioningProviderCatalog()
+    {
+        return partitioningProviderCatalog;
+    }
+
+    @Config("query.partitioning-provider-catalog")
+    @ConfigDescription("Name of the catalog providing custom partitioning")
+    public QueryManagerConfig setPartitioningProviderCatalog(String partitioningProviderCatalog)
+    {
+        this.partitioningProviderCatalog = partitioningProviderCatalog;
+        return this;
+    }
+
+    @NotNull
+    public ExchangeMaterializationStrategy getExchangeMaterializationStrategy()
+    {
+        return exchangeMaterializationStrategy;
+    }
+
+    @Config("query.exchange-materialization-strategy")
+    @ConfigDescription("The exchange materialization strategy to use")
+    public QueryManagerConfig setExchangeMaterializationStrategy(ExchangeMaterializationStrategy exchangeMaterializationStrategy)
+    {
+        this.exchangeMaterializationStrategy = exchangeMaterializationStrategy;
         return this;
     }
 
@@ -159,6 +197,75 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(0)
+    @Max(1_000_000_000)
+    public int getMaxQueryLength()
+    {
+        return maxQueryLength;
+    }
+
+    @Config("query.max-length")
+    public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
+    {
+        this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxStageCount()
+    {
+        return maxStageCount;
+    }
+
+    @Config("query.max-stage-count")
+    public QueryManagerConfig setMaxStageCount(int maxStageCount)
+    {
+        this.maxStageCount = maxStageCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getStageCountWarningThreshold()
+    {
+        return stageCountWarningThreshold;
+    }
+
+    @Config("query.stage-count-warning-threshold")
+    @ConfigDescription("Emit a warning when stage count exceeds this threshold")
+    public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
+    {
+        this.stageCountWarningThreshold = stageCountWarningThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTotalRunningTaskCount()
+    {
+        return maxTotalRunningTaskCount;
+    }
+
+    @Config("experimental.max-total-running-task-count")
+    @ConfigDescription("Maximal allowed running task from all queries")
+    public QueryManagerConfig setMaxTotalRunningTaskCount(int maxTotalRunningTaskCount)
+    {
+        this.maxTotalRunningTaskCount = maxTotalRunningTaskCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxQueryRunningTaskCount()
+    {
+        return maxQueryRunningTaskCount;
+    }
+
+    @Config("experimental.max-query-running-task-count")
+    @ConfigDescription("Maximal allowed running task for single query only if experimental.max-total-running-task-count is violated")
+    public QueryManagerConfig setMaxQueryRunningTaskCount(int maxQueryRunningTaskCount)
+    {
+        this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -186,17 +293,30 @@ public class QueryManagerConfig
         return this;
     }
 
-    @NotNull
-    @MinDuration("1s")
+    @Deprecated
     public Duration getRemoteTaskMinErrorDuration()
     {
-        return remoteTaskMinErrorDuration;
+        return remoteTaskMaxErrorDuration;
     }
 
+    @Deprecated
     @Config("query.remote-task.min-error-duration")
     public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
     {
-        this.remoteTaskMinErrorDuration = remoteTaskMinErrorDuration;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getRemoteTaskMaxErrorDuration()
+    {
+        return remoteTaskMaxErrorDuration;
+    }
+
+    @Config("query.remote-task.max-error-duration")
+    public QueryManagerConfig setRemoteTaskMaxErrorDuration(Duration remoteTaskMaxErrorDuration)
+    {
+        this.remoteTaskMaxErrorDuration = remoteTaskMaxErrorDuration;
         return this;
     }
 
@@ -210,6 +330,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxRunTime(Duration queryMaxRunTime)
     {
         this.queryMaxRunTime = queryMaxRunTime;
+        return this;
+    }
+
+    @NotNull
+    public Duration getQueryMaxExecutionTime()
+    {
+        return queryMaxExecutionTime;
+    }
+
+    @Config("query.max-execution-time")
+    public QueryManagerConfig setQueryMaxExecutionTime(Duration queryMaxExecutionTime)
+    {
+        this.queryMaxExecutionTime = queryMaxExecutionTime;
         return this;
     }
 
@@ -251,5 +384,80 @@ public class QueryManagerConfig
     {
         this.queryExecutionPolicy = queryExecutionPolicy;
         return this;
+    }
+
+    @Min(1)
+    public int getInitializationRequiredWorkers()
+    {
+        return initializationRequiredWorkers;
+    }
+
+    @Config("query-manager.initialization-required-workers")
+    @ConfigDescription("Minimum number of workers that must be available before the cluster will accept queries")
+    public QueryManagerConfig setInitializationRequiredWorkers(int initializationRequiredWorkers)
+    {
+        this.initializationRequiredWorkers = initializationRequiredWorkers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getInitializationTimeout()
+    {
+        return initializationTimeout;
+    }
+
+    @Config("query-manager.initialization-timeout")
+    @ConfigDescription("After this time, the cluster will accept queries even if the minimum required workers are not available")
+    public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
+    {
+        this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredWorkers()
+    {
+        return requiredWorkers;
+    }
+
+    @Config("query-manager.required-workers")
+    @ConfigDescription("Minimum number of active workers that must be available before a query will start")
+    public QueryManagerConfig setRequiredWorkers(int requiredWorkers)
+    {
+        this.requiredWorkers = requiredWorkers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredWorkersMaxWait()
+    {
+        return requiredWorkersMaxWait;
+    }
+
+    @Config("query-manager.required-workers-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of workers before the query is failed")
+    public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
+    {
+        this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getQuerySubmissionMaxThreads()
+    {
+        return querySubmissionMaxThreads;
+    }
+
+    @Config("query-manager.query-submission-max-threads")
+    public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
+    {
+        this.querySubmissionMaxThreads = querySubmissionMaxThreads;
+        return this;
+    }
+
+    public enum ExchangeMaterializationStrategy
+    {
+        NONE,
+        ALL,
     }
 }

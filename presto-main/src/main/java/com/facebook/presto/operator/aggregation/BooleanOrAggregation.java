@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -33,7 +34,7 @@ public final class BooleanOrAggregation
     private BooleanOrAggregation() {}
 
     @InputFunction
-    public static void booleanOr(TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static void booleanOr(@AggregationState TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         // if value is true, the result is true
         if (value) {
@@ -48,7 +49,7 @@ public final class BooleanOrAggregation
     }
 
     @CombineFunction
-    public static void combine(TriStateBooleanState state, TriStateBooleanState otherState)
+    public static void combine(@AggregationState TriStateBooleanState state, @AggregationState TriStateBooleanState otherState)
     {
         if (state.getByte() == NULL_VALUE) {
             state.setByte(otherState.getByte());
@@ -60,7 +61,7 @@ public final class BooleanOrAggregation
     }
 
     @OutputFunction(StandardTypes.BOOLEAN)
-    public static void output(TriStateBooleanState state, BlockBuilder out)
+    public static void output(@AggregationState TriStateBooleanState state, BlockBuilder out)
     {
         TriStateBooleanState.write(BooleanType.BOOLEAN, state, out);
     }

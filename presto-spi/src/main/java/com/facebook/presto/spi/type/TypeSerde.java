@@ -18,6 +18,7 @@ import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public final class TypeSerde
 {
@@ -27,21 +28,14 @@ public final class TypeSerde
 
     public static void writeType(SliceOutput sliceOutput, Type type)
     {
-        if (sliceOutput == null) {
-            throw new NullPointerException("sliceOutput is null");
-        }
-        if (type == null) {
-            throw new NullPointerException("type is null");
-        }
-
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        requireNonNull(type, "type is null");
         writeLengthPrefixedString(sliceOutput, type.getTypeSignature().toString());
     }
 
     public static Type readType(TypeManager typeManager, SliceInput sliceInput)
     {
-        if (sliceInput == null) {
-            throw new NullPointerException("sliceInput is null");
-        }
+        requireNonNull(sliceInput, "sliceInput is null");
 
         String name = readLengthPrefixedString(sliceInput);
         Type type = typeManager.getType(parseTypeSignature(name));

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.eventlistener;
 
 import com.google.inject.Binder;
@@ -19,7 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 public class EventListenerModule
-    implements Module
+        implements Module
 {
     @Override
     public void configure(Binder binder)

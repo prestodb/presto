@@ -30,7 +30,6 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
-import java.io.IOException;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -52,6 +51,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link AccumuloRowSerializer} that uses Accumulo lexicoders to serialize the values of the Presto columns.
@@ -71,7 +72,7 @@ public class LexicoderRowSerializer
     private final Text qualifier = new Text();
     private final Text value = new Text();
 
-    private boolean rowOnly = false;
+    private boolean rowOnly;
     private String rowIdName;
 
     static {
@@ -124,7 +125,6 @@ public class LexicoderRowSerializer
 
     @Override
     public void deserialize(Entry<Key, Value> entry)
-            throws IOException
     {
         if (!columnValues.containsKey(rowIdName)) {
             entry.getKey().getRow(rowId);
@@ -192,7 +192,7 @@ public class LexicoderRowSerializer
     @Override
     public Date getDate(String name)
     {
-        return new Date(decode(BIGINT, getFieldValue(name)));
+        return new Date(DAYS.toMillis(decode(BIGINT, getFieldValue(name))));
     }
 
     @Override
@@ -340,7 +340,7 @@ public class LexicoderRowSerializer
             toEncode = ((Integer) value).longValue();
         }
         else if (type.equals(DATE) && value instanceof Date) {
-            toEncode = ((Date) value).getTime();
+            toEncode = MILLISECONDS.toDays(((Date) value).getTime());
         }
         else if (type.equals(INTEGER) && value instanceof Integer) {
             toEncode = ((Integer) value).longValue();

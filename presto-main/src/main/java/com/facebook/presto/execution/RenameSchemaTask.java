@@ -21,15 +21,15 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>
@@ -41,11 +41,11 @@ public class RenameSchemaTask
     }
 
     @Override
-    public CompletableFuture<?> execute(RenameSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
-        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget());
+        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 
         if (!metadata.schemaExists(session, source)) {
             throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);
@@ -55,10 +55,10 @@ public class RenameSchemaTask
             throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
-        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget());
+        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget().getValue());
 
-        metadata.renameSchema(session, source, statement.getTarget());
+        metadata.renameSchema(session, source, statement.getTarget().getValue());
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

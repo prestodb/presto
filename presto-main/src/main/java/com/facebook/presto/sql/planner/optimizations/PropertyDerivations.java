@@ -14,23 +14,37 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayout.NodePartitioning;
+import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
+import com.facebook.presto.sql.planner.RowExpressionInterpreter;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -38,30 +52,29 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -70,66 +83,83 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
+import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOnCoalesce;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-class PropertyDerivations
+public class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties deriveProperties(PlanNode node, ActualProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
+        List<ActualProperties> inputProperties = node.getSources().stream()
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .collect(toImmutableList());
+        return deriveProperties(node, inputProperties, metadata, session, types, parser);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
 
-        // TODO: ideally this logic would be somehow moved to PlanSanityChecker
-        verify(node instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated) || output.isNullsReplicated(),
-                "SemiJoinNode is the only node that can strip null replication");
+        output.getNodePartitioning().ifPresent(partitioning ->
+                verify(node.getOutputVariables().containsAll(partitioning.getVariableReferences()), "Node-level partitioning properties contain columns not present in node's output"));
 
+        verify(node.getOutputVariables().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
+
+        Set<VariableReferenceExpression> localPropertyColumns = output.getLocalProperties().stream()
+                .flatMap(property -> property.getColumns().stream())
+                .collect(Collectors.toSet());
+
+        verify(node.getOutputVariables().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
         return output;
     }
 
-    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         return node.accept(new Visitor(metadata, session, types, parser), inputProperties);
     }
 
     private static class Visitor
-            extends PlanVisitor<List<ActualProperties>, ActualProperties>
+            extends InternalPlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final Metadata metadata;
         private final Session session;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final SqlParser parser;
 
-        public Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+        public Visitor(Metadata metadata, Session session, TypeProvider types, SqlParser parser)
         {
             this.metadata = metadata;
             this.session = session;
@@ -138,7 +168,7 @@ class PropertyDerivations
         }
 
         @Override
-        protected ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
+        public ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
@@ -154,7 +184,8 @@ class PropertyDerivations
         @Override
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            return Iterables.getOnlyElement(inputProperties)
+                    .translateVariable(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
@@ -166,13 +197,37 @@ class PropertyDerivations
         @Override
         public ActualProperties visitAssignUniqueId(AssignUniqueId node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> newLocalProperties = ImmutableList.builder();
+            newLocalProperties.addAll(properties.getLocalProperties());
+            newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdVariable())));
+            node.getSource().getOutputVariables().stream()
+                    .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
+
+            if (properties.getNodePartitioning().isPresent()) {
+                // preserve input (possibly preferred) partitioning
+                return ActualProperties.builderFrom(properties)
+                        .local(newLocalProperties.build())
+                        .build();
+            }
+
+            return ActualProperties.builderFrom(properties)
+                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdVariable()), Optional.empty()))
+                    .local(newLocalProperties.build())
+                    .build();
         }
 
         @Override
         public ActualProperties visitApply(ApplyNode node, List<ActualProperties> inputProperties)
         {
-            return inputProperties.get(0); // apply node input (outer query)
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
+        }
+
+        @Override
+        public ActualProperties visitLateralJoin(LateralJoinNode node, List<ActualProperties> inputProperties)
+        {
+            throw new IllegalArgumentException("Unexpected node: " + node.getClass().getName());
         }
 
         @Override
@@ -187,18 +242,20 @@ class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
-            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getOrderBy().size()) {
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
+            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
+                    && (!orderingScheme.isPresent() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderByVariables().size())) {
                 return properties;
             }
 
-            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
 
             // If the WindowNode has pre-partitioned inputs, then it will not change the order of those inputs at output,
             // so we should just propagate those underlying local properties that guarantee the pre-partitioning.
             // TODO: come up with a more general form of this operation for other streaming operators
             if (!node.getPrePartitionedInputs().isEmpty()) {
-                GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
-                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                GroupingProperty<VariableReferenceExpression> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
+                for (LocalProperty<VariableReferenceExpression> localProperty : properties.getLocalProperties()) {
                     if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
                         break;
                     }
@@ -209,9 +266,11 @@ class PropertyDerivations
             if (!node.getPartitionBy().isEmpty()) {
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
-            }
+
+            orderingScheme.ifPresent(scheme ->
+                    scheme.getOrderByVariables().stream()
+                            .map(column -> new SortingProperty<>(column, scheme.getOrdering(column)))
+                            .forEach(localProperties::add));
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
@@ -221,8 +280,8 @@ class PropertyDerivations
         @Override
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
-            Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingSetMappings().entrySet()) {
+            Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputMappings = new HashMap<>();
+            for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -232,11 +291,11 @@ class PropertyDerivations
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
-            for (Map.Entry<Symbol, Symbol> argumentMapping : node.getArgumentMappings().entrySet()) {
-                inputToOutputMappings.putIfAbsent(argumentMapping.getValue(), argumentMapping.getKey());
+            for (VariableReferenceExpression argument : node.getAggregationArguments()) {
+                inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
         }
 
         @Override
@@ -244,7 +303,7 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            ActualProperties translated = properties.translateVariable(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupingKeys()))
@@ -262,10 +321,10 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
             localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
-            for (Symbol column : node.getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+            for (VariableReferenceExpression column : node.getOrderingScheme().getOrderByVariables()) {
+                localProperties.add(new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)));
             }
 
             return ActualProperties.builderFrom(properties)
@@ -278,8 +337,8 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+            List<SortingProperty<VariableReferenceExpression>> localProperties = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
                     .collect(toImmutableList());
 
             return ActualProperties.builderFrom(properties)
@@ -292,8 +351,8 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+            List<SortingProperty<VariableReferenceExpression>> localProperties = node.getOrderingScheme().getOrderByVariables().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
                     .collect(toImmutableList());
 
             return ActualProperties.builderFrom(properties)
@@ -313,7 +372,15 @@ class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             return ActualProperties.builderFrom(properties)
-                    .local(LocalProperties.grouped(node.getDistinctSymbols()))
+                    .local(LocalProperties.grouped(node.getDistinctVariables()))
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitStatisticsWriterNode(StatisticsWriterNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
                     .build();
         }
 
@@ -329,38 +396,67 @@ class PropertyDerivations
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
-            // TODO: include all equivalent columns in partitioning properties
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
+            List<VariableReferenceExpression> outputVariableReferences = node.getOutputVariables();
+
+            boolean unordered = spillPossible(session, node.getType());
 
             switch (node.getType()) {
                 case INNER:
+                    probeProperties = probeProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+                    buildProperties = buildProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+
+                    Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
+                    constants.putAll(probeProperties.getConstants());
+                    constants.putAll(buildProperties.getConstants());
+
+                    if (node.isCrossJoin()) {
+                        // Cross join preserves only constants from probe and build sides.
+                        // Cross join doesn't preserve sorting or grouping local properties on either side.
+                        return ActualProperties.builder()
+                                .global(probeProperties)
+                                .local(ImmutableList.of())
+                                .constants(constants)
+                                .build();
+                    }
+
                     return ActualProperties.builderFrom(probeProperties)
-                            .constants(ImmutableMap.<Symbol, NullableValue>builder()
-                                    .putAll(probeProperties.getConstants())
-                                    .putAll(buildProperties.getConstants())
-                                    .build())
+                            .constants(constants)
+                            .unordered(unordered)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties)
-                            .constants(probeProperties.getConstants())
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
+                            .unordered(unordered)
                             .build();
                 case RIGHT:
-                    return ActualProperties.builderFrom(buildProperties)
-                            .constants(buildProperties.getConstants())
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
+
+                    return ActualProperties.builderFrom(buildProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .local(ImmutableList.of())
+                            .unordered(true)
                             .build();
                 case FULL:
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    if (probeProperties.isSingleNode()) {
+                        return ActualProperties.builder()
+                                .global(singleStreamPartition())
+                                .build();
+                    }
+
+                    if (isOptimizeFullOuterJoinWithCoalesce(session) && probeProperties.getNodePartitioning().isPresent() && buildProperties.getNodePartitioning().isPresent()) {
+                        return ActualProperties.builder()
+                                .global(partitionedOnCoalesce(probeProperties.getNodePartitioning().get(), buildProperties.getNodePartitioning().get()))
+                                .build();
+                    }
+
                     return ActualProperties.builder()
-                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .global(arbitraryPartition())
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -374,6 +470,33 @@ class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitSpatialJoin(SpatialJoinNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties probeProperties = inputProperties.get(0);
+            ActualProperties buildProperties = inputProperties.get(1);
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
+
+            switch (node.getType()) {
+                case INNER:
+                    probeProperties = probeProperties.translateVariable(column -> filterIfMissing(outputs, column));
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(outputs, column));
+
+                    Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
+                    constants.putAll(probeProperties.getConstants());
+                    constants.putAll(buildProperties.getConstants());
+
+                    return ActualProperties.builderFrom(probeProperties)
+                            .constants(constants)
+                            .build();
+                case LEFT:
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputs, column)))
+                            .build();
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            }
+        }
+
+        @Override
         public ActualProperties visitIndexJoin(IndexJoinNode node, List<ActualProperties> inputProperties)
         {
             // TODO: include all equivalent columns in partitioning properties
@@ -383,7 +506,7 @@ class PropertyDerivations
             switch (node.getType()) {
                 case INNER:
                     return ActualProperties.builderFrom(probeProperties)
-                            .constants(ImmutableMap.<Symbol, NullableValue>builder()
+                            .constants(ImmutableMap.<VariableReferenceExpression, ConstantExpression>builder()
                                     .putAll(probeProperties.getConstants())
                                     .putAll(indexProperties.getConstants())
                                     .build())
@@ -405,42 +528,55 @@ class PropertyDerivations
                     .build();
         }
 
-        public static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)
-        {
-            List<Symbol> inputSymbols = node.getInputs().get(sourceIndex);
-            Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                inputToOutput.put(inputSymbols.get(i), node.getOutputSymbols().get(i));
-            }
-            return inputToOutput;
-        }
-
         @Override
         public ActualProperties visitExchange(ExchangeNode node, List<ActualProperties> inputProperties)
         {
-            checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsReplicated), "Null replicated inputs should not be remotely exchanged");
+            checkArgument(!node.getScope().isRemote() || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
-            Set<Map.Entry<Symbol, NullableValue>> entries = null;
+            Set<Map.Entry<VariableReferenceExpression, ConstantExpression>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
-                ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
+                List<VariableReferenceExpression> inputVariables = node.getInputs().get(sourceIndex);
+                Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
+                for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                    inputToOutput.put(inputVariables.get(i), node.getOutputVariables().get(i));
+                }
+
+                ActualProperties translated = inputProperties.get(sourceIndex).translateVariable(variable -> Optional.ofNullable(inputToOutput.get(variable)));
 
                 entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
             }
             checkState(entries != null);
 
-            Map<Symbol, NullableValue> constants = entries.stream()
+            Map<VariableReferenceExpression, ConstantExpression> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+            ImmutableList.Builder<SortingProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
+            if (node.getOrderingScheme().isPresent()) {
+                node.getOrderingScheme().get().getOrderByVariables().stream()
+                        .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
+                        .forEach(localProperties::add);
+            }
+
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
-            // local exchanges do not produce global properties as represented by ActualProperties.
+            // local exchanges do not produce all global properties as represented by ActualProperties.
             // This is acceptable because AddLocalExchanges does not use global properties and is only
             // interested in the local properties.
+            // However, for the purpose of validation, some global properties (single-node vs distributed)
+            // are computed for local exchanges.
             // TODO: implement full properties for local exchanges
-            if (node.getScope() == LOCAL) {
-                return ActualProperties.builder()
-                        .constants(constants)
-                        .build();
+            if (node.getScope().isLocal()) {
+                ActualProperties.Builder builder = ActualProperties.builder();
+                builder.local(localProperties.build());
+                builder.constants(constants);
+
+                if (inputProperties.stream().anyMatch(ActualProperties::isCoordinatorOnly)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+                else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
+                    builder.global(coordinatorSingleStreamPartition());
+                }
+
+                return builder.build();
             }
 
             switch (node.getType()) {
@@ -448,6 +584,7 @@ class PropertyDerivations
                     boolean coordinatorOnly = node.getPartitioningScheme().getPartitioning().getHandle().isCoordinatorOnly();
                     return ActualProperties.builder()
                             .global(coordinatorOnly ? coordinatorSingleStreamPartition() : singleStreamPartition())
+                            .local(localProperties.build())
                             .constants(constants)
                             .build();
                 case REPARTITION:
@@ -455,7 +592,7 @@ class PropertyDerivations
                             .global(partitionedOn(
                                     node.getPartitioningScheme().getPartitioning(),
                                     Optional.of(node.getPartitioningScheme().getPartitioning()))
-                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNulls()))
+                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
                             .constants(constants)
                             .build();
                 case REPLICATE:
@@ -474,14 +611,19 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                    metadata,
-                    session,
-                    node.getPredicate(),
-                    types);
-
-            Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of()));
+            Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>(properties.getConstants());
+            if (isExpression(node.getPredicate())) {
+                TupleDomain<String> tupleDomain = ExpressionDomainTranslator.fromPredicate(metadata, session, castToExpression(node.getPredicate()), types).getTupleDomain();
+                constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
+                        .map(values -> values.entrySet().stream()
+                                .collect(toImmutableMap(entry -> toVariableReference(new SymbolReference(entry.getKey()), types), Map.Entry::getValue)))
+                        .orElse(ImmutableMap.of()));
+            }
+            else {
+                TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
+                constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
+                        .orElse(ImmutableMap.of()));
+            }
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -493,34 +635,48 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
-
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap(), types);
 
             // Extract additional constants
-            Map<Symbol, NullableValue> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
-                Expression expression = assignment.getValue();
+            Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : node.getAssignments().entrySet()) {
+                RowExpression expression = assignment.getValue();
+                VariableReferenceExpression output = assignment.getKey();
 
-                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
-                Type type = requireNonNull(expressionTypes.get(expression));
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                if (isExpression(expression)) {
+                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
+                    Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
+                    Object value = optimizer.optimize(NoOpVariableResolver.INSTANCE);
 
-                if (value instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from((SymbolReference) value);
-                    NullableValue existingConstantValue = constants.get(symbol);
-                    if (existingConstantValue != null) {
-                        constants.put(assignment.getKey(), new NullableValue(type, value));
+                    if (value instanceof SymbolReference) {
+                        VariableReferenceExpression variable = toVariableReference((SymbolReference) value, types);
+                        ConstantExpression existingConstantValue = constants.get(variable);
+                        if (existingConstantValue != null) {
+                            constants.put(output, new ConstantExpression(value, type));
+                        }
+                    }
+                    else if (!(value instanceof Expression)) {
+                        constants.put(output, new ConstantExpression(value, type));
                     }
                 }
-                else if (!(value instanceof Expression)) {
-                    constants.put(assignment.getKey(), new NullableValue(type, value));
+                else {
+                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
+
+                    if (value instanceof VariableReferenceExpression) {
+                        ConstantExpression existingConstantValue = constants.get(value);
+                        if (existingConstantValue != null) {
+                            constants.put(output, new ConstantExpression(value, expression.getType()));
+                        }
+                    }
+                    else if (!(value instanceof RowExpression)) {
+                        constants.put(output, new ConstantExpression(value, expression.getType()));
+                    }
                 }
             }
             constants.putAll(translatedProperties.getConstants());
@@ -546,6 +702,12 @@ class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitTableWriteMerge(TableWriterMergeNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
+        }
+
+        @Override
         public ActualProperties visitSample(SampleNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
@@ -554,9 +716,9 @@ class PropertyDerivations
         @Override
         public ActualProperties visitUnnest(UnnestNode node, List<ActualProperties> inputProperties)
         {
-            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+            Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> {
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
@@ -575,21 +737,19 @@ class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
-
-            TableLayout layout = metadata.getLayout(session, node.getLayout().get());
-            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            TableLayout layout = metadata.getLayout(session, node.getTable());
+            Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();
 
             // Globally constant assignments
-            Map<ColumnHandle, NullableValue> globalConstants = new HashMap<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+            Map<ColumnHandle, ConstantExpression> globalConstants = new HashMap<>();
+            extractFixedValuesToConstantExpressions(node.getCurrentConstraint()).orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())
                     .forEach(entry -> globalConstants.put(entry.getKey(), entry.getValue()));
 
-            Map<Symbol, NullableValue> symbolConstants = globalConstants.entrySet().stream()
+            Map<VariableReferenceExpression, ConstantExpression> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
                     .collect(toMap(entry -> assignments.get(entry.getKey()), Map.Entry::getValue));
             properties.constants(symbolConstants);
@@ -599,7 +759,7 @@ class PropertyDerivations
 
             // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
-                    .addAll(globalConstants.keySet().stream().map(column -> new ConstantProperty<>(column)).iterator())
+                    .addAll(globalConstants.keySet().stream().map(ConstantProperty::new).iterator())
                     .addAll(layout.getLocalProperties())
                     .build();
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));
@@ -607,41 +767,46 @@ class PropertyDerivations
             return properties.build();
         }
 
-        private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
+        private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, VariableReferenceExpression> assignments, Map<ColumnHandle, ConstantExpression> constants)
         {
-            Optional<List<Symbol>> partitioning = layout.getPartitioningColumns()
+            Optional<List<VariableReferenceExpression>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (planWithTableNodePartitioning(session) && layout.getNodePartitioning().isPresent()) {
-                NodePartitioning nodePartitioning = layout.getNodePartitioning().get();
-                if (assignments.keySet().containsAll(nodePartitioning.getPartitioningColumns())) {
-                    List<Symbol> arguments = nodePartitioning.getPartitioningColumns().stream()
-                            .map(assignments::get)
+            if (planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
+                TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
+
+                Set<ColumnHandle> assignmentsAndConstants = ImmutableSet.<ColumnHandle>builder()
+                        .addAll(assignments.keySet())
+                        .addAll(constants.keySet())
+                        .build();
+                if (assignmentsAndConstants.containsAll(tablePartitioning.getPartitioningColumns())) {
+                    List<RowExpression> arguments = tablePartitioning.getPartitioningColumns().stream()
+                            .map(column -> assignments.containsKey(column) ? assignments.get(column) : constants.get(column))
                             .collect(toImmutableList());
 
-                    return partitionedOn(nodePartitioning.getPartitioningHandle(), arguments, partitioning);
+                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments, streamPartitioning);
                 }
             }
 
-            if (partitioning.isPresent()) {
-                return streamPartitionedOn(partitioning.get());
+            if (streamPartitioning.isPresent()) {
+                return streamPartitionedOn(streamPartitioning.get());
             }
             return arbitraryPartition();
         }
 
-        private static Optional<List<Symbol>> translateToNonConstantSymbols(
+        private static Optional<List<VariableReferenceExpression>> translateToNonConstantSymbols(
                 Set<ColumnHandle> columnHandles,
-                Map<ColumnHandle, Symbol> assignments,
-                Map<ColumnHandle, NullableValue> globalConstants)
+                Map<ColumnHandle, VariableReferenceExpression> assignments,
+                Map<ColumnHandle, ConstantExpression> globalConstants)
         {
             // Strip off the constants from the partitioning columns (since those are not required for translation)
             Set<ColumnHandle> constantsStrippedColumns = columnHandles.stream()
                     .filter(column -> !globalConstants.containsKey(column))
                     .collect(toImmutableSet());
 
-            ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
             for (ColumnHandle column : constantsStrippedColumns) {
-                Symbol translated = assignments.get(column);
+                VariableReferenceExpression translated = assignments.get(column);
                 if (translated == null) {
                     return Optional.empty();
                 }
@@ -650,16 +815,56 @@ class PropertyDerivations
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
         }
+    }
 
-        private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
-        {
-            Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
-                }
-            }
-            return inputToOutput;
+    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    {
+        if (!SystemSessionProperties.isSpillEnabled(session)) {
+            return false;
         }
+        switch (joinType) {
+            case INNER:
+            case LEFT:
+                return true;
+            case RIGHT:
+            case FULL:
+                // Currently there is no spill support for outer on the build side.
+                return false;
+            default:
+                throw new IllegalStateException("Unknown join type: " + joinType);
+        }
+    }
+
+    public static Optional<VariableReferenceExpression> filterIfMissing(Collection<VariableReferenceExpression> columns, VariableReferenceExpression column)
+    {
+        if (columns.contains(column)) {
+            return Optional.of(column);
+        }
+
+        return Optional.empty();
+    }
+
+    // Used to filter columns that are not exposed by join node
+    // Or, if they are part of the equalities, to translate them
+    // to the other symbol if that's exposed, instead.
+    public static Optional<VariableReferenceExpression> filterOrRewrite(Collection<VariableReferenceExpression> columns, List<JoinNode.EquiJoinClause> equalities, VariableReferenceExpression column)
+    {
+        // symbol is exposed directly, so no translation needed
+        if (columns.contains(column)) {
+            return Optional.of(column);
+        }
+
+        // if the column is part of the equality conditions and its counterpart
+        // is exposed, use that, instead
+        for (JoinNode.EquiJoinClause equality : equalities) {
+            if (equality.getLeft().equals(column) && columns.contains(equality.getRight())) {
+                return Optional.of(equality.getRight());
+            }
+            else if (equality.getRight().equals(column) && columns.contains(equality.getLeft())) {
+                return Optional.of(equality.getLeft());
+            }
+        }
+
+        return Optional.empty();
     }
 }

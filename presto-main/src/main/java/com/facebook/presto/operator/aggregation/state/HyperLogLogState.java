@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import io.airlift.stats.cardinality.HyperLogLog;
-
-import javax.validation.constraints.NotNull;
 
 @AccumulatorStateMetadata(stateSerializerClass = HyperLogLogStateSerializer.class, stateFactoryClass = HyperLogLogStateFactory.class)
 public interface HyperLogLogState
@@ -25,7 +23,6 @@ public interface HyperLogLogState
 {
     int NUMBER_OF_BUCKETS = 4096;
 
-    @NotNull
     HyperLogLog getHyperLogLog();
 
     void setHyperLogLog(HyperLogLog value);

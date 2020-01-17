@@ -17,7 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -26,6 +26,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static java.lang.String.format;
 
 public class TestSmallintOperators
@@ -33,16 +34,14 @@ public class TestSmallintOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("SMALLINT'37'", SMALLINT, (short) 37);
         assertFunction("SMALLINT'17'", SMALLINT, (short) 17);
-        assertInvalidCast("SMALLINT'" + ((long) Short.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("SMALLINT'" + ((long) Short.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
     public void testUnaryPlus()
-            throws Exception
     {
         assertFunction("+SMALLINT'37'", SMALLINT, (short) 37);
         assertFunction("+SMALLINT'17'", SMALLINT, (short) 17);
@@ -50,16 +49,14 @@ public class TestSmallintOperators
 
     @Test
     public void testUnaryMinus()
-            throws Exception
     {
         assertFunction("SMALLINT'-37'", SMALLINT, (short) -37);
         assertFunction("SMALLINT'-17'", SMALLINT, (short) -17);
-        assertInvalidFunction("SMALLINT'-" + Short.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("SMALLINT'-" + Short.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("SMALLINT'37' + SMALLINT'37'", SMALLINT, (short) (37 + 37));
         assertFunction("SMALLINT'37' + SMALLINT'17'", SMALLINT, (short) (37 + 17));
@@ -70,7 +67,6 @@ public class TestSmallintOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("SMALLINT'37' - SMALLINT'37'", SMALLINT, (short) 0);
         assertFunction("SMALLINT'37' - SMALLINT'17'", SMALLINT, (short) (37 - 17));
@@ -81,7 +77,6 @@ public class TestSmallintOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("SMALLINT'37' * SMALLINT'37'", SMALLINT, (short) (37 * 37));
         assertFunction("SMALLINT'37' * SMALLINT'17'", SMALLINT, (short) (37 * 17));
@@ -92,7 +87,6 @@ public class TestSmallintOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("SMALLINT'37' / SMALLINT'37'", SMALLINT, (short) 1);
         assertFunction("SMALLINT'37' / SMALLINT'17'", SMALLINT, (short) (37 / 17));
@@ -103,7 +97,6 @@ public class TestSmallintOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("SMALLINT'37' % SMALLINT'37'", SMALLINT, (short) 0);
         assertFunction("SMALLINT'37' % SMALLINT'17'", SMALLINT, (short) (37 % 17));
@@ -114,7 +107,6 @@ public class TestSmallintOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-(SMALLINT'37')", SMALLINT, (short) -37);
         assertFunction("-(SMALLINT'17')", SMALLINT, (short) -17);
@@ -124,7 +116,6 @@ public class TestSmallintOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("SMALLINT'37' = SMALLINT'37'", BOOLEAN, true);
         assertFunction("SMALLINT'37' = SMALLINT'17'", BOOLEAN, false);
@@ -134,7 +125,6 @@ public class TestSmallintOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("SMALLINT'37' <> SMALLINT'37'", BOOLEAN, false);
         assertFunction("SMALLINT'37' <> SMALLINT'17'", BOOLEAN, true);
@@ -144,7 +134,6 @@ public class TestSmallintOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("SMALLINT'37' < SMALLINT'37'", BOOLEAN, false);
         assertFunction("SMALLINT'37' < SMALLINT'17'", BOOLEAN, false);
@@ -154,7 +143,6 @@ public class TestSmallintOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("SMALLINT'37' <= SMALLINT'37'", BOOLEAN, true);
         assertFunction("SMALLINT'37' <= SMALLINT'17'", BOOLEAN, false);
@@ -164,7 +152,6 @@ public class TestSmallintOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("SMALLINT'37' > SMALLINT'37'", BOOLEAN, false);
         assertFunction("SMALLINT'37' > SMALLINT'17'", BOOLEAN, true);
@@ -174,7 +161,6 @@ public class TestSmallintOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("SMALLINT'37' >= SMALLINT'37'", BOOLEAN, true);
         assertFunction("SMALLINT'37' >= SMALLINT'17'", BOOLEAN, true);
@@ -184,7 +170,6 @@ public class TestSmallintOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("SMALLINT'37' BETWEEN SMALLINT'37' AND SMALLINT'37'", BOOLEAN, true);
         assertFunction("SMALLINT'37' BETWEEN SMALLINT'37' AND SMALLINT'17'", BOOLEAN, false);
@@ -201,7 +186,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as bigint)", BIGINT, 37L);
         assertFunction("cast(SMALLINT'17' as bigint)", BIGINT, 17L);
@@ -209,7 +193,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToInteger()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as integer)", INTEGER, 37);
         assertFunction("cast(SMALLINT'17' as integer)", INTEGER, 17);
@@ -217,7 +200,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToTinyint()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as tinyint)", TINYINT, (byte) 37);
         assertFunction("cast(SMALLINT'17' as tinyint)", TINYINT, (byte) 17);
@@ -225,7 +207,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as varchar)", VARCHAR, "37");
         assertFunction("cast(SMALLINT'17' as varchar)", VARCHAR, "17");
@@ -233,7 +214,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as double)", DOUBLE, 37.0);
         assertFunction("cast(SMALLINT'17' as double)", DOUBLE, 17.0);
@@ -241,7 +221,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToFloat()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as real)", REAL, 37.0f);
         assertFunction("cast(SMALLINT'-32768' as real)", REAL, -32768.0f);
@@ -250,7 +229,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(SMALLINT'37' as boolean)", BOOLEAN, true);
         assertFunction("cast(SMALLINT'17' as boolean)", BOOLEAN, true);
@@ -259,7 +237,6 @@ public class TestSmallintOperators
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
         assertFunction("cast('37' as smallint)", SMALLINT, (short) 37);
         assertFunction("cast('17' as smallint)", SMALLINT, (short) 17);
@@ -267,12 +244,22 @@ public class TestSmallintOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS SMALLINT) IS DISTINCT FROM CAST(NULL AS SMALLINT)", BOOLEAN, false);
         assertFunction("SMALLINT'37' IS DISTINCT FROM SMALLINT'37'", BOOLEAN, false);
         assertFunction("SMALLINT'37' IS DISTINCT FROM SMALLINT'38'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM SMALLINT'37'", BOOLEAN, true);
         assertFunction("SMALLINT'37' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+            throws Exception
+    {
+        assertOperator(INDETERMINATE, "cast(null as smallint)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(12 as smallint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(0 as smallint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(-23 as smallint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.4 as smallint)", BOOLEAN, false);
     }
 }

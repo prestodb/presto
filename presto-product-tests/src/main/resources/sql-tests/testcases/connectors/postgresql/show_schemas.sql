@@ -2,7 +2,7 @@
 --!
 show schemas from postgresql
 --!
--- delimeter: |; trimValues: true; ignoreOrder: true;
+-- delimiter: |; trimValues: true; ignoreOrder: true;
 information_schema|
 pg_catalog|
 public|

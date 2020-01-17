@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -23,25 +23,27 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryInputMetadata
 {
-    private final String connectorId;
+    private final String catalogName;
     private final String schema;
     private final String table;
     private final List<String> columns;
     private final Optional<Object> connectorInfo;
+    private final Optional<TableStatistics> statistics;
 
-    public QueryInputMetadata(String connectorId, String schema, String table, List<String> columns, Optional<Object> connectorInfo)
+    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
+        this.statistics = requireNonNull(statistics, "table statistics is null");
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public String getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -66,5 +68,11 @@ public class QueryInputMetadata
     public Optional<Object> getConnectorInfo()
     {
         return connectorInfo;
+    }
+
+    @JsonProperty
+    public Optional<TableStatistics> getStatistics()
+    {
+        return statistics;
     }
 }

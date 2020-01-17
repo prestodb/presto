@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

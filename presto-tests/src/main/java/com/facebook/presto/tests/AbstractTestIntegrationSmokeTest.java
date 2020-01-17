@@ -14,107 +14,109 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableList;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
-        super(queryRunner);
+        super(supplier);
+    }
+
+    protected boolean isDateTypeSupported()
+    {
+        return true;
+    }
+
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return true;
     }
 
     @Test
     public void testAggregateSingleColumn()
-            throws Exception
     {
-        assertQuery("SELECT SUM(orderkey) FROM ORDERS");
-        assertQuery("SELECT SUM(totalprice) FROM ORDERS");
-        assertQuery("SELECT MAX(comment) FROM ORDERS");
+        assertQuery("SELECT SUM(orderkey) FROM orders");
+        assertQuery("SELECT SUM(totalprice) FROM orders");
+        assertQuery("SELECT MAX(comment) FROM orders");
     }
 
     @Test
     public void testColumnsInReverseOrder()
-            throws Exception
     {
-        assertQuery("SELECT shippriority, clerk, totalprice FROM ORDERS");
+        assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
     }
 
     @Test
     public void testCountAll()
-            throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(*) FROM orders");
     }
 
     @Test
     public void testExactPredicate()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10");
     }
 
     @Test
     public void testInListPredicate()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey IN (10, 11, 20, 21)");
+        assertQuery("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
     }
 
     @Test
     public void testIsNullPredicate()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey = 10 OR orderkey IS NULL");
+        assertQuery("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
+    }
+
+    @Test
+    public void testLimit()
+    {
+        assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
     }
 
     @Test
     public void testMultipleRangesPredicate()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50 or orderkey BETWEEN 100 AND 150");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
     public void testRangePredicate()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS WHERE orderkey BETWEEN 10 AND 50");
+        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
     public void testSelectAll()
-            throws Exception
     {
-        assertQuery("SELECT * FROM ORDERS");
+        assertQuery("SELECT * FROM orders");
     }
 
     @Test
     public void testShowSchemas()
-            throws Exception
     {
-        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toJdbcTypes();
+        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
-                .row("tpch");
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
+                .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
 
         assertContains(actualSchemas, resultBuilder.build());
     }
 
     @Test
     public void testShowTables()
-            throws Exception
     {
-        MaterializedResult actualTables = computeActual("SHOW TABLES").toJdbcTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
+        MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
+        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
         assertContains(actualTables, expectedTables);
@@ -122,21 +124,73 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     @Test
     public void testDescribeTable()
-            throws Exception
     {
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
-
-        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
-                getExpectedTableDescription(true, true),
-                getExpectedTableDescription(true, false),
-                getExpectedTableDescription(false, true),
-                getExpectedTableDescription(false, false)
-        );
-        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
+        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    @Test
+    public void testSelectInformationSchemaTables()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String schemaPattern = schema.replaceAll("^.", "_");
+
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = 'orders'", "VALUES 'orders'");
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schema + "' AND table_name LIKE '%rders'", "VALUES 'orders'");
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '%rders'", "VALUES 'orders'");
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%orders'",
+                "VALUES 'orders'");
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+    }
+
+    @Test
+    public void testSelectInformationSchemaColumns()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String schemaPattern = schema.replaceAll(".$", "_");
+
+        @Language("SQL") String ordersTableWithColumns = "VALUES " +
+                "('orders', 'orderkey'), " +
+                "('orders', 'custkey'), " +
+                "('orders', 'orderstatus'), " +
+                "('orders', 'totalprice'), " +
+                "('orders', 'orderdate'), " +
+                "('orders', 'orderpriority'), " +
+                "('orders', 'clerk'), " +
+                "('orders', 'shippriority'), " +
+                "('orders', 'comment')";
+
+        assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
+        assertQuery(
+                "SELECT table_name, column_name FROM information_schema.columns " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
+                ordersTableWithColumns);
+        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+    }
+
+    @Test
+    public void testDuplicatedRowCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+                "line 1:31: Column name 'a' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+
+        assertQueryFails("CREATE TABLE test (a integer, A integer)",
+                "line 1:31: Column name 'A' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+    }
+
+    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
@@ -146,29 +200,29 @@ public abstract class AbstractTestIntegrationSmokeTest
             orderDateType = "varchar";
         }
         if (parametrizedVarchar) {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "")
-                    .row("custkey", "bigint", "")
-                    .row("orderstatus", "varchar", "")
-                    .row("totalprice", "double", "")
-                    .row("orderdate", orderDateType, "")
-                    .row("orderpriority", "varchar", "")
-                    .row("clerk", "varchar", "")
-                    .row("shippriority", "integer", "")
-                    .row("comment", "varchar", "")
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar(1)", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar(15)", "", "")
+                    .row("clerk", "varchar(15)", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar(79)", "", "")
                     .build();
         }
         else {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "")
-                    .row("custkey", "bigint", "")
-                    .row("orderstatus", "varchar(1)", "")
-                    .row("totalprice", "double", "")
-                    .row("orderdate", orderDateType, "")
-                    .row("orderpriority", "varchar(15)", "")
-                    .row("clerk", "varchar(15)", "")
-                    .row("shippriority", "integer", "")
-                    .row("comment", "varchar(79)", "")
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
                     .build();
         }
     }

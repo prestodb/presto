@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -20,23 +21,28 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.common.type.HiveChar;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
-import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
+import org.apache.hadoop.hive.serde2.io.HiveVarcharWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.io.BinaryComparable;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -46,6 +52,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.closeWithSuppression;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
@@ -55,7 +62,7 @@ import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -77,6 +84,7 @@ import static java.util.Objects.requireNonNull;
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
+    private final Path path;
     private final RecordReader<K, V> recordReader;
     private final K key;
     private final V value;
@@ -107,6 +115,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private boolean closed;
 
     public GenericHiveRecordCursor(
+            Configuration configuration,
+            Path path,
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
@@ -114,19 +124,21 @@ class GenericHiveRecordCursor<K, V extends Writable>
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
+        requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
+        this.path = path;
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
 
-        this.deserializer = getDeserializer(splitSchema);
+        this.deserializer = getDeserializer(configuration, splitSchema);
         this.rowInspector = getTableObjectInspector(deserializer);
 
         int size = columns.size();
@@ -157,12 +169,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
             structFields[i] = field;
             fieldInspectors[i] = field.getFieldObjectInspector();
         }
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
     }
 
     @Override
@@ -215,6 +221,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         catch (IOException | SerDeException | RuntimeException e) {
             closeWithSuppression(this, e);
+            if (e instanceof TextLineLengthLimitExceededException) {
+                throw new PrestoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
+            }
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
@@ -359,32 +368,37 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveWritableObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            Slice value;
-            if (fieldValue instanceof String) {
-                value = Slices.utf8Slice((String) fieldValue);
+            BinaryComparable hiveValue;
+            if (fieldValue instanceof Text) {
+                hiveValue = (Text) fieldValue;
             }
-            else if (fieldValue instanceof byte[]) {
-                value = Slices.wrappedBuffer((byte[]) fieldValue);
+            else if (fieldValue instanceof BytesWritable) {
+                hiveValue = (BytesWritable) fieldValue;
             }
-            else if (fieldValue instanceof HiveVarchar) {
-                value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
+            else if (fieldValue instanceof HiveVarcharWritable) {
+                hiveValue = ((HiveVarcharWritable) fieldValue).getTextValue();
             }
-            else if (fieldValue instanceof HiveChar) {
-                value = Slices.utf8Slice(((HiveChar) fieldValue).getValue());
+            else if (fieldValue instanceof HiveCharWritable) {
+                hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
             }
             else {
                 throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
             }
+
+            // create a slice view over the hive value and trim to character limits
+            Slice value = Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength());
             Type type = types[column];
             if (isVarcharType(type)) {
                 value = truncateToLength(value, type);
             }
             if (isCharType(type)) {
-                value = trimSpacesAndTruncateToLength(value, type);
+                value = truncateToLengthAndTrimSpaces(value, type);
             }
-            slices[column] = value;
+
+            // store a copy of the bytes, since the hive reader can reuse the underlying buffer
+            slices[column] = Slices.copyOf(value);
             nulls[column] = false;
         }
     }
@@ -524,7 +538,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             recordReader.close();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

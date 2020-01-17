@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.jetty.JettyHttpClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -52,7 +52,6 @@ public class TestNodeResource
 
     @Test
     public void testGetAllNodes()
-            throws Exception
     {
         List<Stats> nodes = client.execute(
                 prepareGet().setUri(server.resolve("/v1/node")).build(),
@@ -64,7 +63,6 @@ public class TestNodeResource
 
     @Test
     public void testGetFailedNodes()
-            throws Exception
     {
         List<Stats> nodes = client.execute(
                 prepareGet().setUri(server.resolve("/v1/node/failed")).build(),

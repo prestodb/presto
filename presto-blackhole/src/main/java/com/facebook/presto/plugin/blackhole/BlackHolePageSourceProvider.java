@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnHandle;
@@ -21,9 +20,9 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -36,13 +35,11 @@ import io.airlift.slice.Slices;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -72,12 +69,12 @@ public final class BlackHolePageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        BlackHoleSplit blackHoleSplit = checkType(split, BlackHoleSplit.class, "BlackHoleSplit");
+        BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
 
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
         for (ColumnHandle column : columns) {
-            builder.add((checkType(column, BlackHoleColumnHandle.class, "BlackHoleColumnHandle")).getColumnType());
+            builder.add(((BlackHoleColumnHandle) column).getColumnType());
         }
         List<Type> types = builder.build();
 
@@ -117,10 +114,10 @@ public final class BlackHolePageSourceProvider
 
         BlockBuilder builder;
         if (type instanceof FixedWidthType) {
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount);
+            builder = type.createBlockBuilder(null, rowsCount);
         }
         else {
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, slice.length());
+            builder = type.createBlockBuilder(null, rowsCount, slice.length());
         }
 
         for (int i = 0; i < rowsCount; i++) {
@@ -147,7 +144,7 @@ public final class BlackHolePageSourceProvider
 
     private boolean isSupportedType(Type type)
     {
-        return ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
-                || isVarcharType(type) || isLongDecimal(type) || isShortDecimal(type);
+        return ImmutableSet.<Type>of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
+                || isVarcharType(type) || type instanceof DecimalType;
     }
 }

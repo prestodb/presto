@@ -16,25 +16,26 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.metadata.MetadataUtil.createPrincipal;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RevokeTask
         implements DataDefinitionTask<Revoke>
@@ -46,7 +47,7 @@ public class RevokeTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Revoke statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Revoke statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
@@ -68,11 +69,11 @@ public class RevokeTask
 
         // verify current identity has permissions to revoke permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName);
+            accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
         }
 
-        metadata.revokeTablePrivileges(session, tableName, privileges, statement.getGrantee(), statement.isGrantOptionFor());
-        return completedFuture(null);
+        metadata.revokeTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
+        return immediateFuture(null);
     }
 
     private static Privilege parsePrivilege(Revoke statement, String privilegeString)

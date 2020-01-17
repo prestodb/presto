@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.161-SNAPSHOT</version>
+        <version>0.232-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -28,39 +28,13 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-            <exclusions>
-                <!-- configuration is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>configuration</artifactId>
-                </exclusion>
-                <!-- trace-token is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>trace-token</artifactId>
-                </exclusion>
-                <!-- guice is not used -->
-                <exclusion>
-                    <groupId>com.google.inject</groupId>
-                    <artifactId>guice</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject.extensions</groupId>
-                    <artifactId>guice-multibindings</artifactId>
-                </exclusion>
-                <!-- jmxutils is not used -->
-                <exclusion>
-                    <groupId>org.weakref</groupId>
-                    <artifactId>jmxutils</artifactId>
-                </exclusion>
-                <!-- TODO: remove when fixed in airlift -->
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-servlet</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>security</artifactId>
         </dependency>
 
         <dependency>
@@ -69,20 +43,12 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>com.google.inject</groupId>
                     <artifactId>guice</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject.extensions</groupId>
-                    <artifactId>guice-multibindings</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -95,11 +61,18 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <!-- for testing -->
@@ -111,7 +84,19 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-hadoop2</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -128,26 +113,83 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- workaround for MSHADE-195 -->
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <!-- disable the default execution -->
+                    <execution>
+                        <id>attach-sources</id>
+                        <configuration>
+                            <skipSource>true</skipSource>
+                        </configuration>
+                    </execution>
+                    <!-- enable only the test jar; the sources jar is attached by the shade plugin -->
+                    <execution>
+                        <id>test-only</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -182,9 +224,18 @@
                                     <pattern>com.google.thirdparty</pattern>
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
+                                <!-- TODO: Remove this shading rule once io.airlift:unit is migrated -->
                                 <relocation>
                                     <pattern>io.airlift</pattern>
-                                    <shadedPattern>${shadeBase}.airlift</shadedPattern>
+                                    <shadedPattern>${shadeBase}.io.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.facebook.airlift</pattern>
+                                    <shadedPattern>${shadeBase}.com.facebook.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>javax.inject</pattern>
@@ -199,12 +250,12 @@
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.eclipse.jetty</pattern>
-                                    <shadedPattern>${shadeBase}.jetty</shadedPattern>
+                                    <pattern>okhttp3</pattern>
+                                    <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.HdrHistogram</pattern>
-                                    <shadedPattern>${shadeBase}.HdrHistogram</shadedPattern>
+                                    <pattern>okio</pattern>
+                                    <shadedPattern>${shadeBase}.okio</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -212,24 +263,8 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
-                                        <exclude>META-INF/*.xml</exclude>
-                                        <exclude>META-INF/services/org.eclipse.**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>LICENSE</exclude>
-                                        <exclude>*.css</exclude>
-                                        <exclude>*.html</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>com.google.code.findbugs:annotations</artifact>
-                                    <excludes>
-                                        <exclude>**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>javax.validation:validation-api</artifact>
-                                    <excludes>
-                                        <exclude>**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

@@ -17,40 +17,27 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import com.google.common.io.Resources;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.server.ThreadResource.Info.byName;
-import static com.google.common.io.Resources.getResource;
 
 @Path("/")
 public class ThreadResource
 {
     @GET
-    @Path("/ui/thread")
-    @Produces(MediaType.TEXT_HTML)
-    public String getUi()
-            throws IOException
-    {
-        return Resources.toString(getResource(getClass(), "thread.html"), StandardCharsets.UTF_8);
-    }
-
-    @GET
     @Path("/v1/thread")
     @Produces(MediaType.APPLICATION_JSON)
-    public static List<Info> getThreadInfo()
+    public List<Info> getThreadInfo()
     {
         ThreadMXBean mbean = ManagementFactory.getThreadMXBean();
 
@@ -94,7 +81,7 @@ public class ThreadResource
                 @JsonProperty("id") long id,
                 @JsonProperty("name") String name,
                 @JsonProperty("state") String state,
-                @JsonProperty("lockOwner") Long lockOwnerId,
+                @JsonProperty("lockOwnerId") Long lockOwnerId,
                 @JsonProperty("stackTrace") List<StackLine> stackTrace)
         {
             this.id = id;
@@ -158,7 +145,7 @@ public class ThreadResource
         public StackLine(
                 @JsonProperty("file") String file,
                 @JsonProperty("line") int line,
-                @JsonProperty("class") String className,
+                @JsonProperty("className") String className,
                 @JsonProperty("method") String method)
         {
             this.file = file;

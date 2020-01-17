@@ -19,17 +19,18 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_EXTERNAL;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestStandardErrorCode
 {
+    private static final int EXTERNAL_ERROR_START = 0x0100_0000;
+
     @Test
     public void testUnique()
     {
@@ -44,13 +45,12 @@ public class TestStandardErrorCode
     public void testReserved()
     {
         for (StandardErrorCode errorCode : StandardErrorCode.values()) {
-            assertLessThanOrEqual(code(errorCode), code(GENERIC_EXTERNAL));
+            assertLessThan(code(errorCode), EXTERNAL_ERROR_START);
         }
     }
 
     @Test
     public void testOrdering()
-            throws Exception
     {
         Iterator<StandardErrorCode> iterator = asList(StandardErrorCode.values()).iterator();
 
@@ -61,12 +61,11 @@ public class TestStandardErrorCode
             StandardErrorCode code = iterator.next();
             int current = code(code);
             assertGreaterThan(current, previous, "Code is out of order: " + code);
-            if ((code != GENERIC_INTERNAL_ERROR) && (code != GENERIC_INSUFFICIENT_RESOURCES) && (code != GENERIC_EXTERNAL)) {
+            if ((code != GENERIC_INTERNAL_ERROR) && (code != GENERIC_INSUFFICIENT_RESOURCES)) {
                 assertEquals(current, previous + 1, "Code is not sequential: " + code);
             }
             previous = current;
         }
-        assertEquals(previous, code(GENERIC_EXTERNAL), "Last code is not GENERIC_EXTERNAL");
     }
 
     private static int code(StandardErrorCode error)

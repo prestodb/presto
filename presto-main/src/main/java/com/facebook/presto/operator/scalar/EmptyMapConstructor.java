@@ -14,26 +14,31 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
-
+@Description("Creates an empty map")
+@ScalarFunction("map")
 public final class EmptyMapConstructor
 {
-    private static final Block EMPTY_MAP = new InterleavedBlockBuilder(ImmutableList.of(UNKNOWN, UNKNOWN), new BlockBuilderStatus(), 0).build();
+    private final Block emptyMap;
 
-    private EmptyMapConstructor() {}
-
-    @Description("Creates an empty map")
-    @ScalarFunction
-    @SqlType("map(unknown,unknown)")
-    public static Block map()
+    public EmptyMapConstructor(@TypeParameter("map(unknown,unknown)") Type mapType)
     {
-        return EMPTY_MAP;
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        mapBlockBuilder.beginBlockEntry();
+        mapBlockBuilder.closeEntry();
+        emptyMap = ((MapType) mapType).getObject(mapBlockBuilder.build(), 0);
+    }
+
+    @SqlType("map(unknown,unknown)")
+    public Block map()
+    {
+        return emptyMap;
     }
 }

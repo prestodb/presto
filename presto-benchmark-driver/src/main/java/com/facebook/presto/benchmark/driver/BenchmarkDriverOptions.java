@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark.driver;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.units.Duration;
@@ -90,13 +91,19 @@ public class BenchmarkDriverOptions
                 parseServer(server),
                 user,
                 "presto-benchmark",
+                Optional.empty(),
+                ImmutableSet.of(),
+                null,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
+                ImmutableMap.of(),
                 toProperties(this.sessionProperties),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 null,
-                debug,
                 clientRequestTimeout);
     }
 
@@ -109,7 +116,7 @@ public class BenchmarkDriverOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);

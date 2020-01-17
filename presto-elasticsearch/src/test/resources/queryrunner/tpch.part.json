@@ -1,0 +1,74 @@
+{
+    "tableName": "part",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "part",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "partkey",
+                "type": "bigint",
+                "jsonPath": "partkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "name",
+                "type": "varchar",
+                "jsonPath": "name",
+                "jsonType": "varchar",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "mfgr",
+                "type": "varchar",
+                "jsonPath": "mfgr",
+                "jsonType": "varchar",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "brand",
+                "type": "varchar",
+                "jsonPath": "brand",
+                "jsonType": "varchar",
+                "ordinalPosition": "3"
+            },
+            {
+                "name": "type",
+                "type": "varchar",
+                "jsonPath": "type",
+                "jsonType": "varchar",
+                "ordinalPosition": "4"
+            },
+            {
+                "name": "size",
+                "type": "bigint",
+                "jsonPath": "size",
+                "jsonType": "bigint",
+                "ordinalPosition": "5"
+            },
+            {
+                "name": "container",
+                "type": "varchar",
+                "jsonPath": "container",
+                "jsonType": "varchar",
+                "ordinalPosition": "6"
+            },
+            {
+                "name": "retailprice",
+                "type": "double",
+                "jsonPath": "retailprice",
+                "jsonType": "double",
+                "ordinalPosition": "7"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "8"
+            }
+        ]
+}

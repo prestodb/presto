@@ -14,36 +14,39 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ExceptNode;
-import com.facebook.presto.sql.planner.plan.IntersectNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.SetOperationNode;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.ExceptNode;
+import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SetOperationNode;
+import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static java.util.Objects.requireNonNull;
 
 public class SetFlatteningOptimizer
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
         return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, false);
@@ -63,33 +66,39 @@ public class SetFlatteningOptimizer
         public PlanNode visitUnion(UnionNode node, RewriteContext<Boolean> context)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
-            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
-            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+            return new UnionNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Boolean> context)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
-            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
-            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new IntersectNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+            return new IntersectNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Boolean> context)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
-            ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
-            flattenSetOperation(node, context, flattenedSources, flattenedSymbolMap);
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
+            flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = flattenedVariableMap.build();
 
-            return new ExceptNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
+            return new ExceptNode(node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
-        private static void flattenSetOperation(SetOperationNode node, RewriteContext<Boolean> context, ImmutableList.Builder<PlanNode> flattenedSources, ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap)
+        private static void flattenSetOperation(
+                SetOperationNode node, RewriteContext<Boolean> context,
+                ImmutableList.Builder<PlanNode> flattenedSources,
+                ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap)
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
@@ -101,15 +110,15 @@ public class SetFlatteningOptimizer
                     // ExceptNodes can only flatten their first source because except is not associative
                     SetOperationNode rewrittenSetOperation = (SetOperationNode) rewrittenSource;
                     flattenedSources.addAll(rewrittenSetOperation.getSources());
-                    for (Map.Entry<Symbol, Collection<Symbol>> entry : node.getSymbolMapping().asMap().entrySet()) {
-                        Symbol inputSymbol = Iterables.get(entry.getValue(), i);
-                        flattenedSymbolMap.putAll(entry.getKey(), rewrittenSetOperation.getSymbolMapping().get(inputSymbol));
+                    for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
+                        VariableReferenceExpression inputVariable = Iterables.get(entry.getValue(), i);
+                        flattenedVariableMap.putAll(entry.getKey(), rewrittenSetOperation.getVariableMapping().get(inputVariable));
                     }
                 }
                 else {
                     flattenedSources.add(rewrittenSource);
-                    for (Map.Entry<Symbol, Collection<Symbol>> entry : node.getSymbolMapping().asMap().entrySet()) {
-                        flattenedSymbolMap.put(entry.getKey(), Iterables.get(entry.getValue(), i));
+                    for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
+                        flattenedVariableMap.put(entry.getKey(), Iterables.get(entry.getValue(), i));
                     }
                 }
             }
@@ -131,12 +140,11 @@ public class SetFlatteningOptimizer
                     node.getId(),
                     rewrittenNode,
                     node.getAggregations(),
-                    node.getFunctions(),
-                    node.getMasks(),
                     node.getGroupingSets(),
+                    ImmutableList.of(),
                     node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getHashVariable(),
+                    node.getGroupIdVariable());
         }
 
         private static boolean isDistinctOperator(AggregationNode node)

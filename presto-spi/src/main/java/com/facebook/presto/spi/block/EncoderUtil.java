@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Optional;
+
 final class EncoderUtil
 {
     private EncoderUtil()
@@ -28,6 +30,12 @@ final class EncoderUtil
     @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
+        sliceOutput.writeBoolean(mayHaveNull);
+        if (!mayHaveNull) {
+            return;
+        }
+
         int positionCount = block.getPositionCount();
         for (int position = 0; position < (positionCount & ~0b111); position += 8) {
             byte value = 0;
@@ -57,8 +65,12 @@ final class EncoderUtil
     /**
      * Decode the bit stream created by encodeNullsAsBits.
      */
-    public static boolean[] decodeNullBits(SliceInput sliceInput, int positionCount)
+    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
     {
+        if (!sliceInput.readBoolean()) {
+            return Optional.empty();
+        }
+
         // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
         for (int position = 0; position < (positionCount & ~0b111); position += 8) {
@@ -83,6 +95,6 @@ final class EncoderUtil
             }
         }
 
-        return valueIsNull;
+        return Optional.of(valueIsNull);
     }
 }

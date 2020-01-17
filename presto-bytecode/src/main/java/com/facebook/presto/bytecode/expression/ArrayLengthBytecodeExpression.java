@@ -25,7 +25,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
 class ArrayLengthBytecodeExpression
-    extends BytecodeExpression
+        extends BytecodeExpression
 {
     private final BytecodeExpression instance;
 

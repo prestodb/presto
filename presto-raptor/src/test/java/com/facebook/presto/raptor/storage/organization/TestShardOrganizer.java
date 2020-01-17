@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -35,18 +36,18 @@ public class TestShardOrganizer
     {
         ShardOrganizer organizer = createShardOrganizer();
 
-        Set<UUID> shards = ImmutableSet.of(UUID.randomUUID());
-        OrganizationSet organizationSet = new OrganizationSet(1L, shards, OptionalInt.empty());
+        Map<UUID, Optional<UUID>> shards = ImmutableMap.of(UUID.randomUUID(), Optional.empty());
+        OrganizationSet organizationSet = new OrganizationSet(1L, false, shards, OptionalInt.empty(), 0);
 
         organizer.enqueue(organizationSet);
 
-        assertTrue(organizer.inProgress(getOnlyElement(shards)));
+        assertTrue(organizer.inProgress(getOnlyElement(shards.keySet())));
         assertEquals(organizer.getShardsInProgress(), 1);
 
-        while (organizer.inProgress(getOnlyElement(shards))) {
+        while (organizer.inProgress(getOnlyElement(shards.keySet()))) {
             MILLISECONDS.sleep(10);
         }
-        assertFalse(organizer.inProgress(getOnlyElement(shards)));
+        assertFalse(organizer.inProgress(getOnlyElement(shards.keySet())));
         assertEquals(organizer.getShardsInProgress(), 0);
         organizer.shutdown();
     }
@@ -57,14 +58,7 @@ public class TestShardOrganizer
         @Override
         public Runnable create(OrganizationSet organizationSet)
         {
-            return () -> {
-                try {
-                    MILLISECONDS.sleep(10);
-                }
-                catch (InterruptedException e) {
-                    throw Throwables.propagate(e);
-                }
-            };
+            return () -> sleepUninterruptibly(10, MILLISECONDS);
         }
     }
 

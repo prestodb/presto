@@ -15,24 +15,21 @@ package com.facebook.presto.bytecode.expression;
 
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.ClassInfoLoader;
-import com.facebook.presto.bytecode.DumpBytecodeVisitor;
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.SmartClassWriter;
-import com.google.common.collect.ImmutableList;
-import org.objectweb.asm.ClassWriter;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
+import static com.facebook.presto.bytecode.BytecodeUtils.dumpBytecodeTree;
+import static com.facebook.presto.bytecode.BytecodeUtils.makeClassName;
+import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static org.testng.Assert.assertEquals;
 
@@ -42,7 +39,7 @@ public final class BytecodeExpressionAssertions
     {
     }
 
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
+    public static final AtomicBoolean DUMP_BYTECODE_TREE = new AtomicBoolean();
 
     static void assertBytecodeExpressionType(BytecodeExpression expression, ParameterizedType type)
     {
@@ -111,16 +108,16 @@ public final class BytecodeExpressionAssertions
         BytecodeNode node = nodeGenerator.apply(method.getScope());
         method.getBody().append(node);
 
-        if (DUMP_BYTE_CODE_TREE) {
-            DumpBytecodeVisitor dumpBytecode = new DumpBytecodeVisitor(System.out);
-            dumpBytecode.visitClass(classDefinition);
+        String tree = dumpBytecodeTree(classDefinition);
+        if (DUMP_BYTECODE_TREE.get()) {
+            System.out.println(tree);
         }
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(parentClassLoader.orElse(BytecodeExpressionAssertions.class.getClassLoader()));
-        ClassWriter cw = new SmartClassWriter(ClassInfoLoader.createClassInfoLoader(ImmutableList.of(classDefinition), classLoader));
-        classDefinition.visit(cw);
+        ClassLoader classLoader = parentClassLoader.orElse(BytecodeExpressionAssertions.class.getClassLoader());
 
-        Class<?> clazz = classLoader.defineClass(classDefinition.getType().getJavaClassName(), cw.toByteArray());
-        return clazz.getMethod("test").invoke(null);
+        return classGenerator(classLoader)
+                .defineClass(classDefinition, Object.class)
+                .getMethod("test")
+                .invoke(null);
     }
 }

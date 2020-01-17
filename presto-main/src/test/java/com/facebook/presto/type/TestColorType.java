@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -30,7 +29,7 @@ public class TestColorType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = COLOR.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = COLOR.createBlockBuilder(null, 15);
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));

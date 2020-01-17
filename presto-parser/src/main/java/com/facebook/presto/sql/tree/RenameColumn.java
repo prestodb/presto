@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,20 +26,20 @@ public class RenameColumn
         extends Statement
 {
     private final QualifiedName table;
-    private final String source;
-    private final String target;
+    private final Identifier source;
+    private final Identifier target;
 
-    public RenameColumn(QualifiedName table, String source, String target)
+    public RenameColumn(QualifiedName table, Identifier source, Identifier target)
     {
         this(Optional.empty(), table, source, target);
     }
 
-    public RenameColumn(NodeLocation location, QualifiedName table, String source, String target)
+    public RenameColumn(NodeLocation location, QualifiedName table, Identifier source, Identifier target)
     {
         this(Optional.of(location), table, source, target);
     }
 
-    private RenameColumn(Optional<NodeLocation> location, QualifiedName table, String source, String target)
+    private RenameColumn(Optional<NodeLocation> location, QualifiedName table, Identifier source, Identifier target)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
@@ -49,12 +52,12 @@ public class RenameColumn
         return table;
     }
 
-    public String getSource()
+    public Identifier getSource()
     {
         return source;
     }
 
-    public String getTarget()
+    public Identifier getTarget()
     {
         return target;
     }
@@ -63,6 +66,12 @@ public class RenameColumn
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitRenameColumn(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

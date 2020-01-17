@@ -13,7 +13,6 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -22,15 +21,14 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarOperator(GREATER_THAN)
 public final class ArrayGreaterThanOperator
@@ -40,7 +38,7 @@ public final class ArrayGreaterThanOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
@@ -61,10 +59,7 @@ public final class ArrayGreaterThanOperator
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
             index++;
         }
@@ -76,7 +71,7 @@ public final class ArrayGreaterThanOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanLong(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
@@ -97,10 +92,7 @@ public final class ArrayGreaterThanOperator
                 }
             }
             catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throw internalError(t);
             }
             index++;
         }

@@ -16,13 +16,12 @@ package com.facebook.presto;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +47,7 @@ public class RowPageBuilder
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (Type type : types) {
-            builders.add(type.createBlockBuilder(new BlockBuilderStatus(), 1));
+            builders.add(type.createBlockBuilder(null, 1));
         }
         this.builders = builders.build();
         checkArgument(!this.builders.isEmpty(), "At least one value info is required");

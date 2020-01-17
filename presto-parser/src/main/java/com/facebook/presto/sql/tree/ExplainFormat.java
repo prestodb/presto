@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -25,7 +28,8 @@ public class ExplainFormat
     public enum Type
     {
         TEXT,
-        GRAPHVIZ
+        GRAPHVIZ,
+        JSON
     }
 
     private final Type type;
@@ -49,6 +53,12 @@ public class ExplainFormat
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

@@ -15,35 +15,51 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.List;
+import java.util.function.BiConsumer;
+
+import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
+        extends UncheckedBlock
 {
     /**
      * Gets the length of the value at the {@code position}.
+     * This method must be implemented if @{code getSlice} is implemented.
      */
-    int getLength(int position);
+    default int getSliceLength(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
-     * Gets a byte at {@code offset} in the value at {@code position}.
+     * Gets a byte in the value at {@code position}.
      */
-    default byte getByte(int position, int offset)
+    default byte getByte(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian short at {@code offset} in the value at {@code position}.
+     * Gets a little endian short at in the value at {@code position}.
      */
-    default short getShort(int position, int offset)
+    default short getShort(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian int at {@code offset} in the value at {@code position}.
+     * Gets a little endian int in the value at {@code position}.
      */
-    default int getInt(int position, int offset)
+    default int getInt(int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
+     * Gets a little endian long in the value at {@code position}.
+     */
+    default long getLong(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -65,9 +81,10 @@ public interface Block
     }
 
     /**
-     * Gets an object in the value at {@code position}.
+     * Gets a block in the value at {@code position}.
+     * @return
      */
-    default <T> T getObject(int position, Class<T> clazz)
+    default Block getBlock(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -103,7 +120,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder}.
+     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
@@ -156,28 +173,87 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the logical size of this block in memory.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
+     * For example, in dictionary blocks, this only counts each dictionary entry once,
+     * rather than each time a value is referenced.
      */
-    int getSizeInBytes();
+    long getSizeInBytes();
 
     /**
-     * Returns the retained size of this block in memory.
+     * Returns the size of the block contents, regardless of internal representation.
+     * The same logical data values should always have the same size, no matter
+     * what block type is used or how they are represented within a specific block.
+     *
+     * This can differ substantially from {@link #getSizeInBytes} for certain block
+     * types. For RLE, it will be {@code N} times larger. For dictionary, it will be
+     * larger based on how many times dictionary entries are reused.
+     */
+    default long getLogicalSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    /**
+     * Returns the size of {@code block.getRegion(position, length)}.
+     * The method can be expensive. Do not use it outside an implementation of Block.
+     */
+    long getRegionSizeInBytes(int position, int length);
+
+    /**
+     * Returns the size of of all positions marked true in the positions array.
+     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
+     * where you mark all positions for the regions first.
+     */
+    long getPositionsSizeInBytes(boolean[] positions);
+
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
      * This method is called from the inner most execution loop and must be fast.
      */
-    int getRetainedSizeInBytes();
+    long getRetainedSizeInBytes();
+
+    /**
+     * Returns the estimated in memory data size for stats of position.
+     * Do not use it for other purpose.
+     */
+    long getEstimatedDataSizeForStats(int position);
+
+    /**
+     * {@code consumer} visits each of the internal data container and accepts the size for it.
+     * This method can be helpful in cases such as memory counting for internal data structure.
+     * Also, the method should be non-recursive, only visit the elements at the top level,
+     * and specifically should not call retainedBytesForEachPart on nested blocks
+     * {@code consumer} should be called at least once with the current block and
+     * must include the instance size of the current block
+     */
+    void retainedBytesForEachPart(BiConsumer<Object, Long> consumer);
 
     /**
      * Get the encoding for this block.
      */
-    BlockEncoding getEncoding();
+    String getEncodingName();
+
+    /**
+     * Create a new block from the current block by keeping the same elements
+     * only with respect to {@code positions} that starts at {@code offset} and has length of {@code length}.
+     * May return a view over the data in this block or may return a copy
+     */
+    default Block getPositions(int[] positions, int offset, int length)
+    {
+        checkArrayRange(positions, offset, length);
+
+        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId());
+    }
 
     /**
      * Returns a block containing the specified positions.
+     * Positions to copy are stored in a subarray within {@code positions} array
+     * that starts at {@code offset} and has length of {@code length}.
      * All specified positions must be valid for this block.
      * <p>
      * The returned block must be a compact representation of the original block.
      */
-    Block copyPositions(List<Integer> positions);
+    Block copyPositions(int[] positions, int offset, int length);
 
     /**
      * Returns a block starting at the specified position and extends for the
@@ -203,6 +279,15 @@ public interface Block
     Block copyRegion(int position, int length);
 
     /**
+     * Is it possible the block may have a null value?  If false, the block can not contain
+     * a null, but if true, the block may or may not have a null.
+     */
+    default boolean mayHaveNull()
+    {
+        return true;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid
@@ -210,10 +295,14 @@ public interface Block
     boolean isNull(int position);
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a block that assures all data is in memory.
+     * May return the same block if all block data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    default void assureLoaded() {}
+    default Block getLoadedBlock()
+    {
+        return this;
+    }
 }

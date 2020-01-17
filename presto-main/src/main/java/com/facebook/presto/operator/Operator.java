@@ -14,11 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import java.util.List;
 
 public interface Operator
         extends AutoCloseable
@@ -26,24 +23,6 @@ public interface Operator
     ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
     OperatorContext getOperatorContext();
-
-    /**
-     * Gets the column types of pages produced by this operator.
-     */
-    List<Type> getTypes();
-
-    /**
-     * Notifies the operator that no more pages will be added and the
-     * operator should finish processing and flush results. This method
-     * will not be called if the Task is already failed or canceled.
-     */
-    void finish();
-
-    /**
-     * Is this operator completely finished processing and no more
-     * output pages will be produced.
-     */
-    boolean isFinished();
 
     /**
      * Returns a future that will be completed when the operator becomes
@@ -71,6 +50,46 @@ public interface Operator
      * available, return null.
      */
     Page getOutput();
+
+    /**
+     * After calling this method operator should revoke all reserved revocable memory.
+     * As soon as memory is revoked returned future should be marked as done.
+     * <p>
+     * Spawned threads can not modify OperatorContext because it's not thread safe.
+     * For this purpose implement {@link #finishMemoryRevoke()}
+     * <p>
+     * Since memory revoking signal is delivered asynchronously to the Operator, implementation
+     * must gracefully handle the case when there no longer is any revocable memory allocated.
+     * <p>
+     * After this method is called on Operator the Driver is disallowed to call any
+     * processing methods on it (isBlocked/needsInput/addInput/getOutput) until
+     * {@link #finishMemoryRevoke()} is called.
+     */
+    default ListenableFuture<?> startMemoryRevoke()
+    {
+        return NOT_BLOCKED;
+    }
+
+    /**
+     * Clean up and release resources after completed memory revoking. Called by driver
+     * once future returned by startMemoryRevoke is completed.
+     */
+    default void finishMemoryRevoke()
+    {
+    }
+
+    /**
+     * Notifies the operator that no more pages will be added and the
+     * operator should finish processing and flush results. This method
+     * will not be called if the Task is already failed or canceled.
+     */
+    void finish();
+
+    /**
+     * Is this operator completely finished processing and no more
+     * output pages will be produced.
+     */
+    boolean isFinished();
 
     /**
      * This method will always be called before releasing the Operator reference.

@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class ArrayConstructor
         extends Expression
 {
-    public static final String ARRAY_CONSTRUCTOR = "ARRAY_CONSTRUCTOR";
+    public static final String ARRAY_CONSTRUCTOR = "array_constructor";
     private final List<Expression> values;
 
     public ArrayConstructor(List<Expression> values)
@@ -53,6 +53,12 @@ public class ArrayConstructor
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitArrayConstructor(this, context);
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return values;
     }
 
     @Override

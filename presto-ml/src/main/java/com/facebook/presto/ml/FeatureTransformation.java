@@ -14,7 +14,7 @@
 package com.facebook.presto.ml;
 
 public interface FeatureTransformation
-    extends Model
+        extends Model
 {
     FeatureVector transform(FeatureVector features);
 

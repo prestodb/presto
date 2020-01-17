@@ -16,8 +16,9 @@ package com.facebook.presto.raptor.storage.organization;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.google.inject.Inject;
 import org.skife.jdbi.v2.IDBI;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;

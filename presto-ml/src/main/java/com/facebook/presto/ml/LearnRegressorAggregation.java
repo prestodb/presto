@@ -17,6 +17,7 @@ import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -33,7 +34,7 @@ public final class LearnRegressorAggregation
 
     @InputFunction
     public static void input(
-            LearnState state,
+            @AggregationState LearnState state,
             @SqlType(BIGINT) long label,
             @SqlType("map(bigint,double)") Block features)
     {
@@ -42,7 +43,7 @@ public final class LearnRegressorAggregation
 
     @InputFunction
     public static void input(
-            LearnState state,
+            @AggregationState LearnState state,
             @SqlType(DOUBLE) double label,
             @SqlType("map(bigint,double)") Block features)
     {
@@ -50,13 +51,13 @@ public final class LearnRegressorAggregation
     }
 
     @CombineFunction
-    public static void combine(LearnState state, LearnState otherState)
+    public static void combine(@AggregationState LearnState state, @AggregationState LearnState otherState)
     {
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
     @OutputFunction(RegressorType.NAME)
-    public static void output(LearnState state, BlockBuilder out)
+    public static void output(@AggregationState LearnState state, BlockBuilder out)
     {
         LearnLibSvmRegressorAggregation.output(state, out);
     }

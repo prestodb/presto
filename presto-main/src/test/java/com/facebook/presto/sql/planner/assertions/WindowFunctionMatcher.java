@@ -15,31 +15,54 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
+    private final Optional<FunctionHandle> functionHandle;
+    private final Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker;
 
-    public WindowFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
+    /**
+     * @param callMaker Always validates the function call
+     * @param functionHandle Optionally validates the function handle
+     * @param frameMaker Optionally validates the frame
+     */
+    public WindowFunctionMatcher(
+            ExpectedValueProvider<FunctionCall> callMaker,
+            Optional<FunctionHandle> functionHandle,
+            Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.frameMaker = requireNonNull(frameMaker, "frameMaker is null");
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        Optional<Symbol> result = Optional.empty();
+        Optional<VariableReferenceExpression> result = Optional.empty();
         if (!(node instanceof WindowNode)) {
             return result;
         }
@@ -47,19 +70,62 @@ public class WindowFunctionMatcher
         WindowNode windowNode = (WindowNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, WindowNode.Function> assignment : windowNode.getWindowFunctions().entrySet()) {
-            if (expectedCall.equals(assignment.getValue().getFunctionCall())) {
-                checkState(!result.isPresent(), "Ambiguous function calls in %s", windowNode);
-                result = Optional.of(assignment.getKey());
-            }
-        }
+        Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        return result;
+        List<VariableReferenceExpression> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
+                .filter(assignment -> {
+                    if (!expectedCall.getName().equals(QualifiedName.of(metadata.getFunctionManager().getFunctionMetadata(assignment.getValue().getFunctionCall().getFunctionHandle()).getName().getFunctionName()))) {
+                        return false;
+                    }
+                    if (!functionHandle.map(assignment.getValue().getFunctionHandle()::equals).orElse(true)) {
+                        return false;
+                    }
+                    if (!expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true)) {
+                        return false;
+                    }
+                    List<Expression> expectedExpressions = expectedCall.getArguments();
+                    List<RowExpression> actualExpressions = assignment.getValue().getFunctionCall().getArguments();
+                    if (expectedExpressions.size() != actualExpressions.size()) {
+                        return false;
+                    }
+                    for (int i = 0; i < expectedExpressions.size(); i++) {
+                        Expression expectedExpression = expectedExpressions.get(i);
+                        RowExpression actualExpression = actualExpressions.get(i);
+                        if (!isExpression(actualExpression)) {
+                            SymbolAliases.Builder builder = SymbolAliases.builder();
+                            ImmutableSet.copyOf(VariablesExtractor.extractAllSymbols(expectedExpression)).forEach(symbol -> builder.put(symbol.getName(), symbol.toSymbolReference()));
+                            if (!new RowExpressionVerifier(builder.build(), metadata, session).process(expectedExpression, actualExpression)) {
+                                return false;
+                            }
+                        }
+                        else {
+                            if (!expectedExpression.equals(castToExpression(actualExpression))) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+
+        checkState(matchedOutputs.size() <= 1, "Ambiguous function calls in %s", windowNode);
+
+        if (matchedOutputs.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(matchedOutputs.get(0));
     }
 
     @Override
     public String toString()
     {
-        return callMaker.toString();
+        // Only include fields in the description if they are actual constraints.
+        return toStringHelper(this)
+                .omitNullValues()
+                .add("callMaker", callMaker)
+                .add("functionHandle", functionHandle.orElse(null))
+                .add("frameMaker", frameMaker.orElse(null))
+                .toString();
     }
 }

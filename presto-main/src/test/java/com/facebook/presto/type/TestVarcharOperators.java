@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -25,7 +26,6 @@ public class TestVarcharOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("'foo'", createVarcharType(3), "foo");
         assertFunction("'bar'", createVarcharType(3), "bar");
@@ -34,7 +34,6 @@ public class TestVarcharOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("VARCHAR 'foo'", VARCHAR, "foo");
         assertFunction("VARCHAR 'bar'", VARCHAR, "bar");
@@ -43,18 +42,17 @@ public class TestVarcharOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         // TODO change expected return type to createVarcharType(6) when function resolving is fixed
         assertFunction("'foo' || 'foo'", VARCHAR, "foo" + "foo");
         assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
         assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");
         assertFunction("'bar' || 'bar'", VARCHAR, "bar" + "bar");
+        assertFunction("'bar' || 'barbaz'", VARCHAR, "bar" + "barbaz");
     }
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("'foo' = 'foo'", BOOLEAN, true);
         assertFunction("'foo' = 'bar'", BOOLEAN, false);
@@ -64,7 +62,6 @@ public class TestVarcharOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("'foo' <> 'foo'", BOOLEAN, false);
         assertFunction("'foo' <> 'bar'", BOOLEAN, true);
@@ -74,7 +71,6 @@ public class TestVarcharOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("'foo' < 'foo'", BOOLEAN, false);
         assertFunction("'foo' < 'bar'", BOOLEAN, false);
@@ -84,7 +80,6 @@ public class TestVarcharOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("'foo' <= 'foo'", BOOLEAN, true);
         assertFunction("'foo' <= 'bar'", BOOLEAN, false);
@@ -94,7 +89,6 @@ public class TestVarcharOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("'foo' > 'foo'", BOOLEAN, false);
         assertFunction("'foo' > 'bar'", BOOLEAN, true);
@@ -104,7 +98,6 @@ public class TestVarcharOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("'foo' >= 'foo'", BOOLEAN, true);
         assertFunction("'foo' >= 'bar'", BOOLEAN, true);
@@ -114,7 +107,6 @@ public class TestVarcharOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("'foo' BETWEEN 'foo' AND 'foo'", BOOLEAN, true);
         assertFunction("'foo' BETWEEN 'foo' AND 'bar'", BOOLEAN, false);
@@ -131,12 +123,21 @@ public class TestVarcharOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS VARCHAR) IS DISTINCT FROM CAST(NULL AS VARCHAR)", BOOLEAN, false);
         assertFunction("'foo' IS DISTINCT FROM 'foo'", BOOLEAN, false);
         assertFunction("'foo' IS DISTINCT FROM 'fo0'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 'foo'", BOOLEAN, true);
         assertFunction("'foo' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as varchar)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "'foo'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(123456 as varchar)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(12345.0123 as varchar)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(true as varchar)", BOOLEAN, false);
     }
 }

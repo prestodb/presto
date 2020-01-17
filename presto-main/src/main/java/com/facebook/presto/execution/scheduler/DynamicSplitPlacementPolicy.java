@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 
 import java.util.List;
 import java.util.Set;
@@ -48,7 +48,7 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public List<Node> allNodes()
+    public List<InternalNode> allNodes()
     {
         return nodeSelector.allNodes();
     }

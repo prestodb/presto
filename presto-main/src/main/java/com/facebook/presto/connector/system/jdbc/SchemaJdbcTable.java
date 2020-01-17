@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -29,11 +29,12 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
-import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class SchemaJdbcTable
@@ -47,11 +48,13 @@ public class SchemaJdbcTable
             .build();
 
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public SchemaJdbcTable(Metadata metadata)
+    public SchemaJdbcTable(Metadata metadata, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata);
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -63,13 +66,12 @@ public class SchemaJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
-        Session session = toSession(transaction.getTransactionId(), connectorSession);
+        Session session = toSession(transactionHandle, connectorSession);
         Optional<String> catalogFilter = FilterUtil.stringFilter(constraint, 1);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(metadata.getCatalogNames(session).keySet(), catalogFilter)) {
-            for (String schema : metadata.listSchemaNames(session, catalog)) {
+        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+            for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);
             }
         }

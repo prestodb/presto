@@ -23,6 +23,8 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * An immutable representation of a host and port.
  * <p>
@@ -158,9 +160,7 @@ public class HostAddress
     @JsonCreator
     public static HostAddress fromString(String hostPortString)
     {
-        if (hostPortString == null) {
-            throw new NullPointerException("hostPortString is null");
-        }
+        requireNonNull(hostPortString, "hostPortString is null");
         String host;
         String portString = null;
 

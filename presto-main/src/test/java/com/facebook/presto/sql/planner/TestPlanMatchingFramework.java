@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -31,9 +31,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictOutput;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static org.testng.Assert.fail;
 
 public class TestPlanMatchingFramework
         extends BasePlanTest
@@ -44,7 +48,7 @@ public class TestPlanMatchingFramework
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
                 node(OutputNode.class,
                         node(TableScanNode.class).withAlias("ORDERKEY", columnReference("lineitem", "orderkey")))
-                .withOutputs(ImmutableList.of("ORDERKEY")));
+                        .withOutputs(ImmutableList.of("ORDERKEY")));
     }
 
     @Test
@@ -60,12 +64,25 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT extendedprice, orderkey, discount, orderkey, linenumber FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "ORDERKEY"),
-                        /*
-                         * This is a project node, but this gives us a convenient way to verify that
-                         * visitProject is correctly handled through an anyTree.
-                         */
-                        anyTree(
-                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))));
+    }
+
+    @Test
+    public void testStrictOutput()
+    {
+        assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                strictOutput(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
+                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                                "EXTENDEDPRICE", "extendedprice"))));
+    }
+
+    @Test
+    public void testStrictTableScan()
+    {
+        assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
+                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                                "EXTENDEDPRICE", "extendedprice"))));
     }
 
     @Test
@@ -92,6 +109,15 @@ public class TestPlanMatchingFramework
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
                         project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
+                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+    }
+
+    @Test
+    public void testStrictProject()
+    {
+        assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
+                        strictProject(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS BIGINT) + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -153,7 +179,7 @@ public class TestPlanMatchingFramework
                         values(ImmutableMap.of("VALUE", 0))));
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
+    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
     public void testAliasNonexistentColumn()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -161,7 +187,7 @@ public class TestPlanMatchingFramework
                         node(TableScanNode.class).withAlias("ORDERKEY", columnReference("lineitem", "NXCOLUMN"))));
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testReferenceNonexistentAlias()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -169,7 +195,50 @@ public class TestPlanMatchingFramework
                         tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))));
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
+    /*
+     * There are so many ways for matches to fail that this is not likely to be generally useful.
+     * Pending better diagnostics, please leave this here, and restrict its use to simple queries
+     * that have few ways to not match a pattern, and functionality that is well-tested with
+     * positive tests.
+     */
+    private void assertFails(Runnable runnable)
+    {
+        try {
+            runnable.run();
+            fail("Plans should not have matched!");
+        }
+        catch (AssertionError e) {
+            //ignored
+        }
+    }
+
+    @Test
+    public void testStrictOutputExtraSymbols()
+    {
+        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                strictOutput(ImmutableList.of("ORDERKEY"),
+                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                                "EXTENDEDPRICE", "extendedprice")))));
+    }
+
+    @Test
+    public void testStrictTableScanExtraSymbols()
+    {
+        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
+                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+    }
+
+    @Test
+    public void testStrictProjectExtraSymbols()
+    {
+        assertFails(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
+                        strictProject(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
+                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))));
+    }
+
+    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
     public void testDuplicateAliases()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
@@ -181,15 +250,7 @@ public class TestPlanMatchingFramework
                                         tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = ".*already bound in.*")
-    public void testBindMultipleAliasesSameExpression()
-    {
-        assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
-                output(ImmutableList.of("ORDERKEY", "TWO"),
-                        tableScan("lineitem", ImmutableMap.of("FIRST", "orderkey", "SECOND", "orderkey"))));
-    }
-
-    @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testProjectLimitsScope()
     {
         assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",

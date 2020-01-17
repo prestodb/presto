@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.util.PowerOfTwo;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -27,6 +27,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -34,35 +35,50 @@ import java.util.concurrent.TimeUnit;
         "task.max-memory",
         "task.http-notification-threads",
         "task.info-refresh-max-wait",
-        "task.operator-pre-allocated-memory"})
+        "task.operator-pre-allocated-memory",
+        "sink.new-implementation",
+        "task.legacy-scheduling-behavior",
+        "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
-    private boolean verboseStats;
+    private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
+    private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
+    private int minDriversPerTask = 3;
+    private int maxDriversPerTask = Integer.MAX_VALUE;
+    private int maxTasksPerStage = Integer.MAX_VALUE;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private boolean newSinkBufferImplementation;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration infoRefreshMaxWait = new Duration(0, TimeUnit.SECONDS);
+
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
+    private Integer partitionedWriterCount;
     private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
+    private int taskYieldThreads = 3;
+
+    private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    private boolean legacyLifespanCompletionCondition;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -95,15 +111,31 @@ public class TaskManagerConfig
         return this;
     }
 
-    public boolean isVerboseStats()
+    @NotNull
+    public Duration getInfoRefreshMaxWait()
     {
-        return verboseStats;
+        return infoRefreshMaxWait;
     }
 
-    @Config("task.verbose-stats")
-    public TaskManagerConfig setVerboseStats(boolean verboseStats)
+    @Config("experimental.task.info-update-refresh-max-wait")
+    @ConfigDescription("When this is set to non-zero, task info update request will be a long polling with " +
+            "given maximum update refresh wait time. This is an experimental config to reduce unnecessary task info update.")
+    public TaskManagerConfig setInfoRefreshMaxWait(Duration infoRefreshMaxWait)
     {
-        this.verboseStats = verboseStats;
+        this.infoRefreshMaxWait = infoRefreshMaxWait;
+        return this;
+    }
+
+    public boolean isPerOperatorCpuTimerEnabled()
+    {
+        return perOperatorCpuTimerEnabled;
+    }
+
+    @LegacyConfig("task.verbose-stats")
+    @Config("task.per-operator-cpu-timer-enabled")
+    public TaskManagerConfig setPerOperatorCpuTimerEnabled(boolean perOperatorCpuTimerEnabled)
+    {
+        this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         return this;
     }
 
@@ -119,6 +151,18 @@ public class TaskManagerConfig
         return this;
     }
 
+    public boolean isStatisticsCpuTimerEnabled()
+    {
+        return statisticsCpuTimerEnabled;
+    }
+
+    @Config("task.statistics-cpu-timer-enabled")
+    public TaskManagerConfig setStatisticsCpuTimerEnabled(boolean statisticsCpuTimerEnabled)
+    {
+        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        return this;
+    }
+
     @NotNull
     public DataSize getMaxPartialAggregationMemoryUsage()
     {
@@ -129,6 +173,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxLocalExchangeBufferSize()
+    {
+        return maxLocalExchangeBufferSize;
+    }
+
+    @Config("task.max-local-exchange-buffer-size")
+    public TaskManagerConfig setMaxLocalExchangeBufferSize(DataSize size)
+    {
+        this.maxLocalExchangeBufferSize = size;
         return this;
     }
 
@@ -155,6 +212,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setShareIndexLoading(boolean shareIndexLoading)
     {
         this.shareIndexLoading = shareIndexLoading;
+        return this;
+    }
+
+    public BigDecimal getLevelTimeMultiplier()
+    {
+        return levelTimeMultiplier;
+    }
+
+    @Config("task.level-time-multiplier")
+    @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
+    @Min(0)
+    public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
+    {
+        this.levelTimeMultiplier = levelTimeMultiplier;
         return this;
     }
 
@@ -217,6 +288,48 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Min(1)
+    public int getMaxDriversPerTask()
+    {
+        return maxDriversPerTask;
+    }
+
+    @Config("task.max-drivers-per-task")
+    @ConfigDescription("Maximum number of drivers a task can run")
+    public TaskManagerConfig setMaxDriversPerTask(int maxDriversPerTask)
+    {
+        this.maxDriversPerTask = maxDriversPerTask;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinDriversPerTask()
+    {
+        return minDriversPerTask;
+    }
+
+    @Config("task.min-drivers-per-task")
+    @ConfigDescription("Minimum number of drivers guaranteed to run per task given there is sufficient work to do")
+    public TaskManagerConfig setMinDriversPerTask(int minDriversPerTask)
+    {
+        this.minDriversPerTask = minDriversPerTask;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksPerStage()
+    {
+        return maxTasksPerStage;
+    }
+
+    @Config("stage.max-tasks-per-stage")
+    @ConfigDescription("Maximum number of tasks for a non source distributed stage")
+    public TaskManagerConfig setMaxTasksPerStage(int maxTasksPerStage)
+    {
+        this.maxTasksPerStage = maxTasksPerStage;
+        return this;
+    }
+
     @NotNull
     public DataSize getSinkMaxBufferSize()
     {
@@ -240,19 +353,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
     {
         this.maxPagePartitioningBufferSize = size;
-        return this;
-    }
-
-    public boolean isNewSinkBufferImplementation()
-    {
-        return newSinkBufferImplementation;
-    }
-
-    @Config("sink.new-implementation")
-    @ConfigDescription("Experimental: use new output buffer implementations")
-    public TaskManagerConfig setNewSinkBufferImplementation(boolean newSinkBufferImplementation)
-    {
-        this.newSinkBufferImplementation = newSinkBufferImplementation;
         return this;
     }
 
@@ -295,6 +395,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    @PowerOfTwo
+    public Integer getPartitionedWriterCount()
+    {
+        return partitionedWriterCount;
+    }
+
+    @Config("task.partitioned-writer-count")
+    @ConfigDescription("Number of writers per task for partitioned writes. If not set, the number set by task.writer-count will be used")
+    public TaskManagerConfig setPartitionedWriterCount(Integer partitionedWriterCount)
+    {
+        this.partitionedWriterCount = partitionedWriterCount;
         return this;
     }
 
@@ -350,6 +465,34 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
     {
         this.taskNotificationThreads = taskNotificationThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskYieldThreads()
+    {
+        return taskYieldThreads;
+    }
+
+    @Config("task.task-yield-threads")
+    @ConfigDescription("Number of threads used for setting yield signals")
+    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    {
+        this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyLifespanCompletionCondition()
+    {
+        return legacyLifespanCompletionCondition;
+    }
+
+    @Deprecated
+    @Config("task.legacy-lifespan-completion-condition")
+    public TaskManagerConfig setLegacyLifespanCompletionCondition(boolean legacyLifespanCompletionCondition)
+    {
+        this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
         return this;
     }
 }

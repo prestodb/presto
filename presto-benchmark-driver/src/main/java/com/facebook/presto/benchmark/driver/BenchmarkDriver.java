@@ -50,7 +50,6 @@ public class BenchmarkDriver
     }
 
     public void run(Suite suite)
-            throws Exception
     {
         // select queries to run
         List<BenchmarkQuery> queries = suite.selectQueries(this.queries);
@@ -61,7 +60,9 @@ public class BenchmarkDriver
         Map<String, String> properties = new HashMap<>();
         properties.putAll(clientSession.getProperties());
         properties.putAll(suite.getSessionProperties());
-        ClientSession session = ClientSession.withProperties(clientSession, properties);
+        ClientSession session = ClientSession.builder(clientSession)
+                .withProperties(properties)
+                .build();
 
         // select schemas to use
         List<BenchmarkSchema> benchmarkSchemas;
@@ -78,7 +79,10 @@ public class BenchmarkDriver
 
         for (BenchmarkSchema benchmarkSchema : benchmarkSchemas) {
             for (BenchmarkQuery benchmarkQuery : queries) {
-                session = ClientSession.withCatalogAndSchema(session, session.getCatalog(), benchmarkSchema.getName());
+                session = ClientSession.builder(session)
+                        .withCatalog(session.getCatalog())
+                        .withSchema(benchmarkSchema.getName())
+                        .build();
                 BenchmarkQueryResult result = queryRunner.execute(suite, session, benchmarkQuery);
 
                 resultsStore.store(benchmarkSchema, result);

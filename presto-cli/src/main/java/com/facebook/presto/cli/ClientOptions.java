@@ -14,27 +14,29 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
-import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.units.Duration;
 
-import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
+import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -42,11 +44,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClientOptions
 {
+    private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
+    private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
+
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
-
-    @Option(name = "--enable-authentication", title = "enable authentication", description = "Enable client authentication")
-    public boolean authenticationEnabled;
 
     @Option(name = "--krb5-remote-service-name", title = "krb5 remote service name", description = "Remote peer's kerberos service name")
     public String krb5RemoteServiceName;
@@ -58,7 +60,7 @@ public class ClientOptions
     public String krb5KeytabPath = "/etc/krb5.keytab";
 
     @Option(name = "--krb5-credential-cache-path", title = "krb5 credential cache path", description = "Kerberos credential cache path")
-    public String krb5CredentialCachePath = defaultCredentialCachePath();
+    public String krb5CredentialCachePath = defaultCredentialCachePath().orElse(null);
 
     @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
     public String krb5Principal;
@@ -78,11 +80,23 @@ public class ClientOptions
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
 
+    @Option(name = "--access-token", title = "access token", description = "Access token")
+    public String accessToken;
+
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 
+    @Option(name = "--password", title = "password", description = "Prompt for password")
+    public boolean password;
+
     @Option(name = "--source", title = "source", description = "Name of source making query")
     public String source = "presto-cli";
+
+    @Option(name = "--client-info", title = "client-info", description = "Extra information about client making query")
+    public String clientInfo;
+
+    @Option(name = "--client-tags", title = "client tags", description = "Client tags")
+    public String clientTags = "";
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog;
@@ -105,14 +119,26 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
+    @Option(name = "--resource-estimate", title = "resource-estimate", description = "Resource estimate (property can be used multiple times; format is key=value)")
+    public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
+
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+
+    @Option(name = "--extra-credential", title = "extra-credential", description = "Extra credentials (property can be used multiple times; format is key=value)")
+    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
 
+    @Option(name = "--http-proxy", title = "http-proxy", description = "HTTP proxy to use for server connections")
+    public HostAndPort httpProxy;
+
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
+
+    @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
+    public boolean ignoreErrors;
 
     public enum OutputFormat
     {
@@ -131,31 +157,20 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
+                Optional.empty(),
+                parseClientTags(clientTags),
+                clientInfo,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
+                toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),
                 emptyMap(),
+                emptyMap(),
+                toExtraCredentials(extraCredentials),
                 null,
-                debug,
                 clientRequestTimeout);
-    }
-
-    public KerberosConfig toKerberosConfig()
-    {
-        KerberosConfig config = new KerberosConfig();
-        if (krb5ConfigPath != null) {
-            config.setConfig(new File(krb5ConfigPath));
-        }
-        if (krb5KeytabPath != null) {
-            config.setKeytab(new File(krb5KeytabPath));
-        }
-        if (krb5CredentialCachePath != null) {
-            config.setCredentialCache(new File(krb5CredentialCachePath));
-        }
-        config.setUseCanonicalHostname(!krb5DisableRemoteServiceHostnameCanonicalization);
-        return config;
     }
 
     public static URI parseServer(String server)
@@ -167,11 +182,17 @@ public class ClientOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
+            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public static Set<String> parseClientTags(String clientTagsString)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(clientTagsString)));
     }
 
     public static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
@@ -187,18 +208,89 @@ public class ClientOptions
         return builder.build();
     }
 
-    private static String defaultCredentialCachePath()
+    public static Map<String, String> toResourceEstimates(List<ClientResourceEstimate> estimates)
     {
-        String value = System.getenv("KRB5CCNAME");
-        if (value != null && value.startsWith("FILE:")) {
-            return value.substring("FILE:".length());
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ClientResourceEstimate estimate : estimates) {
+            builder.put(estimate.getResource(), estimate.getEstimate());
         }
-        return value;
+        return builder.build();
+    }
+
+    public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ClientExtraCredential credential : extraCredentials) {
+            builder.put(credential.getName(), credential.getValue());
+        }
+        return builder.build();
+    }
+
+    public static final class ClientResourceEstimate
+    {
+        private final String resource;
+        private final String estimate;
+
+        public ClientResourceEstimate(String resourceEstimate)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(resourceEstimate);
+            checkArgument(nameValue.size() == 2, "Resource estimate: %s", resourceEstimate);
+
+            this.resource = nameValue.get(0);
+            this.estimate = nameValue.get(1);
+            checkArgument(!resource.isEmpty(), "Resource name is empty");
+            checkArgument(!estimate.isEmpty(), "Resource estimate is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not US_ASCII: %s", resource);
+            checkArgument(resource.indexOf('=') < 0, "Resource must not contain '=': %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not US_ASCII: %s", resource);
+        }
+
+        @VisibleForTesting
+        public ClientResourceEstimate(String resource, String estimate)
+        {
+            this.resource = requireNonNull(resource, "resource is null");
+            this.estimate = estimate;
+        }
+
+        public String getResource()
+        {
+            return resource;
+        }
+
+        public String getEstimate()
+        {
+            return estimate;
+        }
+
+        @Override
+        public String toString()
+        {
+            return resource + '=' + estimate;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientResourceEstimate other = (ClientResourceEstimate) o;
+            return Objects.equals(resource, other.resource) &&
+                    Objects.equals(estimate, other.estimate);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(resource, estimate);
+        }
     }
 
     public static final class ClientSessionProperty
     {
-        private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
         private static final Splitter NAME_SPLITTER = Splitter.on('.');
         private final Optional<String> catalog;
         private final String name;
@@ -237,13 +329,11 @@ public class ClientOptions
         {
             checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
             checkArgument(!name.isEmpty(), "Session property name is empty");
-
-            CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
             checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
-            checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not US_ASCII: %s", value);
         }
 
         public Optional<String> getCatalog()
@@ -286,6 +376,67 @@ public class ClientOptions
             return Objects.equals(this.catalog, other.catalog) &&
                     Objects.equals(this.name, other.name) &&
                     Objects.equals(this.value, other.value);
+        }
+    }
+
+    public static final class ClientExtraCredential
+    {
+        private final String name;
+        private final String value;
+
+        public ClientExtraCredential(String extraCredential)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(extraCredential);
+            checkArgument(nameValue.size() == 2, "Extra credential: %s", extraCredential);
+
+            this.name = nameValue.get(0);
+            this.value = nameValue.get(1);
+            checkArgument(!name.isEmpty(), "Credential name is empty");
+            checkArgument(!value.isEmpty(), "Credential value is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(name.indexOf('=') < 0, "Credential name must not contain '=': %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not US_ASCII: %s", name);
+        }
+
+        public ClientExtraCredential(String name, String value)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.value = value;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + '=' + value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientExtraCredential other = (ClientExtraCredential) o;
+            return Objects.equals(name, other.name) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, value);
         }
     }
 }

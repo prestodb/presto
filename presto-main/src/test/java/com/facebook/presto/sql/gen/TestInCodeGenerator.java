@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -24,7 +23,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -34,7 +34,7 @@ import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.D
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
@@ -42,64 +42,56 @@ public class TestInCodeGenerator
     @Test
     public void testInteger()
     {
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression(Integer.MIN_VALUE, INTEGER));
-        values.add(new ConstantExpression(Integer.MAX_VALUE, INTEGER));
-        values.add(new ConstantExpression(3, INTEGER));
+        values.add(constant((long) Integer.MIN_VALUE, INTEGER));
+        values.add(constant((long) Integer.MAX_VALUE, INTEGER));
+        values.add(constant(3L, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(null, INTEGER));
+        values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        INTEGER.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                CAST.name(),
+                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
-                Collections.singletonList(new ConstantExpression(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        for  (int i = 6; i <= 32; ++i) {
-            values.add(new ConstantExpression(i, INTEGER));
+        for (int i = 6; i <= 32; ++i) {
+            values.add(constant((long) i, INTEGER));
         }
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(33, INTEGER));
+        values.add(constant(33L, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
     }
 
     @Test
     public void testBigint()
     {
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression(Integer.MAX_VALUE + 1L, BIGINT));
-        values.add(new ConstantExpression(Integer.MIN_VALUE - 1L, BIGINT));
-        values.add(new ConstantExpression(3L, BIGINT));
+        values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
+        values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
+        values.add(constant(3L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(null, BIGINT));
+        values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()
-                ),
+                CAST.name(),
+                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
-                Collections.singletonList(new ConstantExpression(12345678901234.0, DOUBLE))
-        ));
+                Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for  (long i = 6; i <= 32; ++i) {
-            values.add(new ConstantExpression(i, BIGINT));
+        for (long i = 6; i <= 32; ++i) {
+            values.add(constant(i, BIGINT));
         }
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(33L, BIGINT));
+        values.add(constant(33L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 
@@ -107,17 +99,17 @@ public class TestInCodeGenerator
     public void testDate()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression(1L, DATE));
-        values.add(new ConstantExpression(2L, DATE));
-        values.add(new ConstantExpression(3L, DATE));
+        values.add(constant(1L, DATE));
+        values.add(constant(2L, DATE));
+        values.add(constant(3L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        for  (long i = 4; i <= 32; ++i) {
-            values.add(new ConstantExpression(i, DATE));
+        for (long i = 4; i <= 32; ++i) {
+            values.add(constant(i, DATE));
         }
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(33L, DATE));
+        values.add(constant(33L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), SET_CONTAINS);
     }
 
@@ -125,20 +117,20 @@ public class TestInCodeGenerator
     public void testDouble()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression(1.5, DOUBLE));
-        values.add(new ConstantExpression(2.5, DOUBLE));
-        values.add(new ConstantExpression(3.5, DOUBLE));
+        values.add(constant(1.5, DOUBLE));
+        values.add(constant(2.5, DOUBLE));
+        values.add(constant(3.5, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(null, DOUBLE));
+        values.add(constant(null, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 32; ++i) {
-            values.add(new ConstantExpression(i + 0.5, DOUBLE));
+        for (int i = 5; i <= 32; ++i) {
+            values.add(constant(i + 0.5, DOUBLE));
         }
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(33.5, DOUBLE));
+        values.add(constant(33.5, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), SET_CONTAINS);
     }
 
@@ -146,20 +138,20 @@ public class TestInCodeGenerator
     public void testVarchar()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(new ConstantExpression(Slices.utf8Slice("1"), DOUBLE));
-        values.add(new ConstantExpression(Slices.utf8Slice("2"), DOUBLE));
-        values.add(new ConstantExpression(Slices.utf8Slice("3"), DOUBLE));
+        values.add(constant(Slices.utf8Slice("1"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("2"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("3"), VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(null, VARCHAR));
+        values.add(constant(null, VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 32; ++i) {
-            values.add(new ConstantExpression(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
+        for (int i = 5; i <= 32; ++i) {
+            values.add(constant(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
         }
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(Slices.utf8Slice("33"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("33"), VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), SET_CONTAINS);
     }
 }

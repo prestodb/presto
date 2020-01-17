@@ -15,15 +15,16 @@ package com.facebook.presto.atop;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static java.lang.String.format;
@@ -35,7 +36,7 @@ public class TestingAtopFactory
     @Override
     public Atop create(AtopTable table, ZonedDateTime date)
     {
-        InputStream data = TestingAtopFactory.class.getResourceAsStream(table.name().toLowerCase() + ".txt");
+        InputStream data = TestingAtopFactory.class.getResourceAsStream(table.name().toLowerCase(Locale.ENGLISH) + ".txt");
         requireNonNull(data, format("No data found for %s", table));
         return new TestingAtop(data, date);
     }
@@ -100,7 +101,7 @@ public class TestingAtopFactory
                 reader.close();
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
     }

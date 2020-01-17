@@ -18,24 +18,33 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public final class Failures
 {
@@ -50,26 +59,7 @@ public final class Failures
 
     public static ExecutionFailureInfo toFailure(Throwable failure)
     {
-        if (failure == null) {
-            return null;
-        }
-        // todo prevent looping with suppressed cause loops and such
-        String type;
-        if (failure instanceof Failure) {
-            type = ((Failure) failure).getType();
-        }
-        else {
-            Class<?> clazz = failure.getClass();
-            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
-        }
-
-        return new ExecutionFailureInfo(type,
-                failure.getMessage(),
-                toFailure(failure.getCause()),
-                toFailures(asList(failure.getSuppressed())),
-                Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
-                getErrorLocation(failure),
-                toErrorCode(failure));
+        return toFailure(failure, newIdentityHashSet());
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
@@ -84,6 +74,54 @@ public final class Failures
         return failures.stream()
                 .map(Failures::toFailure)
                 .collect(toImmutableList());
+    }
+
+    private static ExecutionFailureInfo toFailure(Throwable throwable, Set<Throwable> seenFailures)
+    {
+        if (throwable == null) {
+            return null;
+        }
+
+        String type;
+        HostAddress remoteHost = null;
+        if (throwable instanceof Failure) {
+            type = ((Failure) throwable).getType();
+        }
+        else {
+            Class<?> clazz = throwable.getClass();
+            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+        }
+        if (throwable instanceof PrestoTransportException) {
+            remoteHost = ((PrestoTransportException) throwable).getRemoteHost();
+        }
+
+        if (seenFailures.contains(throwable)) {
+            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost);
+        }
+        seenFailures.add(throwable);
+
+        ExecutionFailureInfo cause = toFailure(throwable.getCause(), seenFailures);
+        ErrorCode errorCode = toErrorCode(throwable);
+        if (errorCode == null) {
+            if (cause == null) {
+                errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
+            }
+            else {
+                errorCode = cause.getErrorCode();
+            }
+        }
+
+        return new ExecutionFailureInfo(
+                type,
+                throwable.getMessage(),
+                cause,
+                Arrays.stream(throwable.getSuppressed())
+                        .map(failure -> toFailure(failure, seenFailures))
+                        .collect(toImmutableList()),
+                Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
+                getErrorLocation(throwable),
+                errorCode,
+                remoteHost);
     }
 
     @Nullable
@@ -105,11 +143,9 @@ public final class Failures
     }
 
     @Nullable
-    private static ErrorCode toErrorCode(@Nullable Throwable throwable)
+    private static ErrorCode toErrorCode(Throwable throwable)
     {
-        if (throwable == null) {
-            return null;
-        }
+        requireNonNull(throwable);
 
         if (throwable instanceof PrestoException) {
             return ((PrestoException) throwable).getErrorCode();
@@ -120,9 +156,13 @@ public final class Failures
         if (throwable instanceof ParsingException || throwable instanceof SemanticException) {
             return SYNTAX_ERROR.toErrorCode();
         }
-        if (throwable.getCause() != null) {
-            return toErrorCode(throwable.getCause());
-        }
-        return GENERIC_INTERNAL_ERROR.toErrorCode();
+        return null;
+    }
+
+    public static PrestoException internalError(Throwable t)
+    {
+        throwIfInstanceOf(t, Error.class);
+        throwIfInstanceOf(t, PrestoException.class);
+        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }

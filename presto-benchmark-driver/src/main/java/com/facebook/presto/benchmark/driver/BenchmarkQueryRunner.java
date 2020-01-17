@@ -13,38 +13,43 @@
  */
 package com.facebook.presto.benchmark.driver;
 
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceDescriptorsRepresentation;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpClientConfig;
+import com.facebook.airlift.http.client.JsonResponseHandler;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceDescriptorsRepresentation;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.JsonResponseHandler;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
+import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
+import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -59,8 +64,8 @@ public class BenchmarkQueryRunner
     private final int maxFailures;
 
     private final HttpClient httpClient;
+    private final OkHttpClient okHttpClient;
     private final List<URI> nodes;
-    private final JsonCodec<QueryResults> queryResultsCodec;
 
     private int failures;
 
@@ -77,8 +82,6 @@ public class BenchmarkQueryRunner
 
         this.debug = debug;
 
-        this.queryResultsCodec = jsonCodec(QueryResults.class);
-
         requireNonNull(socksProxy, "socksProxy is null");
         HttpClientConfig httpClientConfig = new HttpClientConfig();
         if (socksProxy.isPresent()) {
@@ -86,6 +89,11 @@ public class BenchmarkQueryRunner
         }
 
         this.httpClient = new JettyHttpClient(httpClientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        setupCookieJar(builder);
+        setupSocksProxy(builder, socksProxy);
+        this.okHttpClient = builder.build();
 
         nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"));
     }
@@ -148,75 +156,77 @@ public class BenchmarkQueryRunner
     {
         failures = 0;
         while (true) {
-            // start query
-            StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, "show schemas");
-
-            // read query output
             ImmutableList.Builder<String> schemas = ImmutableList.builder();
-            while (client.isValid() && client.advance()) {
-                // we do not process the output
-                Iterable<List<Object>> data = client.current().getData();
-                if (data != null) {
-                    for (List<Object> objects : data) {
-                        schemas.add(objects.get(0).toString());
-                    }
-                }
+            AtomicBoolean success = new AtomicBoolean(true);
+            execute(
+                    session,
+                    "show schemas",
+                    queryData -> {
+                        if (queryData.getData() != null) {
+                            for (List<Object> objects : queryData.getData()) {
+                                schemas.add(objects.get(0).toString());
+                            }
+                        }
+                    },
+                    queryError -> {
+                        success.set(false);
+                        handleFailure(getCause(queryError));
+                    });
+            if (success.get()) {
+                return schemas.build();
             }
-
-            // verify final state
-            if (client.isClosed()) {
-                throw new IllegalStateException("Query aborted by user");
-            }
-
-            if (client.isGone()) {
-                throw new IllegalStateException("Query is gone (server restarted?)");
-            }
-
-            QueryError resultsError = client.finalResults().getError();
-            if (resultsError != null) {
-                RuntimeException cause = null;
-                if (resultsError.getFailureInfo() != null) {
-                    cause = resultsError.getFailureInfo().toException();
-                }
-                handleFailure(cause);
-
-                continue;
-            }
-
-            return schemas.build();
         }
     }
 
     private StatementStats execute(ClientSession session, String name, String query)
     {
+        return execute(
+                session,
+                query,
+                queryData -> {}, // we do not process the output
+                resultsError -> {
+                    throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), getCause(resultsError));
+                });
+    }
+
+    private static RuntimeException getCause(QueryError queryError)
+    {
+        if (queryError.getFailureInfo() != null) {
+            return queryError.getFailureInfo().toException();
+        }
+        return null;
+    }
+
+    private StatementStats execute(ClientSession session, String query, Consumer<QueryData> queryDataConsumer, Consumer<QueryError> queryErrorConsumer)
+    {
         // start query
-        StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
+        try (StatementClient client = newStatementClient(okHttpClient, session, query)) {
+            // read query output
+            while (client.isRunning()) {
+                queryDataConsumer.accept(client.currentData());
 
-        // read query output
-        while (client.isValid() && client.advance()) {
-            // we do not process the output
-        }
-
-        // verify final state
-        if (client.isClosed()) {
-            throw new IllegalStateException("Query aborted by user");
-        }
-
-        if (client.isGone()) {
-            throw new IllegalStateException("Query is gone (server restarted?)");
-        }
-
-        QueryError resultsError = client.finalResults().getError();
-        if (resultsError != null) {
-            RuntimeException cause = null;
-            if (resultsError.getFailureInfo() != null) {
-                cause = resultsError.getFailureInfo().toException();
+                if (!client.advance()) {
+                    break;
+                }
             }
 
-            throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), cause);
-        }
+            // verify final state
+            if (client.isClientAborted()) {
+                throw new IllegalStateException("Query aborted by user");
+            }
 
-        return client.finalResults().getStats();
+            if (client.isClientError()) {
+                throw new IllegalStateException("Query is gone (server restarted?)");
+            }
+
+            verify(client.isFinished());
+            QueryError resultsError = client.finalStatusInfo().getError();
+            if (resultsError != null) {
+                queryErrorConsumer.accept(resultsError);
+            }
+
+            return client.finalStatusInfo().getStats();
+        }
     }
 
     @Override
@@ -246,7 +256,7 @@ public class BenchmarkQueryRunner
         }
         catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
-            throw Throwables.propagate(interruptedException);
+            throw new RuntimeException(interruptedException);
         }
     }
 

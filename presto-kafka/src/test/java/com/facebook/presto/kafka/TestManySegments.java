@@ -35,7 +35,7 @@ import java.util.UUID;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestManySegments
@@ -81,6 +81,7 @@ public class TestManySegments
             throws Exception
     {
         embeddedKafka.close();
+        embeddedKafka = null;
     }
 
     @BeforeMethod
@@ -97,14 +98,13 @@ public class TestManySegments
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
     public void testManySegments()
-            throws Exception
     {
         MaterializedResult result = queryRunner.execute("SELECT count(_message) from " + topicName);
 

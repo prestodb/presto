@@ -14,30 +14,38 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -50,9 +58,9 @@ public final class TypeValidator
     public TypeValidator() {}
 
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, sqlParser, types), null);
+        plan.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
     }
 
     private static class Visitor
@@ -61,14 +69,16 @@ public final class TypeValidator
         private final Session session;
         private final Metadata metadata;
         private final SqlParser sqlParser;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
+        private final WarningCollector warningCollector;
 
-        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.types = requireNonNull(types, "types is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
@@ -80,11 +90,11 @@ public final class TypeValidator
 
             switch (step) {
                 case SINGLE:
-                    checkFunctionSignature(node.getFunctions());
-                    checkFunctionCall(node.getAggregations());
+                    checkFunctionSignature(node.getAggregations());
+                    checkAggregation(node.getAggregations());
                     break;
                 case FINAL:
-                    checkFunctionSignature(node.getFunctions());
+                    checkFunctionSignature(node.getAggregations());
                     break;
             }
 
@@ -106,15 +116,22 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Type expectedType = types.get(entry.getKey());
-                if (entry.getValue() instanceof SymbolReference) {
-                    SymbolReference symbolReference = (SymbolReference) entry.getValue();
-                    verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
-                    continue;
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
+                RowExpression expression = entry.getValue();
+                if (isExpression(expression)) {
+                    if (castToExpression(expression) instanceof SymbolReference) {
+                        SymbolReference symbolReference = (SymbolReference) castToExpression(expression);
+                        verifyTypeSignature(entry.getKey(), types.get(symbolReference).getTypeSignature());
+                        continue;
+                    }
+                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, castToExpression(expression), emptyList(), warningCollector);
+                    Type actualType = expressionTypes.get(NodeRef.of(castToExpression(expression)));
+                    verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
                 }
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */).get(entry.getValue());
-                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
+                else {
+                    Type actualType = expression.getType();
+                    verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
+                }
             }
 
             return null;
@@ -125,63 +142,79 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
-            for (Symbol keySymbol : symbolMapping.keySet()) {
-                List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
-                Type expectedType = types.get(keySymbol);
-                for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), types.get(valueSymbol).getTypeSignature());
+            for (VariableReferenceExpression keyVariable : node.getOutputVariables()) {
+                List<VariableReferenceExpression> valueVariables = node.getVariableMapping().get(keyVariable);
+                for (VariableReferenceExpression valueVariable : valueVariables) {
+                    verifyTypeSignature(keyVariable, valueVariable.getType().getTypeSignature());
                 }
             }
 
             return null;
         }
 
-        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
+        private void checkWindowFunctions(Map<VariableReferenceExpression, WindowNode.Function> functions)
         {
-            for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
-                Signature signature = entry.getValue().getSignature();
-                FunctionCall call = entry.getValue().getFunctionCall();
+            for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : functions.entrySet()) {
+                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
+                CallExpression call = entry.getValue().getFunctionCall();
 
-                checkSignature(entry.getKey(), signature);
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
 
-        private void checkSignature(Symbol symbol, Signature signature)
+        private void checkCall(VariableReferenceExpression variable, CallExpression call)
         {
-            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            TypeSignature actualTypeSignature = signature.getReturnType();
-            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
+            Type actualType = call.getType();
+            verifyTypeSignature(variable, actualType.getTypeSignature());
         }
 
-        private void checkCall(Symbol symbol, FunctionCall call)
+        private void checkFunctionSignature(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            Type expectedType = types.get(symbol);
-            Type actualType = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */).get(call);
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
-        }
-
-        private void checkFunctionSignature(Map<Symbol, Signature> functions)
-        {
-            for (Map.Entry<Symbol, Signature> entry : functions.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue());
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 
-        private void checkFunctionCall(Map<Symbol, FunctionCall> functionCalls)
+        private void checkAggregation(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, FunctionCall> entry : functionCalls.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue());
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
+                Aggregation aggregation = entry.getValue();
+                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                verifyTypeSignature(
+                        variable,
+                        functionMetadata.getReturnType());
+                verifyTypeSignature(
+                        variable,
+                        aggregation.getCall().getType().getTypeSignature());
+                int argumentSize = aggregation.getArguments().size();
+                int expectedArgumentSize = functionMetadata.getArgumentTypes().size();
+                checkArgument(argumentSize == functionMetadata.getArgumentTypes().size(),
+                        "Number of arguments is different from function signature: expected %s but got %s", expectedArgumentSize, argumentSize);
+                List<TypeSignature> argumentTypes = aggregation.getArguments()
+                        .stream()
+                        .map(argument -> isExpression(argument) ?
+                                UNKNOWN.getTypeSignature() : argument.getType().getTypeSignature())
+                        .collect(toImmutableList());
+                for (int i = 0; i < functionMetadata.getArgumentTypes().size(); i++) {
+                    TypeSignature expected = functionMetadata.getArgumentTypes().get(i);
+                    TypeSignature actual = argumentTypes.get(i);
+                    TypeManager typeManager = metadata.getTypeManager();
+                    if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
+                        checkArgument(expected.equals(actual),
+                                "Expected input types are %s but getting %s", functionMetadata.getArgumentTypes(), argumentTypes);
+                    }
+                }
             }
         }
 
-        private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
+        private void verifyTypeSignature(VariableReferenceExpression variable, TypeSignature actual)
         {
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
             TypeManager typeManager = metadata.getTypeManager();
-            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
-                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
+            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), variable.getType())) {
+                checkArgument(variable.getType().getTypeSignature().equals(actual), "type of variable '%s' is expected to be %s, but the actual type is %s", variable.getName(), variable.getType(), actual);
             }
         }
     }

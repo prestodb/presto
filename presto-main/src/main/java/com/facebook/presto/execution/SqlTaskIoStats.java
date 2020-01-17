@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

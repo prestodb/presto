@@ -13,36 +13,36 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.dbpool.H2EmbeddedDataSourceModule;
+import com.facebook.airlift.dbpool.MySqlDataSource;
+import com.facebook.airlift.dbpool.MySqlDataSourceConfig;
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.testing.StaticServiceSelector;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.dbpool.H2EmbeddedDataSourceModule;
-import io.airlift.dbpool.MySqlDataSource;
-import io.airlift.dbpool.MySqlDataSourceConfig;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
+import javax.inject.Inject;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.sql.DataSource;
 
 import java.lang.reflect.Type;
 
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static java.util.Objects.requireNonNull;
 
 public class DatabaseMetadataModule

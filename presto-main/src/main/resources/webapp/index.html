@@ -18,16 +18,6 @@
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
 
-    <!-- React (comment out for development)-->
-    <script src="vendor/react/react-15.0.1.min.js"></script>
-    <script src="vendor/react/react-dom-15.0.1.min.js"></script>
-
-    <!-- React (uncomment for development)-->
-    <!--
-    <script src="vendor/react/react-15.0.1.js"></script>
-    <script src="vendor/react/react-dom-15.0.1.js"></script>
-    -->
-
     <!-- jQuery -->
     <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
 
@@ -42,46 +32,12 @@
 
     <!-- Custom CSS -->
     <link href="assets/presto.css" rel="stylesheet">
-
-    <!-- Custom JS -->
-    <script type="text/javascript" src="assets/utils.js"></script>
 </head>
 
 <body>
 
 <div class="container">
-    <nav class="navbar">
-        <div class="container-fluid">
-            <div class="navbar-header">
-                <table>
-                    <tr>
-                        <td>
-                            <a href="/"><img src="assets/logo.png"/></a>
-                        </td>
-                        <td>
-                            <span class="navbar-brand">Cluster Overview</span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            <div id="navbar" class="navbar-collapse collapse">
-                <ul class="nav navbar-nav navbar-right">
-                    <li>
-                        <span class="navbar-cluster-info">
-                            Version <br/>
-                            <span class="text" id="version-number">...</span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="navbar-cluster-info">
-                            Environment <br/>
-                            <span class="text" id="environment">...</span>
-                        </span>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <div id="title"></div>
 
     <div class="hud-container">
         <div id="cluster-hud">
@@ -98,17 +54,10 @@
 
 </div> <!-- /container -->
 
+<script type="text/javascript" src="dist/index.js"></script>
 
-<script type="text/javascript">
-    $.get("/v1/info", function (info) {
-        $('#version-number').text(info.nodeVersion.version);
-        $('#environment').text(info.environment);
-    });
-</script>
-
-<script src="vendor/react/browser.min.js"></script>
-<script type="text/babel" src="assets/cluster-hud.js"></script>
-<script type="text/babel" src="assets/query-list.js"></script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
 
 </body>
 </html>

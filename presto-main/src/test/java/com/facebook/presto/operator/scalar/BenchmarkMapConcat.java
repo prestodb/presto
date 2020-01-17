@@ -13,29 +13,21 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.InterleavedBlock;
-import com.facebook.presto.spi.block.SliceArrayBlock;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.MapType;
+import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,15 +46,20 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -78,17 +75,14 @@ public class BenchmarkMapConcat
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public Object mapConcat(BenchmarkData data)
-            throws Throwable
+    public List<Optional<Page>> mapConcat(BenchmarkData data)
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -100,15 +94,14 @@ public class BenchmarkMapConcat
         @Param({"left_empty", "right_empty", "both_empty", "non_empty"})
         private String mapConfig = "left_empty";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
 
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            ExpressionCompiler compiler = new ExpressionCompiler(metadata);
+            MetadataManager metadata = createTestMetadataManager();
+            ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> leftKeys;
             List<String> rightKeys;
@@ -133,32 +126,27 @@ public class BenchmarkMapConcat
                     throw new UnsupportedOperationException();
             }
 
-            MapType mapType = new MapType(createUnboundedVarcharType(), DOUBLE);
+            MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);
 
             Block leftKeyBlock = createKeyBlock(POSITIONS, leftKeys);
             Block leftValueBlock = createValueBlock(POSITIONS, leftKeys.size());
-            Block leftBlock = createMapBlock(POSITIONS, leftKeyBlock, leftValueBlock);
+            Block leftBlock = createMapBlock(mapType, POSITIONS, leftKeyBlock, leftValueBlock);
 
             Block rightKeyBlock = createKeyBlock(POSITIONS, rightKeys);
             Block rightValueBlock = createValueBlock(POSITIONS, rightKeys.size());
-            Block rightBlock = createMapBlock(POSITIONS, rightKeyBlock, rightValueBlock);
+            Block rightBlock = createMapBlock(mapType, POSITIONS, rightKeyBlock, rightValueBlock);
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature());
+            FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(name, fromTypes(mapType, mapType));
             projectionsBuilder.add(new CallExpression(
-                    signature,
+                    name,
+                    functionHandle,
                     mapType,
-                    ImmutableList.of(new InputReferenceExpression(0, mapType), new InputReferenceExpression(1, mapType))));
+                    ImmutableList.of(field(0, mapType), field(1, mapType))));
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(leftBlock, rightBlock);
         }
 
@@ -172,20 +160,14 @@ public class BenchmarkMapConcat
             return page;
         }
 
-        public PageBuilder getPageBuilder()
+        private static Block createMapBlock(MapType mapType, int positionCount, Block keyBlock, Block valueBlock)
         {
-            return pageBuilder;
-        }
-
-        private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
-        {
-            InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[]{keyBlock, valueBlock});
             int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
             for (int i = 0; i < offsets.length; i++) {
-                offsets[i] = mapSize * 2 * i;
+                offsets[i] = mapSize * i;
             }
-            return new ArrayBlock(positionCount, new boolean[positionCount], offsets, interleavedBlock);
+            return mapType.createBlockFromKeyValue(positionCount, Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)
@@ -195,12 +177,12 @@ public class BenchmarkMapConcat
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(keyDictionaryBlock, keyIds);
         }
 
         private static Block createValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextDouble());
             }
@@ -214,7 +196,7 @@ public class BenchmarkMapConcat
             for (int i = 0; i < keys.size(); i++) {
                 sliceArray[i] = utf8Slice(keys.get(i));
             }
-            return new SliceArrayBlock(sliceArray.length, sliceArray);
+            return createSlicesBlock(sliceArray);
         }
     }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.mongodb.MongoIndex.MongodbIndexKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -33,10 +34,11 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -46,7 +48,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.mongodb.TypeUtils.checkType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +110,7 @@ public class MongoMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -135,17 +136,24 @@ public class MongoMetadata
         return columns.build();
     }
 
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (prefix.getTableName() == null) {
+            return listTables(session, prefix.getSchemaName());
+        }
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+    }
+
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, MongoTableHandle.class, "tableHandle");
-        return checkType(columnHandle, MongoColumnHandle.class, "columnHandle").toColumnMetadata();
+        return ((MongoColumnHandle) columnHandle).toColumnMetadata();
     }
 
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        MongoTableHandle tableHandle = checkType(table, MongoTableHandle.class, "table");
+        MongoTableHandle tableHandle = (MongoTableHandle) table;
 
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty(); //TODO: sharding key
         ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
@@ -179,7 +187,7 @@ public class MongoMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        MongoTableLayoutHandle layout = checkType(handle, MongoTableLayoutHandle.class, "layout");
+        MongoTableLayoutHandle layout = (MongoTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
         return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
@@ -188,7 +196,7 @@ public class MongoMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
     }
@@ -196,7 +204,7 @@ public class MongoMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
 
         mongoSession.dropTable(table.getSchemaTableName());
     }
@@ -222,20 +230,27 @@ public class MongoMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         clearRollback();
+        return Optional.empty();
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
         return new MongoInsertTableHandle(
                 table.getSchemaTableName(),
                 columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
     }
 
     private void setRollback(Runnable action)
@@ -255,7 +270,7 @@ public class MongoMetadata
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, MongoTableHandle.class, "tableHandle").getSchemaTableName();
+        return ((MongoTableHandle) tableHandle).getSchemaTableName();
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
@@ -277,14 +292,6 @@ public class MongoMetadata
             return listSchemaNames(session);
         }
         return ImmutableList.of(schemaNameOrNull);
-    }
-
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getSchemaName() == null) {
-            return listTables(session, prefix.getSchemaName());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)

@@ -46,7 +46,6 @@ public class TestMongoPlugin
 
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         MongoPlugin plugin = new MongoPlugin();
 
@@ -59,8 +58,8 @@ public class TestMongoPlugin
         connector.shutdown();
     }
 
-    @AfterClass
-    public void destory()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
         server.shutdown();
     }

@@ -19,6 +19,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -26,15 +28,12 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
 public class TestTuple
 {
     @Test
     public void testComparableTuple()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, DOUBLE, DATE, TIMESTAMP);
 
@@ -50,7 +49,6 @@ public class TestTuple
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "types must be the same")
     public void testMismatchedTypes()
-            throws Exception
     {
         List<Type> types1 = ImmutableList.of(createVarcharType(3));
         List<Type> types2 = ImmutableList.of(createVarcharType(4));

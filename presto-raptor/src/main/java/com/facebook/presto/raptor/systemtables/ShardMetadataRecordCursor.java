@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.systemtables;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
@@ -40,15 +41,17 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,10 +63,13 @@ public class ShardMetadataRecordCursor
         implements RecordCursor
 {
     private static final String SHARD_UUID = "shard_uuid";
+    private static final String XXHASH64 = "xxhash64";
     private static final String SCHEMA_NAME = "table_schema";
     private static final String TABLE_NAME = "table_name";
     private static final String MIN_TIMESTAMP = "min_timestamp";
     private static final String MAX_TIMESTAMP = "max_timestamp";
+    private static final String MIN_DATE = "min_date";
+    private static final String MAX_DATE = "max_date";
 
     public static final SchemaTableName SHARD_METADATA_TABLE_NAME = new SchemaTableName("system", "shards");
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
@@ -76,8 +82,11 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata("uncompressed_size", BIGINT),
                     new ColumnMetadata("compressed_size", BIGINT),
                     new ColumnMetadata("row_count", BIGINT),
+                    new ColumnMetadata(XXHASH64, createVarcharType(16)),
                     new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
-                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP)));
+                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP),
+                    new ColumnMetadata(MIN_DATE, DATE),
+                    new ColumnMetadata(MAX_DATE, DATE)));
 
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());
@@ -108,16 +117,15 @@ public class ShardMetadataRecordCursor
         this.resultSet = getNextResultSet();
     }
 
-    private static String constructSqlTemplate(List<String> columnNames, String indexTableName)
+    private static String constructSqlTemplate(List<String> columnNames, long tableId)
     {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT\n");
-        sql.append(Joiner.on(",\n").join(columnNames));
-        sql.append("\nFROM ").append(indexTableName).append(" x\n");
-        sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
-        sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
-
-        return sql.toString();
+        return format("SELECT %s\nFROM %s x\n" +
+                        "JOIN shards ON (x.shard_id = shards.shard_id AND shards.table_id = %s)\n" +
+                        "JOIN tables ON (tables.table_id = %s)\n",
+                Joiner.on(", ").join(columnNames),
+                shardIndexTable(tableId),
+                tableId,
+                tableId);
     }
 
     private static List<String> createQualifiedColumnNames()
@@ -130,15 +138,12 @@ public class ShardMetadataRecordCursor
                 .add("shards" + "." + COLUMNS.get(4).getName())
                 .add("shards" + "." + COLUMNS.get(5).getName())
                 .add("shards" + "." + COLUMNS.get(6).getName())
-                .add("min_timestamp")
-                .add("max_timestamp")
+                .add("shards" + "." + COLUMNS.get(7).getName())
+                .add(MIN_TIMESTAMP)
+                .add(MAX_TIMESTAMP)
+                .add(MIN_DATE)
+                .add(MAX_DATE)
                 .build();
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return 0;
     }
 
     @Override
@@ -179,7 +184,10 @@ public class ShardMetadataRecordCursor
                     return false;
                 }
             }
-            completedBytes += resultSetValues.extractValues(resultSet, ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)));
+            completedBytes += resultSetValues.extractValues(
+                    resultSet,
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, XXHASH64)));
             return true;
         }
         catch (SQLException | DBIException e) {
@@ -260,16 +268,29 @@ public class ShardMetadataRecordCursor
 
         Long tableId = tableIds.next();
         Long columnId = metadataDao.getTemporalColumnId(tableId);
+        List<String> columnNames;
 
-        String minColumn = (columnId == null) ? "null" : minColumn(columnId);
-        String maxColumn = (columnId == null) ? "null" : maxColumn(columnId);
+        if (columnId == null) {
+            columnNames = getMappedColumnNames("null", "null", "null", "null");
+        }
+        else {
+            Type temporalType = metadataDao.getTableColumn(tableId, columnId).getDataType();
+            if (temporalType.equals(DATE)) {
+                columnNames = getMappedColumnNames("null", "null", minColumn(columnId), maxColumn(columnId));
+            }
+            else if (temporalType.equals(TIMESTAMP)) {
+                columnNames = getMappedColumnNames(minColumn(columnId), maxColumn(columnId), "null", "null");
+            }
+            else {
+                throw new PrestoException(RAPTOR_CORRUPT_METADATA, "Temporal column should be of type date or timestamp, not " + temporalType.getDisplayName());
+            }
+        }
 
-        List<String> columnNames = getMappedColumnNames(minColumn, maxColumn);
         try {
             connection = dbi.open().getConnection();
             statement = PreparedStatementBuilder.create(
                     connection,
-                    constructSqlTemplate(columnNames, shardIndexTable(tableId)),
+                    constructSqlTemplate(columnNames, tableId),
                     columnNames,
                     TYPES,
                     ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
@@ -282,16 +303,22 @@ public class ShardMetadataRecordCursor
         }
     }
 
-    private List<String> getMappedColumnNames(String minColumn, String maxColumn)
+    private List<String> getMappedColumnNames(String minTimestampColumn, String maxTimestampColumn, String minDateColumn, String maxDateColumn)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (String column : columnNames) {
             switch (column) {
                 case MIN_TIMESTAMP:
-                    builder.add(minColumn);
+                    builder.add(minTimestampColumn);
                     break;
                 case MAX_TIMESTAMP:
-                    builder.add(maxColumn);
+                    builder.add(maxTimestampColumn);
+                    break;
+                case MIN_DATE:
+                    builder.add(minDateColumn);
+                    break;
+                case MAX_DATE:
+                    builder.add(maxDateColumn);
                     break;
                 default:
                     builder.add(column);
@@ -362,6 +389,6 @@ public class ShardMetadataRecordCursor
 
     private static String getStringValue(Object value)
     {
-        return checkType(value, Slice.class, "value").toStringUtf8();
+        return ((Slice) value).toStringUtf8();
     }
 }

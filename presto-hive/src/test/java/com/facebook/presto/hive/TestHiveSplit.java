@@ -13,62 +13,129 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
-
     @Test
     public void testJsonRoundTrip()
+            throws Exception
     {
-        Properties schema = new Properties();
-        schema.setProperty("foo", "bar");
-        schema.setProperty("bar", "baz");
-
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HIVE_STRING, "apple"), new HivePartitionKey("b", HiveType.HIVE_LONG, "42"));
+        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         HiveSplit expected = new HiveSplit(
-                "clientId",
                 "db",
                 "table",
                 "partitionId",
                 "path",
                 42,
+                87,
                 88,
-                schema,
+                new Storage(
+                        StorageFormat.create("serde", "input", "output"),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 true,
-                TupleDomain.all(),
-                ImmutableMap.of(1, HIVE_STRING));
+                10,
+                ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty())),
+                Optional.of(new HiveSplit.BucketConversion(
+                        32,
+                        16,
+                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
+                false,
+                Optional.empty());
 
+        JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getClientId(), expected.getClientId());
         assertEquals(actual.getDatabase(), expected.getDatabase());
         assertEquals(actual.getTable(), expected.getTable());
         assertEquals(actual.getPartitionName(), expected.getPartitionName());
         assertEquals(actual.getPath(), expected.getPath());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getLength(), expected.getLength());
-        assertEquals(actual.getSchema(), expected.getSchema());
+        assertEquals(actual.getFileSize(), expected.getFileSize());
+        assertEquals(actual.getStorage(), expected.getStorage());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getColumnCoercions(), expected.getColumnCoercions());
+        assertEquals(actual.getPartitionDataColumnCount(), expected.getPartitionDataColumnCount());
+        assertEquals(actual.getPartitionSchemaDifference(), expected.getPartitionSchemaDifference());
+        assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
+        assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
+    }
+
+    private JsonCodec<HiveSplit> getJsonCodec()
+            throws Exception
+    {
+        Module module = binder -> {
+            binder.install(new JsonModule());
+            binder.install(new HandleJsonModule());
+            configBinder(binder).bindConfig(FeaturesConfig.class);
+
+            binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            newSetBinder(binder, Type.class);
+
+            binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, BlockEncoding.class);
+            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+            jsonCodecBinder(binder).bindJsonCodec(HiveSplit.class);
+        };
+        Bootstrap app = new Bootstrap(ImmutableList.of(module));
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addConnectorName("hive", new HiveHandleResolver());
+        return injector.getInstance(new Key<JsonCodec<HiveSplit>>() {});
     }
 }

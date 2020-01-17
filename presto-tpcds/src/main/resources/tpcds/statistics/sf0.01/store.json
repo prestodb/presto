@@ -1,0 +1,208 @@
+{
+  "rowCount" : 2,
+  "columns" : {
+    "s_store_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2,
+      "dataSize" : null
+    },
+    "s_store_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAACAAAAAAA",
+      "dataSize" : 32
+    },
+    "s_rec_start_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 9933,
+      "max" : 9933,
+      "dataSize" : null
+    },
+    "s_rec_end_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 11028,
+      "max" : 11028,
+      "dataSize" : null
+    },
+    "s_closed_date_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 2451189,
+      "max" : 2451189,
+      "dataSize" : null
+    },
+    "s_store_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "ought",
+      "dataSize" : 9
+    },
+    "s_number_employees" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 236,
+      "max" : 245,
+      "dataSize" : null
+    },
+    "s_floor_space" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 5250760,
+      "max" : 5285950,
+      "dataSize" : null
+    },
+    "s_hours" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "8AM-4PM",
+      "max" : "8AM-4PM",
+      "dataSize" : 7
+    },
+    "s_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Scott Smith",
+      "max" : "William Ward",
+      "dataSize" : 23
+    },
+    "s_market_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 2,
+      "max" : 8,
+      "dataSize" : null
+    },
+    "s_geography_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_market_desc" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Enough high areas stop expectations. Elaborate, local is",
+      "max" : "Parliamentary candidates wait then heavy, keen mil",
+      "dataSize" : 106
+    },
+    "s_market_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Charles Bartley",
+      "max" : "David Lamontagne",
+      "dataSize" : 31
+    },
+    "s_division_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "s_division_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_company_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "s_company_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_street_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "255",
+      "max" : "767",
+      "dataSize" : 6
+    },
+    "s_street_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Spring ",
+      "max" : "Sycamore ",
+      "dataSize" : 16
+    },
+    "s_street_type" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Dr.",
+      "max" : "Wy",
+      "dataSize" : 5
+    },
+    "s_suite_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Suite 250",
+      "max" : "Suite 410",
+      "dataSize" : 18
+    },
+    "s_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway",
+      "dataSize" : 6
+    },
+    "s_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "s_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "s_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904",
+      "dataSize" : 5
+    },
+    "s_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "s_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    },
+    "s_tax_precentage" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 3,
+      "max" : 3,
+      "dataSize" : null
+    }
+  }
+}

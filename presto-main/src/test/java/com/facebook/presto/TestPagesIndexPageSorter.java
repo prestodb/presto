@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -35,11 +36,10 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPagesIndexPageSorter
 {
-    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter();
+    private static final PagesIndexPageSorter sorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
     @Test
     public void testPageSorter()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);
@@ -66,7 +66,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterMultipleChannels()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0, 1, 2);
@@ -98,7 +97,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterSorted()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);
@@ -124,7 +122,6 @@ public class TestPagesIndexPageSorter
 
     @Test
     public void testPageSorterForceExpansion()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
         List<Integer> sortChannels = Ints.asList(0);

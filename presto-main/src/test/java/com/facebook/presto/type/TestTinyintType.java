@@ -11,12 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 
@@ -30,7 +28,7 @@ public class TestTinyintType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TINYINT.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 15);
         TINYINT.writeLong(blockBuilder, 111);
         TINYINT.writeLong(blockBuilder, 111);
         TINYINT.writeLong(blockBuilder, 111);

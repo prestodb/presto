@@ -13,41 +13,48 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.operator.PageAssertions;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.addPage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFinished;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertFutureIsDone;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertQueueClosed;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.assertQueueState;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.enqueuePage;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.getBufferResult;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -55,27 +62,22 @@ import static org.testng.Assert.fail;
 
 public class TestPartitionedOutputBuffer
 {
-    private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
-    private static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
+    private static final OutputBufferId THIRD = new OutputBufferId(2);
 
     private ScheduledExecutorService stateNotificationExecutor;
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (stateNotificationExecutor != null) {
             stateNotificationExecutor.shutdownNow();
@@ -85,7 +87,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testInvalidConstructorArg()
-            throws Exception
     {
         try {
             createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(FIRST, 0).withNoMoreBufferIds(), new DataSize(0, BYTE));
@@ -103,7 +104,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testSimplePartitioned()
-            throws Exception
     {
         int firstPartition = 0;
         int secondPartition = 1;
@@ -236,9 +236,55 @@ public class TestPartitionedOutputBuffer
         assertFinished(buffer);
     }
 
+    // TODO: remove this after PR #7987 is landed
+    @Test
+    public void testAcknowledge()
+    {
+        int partitionId = 0;
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, partitionId)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(20));
+
+        // add three items to the buffer
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i), partitionId);
+        }
+        assertQueueState(buffer, FIRST, 3, 0);
+
+        // get the three elements from the first buffer
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+
+        // acknowledge pages 0 and 1
+        acknowledgeBufferResult(buffer, FIRST, 2);
+        // only page 2 is not removed
+        assertQueueState(buffer, FIRST, 1, 2);
+        // acknowledge page 2
+        acknowledgeBufferResult(buffer, FIRST, 3);
+        // nothing left
+        assertQueueState(buffer, FIRST, 0, 3);
+        // acknowledge more pages will fail
+        try {
+            acknowledgeBufferResult(buffer, FIRST, 4);
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Invalid sequence id");
+        }
+
+        // fill the buffer
+        for (int i = 3; i < 6; i++) {
+            addPage(buffer, createPage(i), partitionId);
+        }
+        assertQueueState(buffer, FIRST, 3, 3);
+
+        // getting new pages will again acknowledge the previously acknowledged pages but this is ok
+        buffer.get(FIRST, 3, sizeOfPages(1)).cancel(true);
+        assertQueueState(buffer, FIRST, 3, 3);
+    }
+
     @Test
     public void testDuplicateRequests()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -275,7 +321,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAddQueueAfterCreation()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -298,7 +343,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAddAfterFinish()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -313,7 +357,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAddAfterDestroy()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -328,7 +371,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFullBufferBlocksWriter()
-            throws Exception
     {
         int firstPartition = 0;
         int secondPartition = 1;
@@ -349,7 +391,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAcknowledgementFreesWriters()
-            throws Exception
     {
         int firstPartition = 0;
         int secondPartition = 1;
@@ -383,7 +424,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAbort()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -413,7 +453,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFinishClosesEmptyQueues()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -437,7 +476,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testAbortFreesReader()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -447,7 +485,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -476,7 +514,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFinishFreesReader()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -486,7 +523,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -511,7 +548,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFinishFreesWriter()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -558,7 +594,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testDestroyFreesReader()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -568,7 +603,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -593,7 +628,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testDestroyFreesWriter()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -630,7 +664,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFailDoesNotFreeReader()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -640,7 +673,7 @@ public class TestPartitionedOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        CompletableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -668,7 +701,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testFailFreesWriter()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -705,7 +737,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testBufferCompletion()
-            throws Exception
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -726,7 +757,7 @@ public class TestPartitionedOutputBuffer
         buffer.setNoMorePages();
 
         // get and acknowledge 5 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), bufferResult(0, pages));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
         // buffer is not finished
         assertFalse(buffer.isFinished());
@@ -741,140 +772,87 @@ public class TestPartitionedOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
-    public static BufferResult getBufferResult(PartitionedOutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
+    @Test
+    public void testBufferFinishesWhenClientBuffersDestroyed()
     {
-        CompletableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
-        return getFuture(future, maxWait);
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withBuffer(SECOND, 1)
+                        .withBuffer(THIRD, 2)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+
+        // add a page to each partition before closing the buffers to make sure
+        // that the buffers close even if there are pending pages
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i), i);
+        }
+
+        // the buffer is in the NO_MORE_BUFFERS state now
+        // and if we abort all the buffers it should destroy itself
+        // and move to the FINISHED state
+        buffer.abort(FIRST);
+        assertFalse(buffer.isFinished());
+        buffer.abort(SECOND);
+        assertFalse(buffer.isFinished());
+        buffer.abort(THIRD);
+        assertTrue(buffer.isFinished());
     }
 
-    public static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    @Test
+    public void testBufferPeakMemoryUsage()
     {
-        return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+        Page page = createPage(1);
+        long serializePageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, page, 0);
+            assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);
+        }
     }
 
-    private static ListenableFuture<?> enqueuePage(PartitionedOutputBuffer buffer, Page page)
+    @Test
+    public void testForceFreeMemory()
+            throws Throwable
     {
-        ListenableFuture<?> future = buffer.enqueue(page);
-        assertFalse(future.isDone());
-        return future;
-    }
-
-    private static ListenableFuture<?> enqueuePage(PartitionedOutputBuffer buffer, Page page, int partition)
-    {
-        ListenableFuture<?> future = buffer.enqueue(partition, page);
-        assertFalse(future.isDone());
-        return future;
-    }
-
-    private static void addPage(PartitionedOutputBuffer buffer, Page page)
-    {
-        assertTrue(buffer.enqueue(page).isDone(), "Expected add page to not block");
-    }
-
-    private static void addPage(PartitionedOutputBuffer buffer, Page page, int partition)
-    {
-        assertTrue(buffer.enqueue(partition, page).isDone(), "Expected add page to not block");
-    }
-
-    private static void assertQueueState(
-            PartitionedOutputBuffer buffer,
-            OutputBufferId bufferId,
-            int bufferedPages,
-            int pagesSent)
-    {
-        assertEquals(
-                getBufferInfo(buffer, bufferId),
-                new BufferInfo(
-                        bufferId,
-                        false,
-                        bufferedPages,
-                        pagesSent,
-                        new PageBufferInfo(
-                                bufferId.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    private static void assertQueueClosed(PartitionedOutputBuffer buffer, OutputBufferId bufferId, int pagesSent)
-    {
-        BufferInfo bufferInfo = getBufferInfo(buffer, bufferId);
-        assertEquals(bufferInfo.getBufferedPages(), 0);
-        assertEquals(bufferInfo.getPagesSent(), pagesSent);
-        assertEquals(bufferInfo.isFinished(), true);
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(10));
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, createPage(1), 0);
+        }
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+        assertTrue(memoryManager.getBufferedBytes() > 0);
+        buffer.forceFreeMemory();
+        assertEquals(memoryManager.getBufferedBytes(), 0);
+        // adding a page after forceFreeMemory() should be NOOP
+        addPage(buffer, createPage(1));
+        assertEquals(memoryManager.getBufferedBytes(), 0);
     }
 
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
     {
-        return new PartitionedOutputBuffer(
+        PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
-                ignored -> { },
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
+        buffer.registerLifespanCompletionCallback(ignore -> {});
+        return buffer;
     }
 
-    private static BufferInfo getBufferInfo(PartitionedOutputBuffer buffer, OutputBufferId bufferId)
-    {
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            if (bufferInfo.getBufferId().equals(bufferId)) {
-                return bufferInfo;
-            }
-        }
-        return null;
-    }
-
-    private static void assertFinished(PartitionedOutputBuffer buffer)
-            throws Exception
-    {
-        assertTrue(buffer.isFinished());
-        for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
-            assertTrue(bufferInfo.isFinished());
-            assertEquals(bufferInfo.getBufferedPages(), 0);
-        }
-    }
-
-    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
-    {
-        assertEquals(actual.getPages().size(), expected.getPages().size());
-        assertEquals(actual.getToken(), expected.getToken());
-        for (int i = 0; i < actual.getPages().size(); i++) {
-            Page actualPage = actual.getPages().get(i);
-            Page expectedPage = expected.getPages().get(i);
-            assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-            PageAssertions.assertPageEquals(types, actualPage, expectedPage);
-        }
-        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
-    }
-
-    private static void assertFutureIsDone(Future<?> future)
-    {
-        tryGetFutureValue(future, 5, SECONDS);
-        assertTrue(future.isDone());
-    }
-
-    public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
+    private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
-        return bufferResult(token, pages);
-    }
-
-    public static BufferResult bufferResult(long token, List<Page> pages)
-    {
-        checkArgument(!pages.isEmpty(), "pages is empty");
-        return new BufferResult(TASK_INSTANCE_ID, token, token + pages.size(), false, pages);
-    }
-
-    private static Page createPage(int i)
-    {
-        return new Page(BlockAssertions.createLongsBlock(i));
-    }
-
-    public static DataSize sizeOfPages(int count)
-    {
-        return new DataSize(PAGE_SIZE.toBytes() * count, BYTE);
+        return createBufferResult(TASK_INSTANCE_ID, token, pages);
     }
 }

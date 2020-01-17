@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.event.client.ServiceUnavailableException;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import io.airlift.event.client.ServiceUnavailableException;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -36,10 +37,12 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -56,13 +59,13 @@ class RequestErrorTracker
 
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    public RequestErrorTracker(TaskId taskId, URI taskUri, Duration minErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    public RequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
-        this.taskId = taskId;
-        this.taskUri = taskUri;
-        this.scheduledExecutor = scheduledExecutor;
-        this.backoff = new Backoff(minErrorDuration);
-        this.jobDescription = jobDescription;
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.taskUri = requireNonNull(taskUri, "taskUri is null");
+        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
+        this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
+        this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }
 
     public ListenableFuture<?> acquireRequestPermit()
@@ -85,6 +88,7 @@ class RequestErrorTracker
         if (backoff.getFailureCount() == 0) {
             requestSucceeded();
         }
+        backoff.startRequest();
     }
 
     public void requestSucceeded()
@@ -122,13 +126,15 @@ class RequestErrorTracker
         // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
         if (backoff.failure()) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
-                    format("%s (%s %s - %s failures, time since last success %s)",
+            PrestoException exception = new PrestoTransportException(TOO_MANY_REQUESTS_FAILED,
+                    fromUri(taskUri),
+                    format("%s (%s %s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
                             jobDescription,
                             taskUri,
                             backoff.getFailureCount(),
-                            backoff.getTimeSinceLastSuccess().convertTo(SECONDS)));
+                            backoff.getFailureDuration().convertTo(SECONDS),
+                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS)));
             errorsSinceLastSuccess.forEach(exception::addSuppressed);
             throw exception;
         }

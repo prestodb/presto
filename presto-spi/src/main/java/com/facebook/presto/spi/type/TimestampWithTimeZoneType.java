@@ -36,28 +36,28 @@ public final class TimestampWithTimeZoneType
             return null;
         }
 
-        return new SqlTimestampWithTimeZone(block.getLong(position, 0));
+        return new SqlTimestampWithTimeZone(block.getLong(position));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
+        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition));
+        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition));
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return AbstractLongType.hash(unpackMillisUtc(block.getLong(position, 0)));
+        return AbstractLongType.hash(unpackMillisUtc(block.getLong(position)));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
+        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition));
+        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition));
         return Long.compare(leftValue, rightValue);
     }
 

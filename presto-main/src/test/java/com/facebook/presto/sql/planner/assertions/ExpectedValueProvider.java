@@ -19,7 +19,7 @@ package com.facebook.presto.sql.planner.assertions;
  * SymbolAlias.toSymbol() to get actual Symbols to pass to T's constructor.
  * Doing this ensures that changes to T's .equals() method that requires a
  * change to T's constructor result in a compilation error.
- *
+ * <p>
  * In particular, if adding a new field to T's .equals() method requires
  * passing a value for that field to T's constuctor, using an
  * ExpectedValueProvider that calls T's constructor will ensure that there is

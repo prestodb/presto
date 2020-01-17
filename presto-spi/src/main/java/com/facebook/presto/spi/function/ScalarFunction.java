@@ -31,4 +31,6 @@ public @interface ScalarFunction
     boolean hidden() default false;
 
     boolean deterministic() default true;
+
+    boolean calledOnNullInput() default false;
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.array;
 
 import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
@@ -21,13 +22,14 @@ import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.array.BigArrays.offset;
 import static com.facebook.presto.array.BigArrays.segment;
-import static io.airlift.slice.SizeOf.sizeOfLongArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class IntBigArray
 {
-    private static final long SIZE_OF_SEGMENT = sizeOfLongArray(SEGMENT_SIZE);
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntBigArray.class).instanceSize();
+    private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE);
 
     private final int initialValue;
 
@@ -53,12 +55,17 @@ public final class IntBigArray
         allocateNewSegment();
     }
 
+    public int[][] getSegments()
+    {
+        return array;
+    }
+
     /**
      * Returns the size of this big array in bytes.
      */
     public long sizeOf()
     {
-        return SizeOf.sizeOf(array) + (segments * SIZE_OF_SEGMENT);
+        return INSTANCE_SIZE + SizeOf.sizeOf(array) + (segments * SIZE_OF_SEGMENT);
     }
 
     /**
@@ -116,6 +123,16 @@ public final class IntBigArray
         grow(length);
     }
 
+    public void fill(int value)
+    {
+        for (int[] ints : array) {
+            if (ints == null) {
+                return;
+            }
+            Arrays.fill(ints, value);
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
@@ -141,5 +158,10 @@ public final class IntBigArray
         array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;
+    }
+
+    public void sort(int from, int to, IntComparator comparator)
+    {
+        IntBigArrays.quickSort(array, from, to, comparator);
     }
 }

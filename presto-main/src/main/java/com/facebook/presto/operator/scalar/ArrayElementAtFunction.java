@@ -21,25 +21,16 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.lang.Math.toIntExact;
 
 @ScalarFunction("element_at")
 @Description("Get element of array at given index")
 public final class ArrayElementAtFunction
 {
     private ArrayElementAtFunction() {}
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
-    public static Void voidElementAt(@SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        checkedIndexToBlockPosition(array, index);
-        return null;
-    }
 
     @TypeParameter("E")
     @SqlNullable
@@ -134,10 +125,10 @@ public final class ArrayElementAtFunction
             return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
         }
         if (index > 0) {
-            return Ints.checkedCast(index - 1);
+            return toIntExact(index - 1);
         }
         else {
-            return Ints.checkedCast(arrayLength + index);
+            return toIntExact(arrayLength + index);
         }
     }
 }

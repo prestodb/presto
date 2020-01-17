@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
@@ -43,7 +43,6 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
-    private final boolean complete;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -51,8 +50,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("needsPlan") boolean needsPlan,
-            @JsonProperty("complete") boolean complete)
+            @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
@@ -61,7 +59,6 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
-        this.complete = complete;
     }
 
     @JsonProperty
@@ -100,15 +97,12 @@ public class TaskInfo
         return needsPlan;
     }
 
-    @JsonProperty
-    public boolean isComplete()
-    {
-        return complete;
-    }
-
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, complete);
+        if (taskStatus.getState().isDone()) {
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
+        }
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
     }
 
     @Override
@@ -120,20 +114,19 @@ public class TaskInfo
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, List<BufferInfo> bufferStates, TaskStats taskStats)
     {
         return new TaskInfo(
-                initialTaskStatus(taskId, location),
+                initialTaskStatus(taskId, location, nodeId),
                 DateTime.now(),
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
-                true,
-                false);
+                true);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, complete);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
     }
 }

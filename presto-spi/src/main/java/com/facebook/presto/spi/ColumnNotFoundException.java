@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import static java.util.Objects.requireNonNull;
+
 public class ColumnNotFoundException
         extends NotFoundException
 {
@@ -27,14 +29,8 @@ public class ColumnNotFoundException
     public ColumnNotFoundException(SchemaTableName tableName, String columnName, String message)
     {
         super(message);
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
-        if (columnName == null) {
-            throw new NullPointerException("columnName is null");
-        }
-        this.tableName = tableName;
-        this.columnName = columnName;
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
     }
 
     public ColumnNotFoundException(SchemaTableName tableName, String columnName, Throwable cause)
@@ -45,14 +41,8 @@ public class ColumnNotFoundException
     public ColumnNotFoundException(SchemaTableName tableName, String columnName, String message, Throwable cause)
     {
         super(message, cause);
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
-        if (columnName == null) {
-            throw new NullPointerException("columnName is null");
-        }
-        this.tableName = tableName;
-        this.columnName = columnName;
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
     }
 
     public SchemaTableName getTableName()

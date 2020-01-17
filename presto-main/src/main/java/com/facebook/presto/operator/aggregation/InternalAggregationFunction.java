@@ -13,25 +13,62 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
 {
     private final String name;
     private final List<Type> parameterTypes;
-    private final Type intermediateType;
+    private final List<Type> intermediateType;
     private final Type finalType;
+    private final List<Class> lambdaInterfaces;
     private final boolean decomposable;
+    private final boolean orderSensitive;
     private final AccumulatorFactoryBinder factory;
 
-    public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, AccumulatorFactoryBinder factory)
+    public InternalAggregationFunction(
+            String name,
+            List<Type> parameterTypes,
+            List<Type> intermediateType,
+            Type finalType,
+            boolean decomposable,
+            boolean orderSensitive,
+            AccumulatorFactoryBinder factory)
+    {
+        this(
+                name,
+                parameterTypes,
+                intermediateType,
+                finalType,
+                decomposable,
+                orderSensitive,
+                factory,
+                ImmutableList.of());
+    }
+
+    public InternalAggregationFunction(
+            String name,
+            List<Type> parameterTypes,
+            List<Type> intermediateType,
+            Type finalType,
+            boolean decomposable,
+            boolean orderSensitive,
+            AccumulatorFactoryBinder factory,
+            List<Class> lambdaInterfaces)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
@@ -39,7 +76,9 @@ public final class InternalAggregationFunction
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.decomposable = decomposable;
+        this.orderSensitive = orderSensitive;
         this.factory = requireNonNull(factory, "factory is null");
+        this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
     }
 
     public String name()
@@ -59,7 +98,17 @@ public final class InternalAggregationFunction
 
     public Type getIntermediateType()
     {
-        return intermediateType;
+        if (intermediateType.size() == 1) {
+            return getOnlyElement(intermediateType);
+        }
+        else {
+            return RowType.withDefaultFieldNames(intermediateType);
+        }
+    }
+
+    public List<Class> getLambdaInterfaces()
+    {
+        return lambdaInterfaces;
     }
 
     /**
@@ -70,8 +119,47 @@ public final class InternalAggregationFunction
         return decomposable;
     }
 
+    /**
+     * Indicates that the aggregation is sensitive to input order
+     */
+    public boolean isOrderSensitive()
+    {
+        return orderSensitive;
+    }
+
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
-        return factory.bind(inputChannels, maskChannel);
+        return factory.bind(
+                inputChannels,
+                maskChannel,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                false,
+                null,
+                ImmutableList.of(),
+                null);
+    }
+
+    public AccumulatorFactory bind(
+            List<Integer> inputChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            List<LambdaProvider> lambdaProviders,
+            Session session)
+    {
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, session);
+    }
+
+    @VisibleForTesting
+    public AccumulatorFactoryBinder getAccumulatorFactoryBinder()
+    {
+        return factory;
     }
 }

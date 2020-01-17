@@ -14,6 +14,8 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
@@ -35,7 +37,7 @@ class TpchConnectorIndex
     }
 
     @Override
-    public RecordSet lookup(RecordSet rawInputRecordSet)
+    public ConnectorPageSource lookup(RecordSet rawInputRecordSet)
     {
         // convert the input record set from the column ordering in the query to
         // match the column ordering of the index
@@ -46,6 +48,6 @@ class TpchConnectorIndex
 
         // convert the output record set of the index into the column ordering
         // expect by the query
-        return outputFormatter.apply(rawOutputRecordSet);
+        return new RecordPageSource(outputFormatter.apply(rawOutputRecordSet));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
@@ -22,13 +23,15 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,22 +48,22 @@ class TranslationMap
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final RelationPlan rewriteBase;
     private final Analysis analysis;
-    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
+    private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
 
     // current mappings of underlying field -> symbol for translating direct field references
-    private final Symbol[] fieldSymbols;
+    private final VariableReferenceExpression[] fieldVariables;
 
     // current mappings of sub-expressions -> symbol
-    private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
+    private final Map<Expression, VariableReferenceExpression> expressionToVariables = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
 
-    public TranslationMap(RelationPlan rewriteBase, Analysis analysis, IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap)
+    public TranslationMap(RelationPlan rewriteBase, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap)
     {
         this.rewriteBase = requireNonNull(rewriteBase, "rewriteBase is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
-        this.lambdaDeclarationToSymbolMap = requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
+        this.lambdaDeclarationToVariableMap = requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
 
-        fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
+        fieldVariables = new VariableReferenceExpression[rewriteBase.getFieldMappings().size()];
     }
 
     public RelationPlan getRelationPlan()
@@ -73,35 +76,35 @@ class TranslationMap
         return analysis;
     }
 
-    public IdentityHashMap<LambdaArgumentDeclaration, Symbol> getLambdaDeclarationToSymbolMap()
+    public Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> getLambdaDeclarationToVariableMap()
     {
-        return lambdaDeclarationToSymbolMap;
+        return lambdaDeclarationToVariableMap;
     }
 
-    public void setFieldMappings(List<Symbol> symbols)
+    public void setFieldMappings(List<VariableReferenceExpression> variables)
     {
-        checkArgument(symbols.size() == fieldSymbols.length, "size of symbols list (%s) doesn't match number of expected fields (%s)", symbols.size(), fieldSymbols.length);
+        checkArgument(variables.size() == fieldVariables.length, "size of variables list (%s) doesn't match number of expected fields (%s)", variables.size(), fieldVariables.length);
 
-        for (int i = 0; i < symbols.size(); i++) {
-            this.fieldSymbols[i] = symbols.get(i);
+        for (int i = 0; i < variables.size(); i++) {
+            this.fieldVariables[i] = variables.get(i);
         }
     }
 
     public void copyMappingsFrom(TranslationMap other)
     {
-        checkArgument(other.fieldSymbols.length == fieldSymbols.length,
+        checkArgument(other.fieldVariables.length == fieldVariables.length,
                 "number of fields in other (%s) doesn't match number of expected fields (%s)",
-                other.fieldSymbols.length,
-                fieldSymbols.length);
+                other.fieldVariables.length,
+                fieldVariables.length);
 
-        expressionToSymbols.putAll(other.expressionToSymbols);
+        expressionToVariables.putAll(other.expressionToVariables);
         expressionToExpressions.putAll(other.expressionToExpressions);
-        System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
+        System.arraycopy(other.fieldVariables, 0, fieldVariables, 0, other.fieldVariables.length);
     }
 
     public void putExpressionMappingsFrom(TranslationMap other)
     {
-        expressionToSymbols.putAll(other.expressionToSymbols);
+        expressionToVariables.putAll(other.expressionToVariables);
         expressionToExpressions.putAll(other.expressionToExpressions);
     }
 
@@ -116,104 +119,65 @@ class TranslationMap
             @Override
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (expressionToSymbols.containsKey(node)) {
-                    return expressionToSymbols.get(node).toSymbolReference();
+                if (expressionToVariables.containsKey(node)) {
+                    return new SymbolReference(expressionToVariables.get(node).getName());
                 }
-                else if (expressionToExpressions.containsKey(node)) {
-                    Expression mapping = getMapping(node);
-                    mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
-                }
-                else {
-                    return treeRewriter.defaultRewrite(node, context);
-                }
+
+                Expression translated = expressionToExpressions.getOrDefault(node, node);
+                return treeRewriter.defaultRewrite(translated, context);
             }
         }, mapped);
     }
 
-    private Expression getMapping(Expression expression)
-    {
-        if (!expressionToExpressions.containsKey(expression)) {
-            return expression;
-        }
-
-        Expression mapped = expressionToExpressions.get(expression);
-        Expression translated = translateNamesToSymbols(mapped);
-        if (!translated.equals(expression) && expressionToExpressions.containsKey(translated)) {
-            mapped = getMapping(translated);
-        }
-
-        return mapped;
-    }
-
-    public void put(Expression expression, Symbol symbol)
+    public void put(Expression expression, VariableReferenceExpression variable)
     {
         if (expression instanceof FieldReference) {
             int fieldIndex = ((FieldReference) expression).getFieldIndex();
-            fieldSymbols[fieldIndex] = symbol;
-            expressionToSymbols.put(rewriteBase.getSymbol(fieldIndex).toSymbolReference(), symbol);
+            fieldVariables[fieldIndex] = variable;
+            expressionToVariables.put(new SymbolReference(rewriteBase.getVariable(fieldIndex).getName()), variable);
             return;
         }
 
         Expression translated = translateNamesToSymbols(expression);
-        expressionToSymbols.put(translated, symbol);
+        expressionToVariables.put(translated, variable);
 
         // also update the field mappings if this expression is a field reference
         rewriteBase.getScope().tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
-                .ifPresent(field -> fieldSymbols[rewriteBase.getDescriptor().indexOf(field.getField())] = symbol);
+                .ifPresent(field -> fieldVariables[field.getHierarchyFieldIndex()] = variable);
     }
 
     public boolean containsSymbol(Expression expression)
     {
         if (expression instanceof FieldReference) {
             int field = ((FieldReference) expression).getFieldIndex();
-            return fieldSymbols[field] != null;
+            return fieldVariables[field] != null;
         }
 
         Expression translated = translateNamesToSymbols(expression);
-        return expressionToSymbols.containsKey(translated);
+        return expressionToVariables.containsKey(translated);
     }
 
-    public Symbol get(Expression expression)
+    public VariableReferenceExpression get(Expression expression)
     {
         if (expression instanceof FieldReference) {
             int field = ((FieldReference) expression).getFieldIndex();
-            checkArgument(fieldSymbols[field] != null, "No mapping for field: %s", field);
-            return fieldSymbols[field];
+            checkArgument(fieldVariables[field] != null, "No mapping for field: %s", field);
+            return fieldVariables[field];
         }
 
         Expression translated = translateNamesToSymbols(expression);
-        if (!expressionToSymbols.containsKey(translated)) {
+        if (!expressionToVariables.containsKey(translated)) {
             checkArgument(expressionToExpressions.containsKey(translated), "No mapping for expression: %s", expression);
             return get(expressionToExpressions.get(translated));
         }
 
-        return expressionToSymbols.get(translated);
+        return expressionToVariables.get(translated);
     }
 
     public void put(Expression expression, Expression rewritten)
     {
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
-    }
-
-    public void addIntermediateMapping(Expression expression, Expression rewritten)
-    {
-        if (rewritten.equals(expression)) {
-            return;
-        }
-
-        Expression translated = translateNamesToSymbols(expression);
-        if (expressionToExpressions.containsKey(translated)) {
-            Expression previousMapping = expressionToExpressions.get(translated);
-            if (!previousMapping.equals(rewritten)) {
-                put(expression, rewritten);
-                addIntermediateMapping(rewritten, previousMapping);
-            }
-        }
-        else {
-            put(expression, rewritten);
-        }
     }
 
     private Expression translateNamesToSymbols(Expression expression)
@@ -230,18 +194,18 @@ class TranslationMap
             @Override
             public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Symbol symbol = rewriteBase.getSymbol(node.getFieldIndex());
-                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, node.getFieldIndex());
-                return symbol.toSymbolReference();
+                VariableReferenceExpression variable = rewriteBase.getVariable(node.getFieldIndex());
+                checkState(variable != null, "No variable mapping for node '%s' (%s)", node, node.getFieldIndex());
+                return new SymbolReference(variable.getName());
             }
 
             @Override
-            public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
-                    Symbol symbol = lambdaDeclarationToSymbolMap.get(referencedLambdaArgumentDeclaration);
-                    return coerceIfNecessary(node, symbol.toSymbolReference());
+                    VariableReferenceExpression variable = lambdaDeclarationToVariableMap.get(NodeRef.of(referencedLambdaArgumentDeclaration));
+                    return coerceIfNecessary(node, new SymbolReference(variable.getName()));
                 }
                 else {
                     return rewriteExpressionWithResolvedName(node);
@@ -250,20 +214,22 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                return rewriteBase.getSymbol(node)
-                        .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElse(node);
+                return getVariable(rewriteBase, node)
+                        .map(variable -> coerceIfNecessary(node, new SymbolReference(variable.getName())))
+                        .orElse(coerceIfNecessary(node, node));
             }
 
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
-                if (resolvedField.isPresent()) {
-                    if (resolvedField.get().isLocal()) {
-                        return rewriteBase.getSymbol(node)
-                                .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                                .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
+                if (analysis.isColumnReference(node)) {
+                    Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
+                    if (resolvedField.isPresent()) {
+                        if (resolvedField.get().isLocal()) {
+                            return getVariable(rewriteBase, node)
+                                    .map(variable -> coerceIfNecessary(node, new SymbolReference(variable.getName())))
+                                    .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
+                        }
                     }
                     // do not rewrite outer references, it will be handled in outer scope planner
                     return node;
@@ -278,10 +244,18 @@ class TranslationMap
 
                 ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
                 for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                    newArguments.add(new LambdaArgumentDeclaration(lambdaDeclarationToSymbolMap.get(argument).getName()));
+                    VariableReferenceExpression variable = lambdaDeclarationToVariableMap.get(NodeRef.of(argument));
+                    newArguments.add(new LambdaArgumentDeclaration(new Identifier(variable.getName())));
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
                 return new LambdaExpression(newArguments.build(), rewrittenBody);
+            }
+
+            @Override
+            public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
+                return coerceIfNecessary(node, analysis.getParameters().get(node.getPosition()));
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
@@ -297,5 +271,18 @@ class TranslationMap
                 return rewritten;
             }
         }, expression, null);
+    }
+
+    private Optional<VariableReferenceExpression> getVariable(RelationPlan plan, Expression expression)
+    {
+        if (!analysis.isColumnReference(expression)) {
+            // Expression can be a reference to lambda argument (or DereferenceExpression based on lambda argument reference).
+            // In such case, the expression might still be resolvable with plan.getScope() but we should not resolve it.
+            return Optional.empty();
+        }
+        return plan.getScope()
+                .tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .map(field -> requireNonNull(plan.getFieldMappings().get(field.getHierarchyFieldIndex())));
     }
 }

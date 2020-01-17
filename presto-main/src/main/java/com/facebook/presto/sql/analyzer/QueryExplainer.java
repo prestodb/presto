@@ -14,18 +14,23 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -37,46 +42,73 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
+    private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
     public QueryExplainer(
             PlanOptimizers planOptimizers,
+            PlanFragmenter planFragmenter,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
-        this(planOptimizers.get(),
+        this(
+                planOptimizers.get(),
+                planFragmenter,
                 metadata,
                 accessControl,
                 sqlParser,
+                statsCalculator,
+                costCalculator,
                 dataDefinitionTask);
     }
 
     public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
+            PlanFragmenter planFragmenter,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
-    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    {
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, warningCollector);
+        return analyzer.analyze(statement);
+    }
+
+    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, boolean verbose, WarningCollector warningCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -85,11 +117,13 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session);
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session, 0, verbose);
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata, session);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionManager(), session, verbose);
+            case IO:
+                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -99,7 +133,7 @@ public class QueryExplainer
         return task.explain((T) statement, parameters);
     }
 
-    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -109,40 +143,50 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters);
-                return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionManager());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
-                return PlanPrinter.graphvizDistributedPlan(subPlan);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionManager());
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
+    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
+    {
+        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
+        if (task != null) {
+            // todo format as json
+            return explainTask(statement, task, parameters);
+        }
+
+        switch (planType) {
+            case IO:
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                return textIOPlan(plan.getRoot(), metadata, session);
+            default:
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
+        }
+    }
+
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    {
+        return getLogicalPlan(session, statement, parameters, warningCollector, new PlanNodeIdAllocator());
+    }
+
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
-
-        Analysis analysis = analyzer.analyze(statement);
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
+        Analysis analysis = analyze(session, statement, parameters, warningCollector);
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(true, session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
+    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
-
-        Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-        // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
-        Plan plan = logicalPlanner.plan(analysis);
-
-        return PlanFragmenter.createSubPlans(session, metadata, plan);
+        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, idAllocator);
+        return planFragmenter.createSubPlans(session, plan, false, idAllocator, warningCollector);
     }
 }

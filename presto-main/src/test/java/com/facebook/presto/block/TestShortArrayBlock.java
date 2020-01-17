@@ -14,13 +14,16 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ShortArrayBlock;
 import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestShortArrayBlock
         extends AbstractTestBlock
@@ -30,28 +33,70 @@ public class TestShortArrayBlock
     {
         Slice[] expectedValues = createTestValue(17);
         assertFixedWithValues(expectedValues);
-        assertFixedWithValues((Slice[]) alternatingNullValues(expectedValues));
+        assertFixedWithValues(alternatingNullValues(expectedValues));
     }
 
     @Test
     public void testCopyPositions()
-            throws Exception
     {
-        Slice[] expectedValues = (Slice[]) alternatingNullValues(createTestValue(17));
+        Slice[] expectedValues = alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
+    }
+
+    @Test
+    public void testLazyBlockBuilderInitialization()
+    {
+        Slice[] expectedValues = createTestValue(100);
+        BlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(null, 0);
+
+        BlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+
+        writeValues(expectedValues, blockBuilder);
+        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
+        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
+        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        Slice[] expectedValues = createTestValue(100);
+        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        short[] shortArray = {(short) 0, (short) 0, (short) 1, (short) 2, (short) 3, (short) 4};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new ShortArrayBlock(0, Optional.empty(), new short[0]));
+        testCompactBlock(new ShortArrayBlock(shortArray.length, Optional.of(valueIsNull), shortArray));
+        testIncompactBlock(new ShortArrayBlock(shortArray.length - 1, Optional.of(valueIsNull), shortArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
+        writeValues(expectedValues, blockBuilder);
+        return blockBuilder;
+    }
+
+    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -60,7 +105,6 @@ public class TestShortArrayBlock
                 blockBuilder.writeShort(expectedValue.getShort(0)).closeEntry();
             }
         }
-        return blockBuilder;
     }
 
     private static Slice[] createTestValue(int positionCount)

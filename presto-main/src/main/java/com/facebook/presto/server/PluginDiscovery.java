@@ -14,26 +14,25 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.spi.Plugin;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
@@ -76,7 +75,7 @@ final class PluginDiscovery
     {
         Path path = root.toPath().resolve(SERVICES_FILE);
         createDirectories(path.getParent());
-        try (Writer out = new OutputStreamWriter(new FileOutputStream(path.toFile()), UTF_8)) {
+        try (Writer out = Files.newBufferedWriter(path, UTF_8)) {
             for (String plugin : plugins) {
                 out.write(plugin + "\n");
             }
@@ -91,7 +90,6 @@ final class PluginDiscovery
         {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
-                    throws IOException
             {
                 if (file.getFileName().toString().endsWith(CLASS_FILE_SUFFIX)) {
                     String name = file.subpath(base.getNameCount(), file.getNameCount()).toString();
@@ -125,7 +123,7 @@ final class PluginDiscovery
             return new ClassReader(toByteArray(in));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 

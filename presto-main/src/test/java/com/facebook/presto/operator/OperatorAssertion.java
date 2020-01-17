@@ -17,124 +17,139 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.fail;
 
 public final class OperatorAssertion
 {
+    private static final Duration BLOCKED_DEFAULT_TIMEOUT = new Duration(10, MILLISECONDS);
+    private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(1, SECONDS);
+
     private OperatorAssertion()
     {
     }
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {
+        return ImmutableList.<Page>builder()
+                .addAll(toPagesPartial(operator, input))
+                .addAll(finishOperator(operator))
+                .build();
+    }
+
+    public static List<Page> toPagesPartial(Operator operator, Iterator<Page> input)
+    {
+        // verify initial state
+        assertEquals(operator.isFinished(), false);
+
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
+        for (int loopsSinceLastPage = 0; loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            if (handledBlocked(operator)) {
+                continue;
+            }
+            handleMemoryRevoking(operator);
 
-        boolean finishing = false;
-
-        while (operator.needsInput() && input.hasNext()) {
-            operator.addInput(input.next());
-        }
-
-        for (int loops = 0; !operator.isFinished() && loops < 10_000; loops++) {
-            if (operator.needsInput()) {
-                if (input.hasNext()) {
-                    Page inputPage = input.next();
-                    operator.addInput(inputPage);
-                }
-                else if (!finishing) {
-                    operator.finish();
-                    finishing = true;
-                }
+            if (input.hasNext() && operator.needsInput()) {
+                operator.addInput(input.next());
+                loopsSinceLastPage = 0;
             }
 
             Page outputPage = operator.getOutput();
-            if (outputPage != null) {
+            if (outputPage != null && outputPage.getPositionCount() != 0) {
                 outputPages.add(outputPage);
+                loopsSinceLastPage = 0;
             }
         }
 
-        assertFalse(operator.needsInput());
-        assertTrue(operator.isBlocked().isDone());
-        assertTrue(operator.isFinished());
+        return outputPages.build();
+    }
+
+    public static List<Page> finishOperator(Operator operator)
+    {
+        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
+
+        for (int loopsSinceLastPage = 0; !operator.isFinished() && loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
+            if (handledBlocked(operator)) {
+                continue;
+            }
+            handleMemoryRevoking(operator);
+            operator.finish();
+            Page outputPage = operator.getOutput();
+            if (outputPage != null && outputPage.getPositionCount() != 0) {
+                outputPages.add(outputPage);
+                loopsSinceLastPage = 0;
+            }
+        }
+
+        assertEquals(operator.isFinished(), true, "Operator did not finish");
+        assertEquals(operator.needsInput(), false, "Operator still wants input");
+        assertEquals(operator.isBlocked().isDone(), true, "Operator is blocked");
 
         return outputPages.build();
+    }
+
+    private static boolean handledBlocked(Operator operator)
+    {
+        ListenableFuture<?> isBlocked = operator.isBlocked();
+        if (!isBlocked.isDone()) {
+            tryGetFutureValue(isBlocked, 1, TimeUnit.MILLISECONDS);
+            return true;
+        }
+        return false;
+    }
+
+    private static void handleMemoryRevoking(Operator operator)
+    {
+        if (operator.getOperatorContext().getReservedRevocableBytes() > 0) {
+            getFutureValue(operator.startMemoryRevoke());
+            operator.finishMemoryRevoke();
+        }
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input)
     {
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            return toPages(operator, input);
+            return toPages(operator, input.iterator());
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
-    }
-
-    private static List<Page> toPages(Operator operator, List<Page> input)
-    {
-        // verify initial state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
-        assertEquals(operator.getOutput(), null);
-
-        return toPages(operator, input.iterator());
     }
 
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext)
     {
-        try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            return toPages(operator);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private static List<Page> toPages(Operator operator)
-    {
-        // operator does not have input so should never require input
-        assertEquals(operator.needsInput(), false);
-
-        ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        addRemainingOutputPages(operator, outputPages);
-        return outputPages.build();
-    }
-
-    private static void addRemainingOutputPages(Operator operator, ImmutableList.Builder<Page> outputPages)
-    {
-        // pull remaining output pages
-        while (!operator.isFinished()) {
-            // at this point the operator should not need more input
-            assertEquals(operator.needsInput(), false);
-
-            Page outputPage = operator.getOutput();
-            if (outputPage != null) {
-                outputPages.add(outputPage);
-            }
-        }
-
-        // verify final state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        return toPages(operatorFactory, driverContext, ImmutableList.of());
     }
 
     public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
@@ -151,43 +166,38 @@ public final class OperatorAssertion
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), parameterTypes.size());
+        RowType rowType = RowType.anonymous(parameterTypes);
+        BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
+        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
         for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
+            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
         }
-        return blockBuilder.build();
+        blockBuilder.closeEntry();
+        return rowType.getObject(blockBuilder, 0);
     }
 
-    public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, List<Page> expected)
-            throws Exception
+    public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(operatorFactory.getTypes(), actual.get(i), expected.get(i));
+            assertPageEquals(types, actual.get(i), expected.get(i));
         }
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected)
-            throws Exception
     {
         assertOperatorEquals(operatorFactory, driverContext, input, expected, false, ImmutableList.of());
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
-            throws Exception
     {
         List<Page> pages = toPages(operatorFactory, driverContext, input);
-        MaterializedResult actual;
         if (hashEnabled && !hashChannels.isEmpty()) {
             // Drop the hashChannel for all pages
-            List<Page> actualPages = dropChannel(pages, hashChannels);
-            List<Type> expectedTypes = without(operatorFactory.getTypes(), hashChannels);
-            actual = toMaterializedResult(driverContext.getSession(), expectedTypes, actualPages);
+            pages = dropChannel(pages, hashChannels);
         }
-        else {
-            actual = toMaterializedResult(driverContext.getSession(), operatorFactory.getTypes(), pages);
-        }
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
@@ -209,29 +219,64 @@ public final class OperatorAssertion
             Optional<Integer> hashChannel)
     {
         List<Page> pages = toPages(operatorFactory, driverContext, input);
-        MaterializedResult actual;
         if (hashEnabled && hashChannel.isPresent()) {
             // Drop the hashChannel for all pages
-            List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
-            List<Type> expectedTypes = without(operatorFactory.getTypes(), ImmutableList.of(hashChannel.get()));
-            actual = toMaterializedResult(driverContext.getSession(), expectedTypes, actualPages);
+            pages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
         }
-        else {
-            actual = toMaterializedResult(driverContext.getSession(), operatorFactory.getTypes(), pages);
-        }
-
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
-    static <T> List<T> without(List<T> types, List<Integer> channels)
+    public static void assertOperatorIsBlocked(Operator operator)
     {
-        types = new ArrayList<>(types);
-        int removed = 0;
-        for (int hashChannel : channels) {
-            types.remove(hashChannel - removed);
-            removed++;
+        assertOperatorIsBlocked(operator, BLOCKED_DEFAULT_TIMEOUT);
+    }
+
+    public static void assertOperatorIsBlocked(Operator operator, Duration timeout)
+    {
+        if (waitForOperatorToUnblock(operator, timeout)) {
+            fail("Operator is expected to be blocked for at least " + timeout.toString());
         }
-        return ImmutableList.copyOf(types);
+    }
+
+    public static void assertOperatorIsUnblocked(Operator operator)
+    {
+        assertOperatorIsUnblocked(operator, UNBLOCKED_DEFAULT_TIMEOUT);
+    }
+
+    public static void assertOperatorIsUnblocked(Operator operator, Duration timeout)
+    {
+        if (!waitForOperatorToUnblock(operator, timeout)) {
+            fail("Operator is expected to be unblocked within " + timeout.toString());
+        }
+    }
+
+    private static boolean waitForOperatorToUnblock(Operator operator, Duration timeout)
+    {
+        try {
+            operator.isBlocked().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            return true;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted", e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+        catch (TimeoutException expected) {
+            return false;
+        }
+    }
+
+    static <T> List<T> without(List<T> list, Collection<Integer> indexes)
+    {
+        Set<Integer> indexesSet = ImmutableSet.copyOf(indexes);
+
+        return IntStream.range(0, list.size())
+                .filter(index -> !indexesSet.contains(index))
+                .mapToObj(list::get)
+                .collect(toImmutableList());
     }
 
     static List<Page> dropChannel(List<Page> pages, List<Integer> channels)

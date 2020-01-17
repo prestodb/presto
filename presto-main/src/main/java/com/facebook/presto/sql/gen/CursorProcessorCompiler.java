@@ -16,50 +16,51 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.control.WhileLoop;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.CursorProcessor;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.Signatures;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
-import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
-import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
-import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.google.common.base.Verify.verify;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
+import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
-        implements BodyCompiler<CursorProcessor>
+        implements BodyCompiler
 {
     private final Metadata metadata;
 
@@ -69,14 +70,19 @@ public class CursorProcessorCompiler
     }
 
     @Override
-    public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
+    public void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
+
         generateProcessMethod(classDefinition, projections.size());
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+
+        Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties, "filter");
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, filterCompiledLambdaMap, filter);
 
         for (int i = 0; i < projections.size(); i++) {
-            generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, "project_" + i, projections.get(i));
+            String methodName = "project_" + i;
+            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), metadata, sqlFunctionProperties, methodName);
+            generateProjectMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, projectCompiledLambdaMap, methodName, projections.get(i));
         }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
@@ -85,6 +91,7 @@ public class CursorProcessorCompiler
         constructorBody.comment("super();")
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
+
         cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
         constructorBody.ret();
     }
@@ -92,49 +99,58 @@ public class CursorProcessorCompiler
     private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
         Parameter session = arg("session", ConnectorSession.class);
+        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
-        Parameter count = arg("count", int.class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(CursorProcessorOutput.class), session, yieldSignal, cursor, pageBuilder);
 
         Scope scope = method.getScope();
         Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
+        Variable finishedVariable = scope.declareVariable(boolean.class, "finished");
 
         method.getBody()
                 .comment("int completedPositions = 0;")
-                .putVariable(completedPositionsVariable, 0);
+                .putVariable(completedPositionsVariable, 0)
+                .comment("boolean finished = false;")
+                .putVariable(finishedVariable, false);
 
-        //
-        // for loop loop body
-        //
+        // while loop loop body
         LabelNode done = new LabelNode("done");
-        ForLoop forLoop = new ForLoop()
-                .initialize(NOP)
-                .condition(new BytecodeBlock()
-                                .comment("completedPositions < count")
-                                .getVariable(completedPositionsVariable)
-                                .getVariable(count)
-                                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
-                )
-                .update(new BytecodeBlock()
-                                .comment("completedPositions++")
-                                .incrementVariable(completedPositionsVariable, (byte) 1)
-                );
+        WhileLoop whileLoop = new WhileLoop()
+                .condition(constantTrue())
+                .body(new BytecodeBlock()
+                        .comment("if (pageBuilder.isFull() || yieldSignal.isSet()) return new CursorProcessorOutput(completedPositions, false);")
+                        .append(new IfStatement()
+                                .condition(or(
+                                        pageBuilder.invoke("isFull", boolean.class),
+                                        yieldSignal.invoke("isSet", boolean.class)))
+                                .ifTrue(jump(done)))
+                        .comment("if (!cursor.advanceNextPosition()) return new CursorProcessorOutput(completedPositions, true);")
+                        .append(new IfStatement()
+                                .condition(cursor.invoke("advanceNextPosition", boolean.class))
+                                .ifFalse(new BytecodeBlock()
+                                        .putVariable(finishedVariable, true)
+                                        .gotoLabel(done)))
+                        .comment("do the projection")
+                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .comment("completedPositions++;")
+                        .incrementVariable(completedPositionsVariable, (byte) 1));
 
-        BytecodeBlock forLoopBody = new BytecodeBlock()
-                .comment("if (pageBuilder.isFull()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(pageBuilder)
-                        .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
-                        .ifTrueGoto(done))
-                .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new BytecodeBlock()
-                        .getVariable(cursor)
-                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
-                        .ifFalseGoto(done));
+        method.getBody()
+                .append(whileLoop)
+                .visitLabel(done)
+                .append(newInstance(CursorProcessorOutput.class, completedPositionsVariable, finishedVariable)
+                        .ret());
+    }
 
-        forLoop.body(forLoopBody);
-
+    private static IfStatement createProjectIfStatement(
+            ClassDefinition classDefinition,
+            MethodDefinition method,
+            Parameter session,
+            Parameter cursor,
+            Parameter pageBuilder,
+            int projections)
+    {
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
@@ -164,93 +180,23 @@ public class CursorProcessorCompiler
             // project(block..., blockBuilder)gen
             ifStatement.ifTrue()
                     .invokeVirtual(classDefinition.getType(),
-                    "project_" + projectionIndex,
-                    type(void.class),
-                    type(ConnectorSession.class),
-                    type(RecordCursor.class),
-                    type(BlockBuilder.class));
+                            "project_" + projectionIndex,
+                            type(void.class),
+                            type(ConnectorSession.class),
+                            type(RecordCursor.class),
+                            type(BlockBuilder.class));
         }
-        forLoopBody.append(ifStatement);
-
-        method.getBody()
-                .append(forLoop)
-                .visitLabel(done)
-                .comment("return completedPositions;")
-                .getVariable(completedPositionsVariable)
-                .retInt();
+        return ifStatement;
     }
 
-    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
-            ClassDefinition containerClassDefinition,
+    private void generateFilterMethod(
+            SqlFunctionProperties sqlFunctionProperties,
+            ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpression projection,
-            String methodPrefix)
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpression filter)
     {
-        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(projection);
-
-        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
-        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
-
-        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
-            RowExpression expression = lambdaAndTryExpressions.get(i);
-
-            if (expression instanceof CallExpression) {
-                CallExpression tryExpression = (CallExpression) expression;
-                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
-
-                Parameter session = arg("session", ConnectorSession.class);
-                Parameter cursor = arg("cursor", RecordCursor.class);
-
-                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                        .add(session)
-                        .add(cursor)
-                        .build();
-
-                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        fieldReferenceCompiler(cursor),
-                        metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
-
-                MethodDefinition tryMethod = defineTryMethod(
-                        innerExpressionVisitor,
-                        containerClassDefinition,
-                        methodPrefix + "_try_" + i,
-                        inputParameters,
-                        Primitives.wrap(tryExpression.getType().getJavaType()),
-                        tryExpression,
-                        callSiteBinder);
-
-                tryMethodMap.put(tryExpression, tryMethod);
-            }
-            else if (expression instanceof LambdaDefinitionExpression) {
-                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                String fieldName = methodPrefix + "_lambda_" + i;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
-                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                        lambdaExpression,
-                        fieldName,
-                        containerClassDefinition,
-                        preGeneratedExpressions,
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        metadata.getFunctionRegistry());
-                lambdaFieldMap.put(lambdaExpression, methodHandleField);
-            }
-            else {
-                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
-            }
-        }
-
-        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
-    }
-
-    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
-    {
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
-
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
@@ -260,19 +206,21 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
 
         LabelNode end = new LabelNode("end");
         method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(filter.accept(visitor, scope))
+                .append(compiler.compile(filter, scope, Optional.empty()))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -282,10 +230,15 @@ public class CursorProcessorCompiler
                 .retBoolean();
     }
 
-    private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
+    private void generateProjectMethod(
+            SqlFunctionProperties sqlFunctionProperties,
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            String methodName,
+            RowExpression projection)
     {
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
-
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         Parameter output = arg("output", BlockBuilder.class);
@@ -296,26 +249,26 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
 
         method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
-                .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(compiler.compile(projection, scope, Optional.of(output)))
                 .ret();
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(Variable cursorVariable)
     {
-        return new RowExpressionVisitor<Scope, BytecodeNode>()
+        return new RowExpressionVisitor<BytecodeNode, Scope>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
@@ -368,6 +321,12 @@ public class CursorProcessorCompiler
 
             @Override
             public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Scope context)
             {
                 throw new UnsupportedOperationException();
             }

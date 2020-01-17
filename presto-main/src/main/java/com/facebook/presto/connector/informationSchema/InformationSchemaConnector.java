@@ -15,13 +15,17 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionId;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,16 +35,18 @@ public class InformationSchemaConnector
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
-    public InformationSchemaConnector(String catalogName, InternalNodeManager nodeManager, Metadata metadata)
+    public InformationSchemaConnector(String catalogName, InternalNodeManager nodeManager, Metadata metadata, AccessControl accessControl, List<PropertyMetadata<?>> sessionProperties)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.metadata = new InformationSchemaMetadata(catalogName);
+        this.metadata = new InformationSchemaMetadata(catalogName, metadata);
         this.splitManager = new InformationSchemaSplitManager(nodeManager);
-        this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata);
+        this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata, accessControl);
+        this.sessionProperties = sessionProperties;
     }
 
     @Override
@@ -65,5 +71,11 @@ public class InformationSchemaConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 }

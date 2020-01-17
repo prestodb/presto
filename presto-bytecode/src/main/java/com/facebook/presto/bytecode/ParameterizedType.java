@@ -30,18 +30,12 @@ public class ParameterizedType
     public static ParameterizedType typeFromJavaClassName(String className)
     {
         requireNonNull(className, "type is null");
-        if (className.endsWith("/")) {
-            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
         return new ParameterizedType(className.replace('.', '/'));
     }
 
     public static ParameterizedType typeFromPathName(String className)
     {
         requireNonNull(className, "type is null");
-        if (className.indexOf(".") > 0) {
-            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
         return new ParameterizedType(className);
     }
 

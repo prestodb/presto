@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,14 +29,17 @@ import static java.util.Objects.requireNonNull;
 public class KafkaTopicFieldGroup
 {
     private final String dataFormat;
+    private final Optional<String> dataSchema;
     private final List<KafkaTopicFieldDescription> fields;
 
     @JsonCreator
     public KafkaTopicFieldGroup(
             @JsonProperty("dataFormat") String dataFormat,
+            @JsonProperty("dataSchema") Optional<String> dataSchema,
             @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
+        this.dataSchema = requireNonNull(dataSchema, "dataSchema is null");
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
@@ -51,11 +55,18 @@ public class KafkaTopicFieldGroup
         return fields;
     }
 
+    @JsonProperty
+    public Optional<String> getDataSchema()
+    {
+        return dataSchema;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("dataFormat", dataFormat)
+                .add("dataSchema", dataSchema)
                 .add("fields", fields)
                 .toString();
     }

@@ -20,15 +20,14 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,16 +53,6 @@ public class RedisConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(RedisTableDescription.class);
 
         binder.install(new RedisDecoderModule());
-
-        for (RedisInternalFieldDescription internalFieldDescription : RedisInternalFieldDescription.getInternalFields()) {
-            bindInternalColumn(binder, internalFieldDescription);
-        }
-    }
-
-    private static void bindInternalColumn(Binder binder, RedisInternalFieldDescription fieldDescription)
-    {
-        Multibinder<RedisInternalFieldDescription> fieldDescriptionBinder = Multibinder.newSetBinder(binder, RedisInternalFieldDescription.class);
-        fieldDescriptionBinder.addBinding().toInstance(fieldDescription);
     }
 
     public static final class TypeDeserializer

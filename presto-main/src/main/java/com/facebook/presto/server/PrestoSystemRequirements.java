@@ -28,10 +28,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
-final class PrestoSystemRequirements
+public final class PrestoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
@@ -40,23 +40,41 @@ final class PrestoSystemRequirements
 
     public static void verifyJvmRequirements()
     {
-        String vendor = StandardSystemProperty.JAVA_VENDOR.value();
-        if (!"Oracle Corporation".equals(vendor)) {
-            failRequirement("Presto requires an Oracle or OpenJDK JVM (found %s)", vendor);
-        }
-
         verifyJavaVersion();
+        verify64BitJvm();
+        verifyOsArchitecture();
+        verifyByteOrder();
+        verifyUsingG1Gc();
+        verifyFileDescriptor();
+        verifySlice();
+    }
 
+    private static void verify64BitJvm()
+    {
         String dataModel = System.getProperty("sun.arch.data.model");
         if (!"64".equals(dataModel)) {
             failRequirement("Presto requires a 64-bit JVM (found %s)", dataModel);
         }
+    }
 
+    private static void verifyByteOrder()
+    {
+        ByteOrder order = ByteOrder.nativeOrder();
+        if (!order.equals(ByteOrder.LITTLE_ENDIAN)) {
+            failRequirement("Presto requires a little endian platform (found %s)", order);
+        }
+    }
+
+    private static void verifyOsArchitecture()
+    {
         String osName = StandardSystemProperty.OS_NAME.value();
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
-            if (!"amd64".equals(osArch)) {
-                failRequirement("Presto requires x86-64 or amd64 on Linux (found %s)", osArch);
+            if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
+                failRequirement("Presto requires amd64 or ppc64le on Linux (found %s)", osArch);
+            }
+            if ("ppc64le".equals(osArch)) {
+                warnRequirement("Support for the POWER architecture is experimental");
             }
         }
         else if ("Mac OS X".equals(osName)) {
@@ -67,16 +85,6 @@ final class PrestoSystemRequirements
         else {
             failRequirement("Presto requires Linux or Mac OS X (found %s)", osName);
         }
-
-        if (!ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)) {
-            failRequirement("Presto requires a little endian platform (found %s)", ByteOrder.nativeOrder());
-        }
-
-        verifyUsingG1Gc();
-
-        verifyFileDescriptor();
-
-        verifySlice();
     }
 
     private static void verifyJavaVersion()
@@ -87,15 +95,15 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 60) {
+        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 151) {
             return;
         }
 
-        if (version.getMajor() == 9) {
+        if (version.getMajor() >= 9) {
             return;
         }
 
-        failRequirement("Presto requires Java 8u60+ (found %s)", javaVersion);
+        failRequirement("Presto requires Java 8u151+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
@@ -161,7 +169,7 @@ final class PrestoSystemRequirements
     public static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2015) {
+        if (currentYear < 2019) {
             failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
         }
     }

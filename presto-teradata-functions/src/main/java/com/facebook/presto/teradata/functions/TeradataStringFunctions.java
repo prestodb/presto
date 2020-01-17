@@ -27,7 +27,7 @@ import io.airlift.slice.Slices;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
@@ -52,8 +52,8 @@ public final class TeradataStringFunctions
             return (long) method.invokeExact(string, substring);
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
@@ -75,8 +75,8 @@ public final class TeradataStringFunctions
             return (Slice) method.invokeExact(utf8, start);
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
@@ -99,8 +99,8 @@ public final class TeradataStringFunctions
             return (Slice) method.invokeExact(utf8, start, length);
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
+            throwIfInstanceOf(t, Error.class);
+            throwIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
         }
     }

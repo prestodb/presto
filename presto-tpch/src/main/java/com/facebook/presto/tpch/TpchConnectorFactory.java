@@ -32,7 +32,11 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
+    public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
+
     private final int defaultSplitsPerNode;
+    private final boolean predicatePushdownEnabled;
+    private final boolean partitioningEnabled;
 
     public TpchConnectorFactory()
     {
@@ -41,7 +45,14 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
+        this(defaultSplitsPerNode, true, true);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, boolean partitioningEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
+        this.partitioningEnabled = partitioningEnabled;
     }
 
     @Override
@@ -57,9 +68,10 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
+        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -73,7 +85,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId);
+                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, isPartitioningEnabled(properties));
             }
 
             @Override
@@ -104,5 +116,10 @@ public class TpchConnectorFactory
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
         }
+    }
+
+    private boolean isPartitioningEnabled(Map<String, String> properties)
+    {
+        return Boolean.parseBoolean(properties.getOrDefault("tpch.partitioning-enabled", String.valueOf(partitioningEnabled)));
     }
 }

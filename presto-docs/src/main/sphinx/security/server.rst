@@ -9,16 +9,9 @@ JDBC and ODBC drivers.
 To enable Kerberos authentication for Presto, configuration changes are made on
 the Presto coordinator. No changes are required to the worker configuration;
 the worker nodes will continue to connect to the coordinator over
-unauthenticated HTTP.
+unauthenticated HTTP. However, if you want to secure the communication between
+Presto nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
 
-.. warning::
-
-  Worker nodes cannot yet be configured to connect to the Presto coordinator
-  using HTTPS or to authenticate with Kerberos. It is the administrator's
-  responsibility to enable unauthenticated access over HTTP for worker nodes
-  and ensure unathenticated access is blocked for any node that is not a worker
-  node. For nodes that are not worker nodes, block access to the Presto
-  coordinator's HTTP port.
 
 Environment Configuration
 -------------------------
@@ -56,47 +49,11 @@ In addition, the Presto coordinator needs a `keytab file
 
 .. include:: jce-policy.fragment
 
-.. _server_java_keystore:
-
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Access to the Presto coordinator must be through HTTPS when using Kerberos
-authentication. The Presto coordinator uses a :ref:`Java Keystore
-<server_java_keystore>` file for its TLS configuration. These keys are
-generated using :command:`keytool` and stored in a Java Keystore file for the
-Presto coordinator.
-
-The alias in the :command:`keytool` command line should match the principal that the
-Presto coordinator will use.
-
-You'll be prompted for the first and last name. Use the Common Name that will
-be used in the certificate. In this case, it should be the unqualified hostname
-of the Presto coordinator. In the following example, you can see this in the prompt
-that confirms the information is correct:
-
-.. code-block:: none
-
-    keytool -genkeypair -alias presto -keyalg RSA -keystore keystore.jks
-    Enter keystore password:
-    Re-enter new password:
-    What is your first and last name?
-      [Unknown]:  presto-coordinator
-    What is the name of your organizational unit?
-      [Unknown]:
-    What is the name of your organization?
-      [Unknown]:
-    What is the name of your City or Locality?
-      [Unknown]:
-    What is the name of your State or Province?
-      [Unknown]:
-    What is the two-letter country code for this unit?
-      [Unknown]:
-    Is CN=eiger, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
-      [no]:  yes
-
-    Enter key password for <presto>
-            (RETURN if same as keystore password):
+When using Kerberos authentication, access to the Presto coordinator should be
+through HTTPS. You can do it by creating a :ref:`server_java_keystore` on the
+coordinator.
 
 System Access Control Plugin
 ----------------------------
@@ -127,9 +84,10 @@ Kerberos authentication is configured in the coordinator node's
 
 .. code-block:: none
 
-    http.server.authentication.enabled=true
+    http-server.authentication.type=KERBEROS
 
     http.server.authentication.krb5.service-name=presto
+    http.server.authentication.krb5.service-hostname=presto.example.com
     http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
@@ -142,13 +100,17 @@ Kerberos authentication is configured in the coordinator node's
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``http.server.authentication.enabled``                  Enable authentication for the Presto coordinator.
-                                                        Must be set to ``true``.
-``http.server.authentication.krb5.service-name``        The Kerberos server name for the Presto coordinator.
+``http-server.authentication.type``                     Authentication type for the Presto
+                                                        coordinator. Must be set to ``KERBEROS``.
+``http.server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
                                                         Must match the Kerberos principal.
+``http.server.authentication.krb5.principal-hostname``  The Kerberos hostname for the Presto coordinator.
+                                                        Must match the Kerberos principal. This parameter is
+                                                        optional. If included, Presto will use this value
+                                                        in the host part of the Kerberos principal instead
+                                                        of the machine's hostname.
 ``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
-                                                        authenticate the Kerberos principal specified in
-                                                        ``http.server.authentication.krb5.service-name``.
+                                                        authenticate the Kerberos principal.
 ``http.authentication.krb5.config``                     The location of the Kerberos configuration file.
 ``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
                                                         Should be set to ``true``.
@@ -161,15 +123,20 @@ Property                                                Description
 
 .. note::
 
-    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java will
-    choose CPU-intensive cipher suites by default. If the CPU usage is
-    unacceptably high after enabling HTTPS, you can configure Java to use
-    specific cipher suites by setting the ``http-server.https.included-cipher``
-    property:
+    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java
+    prefers the more CPU-intensive cipher suites if you allow it to choose from
+    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
+    you can configure Java to use specific cipher suites by setting
+    the ``http-server.https.included-cipher`` property to only allow
+    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
+    As a result, if you want to choose non FS ciphers, you need to set the
+    ``http-server.https.excluded-cipher`` property to an empty list in order to
+    override the default exclusions.
 
     .. code-block:: none
 
         http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
+        http-server.https.excluded-cipher=
 
     The Java documentation lists the `supported cipher suites
     <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.
@@ -215,12 +182,8 @@ Verify that the keytab file can be used to successfully obtain a ticket using
 Java Keystore File Verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Verify the password for a keystore file and view its contents using `keytool
-<http://docs.oracle.com/javase/8/docs/technotes/tools/windows/keytool.html>`_.
-
-.. code-block:: none
-
-    $ keytool -list -v -k /etc/presto/presto.jks
+Verify the password for a keystore file and view its contents using
+:ref:`troubleshooting_keystore`
 
 Additional Kerberos Debugging Information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

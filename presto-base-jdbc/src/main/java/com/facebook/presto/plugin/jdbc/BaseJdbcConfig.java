@@ -13,15 +13,22 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
 {
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    private boolean caseInsensitiveNameMatching;
+    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @NotNull
     public String getConnectionUrl()
@@ -54,9 +61,36 @@ public class BaseJdbcConfig
     }
 
     @Config("connection-password")
+    @ConfigSecuritySensitive
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("case-insensitive-name-matching")
+    public BaseJdbcConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl;
+    }
+
+    @Config("case-insensitive-name-matching.cache-ttl")
+    public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    {
+        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 }

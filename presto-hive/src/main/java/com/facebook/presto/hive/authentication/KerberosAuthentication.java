@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.authentication;
 
-import com.google.common.base.Throwables;
+import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -25,6 +25,7 @@ import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -39,6 +40,7 @@ import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosAuthentication
 {
+    private static final Logger log = Logger.get(KerberosAuthentication.class);
     private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
 
     private final KerberosPrincipal principal;
@@ -52,7 +54,7 @@ public class KerberosAuthentication
         checkArgument(exists(keytabPath), "keytab does not exist: " + keytabLocation);
         checkArgument(isReadable(keytabPath), "keytab is not readable: " + keytabLocation);
         this.principal = createKerberosPrincipal(principal);
-        this.configuration = createConfiguration(principal, keytabLocation);
+        this.configuration = createConfiguration(this.principal.getName(), keytabLocation);
     }
 
     public Subject getSubject()
@@ -64,30 +66,35 @@ public class KerberosAuthentication
             return loginContext.getSubject();
         }
         catch (LoginException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
     private static KerberosPrincipal createKerberosPrincipal(String principal)
     {
         try {
-            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getHostName()));
+            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getCanonicalHostName()));
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
     private static Configuration createConfiguration(String principal, String keytabLocation)
     {
-        Map<String, String> options = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> optionsBuilder = ImmutableMap.<String, String>builder()
                 .put("useKeyTab", "true")
                 .put("storeKey", "true")
                 .put("doNotPrompt", "true")
                 .put("isInitiator", "true")
                 .put("principal", principal)
-                .put("keyTab", keytabLocation)
-                .build();
+                .put("keyTab", keytabLocation);
+
+        if (log.isDebugEnabled()) {
+            optionsBuilder.put("debug", "true");
+        }
+
+        Map<String, String> options = optionsBuilder.build();
 
         return new Configuration()
         {
@@ -98,9 +105,7 @@ public class KerberosAuthentication
                         new AppConfigurationEntry(
                                 KERBEROS_LOGIN_MODULE,
                                 AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,
-                                options
-                        )
-                };
+                                options)};
             }
         };
     }

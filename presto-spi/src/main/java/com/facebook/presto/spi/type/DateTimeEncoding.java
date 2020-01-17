@@ -59,6 +59,6 @@ public final class DateTimeEncoding
 
     public static long updateMillisUtc(long newMillsUtc, long dateTimeWithTimeZone)
     {
-        return pack(newMillsUtc, (short) (dateTimeWithTimeZone & 0xFFF));
+        return pack(newMillsUtc, (short) (dateTimeWithTimeZone & TIME_ZONE_MASK));
     }
 }

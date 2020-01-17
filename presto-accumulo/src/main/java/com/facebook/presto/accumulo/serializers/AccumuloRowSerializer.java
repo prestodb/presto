@@ -16,8 +16,6 @@ package com.facebook.presto.accumulo.serializers;
 import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.spi.type.VarcharType;
@@ -27,7 +25,6 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
-import java.io.IOException;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -104,10 +101,8 @@ public interface AccumuloRowSerializer
      * Deserialize the given Accumulo entry, retrieving data for the Presto column.
      *
      * @param entry Entry to deserialize
-     * @throws IOException If an IO error occurs during deserialization
      */
-    void deserialize(Entry<Key, Value> entry)
-            throws IOException;
+    void deserialize(Entry<Key, Value> entry);
 
     /**
      * Gets a Boolean value indicating whether or not the Presto column is a null value.
@@ -537,7 +532,7 @@ public interface AccumuloRowSerializer
      */
     static Block getBlockFromArray(Type elementType, List<?> array)
     {
-        BlockBuilder builder = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
+        BlockBuilder builder = elementType.createBlockBuilder(null, array.size());
         for (Object item : array) {
             writeObject(builder, elementType, item);
         }
@@ -556,13 +551,16 @@ public interface AccumuloRowSerializer
         Type keyType = mapType.getTypeParameters().get(0);
         Type valueType = mapType.getTypeParameters().get(1);
 
-        BlockBuilder builder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), map.size() * 2);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
 
         for (Entry<?, ?> entry : map.entrySet()) {
             writeObject(builder, keyType, entry.getKey());
             writeObject(builder, valueType, entry.getValue());
         }
-        return builder.build();
+
+        mapBlockBuilder.closeEntry();
+        return (Block) mapType.getObject(mapBlockBuilder, 0);
     }
 
     /**
@@ -610,10 +608,10 @@ public interface AccumuloRowSerializer
     {
         if (Types.isArrayType(type)) {
             Type elementType = Types.getElementType(type);
-            return getArrayFromBlock(elementType, block.getObject(position, Block.class));
+            return getArrayFromBlock(elementType, block.getBlock(position));
         }
         else if (Types.isMapType(type)) {
-            return getMapFromBlock(type, block.getObject(position, Block.class));
+            return getMapFromBlock(type, block.getBlock(position));
         }
         else {
             if (type.getJavaType() == Slice.class) {

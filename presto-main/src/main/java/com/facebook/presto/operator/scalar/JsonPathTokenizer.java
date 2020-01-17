@@ -14,9 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -25,6 +27,7 @@ public class JsonPathTokenizer
         extends AbstractIterator<String>
 {
     private static final char QUOTE = '\"';
+    private static final char BACKSLASH = '\\';
     private static final char DOT = '.';
     private static final char OPEN_BRACKET = '[';
     private static final char CLOSE_BRACKET = ']';
@@ -119,16 +122,42 @@ public class JsonPathTokenizer
         // quote has already been matched
 
         // seek until we see the close quote
-        int start = index;
-        while (hasNextCharacter() && peekCharacter() != QUOTE) {
+        StringBuilder token = new StringBuilder();
+        boolean escaped = false;
+
+        while (hasNextCharacter() && (escaped || peekCharacter() != QUOTE)) {
+            if (escaped) {
+                switch (peekCharacter()) {
+                    case QUOTE:
+                    case BACKSLASH:
+                        token.append(peekCharacter());
+                        break;
+                    default:
+                        throw invalidJsonPath();
+                }
+                escaped = false;
+            }
+            else {
+                switch (peekCharacter()) {
+                    case BACKSLASH:
+                        escaped = true;
+                        break;
+                    case QUOTE:
+                        throw new VerifyException("Should be handled by loop condition");
+                    default:
+                        token.append(peekCharacter());
+                }
+            }
             nextCharacter();
         }
-        int end = index;
-
-        String token = path.substring(start, end);
+        if (escaped) {
+            verify(!hasNextCharacter(), "Loop terminated after escape while there is still input");
+            throw invalidJsonPath();
+        }
 
         match(QUOTE);
-        return token;
+
+        return token.toString();
     }
 
     private boolean hasNextCharacter()

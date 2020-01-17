@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -44,7 +47,8 @@ public final class ResourceGroupId
         return result;
     }
 
-    private ResourceGroupId(List<String> segments)
+    @JsonCreator
+    public ResourceGroupId(List<String> segments)
     {
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
@@ -58,9 +62,15 @@ public final class ResourceGroupId
         return segments.get(segments.size() - 1);
     }
 
+    @JsonValue
     public List<String> getSegments()
     {
         return segments;
+    }
+
+    public ResourceGroupId getRoot()
+    {
+        return new ResourceGroupId(segments.get(0));
     }
 
     public Optional<ResourceGroupId> getParent()
@@ -69,6 +79,15 @@ public final class ResourceGroupId
             return Optional.empty();
         }
         return Optional.of(new ResourceGroupId(segments.subList(0, segments.size() - 1)));
+    }
+
+    public boolean isAncestorOf(ResourceGroupId descendant)
+    {
+        List<String> descendantSegments = descendant.getSegments();
+        if (segments.size() >= descendantSegments.size()) {
+            return false;
+        }
+        return descendantSegments.subList(0, segments.size()).equals(segments);
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

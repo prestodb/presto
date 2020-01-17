@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.ArrayBlockBuilder;
-import com.facebook.presto.spi.block.ArrayElementBlockWriter;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
@@ -38,23 +37,23 @@ public class TestSimpleRowType
 
     private static Block createTestBlock()
     {
-        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) TYPE.createBlockBuilder(new BlockBuilderStatus(), 3);
+        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 3);
 
-        ArrayElementBlockWriter arrayElementBlockWriter;
+        SingleRowBlockWriter singleRowBlockWriter;
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 1);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cat"));
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 1);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cat"));
         blockBuilder.closeEntry();
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 2);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cats"));
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 2);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cats"));
         blockBuilder.closeEntry();
 
-        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(arrayElementBlockWriter, 3);
-        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("dog"));
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, 3);
+        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("dog"));
         blockBuilder.closeEntry();
 
         return blockBuilder.build();
@@ -63,6 +62,15 @@ public class TestSimpleRowType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        throw new UnsupportedOperationException();
+        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 1);
+        SingleRowBlockWriter singleRowBlockWriter;
+
+        Block block = (Block) value;
+        singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(singleRowBlockWriter, block.getSingleValueBlock(0).getLong(0) + 1);
+        VARCHAR.writeSlice(singleRowBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
+        blockBuilder.closeEntry();
+
+        return TYPE.getObject(blockBuilder.build(), 0);
     }
 }

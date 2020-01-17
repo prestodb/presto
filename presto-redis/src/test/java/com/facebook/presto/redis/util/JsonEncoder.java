@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.redis.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 
 public class JsonEncoder
 {
@@ -27,8 +27,8 @@ public class JsonEncoder
         try {
             return objectMapper.writeValueAsString(o);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        catch (JsonProcessingException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

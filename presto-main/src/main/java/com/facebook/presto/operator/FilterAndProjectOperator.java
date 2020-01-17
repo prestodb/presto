@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.project.MergingPageOutput;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.getProcessingOptimization;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -31,22 +33,23 @@ public class FilterAndProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final LocalMemoryContext pageProcessorMemoryContext;
+    private final LocalMemoryContext outputMemoryContext;
 
-    private final PageBuilder pageBuilder;
     private final PageProcessor processor;
-    private final String processingOptimization;
-    private Page currentPage;
-    private int currentPosition;
+    private final MergingPageOutput mergingOutput;
     private boolean finishing;
 
-    public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
+    public FilterAndProjectOperator(
+            OperatorContext operatorContext,
+            PageProcessor processor,
+            MergingPageOutput mergingOutput)
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.processingOptimization = getProcessingOptimization(operatorContext.getSession());
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
+        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
+        this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
 
     @Override
@@ -56,27 +59,26 @@ public class FilterAndProjectOperator
     }
 
     @Override
-    public final List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @Override
     public final void finish()
     {
+        mergingOutput.finish();
         finishing = true;
     }
 
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty() && currentPage == null;
+        boolean finished = finishing && mergingOutput.isFinished();
+        if (finished) {
+            outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
+        }
+        return finished;
     }
 
     @Override
     public final boolean needsInput()
     {
-        return !finishing && !pageBuilder.isFull() && currentPage == null;
+        return !finishing && mergingOutput.needsInput();
     }
 
     @Override
@@ -84,49 +86,20 @@ public class FilterAndProjectOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        checkState(!pageBuilder.isFull(), "Page buffer is full");
+        checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        currentPage = page;
-        currentPosition = 0;
+        mergingOutput.addInput(processor.process(
+                operatorContext.getSession().toConnectorSession(),
+                operatorContext.getDriverContext().getYieldSignal(),
+                pageProcessorMemoryContext,
+                page));
+        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes() + pageProcessorMemoryContext.getBytes());
     }
 
     @Override
     public final Page getOutput()
     {
-        if (!pageBuilder.isFull() && currentPage != null) {
-            switch (processingOptimization) {
-                case FeaturesConfig.ProcessingOptimization.COLUMNAR: {
-                    Page page = processor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                    currentPage = null;
-                    currentPosition = 0;
-                    return page;
-                }
-                case FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY: {
-                    Page page = processor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                    currentPage = null;
-                    currentPosition = 0;
-                    return page;
-                }
-                case FeaturesConfig.ProcessingOptimization.DISABLED: {
-                    currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-                    if (currentPosition == currentPage.getPositionCount()) {
-                        currentPage = null;
-                        currentPosition = 0;
-                    }
-                    break;
-                }
-                default:
-                    throw new IllegalStateException();
-            }
-        }
-
-        if (!finishing && !pageBuilder.isFull() || pageBuilder.isEmpty()) {
-            return null;
-        }
-
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
+        return mergingOutput.getOutput();
     }
 
     public static class FilterAndProjectOperatorFactory
@@ -136,20 +109,24 @@ public class FilterAndProjectOperator
         private final PlanNodeId planNodeId;
         private final Supplier<PageProcessor> processor;
         private final List<Type> types;
+        private final DataSize minOutputPageSize;
+        private final int minOutputPageRowCount;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, Supplier<PageProcessor> processor, List<Type> types)
+        public FilterAndProjectOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Supplier<PageProcessor> processor,
+                List<Type> types,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.processor = processor;
-            this.types = types;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
+            this.processor = requireNonNull(processor, "processor is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
+            this.minOutputPageRowCount = minOutputPageRowCount;
         }
 
         @Override
@@ -157,11 +134,14 @@ public class FilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(operatorContext, types, processor.get());
+            return new FilterAndProjectOperator(
+                    operatorContext,
+                    processor.get(),
+                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -169,7 +149,7 @@ public class FilterAndProjectOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types);
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }
     }
 }

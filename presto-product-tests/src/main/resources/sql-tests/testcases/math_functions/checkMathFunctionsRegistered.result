@@ -2,10 +2,8 @@
  abs | bigint | bigint | scalar | true | absolute value |
  abs | double | double | scalar | true | absolute value |
  acos | double | double | scalar | true | arc cosine |
- approx_distinct | bigint | bigint | aggregate | true | |
- approx_distinct | bigint | bigint, double | aggregate | true | |
- approx_distinct | bigint | double | aggregate | true | |
- approx_distinct | bigint | double, double | aggregate | true | |
+ approx_distinct | bigint | T | aggregate | true | |
+ approx_distinct | bigint | T, double | aggregate | true | |
  approx_percentile | bigint | bigint, bigint, double | aggregate | true | |
  approx_percentile | bigint | bigint, double | aggregate | true | |
  approx_percentile | double | double, bigint, double | aggregate | true | |
@@ -46,7 +44,6 @@
  greatest | E | E | scalar | true | get the largest of the given values |
  infinity | double | | scalar | true | Infinity |
  ln | double | double | scalar | true | natural logarithm |
- log | double | double, double | scalar | true | logarithm to given base |
  log10 | double | double | scalar | true | logarithm to base 10 |
  log2 | double | double | scalar | true | logarithm to base 2 |
  max | E | E | aggregate | true | Returns the maximum value of the argument |
@@ -69,18 +66,18 @@
  regr_intercept | double | double, double | aggregate | true | |
  regr_slope | double | double, double | aggregate | true | |
  round | bigint | bigint | scalar | true | round to nearest integer |
- round | bigint | bigint, bigint | scalar | true | round to nearest integer |
+ round | bigint | bigint, integer | scalar | true | round to nearest integer |
  round | double | double | scalar | true | round to nearest integer |
- round | double | double, bigint | scalar | true | round to given number of decimal places |
+ round | double | double, integer | scalar | true | round to given number of decimal places |
  row_number | bigint | | window | true | |
  sin | double | double | scalar | true | sine |
  sqrt | double | double | scalar | true | square root |
- stddev | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev | double | double | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_pop | double | double | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | bigint | aggregate | true | Returns the variance of the argument |
- stddev_samp | double | double | aggregate | true | Returns the variance of the argument |
+ stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_pop | double | bigint | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_pop | double | double | aggregate | true | Returns the population standard deviation of the argument |
+ stddev_samp | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ stddev_samp | double | double | aggregate | true | Returns the sample standard deviation of the argument |
  sum | bigint | bigint | aggregate | true | |
  sum | double | double | aggregate | true | |
  tan | double | double | scalar | true | tangent |

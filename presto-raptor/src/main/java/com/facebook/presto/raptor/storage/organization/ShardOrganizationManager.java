@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -25,38 +26,36 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.inject.Inject;
-import io.airlift.log.Logger;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.MoreFutures.allAsList;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -71,9 +70,11 @@ public class ShardOrganizationManager
     private final MetadataDao metadataDao;
     private final ShardOrganizerDao organizerDao;
     private final ShardManager shardManager;
+    private final TemporalFunction temporalFunction;
 
     private final boolean enabled;
     private final long organizationIntervalMillis;
+    private final long organizationDiscoveryIntervalMillis;
 
     private final String currentNodeIdentifier;
     private final ShardOrganizer organizer;
@@ -86,14 +87,17 @@ public class ShardOrganizationManager
             NodeManager nodeManager,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
             StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
                 organizer,
+                temporalFunction,
                 config.isOrganizationEnabled(),
-                config.getOrganizationInterval());
+                config.getOrganizationInterval(),
+                config.getOrganizationDiscoveryInterval());
     }
 
     public ShardOrganizationManager(
@@ -101,8 +105,10 @@ public class ShardOrganizationManager
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,
+            TemporalFunction temporalFunction,
             boolean enabled,
-            Duration organizationInterval)
+            Duration organizationInterval,
+            Duration organizationDiscoveryInterval)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
@@ -111,11 +117,13 @@ public class ShardOrganizationManager
         this.organizer = requireNonNull(organizer, "organizer is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
+        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
 
         this.enabled = enabled;
 
         requireNonNull(organizationInterval, "organizationInterval is null");
         this.organizationIntervalMillis = max(1, organizationInterval.roundTo(MILLISECONDS));
+        this.organizationDiscoveryIntervalMillis = max(1, organizationDiscoveryInterval.roundTo(MILLISECONDS));
     }
 
     @PostConstruct
@@ -138,8 +146,8 @@ public class ShardOrganizationManager
     {
         discoveryService.scheduleWithFixedDelay(() -> {
             try {
-                // jitter to avoid overloading database
-                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, 5 * 60));
+                // jitter to avoid overloading database and overloading the backup store
+                MILLISECONDS.sleep(ThreadLocalRandom.current().nextLong(1, organizationDiscoveryIntervalMillis));
 
                 log.info("Running shard organizer...");
                 submitJobs(discoverAndInitializeTablesToOrganize());
@@ -150,7 +158,7 @@ public class ShardOrganizationManager
             catch (Throwable t) {
                 log.error(t, "Error running shard organizer");
             }
-        }, 0, 5, MINUTES);
+        }, 0, organizationDiscoveryIntervalMillis, TimeUnit.MILLISECONDS);
     }
 
     @VisibleForTesting
@@ -189,7 +197,7 @@ public class ShardOrganizationManager
                 .collect(toSet());
 
         Collection<ShardIndexInfo> indexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, true);
-        Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos);
+        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalFunction, tableInfo, indexInfos);
 
         if (organizationSets.isEmpty()) {
             return;
@@ -200,15 +208,16 @@ public class ShardOrganizationManager
         long lastStartTime = System.currentTimeMillis();
         tablesInProgress.add(tableId);
 
-        ImmutableList.Builder<CompletableFuture<?>> futures = ImmutableList.builder();
+        ImmutableList.Builder<ListenableFuture<?>> futures = ImmutableList.builder();
         for (OrganizationSet organizationSet : organizationSets) {
             futures.add(organizer.enqueue(organizationSet));
         }
-        allAsList(futures.build())
-                .whenComplete((value, throwable) -> {
+        futures.build().forEach(listenableFuture -> listenableFuture.addListener(
+                () -> {
                     tablesInProgress.remove(tableId);
                     organizerDao.updateLastStartTime(currentNodeIdentifier, tableId, lastStartTime);
-                });
+                },
+                MoreExecutors.directExecutor()));
     }
 
     private boolean shouldRunOrganization(TableOrganizationInfo info)
@@ -226,12 +235,12 @@ public class ShardOrganizationManager
     }
 
     @VisibleForTesting
-    static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
+    static Set<OrganizationSet> createOrganizationSets(TemporalFunction temporalFunction, Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        return getShardsByDaysBuckets(tableInfo, shards).stream()
-            .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
-            .flatMap(Collection::stream)
-            .collect(toSet());
+        return getShardsByDaysBuckets(tableInfo, shards, temporalFunction).stream()
+                .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
+                .flatMap(Collection::stream)
+                .collect(toSet());
     }
 
     private static Set<OrganizationSet> getOverlappingOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
@@ -271,7 +280,7 @@ public class ShardOrganizationManager
             else {
                 Set<ShardIndexInfo> indexInfos = builder.build();
                 if (indexInfos.size() > 1) {
-                    organizationSets.add(createOrganizationSet(tableInfo.getTableId(), indexInfos));
+                    organizationSets.add(createOrganizationSet(tableInfo.getTableId(), tableInfo.isTableSupportsDeltaDelete(), indexInfos, 0));
                 }
                 builder = ImmutableSet.builder();
                 previousRange = nextRange;
@@ -282,7 +291,7 @@ public class ShardOrganizationManager
 
         Set<ShardIndexInfo> indexInfos = builder.build();
         if (indexInfos.size() > 1) {
-            organizationSets.add(createOrganizationSet(tableInfo.getTableId(), indexInfos));
+            organizationSets.add(createOrganizationSet(tableInfo.getTableId(), tableInfo.isTableSupportsDeltaDelete(), indexInfos, 0));
         }
         return organizationSets;
     }

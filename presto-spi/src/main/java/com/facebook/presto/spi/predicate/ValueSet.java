@@ -29,8 +29,7 @@ import static java.util.stream.Collectors.toList;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = EquatableValueSet.class, name = "equatable"),
         @JsonSubTypes.Type(value = SortedRangeSet.class, name = "sortable"),
-        @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone"),
-})
+        @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone")})
 public interface ValueSet
 {
     static ValueSet none(Type type)

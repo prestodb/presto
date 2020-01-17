@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,6 +30,10 @@ public class QueryMetadata
 
     private final URI uri;
 
+    private final Optional<String> plan;
+
+    private final Optional<String> jsonPlan;
+
     private final Optional<String> payload;
 
     public QueryMetadata(
@@ -39,6 +42,8 @@ public class QueryMetadata
             String query,
             String queryState,
             URI uri,
+            Optional<String> plan,
+            Optional<String> jsonPlan,
             Optional<String> payload)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -46,6 +51,8 @@ public class QueryMetadata
         this.query = requireNonNull(query, "query is null");
         this.queryState = requireNonNull(queryState, "queryState is null");
         this.uri = requireNonNull(uri, "uri is null");
+        this.plan = requireNonNull(plan, "plan is null");
+        this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
     }
 
@@ -77,6 +84,18 @@ public class QueryMetadata
     public URI getUri()
     {
         return uri;
+    }
+
+    @JsonProperty
+    public Optional<String> getPlan()
+    {
+        return plan;
+    }
+
+    @JsonProperty
+    public Optional<String> getJsonPlan()
+    {
+        return jsonPlan;
     }
 
     @JsonProperty

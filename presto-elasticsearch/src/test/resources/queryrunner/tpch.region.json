@@ -1,0 +1,32 @@
+{
+    "tableName": "region",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "region",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "regionkey",
+                "type": "bigint",
+                "jsonPath": "regionkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "name",
+                "type": "varchar",
+                "jsonPath": "name",
+                "jsonType": "varchar",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "2"
+            }
+        ]
+}

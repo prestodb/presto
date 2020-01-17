@@ -3,19 +3,19 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.airlift</groupId>
+        <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>59</version>
+        <version>98</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.161-SNAPSHOT</version>
+    <version>0.232-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
     <description>Presto</description>
-    <url>https://github.com/facebook/presto</url>
+    <url>https://github.com/prestodb/presto</url>
 
     <inceptionYear>2012</inceptionYear>
 
@@ -28,42 +28,49 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/facebook/presto.git</connection>
-        <url>https://github.com/facebook/presto</url>
+        <connection>scm:git:git://github.com/prestodb/presto.git</connection>
+        <url>https://github.com/prestodb/presto</url>
         <tag>HEAD</tag>
     </scm>
 
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
-        <air.check.skip-extended>true</air.check.skip-extended>
-        <air.check.skip-license>false</air.check.skip-license>
+        <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
+        <air.check.skip-pmd>true</air.check.skip-pmd>
+        <air.check.skip-jacoco>true</air.check.skip-jacoco>
+        <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
 
-        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
-
-        <air.java.version>1.8.0-60</air.java.version>
+        <air.java.version>1.8.0-151</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
 
-        <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.139</dep.airlift.version>
+        <dep.antlr.version>4.7.1</dep.antlr.version>
+        <dep.airlift.version>0.188</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.27</dep.slice.version>
-        <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
-        <dep.tempto.version>1.18</dep.tempto.version>
+        <dep.slice.version>0.36</dep.slice.version>
+        <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
+        <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
+        <dep.okhttp.version>3.9.0</dep.okhttp.version>
+        <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
+        <dep.drift.version>1.22</dep.drift.version>
+        <dep.joda.version>2.10</dep.joda.version>
+        <dep.tempto.version>1.50</dep.tempto.version>
+        <dep.testng.version>6.10</dep.testng.version>
+        <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
+        <dep.logback.version>1.2.3</dep.logback.version>
+        <dep.parquet.version>1.10.0</dep.parquet.version>
+        <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
+        <dep.asm.version>6.2.1</dep.asm.version>
+        <dep.gcs.version>1.9.17</dep.gcs.version>
 
         <!--
-        Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
-        children of AbstractTestHiveClient doesn't always get called.
-        TODO: remove once we can upgrade to a version that fixes it
-        -->
-        <dep.testng.version>6.8.21</dep.testng.version>
-
-        <cli.skip-execute>true</cli.skip-execute>
-        <cli.main-class>None</cli.main-class>
-
-        <!-- use a fractional hour timezone offset for tests -->
-        <air.test.timezone>Asia/Katmandu</air.test.timezone>
+          America/Bahia_Banderas has:
+           - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
+           - DST (e.g. at 2017-04-02 02:00:00 clocks turned forward 1 hour; 2017-10-29 02:00:00 clocks turned backward 1 hour)
+           - has forward offset change on first day of epoch (1970-01-01 00:00:00 clocks turned forward 1 hour)
+           - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
+          -->
+        <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>2g</air.test.jvmsize>
@@ -75,6 +82,7 @@
         <module>presto-atop</module>
         <module>presto-spi</module>
         <module>presto-array</module>
+        <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
         <module>presto-kafka</module>
@@ -82,31 +90,39 @@
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
+        <module>presto-memory</module>
         <module>presto-orc</module>
+        <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
-        <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
-        <module>presto-hive-cdh4</module>
-        <module>presto-hive-cdh5</module>
+        <module>presto-hive-metastore</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
         <module>presto-local-file</module>
         <module>presto-tpch</module>
+        <module>presto-tpcds</module>
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
+        <module>presto-testing-docker</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
+        <module>presto-redshift</module>
+        <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
         <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
+        <module>presto-geospatial</module>
+        <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
         <module>presto-product-tests</module>
         <module>presto-jdbc</module>
+        <module>presto-pinot</module>
+        <module>presto-pinot-toolkit</module>
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
@@ -116,14 +132,47 @@
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
+        <module>presto-password-authenticators</module>
+        <module>presto-session-property-managers</module>
+        <module>presto-benchto-benchmarks</module>
+        <module>presto-thrift-connector-api</module>
+        <module>presto-thrift-testing-server</module>
+        <module>presto-thrift-connector</module>
+        <module>presto-matching</module>
+        <module>presto-memory-context</module>
+        <module>presto-proxy</module>
+        <module>presto-kudu</module>
+        <module>presto-elasticsearch</module>
+        <module>presto-sql-function</module>
+        <module>presto-expressions</module>
+        <module>presto-benchmark-runner</module>
+        <module>presto-spark-classloader-interface</module>
+        <module>presto-spark-base</module>
+        <module>presto-spark</module>
+        <module>presto-spark-package</module>
+        <module>presto-spark-launcher</module>
+        <module>presto-spark-testing</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-testing-docker</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spi</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -137,6 +186,18 @@
                 <artifactId>presto-resource-group-managers</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-password-authenticators</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-session-property-managers</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -165,6 +226,12 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-parquet</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-rcfile</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -177,9 +244,8 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-hive-cdh4</artifactId>
+                <artifactId>presto-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
-                <type>zip</type>
             </dependency>
 
             <dependency>
@@ -216,7 +282,19 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tpcds</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-blackhole</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -228,13 +306,43 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-pinot</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-pinot-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-mysql</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-geospatial</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-geospatial-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-raptor</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-cache</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -284,6 +392,43 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-metastore</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hive-metastore</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-matching</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-memory-context</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-expressions</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -314,191 +459,230 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchto-benchmarks</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-product-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache1</artifactId>
-                <version>0.4</version>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-sql-function</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-classloader-interface</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-afterburner</artifactId>
+                <version>${dep.jackson.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>0.10</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-cdh4</artifactId>
-                <version>0.10</version>
+                <version>2.7.4-5</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.19</version>
+                <version>1.2.2-2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.orc</groupId>
+                <artifactId>orc-protobuf</artifactId>
+                <version>7</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector-api</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-testing-server</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.iq80.snappy</groupId>
-                        <artifactId>snappy</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.facebook.presto.hadoop</groupId>
-                        <artifactId>hadoop-cdh4</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>it.unimi.dsi</groupId>
-                        <artifactId>fastutil</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf-shims</artifactId>
-                <version>0.8</version>
-                <exclusions>
-                    <exclusion>
-                        <artifactId>commons-logging</artifactId>
-                        <groupId>commons-logging</groupId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java</artifactId>
-                <version>2.4.1</version>
+                <version>0.8.3</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.4</version>
+                <version>0.13</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>json</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
-                <version>1.0</version>
+                <version>1.3</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>configuration</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>node</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>jaxrs-testing</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>trace-token</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>dbpool</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -506,25 +690,103 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
-                <version>2.1.5.1</version>
+                <version>2.1.5.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>joda-to-java-time-bridge</artifactId>
+                <version>3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-api</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-client</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-codec</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-protocol</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-server</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-transport-netty</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-transport-spi</artifactId>
+                <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.8</version>
+                <version>0.10</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata.tpcds</groupId>
+                <artifactId>tpcds</artifactId>
+                <version>1.2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-all</artifactId>
-                <version>5.0.4</version>
+                <artifactId>asm</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-tree</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-util</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-analysis</artifactId>
+                <version>${dep.asm.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
-                <version>1.4.189</version>
+                <version>1.4.197</version>
             </dependency>
 
             <dependency>
@@ -536,19 +798,13 @@
             <dependency>
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.3</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.7</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.iq80.snappy</groupId>
-                <artifactId>snappy</artifactId>
-                <version>0.3</version>
+                <version>0.8</version>
             </dependency>
 
             <dependency>
@@ -578,13 +834,19 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.35</version>
+                <version>5.1.48</version>
             </dependency>
 
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>9.3-1102-jdbc41</version>
+                <version>42.2.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.pcollections</groupId>
+                <artifactId>pcollections</artifactId>
+                <version>2.1.2</version>
             </dependency>
 
             <dependency>
@@ -594,9 +856,15 @@
             </dependency>
 
             <dependency>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>mssql-jdbc</artifactId>
+                <version>7.0.0.jre8</version>
+            </dependency>
+
+            <dependency>
                 <groupId>jline</groupId>
                 <artifactId>jline</artifactId>
-                <version>2.13</version>
+                <version>2.14.6</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.fusesource.jansi</groupId>
@@ -608,7 +876,43 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi</artifactId>
-                <version>2.63.1</version>
+                <version>2.78</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi3-core</artifactId>
+                <version>${dep.jdbi3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi3-sqlobject</artifactId>
+                <version>${dep.jdbi3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-urlconnection</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt</artifactId>
+                <version>0.9.0</version>
             </dependency>
 
             <dependency>
@@ -640,25 +944,37 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-math3</artifactId>
-                <version>3.2</version>
+                <version>3.6.1</version>
             </dependency>
 
             <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
-                <version>1.9</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty</artifactId>
-                <version>3.7.0.Final</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift.discovery</groupId>
+                <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.27</version>
+                <version>1.30</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-shaded-client</artifactId>
+                <version>2.1.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -669,6 +985,26 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-glue</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -682,25 +1018,115 @@
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-mysql-server</artifactId>
-                <version>0.1</version>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>util</artifactId>
+                <version>${dep.gcs.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>commons-logging</artifactId>
+                        <groupId>commons-logging</groupId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>gcsio</artifactId>
+                <version>${dep.gcs.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>util-hadoop</artifactId>
+                <version>hadoop2-${dep.gcs.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>gcs-connector</artifactId>
+                <version>hadoop2-${dep.gcs.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>log4j</artifactId>
+                        <groupId>log4j</groupId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>testing-mysql-server-5</artifactId>
+                <version>${dep.testing-mysql-server-5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>testing-mysql-server-base</artifactId>
+                <version>${dep.testing-mysql-server-5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
-                <version>0.3</version>
+                <version>9.6.3-4</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.kafka</groupId>
-                <artifactId>kafka_2.10</artifactId>
-                <version>0.8.2.2</version>
+                <artifactId>kafka_2.12</artifactId>
+                <version>1.1.1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>log4j</groupId>
@@ -716,34 +1142,24 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.1.7</version>
+                <version>1.1.7.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>1.3.5-4</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.6</version>
+                <version>3.4.13</version>
                 <exclusions>
                     <exclusion>
-                        <artifactId>junit</artifactId>
-                        <groupId>junit</groupId>
+                        <artifactId>jline</artifactId>
+                        <groupId>jline</groupId>
                     </exclusion>
-                    <exclusion>
-                        <artifactId>log4j</artifactId>
-                        <groupId>log4j</groupId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.101tec</groupId>
-                <artifactId>zkclient</artifactId>
-                <version>0.8</version>
-                <exclusions>
                     <exclusion>
                         <artifactId>log4j</artifactId>
                         <groupId>log4j</groupId>
@@ -774,33 +1190,95 @@
             </dependency>
 
             <dependency>
-                <groupId>org.assertj</groupId>
-                <artifactId>assertj-core</artifactId>
-                <version>3.0.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.teradata.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.teradata.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
+                <artifactId>tempto-ldap</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestodb.tempto</groupId>
+                <artifactId>tempto-kafka</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-3</version>
+                <version>0.13.1-5</version>
             </dependency>
 
             <dependency>
-                <groupId>dnsjava</groupId>
-                <artifactId>dnsjava</artifactId>
-                <version>2.1.7</version>
+                <groupId>com.esri.geometry</groupId>
+                <artifactId>esri-geometry-api</artifactId>
+                <version>2.2.3</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-analyzers-common</artifactId>
+                <version>7.2.1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.lucene</groupId>
+                        <artifactId>lucene-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.locationtech.jts</groupId>
+                <artifactId>jts-core</artifactId>
+                <version>1.16.1</version>
             </dependency>
 
             <dependency>
@@ -814,7 +1292,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>jsr305</artifactId>
+                        <artifactId>annotations</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -823,6 +1301,61 @@
                 </exclusions>
             </dependency>
 
+            <dependency>
+                <groupId>com.facebook.presto.cassandra</groupId>
+                <artifactId>cassandra-server</artifactId>
+                <version>2.1.16-1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-all</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.cassandra</groupId>
+                <artifactId>cassandra-driver</artifactId>
+                <version>3.1.4-1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.pinot</groupId>
+                <artifactId>pinot-driver</artifactId>
+                <version>0.1.1</version>
+            </dependency>
+
+            <!-- force newer version to be used for dependencies -->
+            <dependency>
+                <groupId>org.javassist</groupId>
+                <artifactId>javassist</artifactId>
+                <version>3.22.0-GA</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.starburstdata</groupId>
+                <artifactId>starburst-spotify-docker-client</artifactId>
+                <version>8.11.7-0.6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.jodah</groupId>
+                <artifactId>failsafe</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.spark</groupId>
+                <artifactId>spark-core</artifactId>
+                <version>2.0.2-4</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -848,7 +1381,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>2.4.3</version>
+                    <version>3.1.1</version>
                 </plugin>
 
                 <plugin>
@@ -858,140 +1391,74 @@
                 </plugin>
 
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>1.8</version>
+                </plugin>
+
+                <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>1.2.1</version>
+                    <version>1.6.0</version>
                 </plugin>
 
                 <plugin>
                     <groupId>io.airlift.maven.plugins</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.0</version>
+                    <version>2.1</version>
                 </plugin>
 
-                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
-                    <!--suppress MavenModelInspection -->
-                    <groupId>org.eclipse.m2e</groupId>
-                    <!--suppress MavenModelInspection -->
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <!--suppress MavenModelInspection -->
-                    <version>1.0.0</version>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-maven-plugin</artifactId>
+                    <version>${dep.drift.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.gaul</groupId>
+                    <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.maven.plugins</groupId>
-                                        <artifactId>maven-dependency-plugin</artifactId>
-                                        <versionRange>[2.5.1,)</versionRange>
-                                        <goals>
-                                            <goal>copy</goal>
-                                            <goal>analyze-dep-mgt</goal>
-                                            <goal>analyze-duplicate</goal>
-                                            <goal>analyze-only</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.jacoco</groupId>
-                                        <artifactId>jacoco-maven-plugin</artifactId>
-                                        <versionRange>[0.6.2.201302030002,)</versionRange>
-                                        <goals>
-                                            <goal>prepare-agent</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>com.mycila</groupId>
-                                        <artifactId>license-maven-plugin</artifactId>
-                                        <versionRange>[2.3,)</versionRange>
-                                        <goals>
-                                            <goal>check</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>com.ning.maven.plugins</groupId>
-                                        <artifactId>maven-duplicate-finder-plugin</artifactId>
-                                        <versionRange>[1.0.4,)</versionRange>
-                                        <goals>
-                                            <goal>check</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.maven.plugins</groupId>
-                                        <artifactId>maven-checkstyle-plugin</artifactId>
-                                        <versionRange>[0,)</versionRange>
-                                        <goals>
-                                            <goal>check</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>io.takari.maven.plugins</groupId>
-                                        <artifactId>presto-maven-plugin</artifactId>
-                                        <versionRange>[0,)</versionRange>
-                                        <goals>
-                                            <goal>generate-service-descriptor</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>io.takari.maven.plugins</groupId>
-                                        <artifactId>takari-lifecycle-plugin</artifactId>
-                                        <versionRange>[0,)</versionRange>
-                                        <goals>
-                                            <goal>compile</goal>
-                                            <goal>process-resources</goal>
-                                            <goal>process-test-resources</goal>
-                                            <goal>testCompile</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.gaul</groupId>
-                                        <artifactId>modernizer-maven-plugin</artifactId>
-                                        <versionRange>[0,)</versionRange>
-                                        <goals>
-                                            <goal>modernizer</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
+                        <violationsFiles>
+                            <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
+                        </violationsFiles>
+                        <exclusionPatterns>
+                            <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                        </exclusionPatterns>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <!-- TODO: fix this in Airlift resolver -->
+                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                    <exclude>com.google.guava:guava</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <configuration>
+                        <preparationGoals>clean verify -DskipTests</preparationGoals>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.sonatype.plugins</groupId>
+                    <artifactId>nexus-staging-maven-plugin</artifactId>
+                    <version>${dep.nexus-staging-plugin.version}</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <serverId>ossrh</serverId>
+                        <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                     </configuration>
                 </plugin>
             </plugins>
@@ -999,68 +1466,9 @@
 
         <plugins>
             <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <version>1.2.2</version>
-                <configuration>
-                    <javaVersion>1.8</javaVersion>
-                    <failOnViolations>true</failOnViolations>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>modernizer</id>
-                        <goals>
-                            <goal>modernizer</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.17</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${air.check.skip-checkstyle}</skip>
-                            <failOnViolation>${air.check.fail-checkstyle}</failOnViolation>
-                            <consoleOutput>true</consoleOutput>
-                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                            <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
-                            <sourceDirectories>
-                                <directory>${project.build.sourceDirectory}</directory>
-                            </sourceDirectories>
-                            <testSourceDirectories>
-                                <directory>${project.build.testSourceDirectory}</directory>
-                            </testSourceDirectories>
-                        </configuration>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>6.15</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-
-            <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.1.12</version>
-                <extensions>true</extensions>
-            </plugin>
-
-            <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
-                <artifactId>provisio-maven-plugin</artifactId>
-                <version>0.1.40</version>
+                <version>0.3</version>
                 <extensions>true</extensions>
             </plugin>
 
@@ -1071,47 +1479,96 @@
                     <fork>false</fork>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration combine.children="append">
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/Benchmark*.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/*jmhTest*.java</exclude>
+                        <exclude>**/*jmhType*.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Always build a jar with the test classes -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <!-- do not build an empty jar if the project is
+                         e.g. a pom project -->
+                    <skipIfEmpty>true</skipIfEmpty>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                            <addClasspath>false</addClasspath>
+                        </manifest>
+                        <manifestEntries>
+                            <!-- This is actually the time when the build was done -->
+                            <Build-Time>${git.build.time}</Build-Time>
+                            <Git-Commit-Id>${git.commit.id}</Git-Commit-Id>
+                            <Implementation-Version>${project.version}-${git.commit.id.abbrev}</Implementation-Version>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
     <profiles>
-        <!-- run cli for development: mvn -am -pl presto-cli -P cli compile exec:java -->
         <profile>
-            <id>cli</id>
+            <id>tests-with-dependencies</id>
+            <!--
+                Assembles an uber (fat) jar that includes the entire "test" scope classpath for a module.
+
+                For example after running:
+
+                ./mvnw clean install -P tests-with-dependencies -pl presto-geospatial
+
+                The uber jar that contains the entire "test" scope class path of the "presto-geospatial"
+                is created and placed to that modules target directory:
+
+                ./presto-geospatial/target/presto-geospatial-0.197-SNAPSHOT-tests-with-dependencies.jar
+
+                Now using this jar we can easily run any benchmark from that module via command line:
+
+                java \
+                  -cp ./presto-geospatial/target/presto-geospatial-*-tests-with-dependencies.jar \
+                  com.facebook.presto.plugin.geospatial.BenchmarkSTIntersects
+            -->
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
+                        <artifactId>maven-assembly-plugin</artifactId>
                         <configuration>
-                            <skip>${cli.skip-execute}</skip>
-                            <executable>${java.home}/bin/java</executable>
-                            <mainClass>${cli.main-class}</mainClass>
-                            <arguments>
-                                <argument>--debug</argument>
-                            </arguments>
+                            <descriptor>${air.main.basedir}/src/assembly/tests-with-dependencies.xml</descriptor>
                         </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
         </profile>
         <profile>
-            <id>eclipse-compiler</id>
+            <id>deploy-to-ossrh</id>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <compilerId>eclipse</compilerId>
-                        </configuration>
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.codehaus.plexus</groupId>
-                                <artifactId>plexus-compiler-eclipse</artifactId>
-                                <version>2.6</version>
-                            </dependency>
-                        </dependencies>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
                     </plugin>
                 </plugins>
             </build>

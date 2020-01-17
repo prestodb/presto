@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -24,7 +23,7 @@ import io.airlift.units.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

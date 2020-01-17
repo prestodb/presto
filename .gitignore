@@ -23,3 +23,5 @@ benchmark_outputs
 *.class
 .checkstyle
 .mvn/timing.properties
+.editorconfig
+node_modules

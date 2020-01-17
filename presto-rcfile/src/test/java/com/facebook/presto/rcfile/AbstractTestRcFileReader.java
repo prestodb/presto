@@ -16,7 +16,6 @@ package com.facebook.presto.rcfile;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -38,11 +37,12 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -70,6 +70,13 @@ public abstract class AbstractTestRcFileReader
     public void setUp()
     {
         assertEquals(DateTimeZone.getDefault(), RcFileTester.HIVE_STORAGE_TIME_ZONE);
+    }
+
+    @Test
+    public void testNoData()
+            throws Exception
+    {
+        tester.testRoundTrip(VARCHAR, ImmutableList.of());
     }
 
     @Test
@@ -159,7 +166,7 @@ public abstract class AbstractTestRcFileReader
                 TIMESTAMP,
                 intsBetween(-31_234, 31_234).stream()
                         .filter(i -> i % 19 == 0)
-                        .map(timestamp -> new SqlTimestamp(timestamp, UTC_KEY))
+                        .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
                         .collect(toList()));
     }
 
@@ -170,9 +177,9 @@ public abstract class AbstractTestRcFileReader
         // this results in rounding errors inside of structural types
         tester.testRoundTrip(
                 REAL,
-                doubleSequence(-500.12f, 1f, 3_000).stream()
-                    .map(Double::floatValue)
-                    .collect(toList()));
+                doubleSequence(-500.12f, 1.0f, 3_000).stream()
+                        .map(Double::floatValue)
+                        .collect(toList()));
     }
 
     @Test

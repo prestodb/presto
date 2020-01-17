@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -47,7 +46,7 @@ public class TestInvokeDynamicBytecodeExpression
             TEST_BOOTSTRAP_METHOD = TestInvokeDynamicBytecodeExpression.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, String.class);
         }
         catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

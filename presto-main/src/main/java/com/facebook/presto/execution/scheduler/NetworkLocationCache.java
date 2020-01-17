@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.google.common.cache.CacheLoader.asyncReloading;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -51,15 +51,7 @@ public class NetworkLocationCache
         this.cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, DAYS)
                 .refreshAfterWrite(12, HOURS)
-                .build(asyncReloading(new CacheLoader<HostAddress, NetworkLocation>()
-                {
-                    @Override
-                    public NetworkLocation load(HostAddress host)
-                            throws Exception
-                    {
-                        return locate(host);
-                    }
-                }, executor));
+                .build(asyncReloading(CacheLoader.from(this::locate), executor));
 
         this.negativeCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(NEGATIVE_CACHE_DURATION.toMillis(), MILLISECONDS)

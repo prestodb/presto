@@ -1,0 +1,67 @@
+{
+    "tableName": "customer",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "customer",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "custkey",
+                "type": "bigint",
+                "jsonPath": "custkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "name",
+                "type": "varchar",
+                "jsonPath": "name",
+                "jsonType": "varchar",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "address",
+                "type": "varchar",
+                "jsonPath": "address",
+                "jsonType": "varchar",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "nationkey",
+                "type": "bigint",
+                "jsonPath": "nationkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "3"
+            },
+            {
+                "name": "phone",
+                "type": "varchar",
+                "jsonPath": "phone",
+                "jsonType": "varchar",
+                "ordinalPosition": "4"
+            },
+            {
+                "name": "acctbal",
+                "type": "double",
+                "jsonPath": "acctbal",
+                "jsonType": "double",
+                "ordinalPosition": "5"
+            },
+            {
+                "name": "mktsegment",
+                "type": "varchar",
+                "jsonPath": "mktsegment",
+                "jsonType": "varchar",
+                "ordinalPosition": "6"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "7"
+            }
+        ]
+}

@@ -2,6 +2,12 @@
 Release 0.156
 =============
 
+.. warning::
+
+    Query may incorrectly produce ``NULL`` when no row qualifies for the aggregation
+    if the ``optimize_mixed_distinct_aggregations`` session property or
+    the ``optimizer.optimize-mixed-distinct-aggregations`` config option is enabled.
+
 General Changes
 ---------------
 

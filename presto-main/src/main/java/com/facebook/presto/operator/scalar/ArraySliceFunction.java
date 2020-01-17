@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -53,8 +52,8 @@ public final class ArraySliceFunction
 
         long toIndex = Math.min(fromIndex + length, size + 1);
 
-        if (fromIndex >= toIndex || fromIndex < 0 || toIndex < 0) {
-            return type.createBlockBuilder(new BlockBuilderStatus(), 0).build();
+        if (fromIndex >= toIndex || fromIndex < 1) {
+            return type.createBlockBuilder(null, 0).build();
         }
 
         return array.getRegion((int) (fromIndex - 1), (int) (toIndex - fromIndex));

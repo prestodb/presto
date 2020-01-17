@@ -14,21 +14,36 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.TableIdentity;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -44,13 +59,13 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    boolean isAggregationFunction(QualifiedName name);
+    List<SqlFunction> listFunctions(Session session);
 
-    List<SqlFunction> listFunctions();
-
-    void addFunctions(List<? extends SqlFunction> functions);
+    void registerBuiltInFunctions(List<? extends BuiltInFunction> functions);
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
+
+    boolean catalogExists(Session session, String catalogName);
 
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -59,11 +74,68 @@ public interface Metadata
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
-    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+    Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
-    TableLayout getLayout(Session session, TableLayoutHandle handle);
+    Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
-    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+    /**
+     * Returns a new table layout that satisfies the given constraint together with unenforced constraint.
+     */
+    @Experimental
+    TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    /**
+     * Returns table's layout properties for a given table handle.
+     */
+    @Experimental
+    TableLayout getLayout(Session session, TableHandle handle);
+
+    /**
+     * Return a table handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table layout handle.
+     * The provided table layout handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table layout handle,
+     * as promised by {@link #getCommonPartitioning}.
+     */
+    TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle);
+
+    /**
+     * Experimental: if true, the engine will invoke pushdownFilter instead of getLayout.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    boolean isPushdownFilterSupported(Session session, TableHandle tableHandle);
+
+    /**
+     * Experimental: returns table layout that encapsulates the given filter.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter);
+
+    /**
+     * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
+     */
+    @Deprecated
+    Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
+
+    /**
+     * Return whether {@code left} is a refined partitioning over {@code right}.
+     * See
+     * {@link com.facebook.presto.spi.connector.ConnectorMetadata#isRefinedPartitioningOver(ConnectorSession, ConnectorPartitioningHandle, ConnectorPartitioningHandle)}
+     * for details about refined partitioning.
+     * <p>
+     * Refined-over relation is reflexive.
+     */
+    @Experimental
+    boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b);
+
+    /**
+     * Provides partitioning handle for exchange.
+     */
+    PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
+
+    Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -71,6 +143,11 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
+
+    /**
+     * Return statistics for specified table for given columns and filtering constraint.
+     */
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -113,8 +190,18 @@ public interface Metadata
 
     /**
      * Creates a table using the specified table metadata.
+     *
+     * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
-    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
+
+    /**
+     * Creates a temporary table with optional partitioning requirements.
+     * Temporary table might have different default storage format, compression scheme, replication factor, etc,
+     * and gets automatically dropped when the transaction ends.
+     */
+    @Experimental
+    TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata);
 
     /**
      * Rename the specified table.
@@ -132,31 +219,16 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Drop the specified column.
+     */
+    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
-
-    /**
-     * Gets the TableIdentity for the specified table.
-     */
-    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
-
-    /**
-     * Deserialize the bytes to TableIdentity
-     */
-    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
-
-    /**
-     * Gets the ColumnIdentity for the specified column.
-     */
-    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
-
-    /**
-     * Deserialize the bytes to ColumnIdentity
-     */
-    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
 
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
@@ -168,9 +240,40 @@ public interface Metadata
     /**
      * Finish a table creation with data after the data is written.
      */
-    void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    /**
+     * Describes statistics that must be collected during a write.
+     */
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Describe statistics that must be collected during a statistics collection
+     */
+    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Begin statistics collection
+     */
+    AnalyzeTableHandle beginStatisticsCollection(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish statistics collection
+     */
+    void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Start a SELECT/UPDATE/INSERT/DELETE query
+     */
+    void beginQuery(Session session, Set<ConnectorId> connectors);
+
+    /**
+     * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
+     * An exception thrown in this method will not affect the result of the query.
+     */
+    void cleanupQuery(Session session);
 
     /**
      * Begin insert query
@@ -180,7 +283,7 @@ public interface Metadata
     /**
      * Finish insert query
      */
-    void finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -190,14 +293,14 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Delete the provide table layout
      *
      * @return number of rows deleted, or empty for unknown
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query
@@ -252,16 +355,79 @@ public interface Metadata
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
 
     /**
+     * Creates the specified role in the specified catalog.
+     *
+     * @param grantor represents the principal specified by WITH ADMIN statement
+     */
+    void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * Drops the specified role in the specified catalog.
+     */
+    void dropRole(Session session, String role, String catalog);
+
+    /**
+     * List available roles in specified catalog.
+     */
+    Set<String> listRoles(Session session, String catalog);
+
+    /**
+     * List roles grants in the specified catalog for a given principal, not recursively.
+     */
+    Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
+
+    /**
+     * Grants the specified roles to the specified grantees in the specified catalog
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * Revokes the specified roles from the specified grantees in the specified catalog
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * List applicable roles, including the transitive grants, for the specified principal
+     */
+    Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog);
+
+    /**
+     * List applicable roles, including the transitive grants, in given session
+     */
+    Set<String> listEnabledRoles(Session session, String catalog);
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
-    void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+    void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
 
     /**
      * Revokes the specified privilege on the specified table from the specified user
      */
-    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
 
-    FunctionRegistry getFunctionRegistry();
+    /**
+     * Gets the privileges for the specified table available to the given grantee considering the selected session role
+     */
+    List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Commits partition for table creation.
+     */
+    @Experimental
+    ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Commits partition for table insertion.
+     */
+    @Experimental
+    ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+
+    FunctionManager getFunctionManager();
 
     ProcedureRegistry getProcedureRegistry();
 
@@ -274,4 +440,10 @@ public interface Metadata
     SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
+
+    ColumnPropertyManager getColumnPropertyManager();
+
+    AnalyzePropertyManager getAnalyzePropertyManager();
+
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
 }

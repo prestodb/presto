@@ -11,36 +11,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTrue;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
 {
     public static PlanNodeSearcher searchFrom(PlanNode node)
     {
-        return new PlanNodeSearcher(node);
+        return searchFrom(node, noLookup());
+    }
+
+    /**
+     * Use it in optimizer {@link com.facebook.presto.sql.planner.iterative.Rule} only if you truly do not have a better option
+     * <p>
+     * TODO: replace it with a support for plan (physical) properties in rules pattern matching
+     */
+    public static PlanNodeSearcher searchFrom(PlanNode node, Lookup lookup)
+    {
+        return new PlanNodeSearcher(node, lookup);
     }
 
     private final PlanNode node;
+    private final Lookup lookup;
     private Predicate<PlanNode> where = alwaysTrue();
-    private Predicate<PlanNode> skipOnly = alwaysTrue();
+    private Predicate<PlanNode> recurseOnlyWhen = alwaysTrue();
 
-    public PlanNodeSearcher(PlanNode node)
+    private PlanNodeSearcher(PlanNode node, Lookup lookup)
     {
         this.node = requireNonNull(node, "node is null");
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     public PlanNodeSearcher where(Predicate<PlanNode> where)
@@ -49,9 +63,9 @@ public class PlanNodeSearcher
         return this;
     }
 
-    public PlanNodeSearcher skipOnlyWhen(Predicate<PlanNode> skipOnly)
+    public PlanNodeSearcher recurseOnlyWhen(Predicate<PlanNode> skipOnly)
     {
-        this.skipOnly = requireNonNull(skipOnly, "skipOnly is null");
+        this.recurseOnlyWhen = requireNonNull(skipOnly, "recurseOnlyWhen is null");
         return this;
     }
 
@@ -62,10 +76,12 @@ public class PlanNodeSearcher
 
     private <T extends PlanNode> Optional<T> findFirstRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return Optional.of((T) node);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
                 Optional<T> found = findFirstRecursive(source);
                 if (found.isPresent()) {
@@ -76,6 +92,19 @@ public class PlanNodeSearcher
         return Optional.empty();
     }
 
+    public <T extends PlanNode> Optional<T> findSingle()
+    {
+        List<T> all = findAll();
+        switch (all.size()) {
+            case 0:
+                return Optional.empty();
+            case 1:
+                return Optional.of(all.get(0));
+            default:
+                throw new IllegalStateException("Multiple nodes found");
+        }
+    }
+
     public <T extends PlanNode> List<T> findAll()
     {
         ImmutableList.Builder<T> nodes = ImmutableList.builder();
@@ -83,12 +112,28 @@ public class PlanNodeSearcher
         return nodes.build();
     }
 
+    public <T extends PlanNode> T findOnlyElement()
+    {
+        return getOnlyElement(findAll());
+    }
+
+    public <T extends PlanNode> T findOnlyElement(T defaultValue)
+    {
+        List<T> all = findAll();
+        if (all.size() == 0) {
+            return defaultValue;
+        }
+        return getOnlyElement(all);
+    }
+
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             nodes.add((T) node);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             for (PlanNode source : node.getSources()) {
                 findAllRecursive(source, nodes);
             }
@@ -102,15 +147,17 @@ public class PlanNodeSearcher
 
     private PlanNode removeAllRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
             return node.getSources().get(0);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
-                    .map(source -> removeAllRecursive(source))
+                    .map(this::removeAllRecursive)
                     .collect(toImmutableList());
             return replaceChildren(node, sources);
         }
@@ -124,13 +171,15 @@ public class PlanNodeSearcher
 
     private PlanNode removeFirstRecursive(PlanNode node)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
             return node.getSources().get(0);
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {
                 return node;
@@ -152,10 +201,12 @@ public class PlanNodeSearcher
 
     private PlanNode replaceAllRecursive(PlanNode node, PlanNode nodeToReplace)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return nodeToReplace;
         }
-        if (skipOnly.test(node)) {
+        if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
                     .map(source -> replaceAllRecursive(source, nodeToReplace))
                     .collect(toImmutableList());
@@ -171,6 +222,8 @@ public class PlanNodeSearcher
 
     private PlanNode replaceFirstRecursive(PlanNode node, PlanNode nodeToReplace)
     {
+        node = lookup.resolve(node);
+
         if (where.test(node)) {
             return nodeToReplace;
         }
@@ -184,5 +237,15 @@ public class PlanNodeSearcher
         else {
             throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
         }
+    }
+
+    public boolean matches()
+    {
+        return findFirst().isPresent();
+    }
+
+    public int count()
+    {
+        return findAll().size();
     }
 }

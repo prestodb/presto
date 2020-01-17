@@ -13,31 +13,26 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.MapType;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spi.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -48,23 +43,15 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
-                new Signature("numeric_histogram",
-                        AGGREGATE,
-                        parseTypeSignature("map(double,double)"),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, DOUBLE, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
-
         input = makeInput(10);
     }
 
     @Test
     public void test()
-            throws Exception
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
@@ -83,7 +70,6 @@ public class TestDoubleHistogramAggregation
 
     @Test
     public void testMerge()
-            throws Exception
     {
         Accumulator singleStep = factory.createAccumulator();
         singleStep.addInput(input);
@@ -106,7 +92,6 @@ public class TestDoubleHistogramAggregation
 
     @Test
     public void testNull()
-            throws Exception
     {
         Accumulator accumulator = factory.createAccumulator();
         Block result = getFinalBlock(accumulator);
@@ -124,9 +109,8 @@ public class TestDoubleHistogramAggregation
     }
 
     private static Map<Double, Double> extractSingleValue(Block block)
-            throws IOException
     {
-        MapType mapType = new MapType(DOUBLE, DOUBLE);
+        MapType mapType = mapType(DOUBLE, DOUBLE);
         return (Map<Double, Double>) mapType.getObjectValue(null, block, 0);
     }
 

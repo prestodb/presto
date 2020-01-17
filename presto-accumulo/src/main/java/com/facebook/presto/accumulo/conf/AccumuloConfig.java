@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.accumulo.conf;
 
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
@@ -92,6 +93,7 @@ public class AccumuloConfig
     }
 
     @Config(PASSWORD)
+    @ConfigSecuritySensitive
     @ConfigDescription("Sets the password for the configured user")
     public AccumuloConfig setPassword(String password)
     {

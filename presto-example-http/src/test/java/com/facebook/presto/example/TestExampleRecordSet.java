@@ -37,7 +37,6 @@ public class TestExampleRecordSet
 
     @Test
     public void testGetColumnTypes()
-            throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
@@ -61,7 +60,6 @@ public class TestExampleRecordSet
 
     @Test
     public void testCursorSimple()
-            throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
@@ -86,7 +84,6 @@ public class TestExampleRecordSet
 
     @Test
     public void testCursorMixedOrder()
-            throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
                 new ExampleColumnHandle("test", "value", BIGINT, 1),
@@ -122,7 +119,7 @@ public class TestExampleRecordSet
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

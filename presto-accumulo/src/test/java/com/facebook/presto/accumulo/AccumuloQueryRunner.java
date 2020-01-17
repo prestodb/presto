@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
@@ -23,7 +24,6 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
-import io.airlift.log.Logger;
 import io.airlift.tpch.TpchTable;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -43,12 +43,14 @@ import java.util.Map;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static com.facebook.presto.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.accumulo.minicluster.MemoryUnit.MEGABYTE;
 
 public final class AccumuloQueryRunner
 {
@@ -56,7 +58,7 @@ public final class AccumuloQueryRunner
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
 
-    private static boolean tpchLoaded = false;
+    private static boolean tpchLoaded;
     private static Connector connector = getAccumuloConnector();
 
     private AccumuloQueryRunner() {}
@@ -160,7 +162,7 @@ public final class AccumuloQueryRunner
      *
      * @return Accumulo connector
      */
-    private static Connector getAccumuloConnector()
+    public static Connector getAccumuloConnector()
     {
         if (connector != null) {
             return connector;
@@ -192,6 +194,8 @@ public final class AccumuloQueryRunner
 
         // Start MAC and connect to it
         MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
+        accumulo.getConfig().setDefaultMemory(512, MEGABYTE);
+        setConfigClassPath(accumulo.getConfig());
         accumulo.start();
 
         // Add shutdown hook to stop MAC and cleanup temporary files

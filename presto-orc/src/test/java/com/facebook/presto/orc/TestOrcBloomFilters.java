@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.HiveBloomFilter;
-import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.proto.OrcProto;
+import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
@@ -68,16 +68,15 @@ public class TestOrcBloomFilters
     private static final String COLUMN_1 = "bigint_1";
 
     private static final Map<Object, Type> TEST_VALUES = ImmutableMap.<Object, Type>builder()
-        .put(utf8Slice(TEST_STRING), VARCHAR)
-        .put(wrappedBuffer(new byte[]{12, 34, 56}), VARBINARY)
-        .put(4312L, BIGINT)
-        .put(123, INTEGER)
-        .put(234.567, DOUBLE)
-        .build();
+            .put(utf8Slice(TEST_STRING), VARCHAR)
+            .put(wrappedBuffer(new byte[] {12, 34, 56}), VARBINARY)
+            .put(4312L, BIGINT)
+            .put(123, INTEGER)
+            .put(234.567, DOUBLE)
+            .build();
 
     @Test
     public void testHiveBloomFilterSerde()
-            throws Exception
     {
         BloomFilter bloomFilter = new BloomFilter(1_000_000L, 0.05);
 
@@ -182,7 +181,6 @@ public class TestOrcBloomFilters
 
     @Test
     public void testBloomFilterPredicateValuesExisting()
-            throws Exception
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10, 0.01);
 
@@ -224,7 +222,6 @@ public class TestOrcBloomFilters
 
     @Test
     public void testBloomFilterPredicateValuesNonExisting()
-            throws Exception
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10, 0.01);
 
@@ -239,7 +236,6 @@ public class TestOrcBloomFilters
 
     @Test
     public void testExtractValuesFromSingleDomain()
-            throws Exception
     {
         Map<Type, Object> testValues = ImmutableMap.<Type, Object>builder()
                 .put(BOOLEAN, true)
@@ -262,7 +258,6 @@ public class TestOrcBloomFilters
     @Test
     // simulate query on a 2 columns where 1 is used as part of the where, with and without bloom filter
     public void testMatches()
-            throws Exception
     {
         // stripe column
         Domain testingColumnHandleDomain = Domain.singleValue(BIGINT, 1234L);
@@ -278,8 +273,8 @@ public class TestOrcBloomFilters
                 .add(new ColumnReference<>(COLUMN_1, 1, BIGINT))
                 .build();
 
-        TupleDomainOrcPredicate<String> predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, true);
-        TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true);
+        TupleDomainOrcPredicate<String> predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, true, Optional.empty());
+        TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true, Optional.empty());
 
         // assemble a matching and a non-matching bloom filter
         HiveBloomFilter hiveBloomFilter = new HiveBloomFilter(new BloomFilter(1000, 0.01));
@@ -288,19 +283,23 @@ public class TestOrcBloomFilters
         OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
 
         Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
-                        null,
-                        null,
-                        new IntegerStatistics(10L, 2000L),
-                        null,
-                        null,
-                        null,
-                        null,
-                        toHiveBloomFilter(orcBloomFilter)));
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                toHiveBloomFilter(orcBloomFilter)));
 
         Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,
+                0,
                 null,
-                new IntegerStatistics(10L, 2000L),
+                new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -309,8 +308,10 @@ public class TestOrcBloomFilters
 
         Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,
+                0,
                 null,
-                new IntegerStatistics(10L, 2000L),
+                new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
@@ -29,7 +28,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDateFormatParser
 {
     @Test
-    public void testTokenize() throws Exception
+    public void testTokenize()
     {
         assertEquals(
                 DateFormatParser.tokenize("yyyy mm").stream().map(Token::getType).collect(Collectors.toList()),

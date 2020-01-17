@@ -25,23 +25,15 @@ import static java.util.Objects.requireNonNull;
 public class TpchTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpchTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -59,13 +51,13 @@ public class TpchTableHandle
     @Override
     public String toString()
     {
-        return "tpch:" + tableName + ":sf" + scaleFactor;
+        return tableName + ":sf" + scaleFactor;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, tableName, scaleFactor);
+        return Objects.hash(tableName, scaleFactor);
     }
 
     @Override
@@ -79,7 +71,6 @@ public class TpchTableHandle
         }
         TpchTableHandle other = (TpchTableHandle) obj;
         return Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.scaleFactor, other.scaleFactor) &&
-                Objects.equals(this.connectorId, other.connectorId);
+                Objects.equals(this.scaleFactor, other.scaleFactor);
     }
 }

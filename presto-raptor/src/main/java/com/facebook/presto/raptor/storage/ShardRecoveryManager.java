@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
@@ -24,11 +25,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -55,10 +56,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
+import static com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
@@ -76,6 +83,7 @@ public class ShardRecoveryManager
 
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
+    private final Optional<RawLocalFileSystem> localFileSystem;
     private final String nodeIdentifier;
     private final ShardManager shardManager;
     private final Duration missingShardDiscoveryInterval;
@@ -91,12 +99,14 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             StorageManagerConfig config)
     {
         this(storageService,
                 backupStore,
+                environment,
                 nodeManager,
                 shardManager,
                 config.getMissingShardDiscoveryInterval(),
@@ -106,6 +116,7 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             Duration missingShardDiscoveryInterval,
@@ -113,6 +124,8 @@ public class ShardRecoveryManager
     {
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
         this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
@@ -127,7 +140,7 @@ public class ShardRecoveryManager
             return;
         }
         if (started.compareAndSet(false, true)) {
-            enqueueMissingShards();
+            scheduleRecoverMissingShards();
         }
     }
 
@@ -138,54 +151,69 @@ public class ShardRecoveryManager
         missingShardExecutor.shutdownNow();
     }
 
-    private void enqueueMissingShards()
+    private void scheduleRecoverMissingShards()
     {
         missingShardExecutor.scheduleWithFixedDelay(() -> {
             try {
                 // jitter to avoid overloading database
                 long interval = missingShardDiscoveryInterval.roundTo(SECONDS);
                 SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
-                for (ShardMetadata shard : getMissingShards()) {
-                    stats.incrementBackgroundShardRecovery();
-                    Futures.addCallback(
-                            shardQueue.submit(MissingShard.createBackgroundMissingShard(shard.getShardUuid(), shard.getCompressedSize())),
-                            failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
-                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            catch (Throwable t) {
-                log.error(t, "Error creating shard recovery tasks");
-            }
+            enqueueMissingShards();
         }, 0, missingShardDiscoveryInterval.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    @Managed
+    public void recoverMissingShards()
+    {
+        missingShardExecutor.submit(this::enqueueMissingShards);
+    }
+
+    private synchronized void enqueueMissingShards()
+    {
+        try {
+            for (ShardMetadata shard : getMissingShards()) {
+                stats.incrementBackgroundShardRecovery();
+                ListenableFuture<?> future = shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false));
+                addExceptionCallback(future, t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid()));
+            }
+        }
+        catch (Throwable t) {
+            log.error(t, "Error creating shard recovery tasks");
+        }
     }
 
     private Set<ShardMetadata> getMissingShards()
     {
-        return shardManager.getNodeShards(nodeIdentifier).stream()
+        return shardManager.getNodeShardsAndDeltas(nodeIdentifier).stream()
                 .filter(shard -> shardNeedsRecovery(shard.getShardUuid(), shard.getCompressedSize()))
                 .collect(toSet());
     }
 
     private boolean shardNeedsRecovery(UUID shardUuid, long shardSize)
     {
-        File storageFile = storageService.getStorageFile(shardUuid);
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
         return !storageFile.exists() || (storageFile.length() != shardSize);
     }
 
     public Future<?> recoverShard(UUID shardUuid)
             throws ExecutionException
     {
-        requireNonNull(shardUuid, "shardUuid is null");
+        ShardMetadata shard = shardManager.getShard(shardUuid);
+        if (shard == null) {
+            throw new PrestoException(RAPTOR_ERROR, "Shard does not exist in database: " + shardUuid);
+        }
         stats.incrementActiveShardRecovery();
-        return shardQueue.submit(MissingShard.createActiveMissingShard(shardUuid));
+        return shardQueue.submit(new MissingShard(shardUuid, shard.getCompressedSize(), shard.getXxhash64(), true));
     }
 
     @VisibleForTesting
-    void restoreFromBackup(UUID shardUuid, OptionalLong shardSize)
+    void restoreFromBackup(UUID shardUuid, long shardSize, OptionalLong shardXxhash64)
     {
-        File storageFile = storageService.getStorageFile(shardUuid);
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
 
         if (!backupStore.get().shardExists(shardUuid)) {
             stats.incrementShardRecoveryBackupNotFound();
@@ -193,16 +221,16 @@ public class ShardRecoveryManager
         }
 
         if (storageFile.exists()) {
-            if (!shardSize.isPresent() || (storageFile.length() == shardSize.getAsLong())) {
+            if (!isFileCorrupt(storageFile, shardSize, shardXxhash64)) {
                 return;
             }
-            log.warn("Local shard file is corrupt. Deleting local file: %s", storageFile);
-            storageFile.delete();
+            stats.incrementCorruptLocalFile();
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt.");
         }
 
         // create a temporary file in the staging directory
-        File stagingFile = temporarySuffix(storageService.getStagingFile(shardUuid));
-        storageService.createParents(stagingFile);
+        File stagingFile = temporarySuffix(localFileSystem.get().pathToFile(storageService.getStagingFile(shardUuid)));
+        storageService.createParents(new Path(stagingFile.toURI()));
 
         // copy to temporary file
         log.info("Copying shard %s from backup...", shardUuid);
@@ -225,7 +253,7 @@ public class ShardRecoveryManager
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
         // move to final location
-        storageService.createParents(storageFile);
+        storageService.createParents(new Path(storageFile.toURI()));
         try {
             Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
         }
@@ -240,14 +268,42 @@ public class ShardRecoveryManager
             stagingFile.delete();
         }
 
-        if (!storageFile.exists() || (shardSize.isPresent() && (storageFile.length() != shardSize.getAsLong()))) {
+        if (!storageFile.exists()) {
             stats.incrementShardRecoveryFailure();
-            log.info("Files do not match after recovery. Deleting local file: " + shardUuid);
-            storageFile.delete();
-            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "File not recovered correctly: " + shardUuid);
+            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "File does not exist after recovery: " + shardUuid);
+        }
+
+        if (isFileCorrupt(storageFile, shardSize, shardXxhash64)) {
+            stats.incrementShardRecoveryFailure();
+            stats.incrementCorruptRecoveredFile();
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt after recovery.");
+            throw new PrestoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after read: " + shardUuid);
         }
 
         stats.incrementShardRecoverySuccess();
+    }
+
+    private void quarantineFile(UUID shardUuid, File file, String message)
+    {
+        File quarantine = new File(localFileSystem.get().pathToFile(storageService.getQuarantineFile(shardUuid)) + ".corrupt");
+        if (quarantine.exists()) {
+            log.warn("%s Quarantine already exists: %s", message, quarantine);
+            return;
+        }
+
+        log.error("%s Quarantining corrupt file: %s", message, quarantine);
+        try {
+            Files.move(file.toPath(), quarantine.toPath(), ATOMIC_MOVE);
+        }
+        catch (IOException e) {
+            log.warn(e, "Quarantine of corrupt file failed: " + quarantine);
+            file.delete();
+        }
+    }
+
+    private boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
+    {
+        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(localFileSystem.get(), new Path(file.toURI())) != xxhash64.getAsLong()));
     }
 
     @VisibleForTesting
@@ -274,20 +330,22 @@ public class ShardRecoveryManager
             implements MissingShardRunnable
     {
         private final UUID shardUuid;
-        private final OptionalLong shardSize;
+        private final long shardSize;
+        private final OptionalLong shardXxhash64;
         private final boolean active;
 
-        public MissingShardRecovery(UUID shardUuid, OptionalLong shardSize, boolean active)
+        public MissingShardRecovery(UUID shardUuid, long shardSize, OptionalLong shardXxhash64, boolean active)
         {
             this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
-            this.shardSize = requireNonNull(shardSize, "shardSize is null");
+            this.shardSize = shardSize;
+            this.shardXxhash64 = requireNonNull(shardXxhash64, "shardXxhash64 is null");
             this.active = active;
         }
 
         @Override
         public void run()
         {
-            restoreFromBackup(shardUuid, shardSize);
+            restoreFromBackup(shardUuid, shardSize, shardXxhash64);
         }
 
         @Override
@@ -300,24 +358,16 @@ public class ShardRecoveryManager
     private static final class MissingShard
     {
         private final UUID shardUuid;
-        private final OptionalLong shardSize;
+        private final long shardSize;
+        private final OptionalLong shardXxhash64;
         private final boolean active;
 
-        private MissingShard(UUID shardUuid, OptionalLong shardSize, boolean active)
+        public MissingShard(UUID shardUuid, long shardSize, OptionalLong shardXxhash64, boolean active)
         {
             this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
-            this.shardSize = requireNonNull(shardSize, "shardSize is null");
+            this.shardSize = shardSize;
+            this.shardXxhash64 = requireNonNull(shardXxhash64, "shardXxhash64 is null");
             this.active = active;
-        }
-
-        public static MissingShard createBackgroundMissingShard(UUID shardUuid, long shardSize)
-        {
-            return new MissingShard(shardUuid, OptionalLong.of(shardSize), false);
-        }
-
-        public static MissingShard createActiveMissingShard(UUID shardUuid)
-        {
-            return new MissingShard(shardUuid, OptionalLong.empty(), true);
         }
 
         public UUID getShardUuid()
@@ -325,9 +375,14 @@ public class ShardRecoveryManager
             return shardUuid;
         }
 
-        public OptionalLong getShardSize()
+        public long getShardSize()
         {
             return shardSize;
+        }
+
+        public OptionalLong getShardXxhash64()
+        {
+            return shardXxhash64;
         }
 
         public boolean isActive()
@@ -381,6 +436,7 @@ public class ShardRecoveryManager
                     MissingShardRecovery task = new MissingShardRecovery(
                             missingShard.getShardUuid(),
                             missingShard.getShardSize(),
+                            missingShard.getShardXxhash64(),
                             missingShard.isActive());
                     ListenableFuture<?> future = shardRecoveryExecutor.submit(task);
                     future.addListener(() -> queuedMissingShards.invalidate(missingShard), directExecutor());

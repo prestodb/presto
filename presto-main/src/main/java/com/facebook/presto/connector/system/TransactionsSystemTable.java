@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -23,7 +23,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -104,7 +103,7 @@ public class TransactionsSystemTable
     private static Block createStringsBlock(List<ConnectorId> values)
     {
         VarcharType varchar = createUnboundedVarcharType();
-        BlockBuilder builder = varchar.createBlockBuilder(new BlockBuilderStatus(), values.size());
+        BlockBuilder builder = varchar.createBlockBuilder(null, values.size());
         for (ConnectorId value : values) {
             if (value == null) {
                 builder.appendNull();

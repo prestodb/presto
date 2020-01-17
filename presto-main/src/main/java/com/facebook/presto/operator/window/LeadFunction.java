@@ -16,12 +16,12 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
@@ -50,10 +50,27 @@ public class LeadFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition = currentPosition + offset;
+            long valuePosition;
 
-            if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
-                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            if (ignoreNulls && (offset > 0)) {
+                long count = 0;
+                valuePosition = currentPosition + 1;
+                while (withinPartition(valuePosition)) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        count++;
+                        if (count == offset) {
+                            break;
+                        }
+                    }
+                    valuePosition++;
+                }
+            }
+            else {
+                valuePosition = currentPosition + offset;
+            }
+
+            if (withinPartition(valuePosition)) {
+                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {
                 windowIndex.appendTo(defaultChannel, currentPosition, output);
@@ -62,5 +79,10 @@ public class LeadFunction
                 output.appendNull();
             }
         }
+    }
+
+    private boolean withinPartition(long valuePosition)
+    {
+        return (valuePosition >= 0) && (valuePosition < windowIndex.size());
     }
 }

@@ -16,24 +16,29 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.DateTimeOperators;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.concurrent.TimeUnit;
+
+import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffDate;
+import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 public final class SequenceFunction
 {
+    private static final long MAX_RESULT_ENTRIES = 10_000;
     private static final Slice MONTH = Slices.utf8Slice("month");
 
     private SequenceFunction() {}
@@ -59,6 +64,53 @@ public final class SequenceFunction
     }
 
     @ScalarFunction("sequence")
+    @SqlType("array(date)")
+    public static Block sequenceDateDefaultStep(
+            @SqlType(StandardTypes.DATE) long start,
+            @SqlType(StandardTypes.DATE) long stop)
+    {
+        return fixedWidthSequence(start, stop, stop >= start ? 1 : -1, DATE);
+    }
+
+    @ScalarFunction("sequence")
+    @SqlType("array(date)")
+    public static Block sequenceDateDayToSecond(
+            @SqlType(StandardTypes.DATE) long start,
+            @SqlType(StandardTypes.DATE) long stop,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
+    {
+        checkCondition(
+                step % TimeUnit.DAYS.toMillis(1) == 0,
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence step must be a day interval if start and end values are dates");
+        return fixedWidthSequence(start, stop, step / TimeUnit.DAYS.toMillis(1), DATE);
+    }
+
+    @ScalarFunction("sequence")
+    @SqlType("array(date)")
+    public static Block sequenceDateYearToMonth(
+            ConnectorSession session,
+            @SqlType(StandardTypes.DATE) long start,
+            @SqlType(StandardTypes.DATE) long stop,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
+    {
+        checkValidStep(start, stop, step);
+
+        int length = toIntExact(diffDate(session, MONTH, start, stop) / step + 1);
+        checkMaxEntry(length);
+
+        BlockBuilder blockBuilder = DATE.createBlockBuilder(null, length);
+
+        int value = 0;
+        for (int i = 0; i < length; ++i) {
+            DATE.writeLong(blockBuilder, DateTimeOperators.datePlusIntervalYearToMonth(start, value));
+            value += step;
+        }
+
+        return blockBuilder.build();
+    }
+
+    @ScalarFunction("sequence")
     @SqlType("array(timestamp)")
     public static Block sequenceTimestampDayToSecond(
             @SqlType(StandardTypes.TIMESTAMP) long start,
@@ -73,16 +125,15 @@ public final class SequenceFunction
     public static Block sequenceTimestampYearToMonth(
             ConnectorSession session,
             @SqlType(StandardTypes.TIMESTAMP) long start,
-            @SqlType(StandardTypes.TIMESTAMP) long end,
+            @SqlType(StandardTypes.TIMESTAMP) long stop,
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
-        checkCondition(step != 0, INVALID_FUNCTION_ARGUMENT, "interval must not be zero");
-        checkCondition(step > 0 ? end >= start : end <= start, INVALID_FUNCTION_ARGUMENT,
-                "sequence end value should be greater than or equal to start value if step is greater than zero otherwise end should be less than start");
+        checkValidStep(start, stop, step);
 
-        int length = Ints.checkedCast(DateTimeFunctions.diffTimestamp(session, MONTH, start, end) / step + 1);
+        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
+        checkMaxEntry(length);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
 
         int value = 0;
         for (int i = 0; i < length; ++i) {
@@ -95,16 +146,35 @@ public final class SequenceFunction
 
     private static Block fixedWidthSequence(long start, long stop, long step, FixedWidthType type)
     {
-        checkCondition(step != 0, INVALID_FUNCTION_ARGUMENT, "step must not be zero");
-        checkCondition(step > 0 ? stop >= start : stop < start, INVALID_FUNCTION_ARGUMENT,
-                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than start");
+        checkValidStep(start, stop, step);
 
-        int length = Ints.checkedCast((stop - start) / step + 1L);
+        int length = toIntExact((stop - start) / step + 1L);
+        checkMaxEntry(length);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (long i = 0, value = start; i < length; ++i, value += step) {
             type.writeLong(blockBuilder, value);
         }
         return blockBuilder.build();
+    }
+
+    private static void checkValidStep(long start, long stop, long step)
+    {
+        checkCondition(
+                step != 0,
+                INVALID_FUNCTION_ARGUMENT,
+                "step must not be zero");
+        checkCondition(
+                step > 0 ? stop >= start : stop <= start,
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+    }
+
+    private static void checkMaxEntry(int length)
+    {
+        checkCondition(
+                length <= MAX_RESULT_ENTRIES,
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
     }
 }

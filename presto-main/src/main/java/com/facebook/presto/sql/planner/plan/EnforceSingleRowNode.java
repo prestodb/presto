@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -26,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class EnforceSingleRowNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
 
@@ -47,9 +50,9 @@ public class EnforceSingleRowNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputSymbols();
+        return source.getOutputVariables();
     }
 
     @JsonProperty("source")
@@ -59,8 +62,14 @@ public class EnforceSingleRowNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitEnforceSingleRow(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new EnforceSingleRowNode(getId(), Iterables.getOnlyElement(newChildren));
     }
 }

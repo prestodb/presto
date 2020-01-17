@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-/**
- * This interface is not stable and will not be supported in future releases.
- */
-@Deprecated
 public interface PageIndexer
 {
     /**

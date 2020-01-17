@@ -13,24 +13,37 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcConnector
@@ -42,9 +55,15 @@ public class JdbcConnector
     private final JdbcMetadataFactory jdbcMetadataFactory;
     private final JdbcSplitManager jdbcSplitManager;
     private final JdbcRecordSetProvider jdbcRecordSetProvider;
-    private final JdbcRecordSinkProvider jdbcRecordSinkProvider;
+    private final JdbcPageSinkProvider jdbcPageSinkProvider;
+    private final Optional<ConnectorAccessControl> accessControl;
+    private final Set<Procedure> procedures;
 
     private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
+    private final FunctionMetadataManager functionManager;
+    private final StandardFunctionResolution functionResolution;
+    private final RowExpressionService rowExpressionService;
+    private final JdbcClient jdbcClient;
 
     @Inject
     public JdbcConnector(
@@ -52,13 +71,36 @@ public class JdbcConnector
             JdbcMetadataFactory jdbcMetadataFactory,
             JdbcSplitManager jdbcSplitManager,
             JdbcRecordSetProvider jdbcRecordSetProvider,
-            JdbcRecordSinkProvider jdbcRecordSinkProvider)
+            JdbcPageSinkProvider jdbcPageSinkProvider,
+            Optional<ConnectorAccessControl> accessControl,
+            Set<Procedure> procedures,
+            FunctionMetadataManager functionManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            JdbcClient jdbcClient)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
         this.jdbcSplitManager = requireNonNull(jdbcSplitManager, "jdbcSplitManager is null");
         this.jdbcRecordSetProvider = requireNonNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
-        this.jdbcRecordSinkProvider = requireNonNull(jdbcRecordSinkProvider, "jdbcRecordSinkProvider is null");
+        this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return new JdbcPlanOptimizerProvider(
+                jdbcClient,
+                functionManager,
+                functionResolution,
+                rowExpressionService.getDeterminismEvaluator(),
+                rowExpressionService.getExpressionOptimizer());
     }
 
     @Override
@@ -111,9 +153,21 @@ public class JdbcConnector
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
-        return jdbcRecordSinkProvider;
+        return jdbcPageSinkProvider;
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     @Override
@@ -125,5 +179,11 @@ public class JdbcConnector
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
     }
 }

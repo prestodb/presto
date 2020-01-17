@@ -38,17 +38,15 @@ public final class MapEqualOperator
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean equals(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") Block leftMapBlock,
             @SqlType("map(K,V)") Block rightMapBlock)
     {
         return MapGenericEquality.genericEqual(
-                keyEqualsFunction,
-                keyHashcodeFunction,
                 keyType,
                 leftMapBlock,
                 rightMapBlock,
@@ -62,7 +60,6 @@ public final class MapEqualOperator
                         return null;
                     }
                     return (Boolean) valueEqualsFunction.invoke(leftValue, rightValue);
-                }
-        );
+                });
     }
 }

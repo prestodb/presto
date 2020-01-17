@@ -16,7 +16,7 @@ package com.facebook.presto.execution.buffer;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum BufferState
 {

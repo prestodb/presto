@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.re2j.Matcher;
 import com.google.re2j.Options;
 import com.google.re2j.Pattern;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.primitives.Ints.checkedCast;
 import static com.google.re2j.Options.Algorithm.DFA_FALLBACK_TO_NFA;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class Re2JRegexp
@@ -91,10 +90,10 @@ public final class Re2JRegexp
     public Block extractAll(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        int group = checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
         while (true) {
             if (!matcher.find()) {
                 break;
@@ -113,7 +112,7 @@ public final class Re2JRegexp
     public Slice extract(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        int group = checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
         if (!matcher.find()) {
@@ -126,7 +125,7 @@ public final class Re2JRegexp
     public Block split(Slice source)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
 
         int lastEnd = 0;
         while (matcher.find()) {

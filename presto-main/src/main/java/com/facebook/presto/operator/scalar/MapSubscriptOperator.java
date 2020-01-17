@@ -15,56 +15,61 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.String.format;
 
 public class MapSubscriptOperator
         extends SqlOperator
 {
-    public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
+    private final boolean legacyMissingKey;
 
-    protected MapSubscriptOperator()
+    public MapSubscriptOperator(boolean legacyMissingKey)
     {
         super(SUBSCRIPT,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature("V"),
                 ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
+        this.legacyMissingKey = legacyMissingKey;
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-
-        MethodHandle keyEqualsMethod = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {
@@ -82,106 +87,118 @@ public class MapSubscriptOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
+        methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionManager, keyType);
+        methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(valueType);
+        methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
-        // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
-        if (valueType.getJavaType() == void.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(void.class));
-        }
-        else {
-            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
-        }
-
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        return new BuiltInScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, boolean key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            if (legacyMissingKey) {
+                return null;
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
+            throw missingKeyExceptionFactory.create(session, key);
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, long key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            if (legacyMissingKey) {
+                return null;
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
+            throw missingKeyExceptionFactory.create(session, key);
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, double key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            if (legacyMissingKey) {
+                return null;
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
+            throw missingKeyExceptionFactory.create(session, key);
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, Slice key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
-            try {
-                if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
-                }
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact(key);
+        if (valuePosition == -1) {
+            if (legacyMissingKey) {
+                return null;
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
+            throw missingKeyExceptionFactory.create(session, key);
         }
-        return null;
+        return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, Object key)
     {
-        for (int position = 0; position < map.getPositionCount(); position += 2) {
+        SingleMapBlock mapBlock = (SingleMapBlock) map;
+        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        if (valuePosition == -1) {
+            if (legacyMissingKey) {
+                return null;
+            }
+            throw missingKeyExceptionFactory.create(session, key);
+        }
+        return readNativeValue(valueType, mapBlock, valuePosition);
+    }
+
+    private static class MissingKeyExceptionFactory
+    {
+        private final InterpretedFunctionInvoker functionInvoker;
+        private final FunctionHandle castFunction;
+
+        public MissingKeyExceptionFactory(FunctionManager functionManager, Type keyType)
+        {
+            functionInvoker = new InterpretedFunctionInvoker(functionManager);
+
+            FunctionHandle castFunction = null;
             try {
-                if ((boolean) keyEqualsMethod.invoke(keyType.getObject(map, position), key)) {
-                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
+                castFunction = functionManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
+            }
+            catch (PrestoException ignored) {
+            }
+            this.castFunction = castFunction;
+        }
+
+        public PrestoException create(ConnectorSession session, Object value)
+        {
+            if (castFunction != null) {
+                try {
+                    Slice varcharValue = (Slice) functionInvoker.invoke(castFunction, session, value);
+                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue.toStringUtf8()));
+                }
+                catch (RuntimeException ignored) {
                 }
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
+            return new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
         }
-        return null;
     }
 }

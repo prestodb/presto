@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum QueryState
 {
@@ -24,6 +24,10 @@ public enum QueryState
      * Query has been accepted and is awaiting execution.
      */
     QUEUED(false),
+    /**
+     * Query is waiting for the required resources (beta).
+     */
+    WAITING_FOR_RESOURCES(false),
     /**
      * Query is being planned.
      */

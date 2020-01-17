@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,7 +30,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class OutputMatcher
-    implements Matcher
+        implements Matcher
 {
     private final List<String> aliases;
 
@@ -44,15 +46,15 @@ public class OutputMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         int i = 0;
         for (String alias : aliases) {
             Expression expression = symbolAliases.get(alias);
             boolean found = false;
-            while (i < node.getOutputSymbols().size()) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i++);
-                if (expression.equals(outputSymbol.toSymbolReference())) {
+            while (i < node.getOutputVariables().size()) {
+                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i++);
+                if (expression.equals(new SymbolReference(outputVariable.getName()))) {
                     found = true;
                     break;
                 }

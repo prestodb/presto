@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.type.Type;
@@ -21,8 +20,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TypeSignatureProvider
@@ -61,12 +60,22 @@ public class TypeSignatureProvider
         return typeSignatureResolver.apply(boundTypeParameters);
     }
 
+    public static List<TypeSignatureProvider> fromTypes(Type... types)
+    {
+        return fromTypes(ImmutableList.copyOf(types));
+    }
+
     public static List<TypeSignatureProvider> fromTypes(List<? extends Type> types)
     {
         return types.stream()
                 .map(Type::getTypeSignature)
                 .map(TypeSignatureProvider::new)
                 .collect(toImmutableList());
+    }
+
+    public static List<TypeSignatureProvider> fromTypeSignatures(TypeSignature... typeSignatures)
+    {
+        return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
     }
 
     public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)

@@ -72,7 +72,7 @@ public class InternalTable
         private final Map<String, Integer> columnIndexes;
         private final List<Type> types;
         private final List<Page> pages;
-        private PageBuilder pageBuilder;
+        private final PageBuilder pageBuilder;
 
         public Builder(List<String> columnNames, List<Type> types)
         {

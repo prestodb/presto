@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class Unnest
@@ -63,19 +63,24 @@ public final class Unnest
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return expressions;
+    }
+
+    @Override
     public String toString()
     {
-        String result = "UNNEST(" + Joiner.on(", ").join(expressions) + ")";
-        if (withOrdinality) {
-            result += " WITH ORDINALITY";
-        }
-        return result;
+        return toStringHelper(this)
+                .add("expressions", expressions)
+                .add("withOrdinality", withOrdinality)
+                .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(expressions);
+        return Objects.hash(expressions, withOrdinality);
     }
 
     @Override
@@ -88,6 +93,6 @@ public final class Unnest
             return false;
         }
         Unnest other = (Unnest) obj;
-        return Objects.equals(this.expressions, other.expressions);
+        return Objects.equals(expressions, other.expressions) && withOrdinality == other.withOrdinality;
     }
 }

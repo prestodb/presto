@@ -13,16 +13,24 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.util.HashSet;
+
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NOT_ENOUGH_NODES;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -36,7 +44,8 @@ public class TestAssignmentLimiter
                 ImmutableSet::of,
                 ticker,
                 new Duration(5, MINUTES),
-                new Duration(10, MINUTES));
+                new Duration(10, MINUTES),
+                0);
 
         // 4:00
         assertCheckFails(limiter, "A", RAPTOR_REASSIGNMENT_DELAY);
@@ -79,6 +88,32 @@ public class TestAssignmentLimiter
         limiter.checkAssignFrom("A");
         limiter.checkAssignFrom("B");
         limiter.checkAssignFrom("C");
+    }
+
+    @Test
+    public void testNotEnoughNodes()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+
+        HashSet<Node> nodes = new HashSet<>();
+        Node node1 = new InternalNode("node1", new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        Node node2 = new InternalNode("node2", new URI("http://127.0.0.2/"), NodeVersion.UNKNOWN, false);
+        nodes.add(node1);
+        nodes.add(node2);
+
+        AssignmentLimiter limiter = new AssignmentLimiter(
+                () -> nodes,
+                ticker,
+                new Duration(0, SECONDS),
+                new Duration(0, SECONDS),
+                2);
+        ticker.increment(1, SECONDS);
+
+        limiter.checkAssignFrom("node3");
+
+        nodes.remove(node1);
+        assertCheckFails(limiter, "node3", RAPTOR_NOT_ENOUGH_NODES);
     }
 
     private static void assertCheckFails(AssignmentLimiter limiter, String node, ErrorCodeSupplier expected)

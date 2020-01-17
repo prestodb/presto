@@ -323,7 +323,8 @@ class CastBytecodeExpression
         return ImmutableList.of(instance);
     }
 
-    private enum TypeKind {
+    private enum TypeKind
+    {
         PRIMITIVE, BOXED_PRIMITVE, OTHER
     }
 }

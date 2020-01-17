@@ -14,15 +14,17 @@
 package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.facebook.presto.redis.RedisFieldDecoder;
+import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.emptyMap;
 
 /**
  * The row decoder for the Redis values that are stored in Hash format.
@@ -32,40 +34,32 @@ public class HashRedisRowDecoder
 {
     public static final String NAME = "hash";
 
-    @Override
-    public String getName()
+    private final Map<DecoderColumnHandle, RedisFieldDecoder<String>> fieldDecoders;
+
+    public HashRedisRowDecoder(Map<DecoderColumnHandle, RedisFieldDecoder<String>> fieldDecoders)
     {
-        return NAME;
+        this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
     @Override
-    public boolean decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
         if (dataMap == null) {
-            return false;
+            return Optional.of(emptyMap());
         }
 
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
+        for (Map.Entry<DecoderColumnHandle, RedisFieldDecoder<String>> entry : fieldDecoders.entrySet()) {
+            DecoderColumnHandle columnHandle = entry.getKey();
 
             String mapping = columnHandle.getMapping();
             checkState(mapping != null, "No mapping for column handle %s!", columnHandle);
 
             String valueField = dataMap.get(mapping);
 
-            @SuppressWarnings("unchecked")
-            FieldDecoder<String> decoder = (FieldDecoder<String>) fieldDecoders.get(columnHandle);
-
-            if (decoder != null) {
-                fieldValueProviders.add(decoder.decode(valueField, columnHandle));
-            }
+            RedisFieldDecoder<String> decoder = entry.getValue();
+            decodedRow.put(columnHandle, decoder.decode(valueField, columnHandle));
         }
-        return false;
+        return Optional.of(decodedRow);
     }
 }

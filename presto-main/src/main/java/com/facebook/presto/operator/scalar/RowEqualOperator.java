@@ -14,28 +14,35 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class RowEqualOperator
         extends SqlOperator
 {
     public static final RowEqualOperator ROW_EQUAL = new RowEqualOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "equals", Type.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "equals", RowType.class, List.class, Block.class, Block.class);
 
     private RowEqualOperator()
     {
@@ -47,19 +54,62 @@ public class RowEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        Type type = boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(type), isDeterministic());
+        RowType type = (RowType) boundVariables.getTypeVariable("T");
+        return new BuiltInScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                METHOD_HANDLE
+                        .bindTo(type)
+                        .bindTo(resolveFieldEqualOperators(type, functionManager)));
     }
 
-    public static boolean equals(Type rowType, Block leftRow, Block rightRow)
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionManager functionManager)
     {
-        // TODO: Fix this. It feels very inefficient and unnecessary to wrap and unwrap with Block
-        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        rowType.writeObject(leftBlockBuilder, leftRow);
-        rowType.writeObject(rightBlockBuilder, rightRow);
-        return rowType.equalTo(leftBlockBuilder.build(), 0, rightBlockBuilder.build(), 0);
+        return rowType.getTypeParameters().stream()
+                .map(type -> resolveEqualOperator(type, functionManager))
+                .collect(toImmutableList());
+    }
+
+    private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
+    {
+        FunctionHandle operator = functionManager.resolveOperator(EQUAL, fromTypes(type, type));
+        BuiltInScalarFunctionImplementation implementation = functionManager.getBuiltInScalarFunctionImplementation(operator);
+        return implementation.getMethodHandle();
+    }
+
+    public static Boolean equals(RowType rowType, List<MethodHandle> fieldEqualOperators, Block leftRow, Block rightRow)
+    {
+        boolean indeterminate = false;
+        for (int fieldIndex = 0; fieldIndex < leftRow.getPositionCount(); fieldIndex++) {
+            if (leftRow.isNull(fieldIndex) || rightRow.isNull(fieldIndex)) {
+                indeterminate = true;
+                continue;
+            }
+            Type fieldType = rowType.getTypeParameters().get(fieldIndex);
+            Object leftField = readNativeValue(fieldType, leftRow, fieldIndex);
+            Object rightField = readNativeValue(fieldType, rightRow, fieldIndex);
+            try {
+                MethodHandle equalOperator = fieldEqualOperators.get(fieldIndex);
+                Boolean result = (Boolean) equalOperator.invoke(leftField, rightField);
+                if (result == null) {
+                    indeterminate = true;
+                }
+                else if (!result) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+
+        if (indeterminate) {
+            return null;
+        }
+        return true;
     }
 }

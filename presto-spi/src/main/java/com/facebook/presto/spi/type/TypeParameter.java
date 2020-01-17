@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.type;
 
 import java.util.Objects;
@@ -54,20 +53,14 @@ public class TypeParameter
         switch (parameter.getKind()) {
             case TYPE: {
                 Type type = typeManager.getType(parameter.getTypeSignature());
-                if (type == null) {
-                    return null;
-                }
                 return of(type);
             }
             case LONG:
                 return of(parameter.getLongLiteral());
             case NAMED_TYPE: {
                 Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
-                if (type == null) {
-                    return null;
-                }
                 return of(new NamedType(
-                        parameter.getNamedTypeSignature().getName(),
+                        parameter.getNamedTypeSignature().getFieldName(),
                         type));
             }
             case VARIABLE:

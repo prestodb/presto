@@ -19,5 +19,5 @@ public interface ResourceGroupConfigurationManagerFactory
 {
     String getName();
 
-    ResourceGroupConfigurationManager create(Map<String, String> config, ResourceGroupConfigurationManagerContext context);
+    ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context);
 }

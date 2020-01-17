@@ -14,11 +14,12 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.IndexHandle;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,46 +28,42 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
-    private final Optional<TableLayoutHandle> tableLayout; // only necessary for event listeners
-    private final Set<Symbol> lookupSymbols;
-    private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final TupleDomain<ColumnHandle> effectiveTupleDomain; // general summary of how the output columns will be constrained
+    private final Set<VariableReferenceExpression> lookupVariables;
+    private final List<VariableReferenceExpression> outputVariables;
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments; // symbol -> column
+    private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
     @JsonCreator
     public IndexSourceNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("tableLayout") Optional<TableLayoutHandle> tableLayout,
-            @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
+            @JsonProperty("lookupVariables") Set<VariableReferenceExpression> lookupVariables,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
+            @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
-        this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        this.effectiveTupleDomain = requireNonNull(effectiveTupleDomain, "effectiveTupleDomain is null");
-        checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
-        checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
-        checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
-        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
+        this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
+        checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
+        checkArgument(!outputVariables.isEmpty(), "outputVariables is empty");
+        checkArgument(assignments.keySet().containsAll(lookupVariables), "Assignments do not include all lookup variables");
+        checkArgument(outputVariables.containsAll(lookupVariables), "Lookup variables need to be part of the output variables");
     }
 
     @JsonProperty
@@ -82,34 +79,28 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public Optional<TableLayoutHandle> getLayout()
+    public Set<VariableReferenceExpression> getLookupVariables()
     {
-        return tableLayout;
-    }
-
-    @JsonProperty
-    public Set<Symbol> getLookupSymbols()
-    {
-        return lookupSymbols;
+        return lookupVariables;
     }
 
     @Override
     @JsonProperty
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputSymbols;
+        return outputVariables;
     }
 
     @JsonProperty
-    public Map<Symbol, ColumnHandle> getAssignments()
+    public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getEffectiveTupleDomain()
+    public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
-        return effectiveTupleDomain;
+        return currentConstraint;
     }
 
     @Override
@@ -119,8 +110,15 @@ public class IndexSourceNode
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitIndexSource(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
     }
 }

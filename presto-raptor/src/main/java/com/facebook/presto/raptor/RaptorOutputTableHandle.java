@@ -45,6 +45,7 @@ public class RaptorOutputTableHandle
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final boolean organized;
+    private final boolean tableSupportsDeltaDelete;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -59,8 +60,9 @@ public class RaptorOutputTableHandle
             @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle,
             @JsonProperty("distributionId") OptionalLong distributionId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
             @JsonProperty("organized") boolean organized,
-            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
+            @JsonProperty("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
@@ -75,6 +77,7 @@ public class RaptorOutputTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.organized = organized;
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
     }
 
     @JsonProperty
@@ -153,6 +156,12 @@ public class RaptorOutputTableHandle
     public boolean isOrganized()
     {
         return organized;
+    }
+
+    @JsonProperty
+    public boolean isTableSupportsDeltaDelete()
+    {
+        return tableSupportsDeltaDelete;
     }
 
     @Override

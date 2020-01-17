@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -28,7 +29,6 @@ public class TestBigintOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("100000000037", BIGINT, 100000000037L);
         assertFunction("100000000017", BIGINT, 100000000017L);
@@ -36,7 +36,6 @@ public class TestBigintOperators
 
     @Test
     public void testTypeConstructor()
-            throws Exception
     {
         assertFunction("BIGINT '9223372036854775807'", BIGINT, 9223372036854775807L);
         assertFunction("BIGINT '-9223372036854775807'", BIGINT, -9223372036854775807L);
@@ -45,7 +44,6 @@ public class TestBigintOperators
 
     @Test
     public void testUnaryPlus()
-            throws Exception
     {
         assertFunction("+100000000037", BIGINT, 100000000037L);
         assertFunction("+100000000017", BIGINT, 100000000017L);
@@ -53,7 +51,6 @@ public class TestBigintOperators
 
     @Test
     public void testUnaryMinus()
-            throws Exception
     {
         assertFunction("-100000000037", BIGINT, -100000000037L);
         assertFunction("-100000000017", BIGINT, -100000000017L);
@@ -61,7 +58,6 @@ public class TestBigintOperators
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("37 + 100000000037", BIGINT, 37 + 100000000037L);
         assertFunction("37 + 100000000017", BIGINT, 37 + 100000000017L);
@@ -71,7 +67,6 @@ public class TestBigintOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("100000000037 - 37", BIGINT, 100000000037L - 37L);
         assertFunction("37 - 100000000017", BIGINT, 37 - 100000000017L);
@@ -81,7 +76,6 @@ public class TestBigintOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("100000000037 * 37", BIGINT, 100000000037L * 37L);
         assertFunction("37 * 100000000017", BIGINT, 37 * 100000000017L);
@@ -91,7 +85,6 @@ public class TestBigintOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("100000000037 / 37", BIGINT, 100000000037L / 37L);
         assertFunction("37 / 100000000017", BIGINT, 37 / 100000000017L);
@@ -101,7 +94,6 @@ public class TestBigintOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("100000000037 % 37", BIGINT, 100000000037L % 37L);
         assertFunction("37 % 100000000017", BIGINT, 37 % 100000000017L);
@@ -111,7 +103,6 @@ public class TestBigintOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-(100000000037)", BIGINT, -100000000037L);
         assertFunction("-(100000000017)", BIGINT, -100000000017L);
@@ -119,7 +110,6 @@ public class TestBigintOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("100000000037 = 100000000037", BOOLEAN, true);
         assertFunction("37 = 100000000017", BOOLEAN, false);
@@ -129,7 +119,6 @@ public class TestBigintOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("100000000037 <> 100000000037", BOOLEAN, false);
         assertFunction("37 <> 100000000017", BOOLEAN, true);
@@ -139,7 +128,6 @@ public class TestBigintOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("100000000037 < 100000000037", BOOLEAN, false);
         assertFunction("100000000037 < 100000000017", BOOLEAN, false);
@@ -149,7 +137,6 @@ public class TestBigintOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("100000000037 <= 100000000037", BOOLEAN, true);
         assertFunction("100000000037 <= 100000000017", BOOLEAN, false);
@@ -159,7 +146,6 @@ public class TestBigintOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("100000000037 > 100000000037", BOOLEAN, false);
         assertFunction("100000000037 > 100000000017", BOOLEAN, true);
@@ -169,7 +155,6 @@ public class TestBigintOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("100000000037 >= 100000000037", BOOLEAN, true);
         assertFunction("100000000037 >= 100000000017", BOOLEAN, true);
@@ -179,7 +164,6 @@ public class TestBigintOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("100000000037 BETWEEN 100000000037 AND 100000000037", BOOLEAN, true);
         assertFunction("100000000037 BETWEEN 100000000037 AND 100000000017", BOOLEAN, false);
@@ -196,7 +180,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(100000000037 as bigint)", BIGINT, 100000000037L);
         assertFunction("cast(100000000017 as bigint)", BIGINT, 100000000017L);
@@ -204,7 +187,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(37 as varchar)", VARCHAR, "37");
         assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
@@ -212,7 +194,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(37 as double)", DOUBLE, 37.0);
         assertFunction("cast(100000000017 as double)", DOUBLE, 100000000017.0);
@@ -220,7 +201,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastToFloat()
-            throws Exception
     {
         assertFunction("cast(37 as real)", REAL, 37.0f);
         assertFunction("cast(-100000000017 as real)", REAL, -100000000017.0f);
@@ -229,7 +209,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(37 as boolean)", BOOLEAN, true);
         assertFunction("cast(100000000017 as boolean)", BOOLEAN, true);
@@ -238,7 +217,6 @@ public class TestBigintOperators
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
         assertFunction("cast('100000000037' as bigint)", BIGINT, 100000000037L);
         assertFunction("cast('100000000017' as bigint)", BIGINT, 100000000017L);
@@ -246,7 +224,6 @@ public class TestBigintOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS BIGINT) IS DISTINCT FROM CAST(NULL AS BIGINT)", BOOLEAN, false);
         assertFunction("100000000037 IS DISTINCT FROM 100000000037", BOOLEAN, false);
@@ -257,14 +234,12 @@ public class TestBigintOperators
 
     @Test
     public void testOverflowAdd()
-            throws Exception
     {
         assertNumericOverflow(format("%s + 1", Long.MAX_VALUE), "bigint addition overflow: 9223372036854775807 + 1");
     }
 
     @Test
     public void testUnderflowSubtract()
-            throws Exception
     {
         long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
         assertNumericOverflow(format("%s - 2", minValue), "bigint subtraction overflow: -9223372036854775807 - 2");
@@ -272,7 +247,6 @@ public class TestBigintOperators
 
     @Test
     public void testOverflowMultiply()
-            throws Exception
     {
         assertNumericOverflow(format("%s * 2", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * 2");
         // TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
@@ -281,14 +255,21 @@ public class TestBigintOperators
 
     @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testOverflowDivide()
-            throws Exception
     {
         assertNumericOverflow(format("%s / -1", Long.MIN_VALUE), "bigint division overflow: -9223372036854775808 / -1");
     }
 
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as bigint)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(1 as bigint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(4499999999 as bigint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "4499999999", BOOLEAN, false);
+    }
+
     @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testNegateOverflow()
-            throws Exception
     {
         assertNumericOverflow(format("-(%s)", Long.MIN_VALUE), "bigint negation overflow: -9223372036854775808");
     }

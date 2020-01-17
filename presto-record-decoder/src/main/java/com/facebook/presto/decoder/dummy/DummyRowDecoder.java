@@ -14,13 +14,12 @@
 package com.facebook.presto.decoder.dummy;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
+import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 /**
  * The row decoder for the 'dummy' format. For an unstructured row format (bag
@@ -37,20 +36,12 @@ public class DummyRowDecoder
         implements RowDecoder
 {
     public static final String NAME = "dummy";
+    private static final Optional<Map<DecoderColumnHandle, FieldValueProvider>> ALL_NULLS = Optional.of(ImmutableMap.of());
 
     @Override
-    public String getName()
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
+            Map<String, String> dataMap)
     {
-        return NAME;
-    }
-
-    @Override
-    public boolean decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
-    {
-        return false;
+        return ALL_NULLS;
     }
 }

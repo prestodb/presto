@@ -15,28 +15,27 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestBigintVarcharMapType
         extends AbstractTestType
 {
     public TestBigintVarcharMapType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("map(bigint,varchar)")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map(bigint,varchar)"))));
+        super(mapType(BIGINT, VARCHAR), Map.class, createTestBlock(mapType(BIGINT, VARCHAR)));
     }
 
     public static Block createTestBlock(Type mapType)
     {
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 2);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
         mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")));
         mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
         return blockBuilder.build();

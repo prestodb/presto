@@ -14,27 +14,34 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 
-import java.util.Map;
+import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
 public final class NoSubqueryExpressionLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
+        List<Expression> expressions = ExpressionExtractor.extractExpressions(plan)
+                .stream()
+                .filter(OriginalExpressionUtils::isExpression)
+                .map(OriginalExpressionUtils::castToExpression)
+                .collect(toImmutableList());
+        for (Expression expression : expressions) {
             new DefaultTraversalVisitor<Void, Void>()
             {
                 @Override

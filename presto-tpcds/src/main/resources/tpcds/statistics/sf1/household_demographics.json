@@ -1,0 +1,40 @@
+{
+  "rowCount" : 7200,
+  "columns" : {
+    "hd_demo_sk" : {
+      "distinctValuesCount" : 7200,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 7200,
+      "dataSize" : null
+    },
+    "hd_income_band_sk" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 20,
+      "dataSize" : null
+    },
+    "hd_buy_potential" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : "0-500",
+      "max" : "Unknown",
+      "dataSize" : 45
+    },
+    "hd_dep_count" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 9,
+      "dataSize" : null
+    },
+    "hd_vehicle_count" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : -1,
+      "max" : 4,
+      "dataSize" : null
+    }
+  }
+}

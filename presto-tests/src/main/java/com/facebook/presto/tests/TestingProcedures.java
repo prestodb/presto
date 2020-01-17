@@ -18,38 +18,31 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.testing.ProcedureTester;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public final class TestingProcedures
 {
     private final ProcedureTester tester;
-    private final TypeManager typeManager;
 
-    public TestingProcedures(ProcedureTester tester, TypeManager typeManager)
+    public TestingProcedures(ProcedureTester tester)
     {
         this.tester = requireNonNull(tester, "tester is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @UsedByGeneratedCode
@@ -123,10 +116,10 @@ public final class TestingProcedures
                         new Argument("x", BIGINT),
                         new Argument("y", VARCHAR))))
                 .add(procedure(schema, "test_arrays", "arrays", ImmutableList.of(
-                        new Argument("x", arrayType(BIGINT)),
-                        new Argument("y", arrayType(VARCHAR)))))
+                        new Argument("x", "array(bigint)"),
+                        new Argument("y", "array(varchar)"))))
                 .add(procedure(schema, "test_nested", "nested", ImmutableList.of(
-                        new Argument("x", arrayType(arrayType(BIGINT))))))
+                        new Argument("x", "array(array(bigint))"))))
                 .add(procedure(schema, "test_session_first", "sessionFirst", ImmutableList.of(
                         new Argument("x", BIGINT))))
                 .add(procedure(schema, "test_session_last", "sessionLast", ImmutableList.of(
@@ -136,11 +129,6 @@ public final class TestingProcedures
                 .build();
     }
 
-    private Type arrayType(Type elementType)
-    {
-        return typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
-    }
-
     private Procedure procedure(String schema, String name, String methodName, List<Argument> arguments)
     {
         return new Procedure(schema, name, arguments, handle(methodName));
@@ -148,18 +136,11 @@ public final class TestingProcedures
 
     private MethodHandle handle(String name)
     {
-        List<Method> methods = asList(getClass().getMethods()).stream()
+        List<Method> methods = Arrays.stream(getClass().getMethods())
                 .filter(method -> method.getName().equals(name))
                 .collect(toList());
         checkArgument(!methods.isEmpty(), "no matching methods: %s", name);
         checkArgument(methods.size() == 1, "multiple matching methods: %s", methods);
-        Method method = methods.get(0);
-
-        try {
-            return MethodHandles.lookup().unreflect(method).bindTo(this);
-        }
-        catch (IllegalAccessException e) {
-            throw Throwables.propagate(e);
-        }
+        return methodHandle(methods.get(0)).bindTo(this);
     }
 }

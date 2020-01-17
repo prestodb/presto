@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.bytecode.control;
 
+import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 
 import javax.annotation.concurrent.Immutable;
@@ -20,28 +21,31 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class CaseStatement
         implements Comparable<CaseStatement>
 {
-    public static CaseStatement caseStatement(int key, LabelNode label)
-    {
-        return new CaseStatement(label, key);
-    }
-
     private final int key;
+    private final BytecodeNode body;
     private final LabelNode label;
 
-    CaseStatement(LabelNode label, int key)
+    CaseStatement(int key, BytecodeNode body, LabelNode label)
     {
-        this.label = label;
         this.key = key;
+        this.body = requireNonNull(body, "body is null");
+        this.label = requireNonNull(label, "label is null");
     }
 
     public int getKey()
     {
         return key;
+    }
+
+    public BytecodeNode getBody()
+    {
+        return body;
     }
 
     public LabelNode getLabel()
@@ -79,7 +83,6 @@ public class CaseStatement
     {
         return toStringHelper(this)
                 .add("key", key)
-                .add("label", label)
                 .toString();
     }
 }

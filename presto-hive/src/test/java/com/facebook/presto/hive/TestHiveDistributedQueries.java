@@ -18,8 +18,8 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
@@ -27,9 +27,14 @@ public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
     public TestHiveDistributedQueries()
-            throws Exception
     {
-        super(createQueryRunner(getTables()));
+        super(() -> createQueryRunner(getTables()));
+    }
+
+    @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
     }
 
     @Override
@@ -38,45 +43,13 @@ public class TestHiveDistributedQueries
         // Hive connector currently does not support row-by-row delete
     }
 
-    @Override
-    public void testAddColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // Hive connector currently does not support table rename
-    }
-
     @Test
-    public void testOrderByChar()
-            throws Exception
+    public void testExplainOfCreateTableAs()
     {
-        assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
-        assertUpdate("INSERT INTO char_order_by (c_char) VALUES" +
-                "(CAST('a' as CHAR(2)))," +
-                "(CAST('a\0' as CHAR(2)))," +
-                "(CAST('a  ' as CHAR(2)))", 3);
-
-        MaterializedResult actual = computeActual(getSession(),
-                "SELECT * FROM char_order_by ORDER BY c_char ASC");
-
-        assertUpdate("DROP TABLE char_order_by");
-
-        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
-                .row("a\0")
-                .row("a ")
-                .row("a ")
-                .build();
-
-        assertEquals(actual, expected);
+        String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
+
+    // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }

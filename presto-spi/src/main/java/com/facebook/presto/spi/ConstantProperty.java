@@ -35,6 +35,12 @@ public final class ConstantProperty<E>
         this.column = requireNonNull(column, "column is null");
     }
 
+    @Override
+    public boolean isOrderSensitive()
+    {
+        return false;
+    }
+
     @JsonProperty
     public E getColumn()
     {
@@ -49,13 +55,8 @@ public final class ConstantProperty<E>
     @Override
     public <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator)
     {
-        Optional<T> translated = translator.apply(column);
-
-        if (translated.isPresent()) {
-            return Optional.of(new ConstantProperty<>(translated.get()));
-        }
-
-        return Optional.empty();
+        return translator.apply(column)
+                .map(ConstantProperty::new);
     }
 
     @Override

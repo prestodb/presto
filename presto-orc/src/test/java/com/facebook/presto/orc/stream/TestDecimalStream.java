@@ -14,8 +14,9 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcDataSourceId;
 import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -23,16 +24,29 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
+import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.math.BigInteger.ONE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 public class TestDecimalStream
 {
+    private static final BigInteger BIG_INTEGER_127_BIT_SET;
+
+    static {
+        BigInteger b = BigInteger.ZERO;
+        for (int i = 0; i < 127; ++i) {
+            b = b.setBit(i);
+        }
+        BIG_INTEGER_127_BIT_SET = b;
+    }
+
     @Test
     public void testShortDecimals()
             throws IOException
@@ -48,14 +62,12 @@ public class TestDecimalStream
 
     @Test
     public void testShouldFailWhenShortDecimalDoesNotFit()
-            throws IOException
     {
         assertShortValueReadFails(BigInteger.valueOf(Long.MAX_VALUE).add(ONE));
     }
 
     @Test
     public void testShouldFailWhenExceeds128Bits()
-            throws IOException
     {
         assertLongValueReadFails(BigInteger.valueOf(1).shiftLeft(127));
         assertLongValueReadFails(BigInteger.valueOf(-2).shiftLeft(127));
@@ -68,8 +80,10 @@ public class TestDecimalStream
         assertReadsLongValue(BigInteger.valueOf(0L));
         assertReadsLongValue(BigInteger.valueOf(1L));
         assertReadsLongValue(BigInteger.valueOf(-1L));
-        assertReadsLongValue(BigInteger.valueOf(-1).shiftLeft(127));
+        assertReadsLongValue(BigInteger.valueOf(-1).shiftLeft(126));
         assertReadsLongValue(BigInteger.valueOf(1).shiftLeft(126));
+        assertReadsLongValue(BIG_INTEGER_127_BIT_SET);
+        assertReadsLongValue(BIG_INTEGER_127_BIT_SET.negate());
         assertReadsLongValue(MAX_DECIMAL_UNSCALED_VALUE);
         assertReadsLongValue(MIN_DECIMAL_UNSCALED_VALUE);
     }
@@ -83,7 +97,7 @@ public class TestDecimalStream
         writeBigInteger(baos, BigInteger.valueOf(Long.MIN_VALUE));
 
         OrcInputStream inputStream = orcInputStreamFor("skip test", baos.toByteArray());
-        DecimalStream stream = new DecimalStream(inputStream);
+        DecimalInputStream stream = new DecimalInputStream(inputStream);
         stream.skip(1);
         assertEquals(stream.nextLong(), Long.MIN_VALUE);
     }
@@ -91,32 +105,33 @@ public class TestDecimalStream
     private static void assertReadsShortValue(long value)
             throws IOException
     {
-        DecimalStream stream = new DecimalStream(decimalInputStream(BigInteger.valueOf(value)));
+        DecimalInputStream stream = new DecimalInputStream(decimalInputStream(BigInteger.valueOf(value)));
         assertEquals(stream.nextLong(), value);
     }
 
     private static void assertReadsLongValue(BigInteger value)
             throws IOException
     {
-        DecimalStream stream = new DecimalStream(decimalInputStream(value));
-        assertEquals(stream.nextBigInteger(), value);
+        DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
+        Slice decimal = unscaledDecimal();
+        stream.nextLongDecimal(decimal);
+        assertEquals(unscaledDecimalToBigInteger(decimal), value);
     }
 
     private static void assertShortValueReadFails(BigInteger value)
-            throws IOException
     {
         assertThrows(OrcCorruptionException.class, () -> {
-            DecimalStream stream = new DecimalStream(decimalInputStream(value));
+            DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
             stream.nextLong();
         });
     }
 
     private static void assertLongValueReadFails(BigInteger value)
-            throws IOException
     {
+        Slice decimal = unscaledDecimal();
         assertThrows(OrcCorruptionException.class, () -> {
-            DecimalStream stream = new DecimalStream(decimalInputStream(value));
-            stream.nextBigInteger();
+            DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
+            stream.nextLongDecimal(decimal);
         });
     }
 
@@ -130,7 +145,7 @@ public class TestDecimalStream
 
     private static OrcInputStream orcInputStreamFor(String source, byte[] bytes)
     {
-        return new OrcInputStream(source, new BasicSliceInput(Slices.wrappedBuffer(bytes)), UNCOMPRESSED, 10000, new AggregatedMemoryContext());
+        return new OrcInputStream(new OrcDataSourceId(source), new BasicSliceInput(Slices.wrappedBuffer(bytes)), Optional.empty(), newSimpleAggregatedMemoryContext(), bytes.length);
     }
 
     // copied from org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java

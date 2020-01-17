@@ -21,10 +21,11 @@ To configure the JMX connector, create a catalog properties file
 
     connector.name=jmx
 
-To enable periodical dumps, define following properties:
+To enable periodical dumps, define the following properties:
 
 .. code-block:: none
 
+    connector.name=jmx
     jmx.dump-tables=java.lang:type=Runtime,com.facebook.presto.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
@@ -33,6 +34,15 @@ To enable periodical dumps, define following properties:
 which MBeans will be sampled and stored in memory every ``dump-period``.
 History will have limited size of ``max-entries`` of entries. Both ``dump-period``
 and ``max-entries`` have default values of ``10s`` and ``86400`` accordingly.
+
+Commas in MBean names should be escaped in the following manner:
+
+.. code-block:: none
+
+    connector.name=jmx
+    jmx.dump-tables=com.facebook.presto.memory:type=memorypool\\,name=general,\
+       com.facebook.presto.memory:type=memorypool\\,name=system,\
+       com.facebook.presto.memory:type=memorypool\\,name=reserved
 
 Querying JMX
 ------------
@@ -70,6 +80,22 @@ for each node::
     -------------------------+------------------------
                          329 |                  10240
     (1 row)
+
+The wildcard character ``*`` may be used with table names in the ``current`` schema.
+This allows matching several MBean objects within a single query. The following query
+returns information from the different Presto memory pools on each node::
+
+    SELECT freebytes, node, object_name
+    FROM jmx.current."com.facebook.presto.memory:*type=memorypool*";
+
+.. code-block:: none
+
+     freebytes  |  node   |                       object_name
+    ------------+---------+----------------------------------------------------------
+      214748364 | example | com.facebook.presto.memory:type=MemoryPool,name=reserved
+     1073741825 | example | com.facebook.presto.memory:type=MemoryPool,name=general
+      858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
+    (3 rows)
 
 The ``history`` schema contains the list of tables configured in the connector properties file.
 The tables have the same columns as those in the current schema, but with an additional

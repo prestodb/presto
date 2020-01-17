@@ -13,62 +13,58 @@
  */
 package com.facebook.presto.server.security;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
-import java.io.File;
+import javax.validation.constraints.NotNull;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
+@DefunctConfig("http.server.authentication.enabled")
 public class SecurityConfig
 {
-    private boolean authenticationEnabled;
-    private File kerberosConfig;
-    private String serviceName;
-    private File keytab;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    public File getKerberosConfig()
+    private List<AuthenticationType> authenticationTypes = ImmutableList.of();
+
+    public enum AuthenticationType
     {
-        return kerberosConfig;
+        CERTIFICATE,
+        KERBEROS,
+        PASSWORD,
+        JWT
     }
 
-    @Config("http.authentication.krb5.config")
-    public SecurityConfig setKerberosConfig(File kerberosConfig)
+    @NotNull
+    public List<AuthenticationType> getAuthenticationTypes()
     {
-        this.kerberosConfig = kerberosConfig;
+        return authenticationTypes;
+    }
+
+    public SecurityConfig setAuthenticationTypes(List<AuthenticationType> authenticationTypes)
+    {
+        this.authenticationTypes = ImmutableList.copyOf(authenticationTypes);
         return this;
     }
 
-    public boolean getAuthenticationEnabled()
+    @Config("http-server.authentication.type")
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD, JWT)")
+    public SecurityConfig setAuthenticationTypes(String types)
     {
-        return authenticationEnabled;
-    }
+        if (types == null) {
+            authenticationTypes = null;
+            return this;
+        }
 
-    @Config("http.server.authentication.enabled")
-    public SecurityConfig setAuthenticationEnabled(boolean enabled)
-    {
-        this.authenticationEnabled = enabled;
-        return this;
-    }
-
-    public String getServiceName()
-    {
-        return serviceName;
-    }
-
-    @Config("http.server.authentication.krb5.service-name")
-    public SecurityConfig setServiceName(String serviceName)
-    {
-        this.serviceName = serviceName;
-        return this;
-    }
-
-    public File getKeytab()
-    {
-        return keytab;
-    }
-
-    @Config("http.server.authentication.krb5.keytab")
-    public SecurityConfig setKeytab(File keytab)
-    {
-        this.keytab = keytab;
+        authenticationTypes = stream(SPLITTER.split(types))
+                .map(AuthenticationType::valueOf)
+                .collect(toImmutableList());
         return this;
     }
 }

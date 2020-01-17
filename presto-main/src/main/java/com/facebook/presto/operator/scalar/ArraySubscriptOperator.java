@@ -15,24 +15,26 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
@@ -40,7 +42,6 @@ public class ArraySubscriptOperator
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
-    private static final MethodHandle METHOD_HANDLE_UNKNOWN = methodHandle(ArraySubscriptOperator.class, "arrayWithUnknownType", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArraySubscriptOperator.class, "longSubscript", Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Type.class, Block.class, long.class);
@@ -57,16 +58,13 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
         Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
-        if (elementType.getJavaType() == void.class) {
-            methodHandle = METHOD_HANDLE_UNKNOWN;
-        }
-        else if (elementType.getJavaType() == boolean.class) {
+        if (elementType.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;
         }
         else if (elementType.getJavaType() == long.class) {
@@ -83,20 +81,19 @@ public class ArraySubscriptOperator
         }
         methodHandle = methodHandle.bindTo(elementType);
         requireNonNull(methodHandle, "methodHandle is null");
-        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
-    }
-
-    @UsedByGeneratedCode
-    public static void arrayWithUnknownType(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
+        return new BuiltInScalarFunctionImplementation(
+                true,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle);
     }
 
     @UsedByGeneratedCode
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -108,7 +105,7 @@ public class ArraySubscriptOperator
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -120,7 +117,7 @@ public class ArraySubscriptOperator
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -132,7 +129,7 @@ public class ArraySubscriptOperator
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }
@@ -144,7 +141,7 @@ public class ArraySubscriptOperator
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        int position = toIntExact(index - 1);
         if (array.isNull(position)) {
             return null;
         }

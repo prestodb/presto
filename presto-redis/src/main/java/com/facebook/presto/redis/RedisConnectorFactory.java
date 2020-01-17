@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
@@ -20,17 +22,15 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,9 +59,9 @@ public class RedisConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
         try {
@@ -69,7 +69,7 @@ public class RedisConnectorFactory
                     new JsonModule(),
                     new RedisConnectorModule(),
                     binder -> {
-                        binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(connectorId));
+                        binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
@@ -81,8 +81,7 @@ public class RedisConnectorFactory
                                     .to(RedisTableDescriptionSupplier.class)
                                     .in(Scopes.SINGLETON);
                         }
-                    }
-            );
+                    });
 
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()
@@ -92,7 +91,8 @@ public class RedisConnectorFactory
             return injector.getInstance(RedisConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

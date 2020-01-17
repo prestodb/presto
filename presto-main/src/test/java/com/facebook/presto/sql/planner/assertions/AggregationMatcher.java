@@ -14,34 +14,44 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class AggregationMatcher
         implements Matcher
 {
+    private final PlanMatchPattern.GroupingSetDescriptor groupingSets;
     private final Map<Symbol, Symbol> masks;
-    private final List<List<Symbol>> groupingSets;
+    private final List<String> preGroupedSymbols;
     private final Optional<Symbol> groupId;
+    private final Step step;
 
-    public AggregationMatcher(List<List<Symbol>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
     {
-        this.masks = masks;
         this.groupingSets = groupingSets;
+        this.masks = masks;
+        this.preGroupedSymbols = preGroupedSymbols;
         this.groupId = groupId;
+        this.step = step;
     }
 
     @Override
@@ -51,57 +61,71 @@ public class AggregationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
 
-        if (groupId.isPresent() != aggregationNode.getGroupIdSymbol().isPresent()) {
+        if (groupId.isPresent() != aggregationNode.getGroupIdVariable().isPresent()) {
             return NO_MATCH;
         }
 
-        if (groupingSets.size() != aggregationNode.getGroupingSets().size()) {
+        if (!matches(groupingSets.getGroupingKeys(), aggregationNode.getGroupingKeys(), symbolAliases)) {
             return NO_MATCH;
         }
 
-        List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
+        if (groupingSets.getGroupingSetCount() != aggregationNode.getGroupingSetCount()) {
+            return NO_MATCH;
+        }
+
+        if (!groupingSets.getGlobalGroupingSets().equals(aggregationNode.getGlobalGroupingSets())) {
+            return NO_MATCH;
+        }
+
+        List<VariableReferenceExpression> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
                 .filter(entry -> entry.getValue().isDistinct())
-                .map(entry -> entry.getKey())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {
             return NO_MATCH;
         }
 
-        for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.keySet().contains(symbol)) {
+        for (VariableReferenceExpression variable : aggregationsWithMask) {
+            if (!masks.keySet().contains(new Symbol(variable.getName()))) {
                 return NO_MATCH;
             }
         }
 
-        for (int i = 0; i < groupingSets.size(); i++) {
-            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i))) {
-                return NO_MATCH;
-            }
+        if (step != aggregationNode.getStep()) {
+            return NO_MATCH;
+        }
+
+        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedVariables(), symbolAliases)) {
+            return NO_MATCH;
         }
 
         return match();
     }
 
-    static <T> boolean matches(Collection<T> expected, Collection<T> actual)
+    static boolean matches(Collection<String> expectedAliases, Collection<VariableReferenceExpression> actualVariables, SymbolAliases symbolAliases)
     {
-        if (expected.size() != actual.size()) {
+        if (expectedAliases.size() != actualVariables.size()) {
             return false;
         }
 
-        for (T symbol : expected) {
-            if (!actual.contains(symbol)) {
+        List<String> expectedSymbolNames = expectedAliases
+                .stream()
+                .map(alias -> symbolAliases.get(alias).getName())
+                .collect(toImmutableList());
+        Set<String> actualVariableNames = actualVariables.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+        for (String symbolName : expectedSymbolNames) {
+            if (!actualVariableNames.contains(symbolName)) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -110,8 +134,10 @@ public class AggregationMatcher
     {
         return toStringHelper(this)
                 .add("groupingSets", groupingSets)
+                .add("preGroupedSymbols", preGroupedSymbols)
                 .add("masks", masks)
                 .add("groudId", groupId)
+                .add("step", step)
                 .toString();
     }
 }

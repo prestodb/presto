@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.function.CatalogSchemaPrefix;
+
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +40,11 @@ public final class CatalogSchemaName
     public String getSchemaName()
     {
         return schemaName;
+    }
+
+    public CatalogSchemaPrefix asCatalogSchemaPrefix()
+    {
+        return new CatalogSchemaPrefix(catalogName, Optional.of(schemaName));
     }
 
     @Override

@@ -1,0 +1,9 @@
+{
+  "schemas": [
+    {
+      "user": "(alice|bob)",
+      "schema": "(default|pv)",
+      "owner": true
+    }
+  ]
+}

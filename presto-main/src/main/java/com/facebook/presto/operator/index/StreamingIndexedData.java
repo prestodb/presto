@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -28,6 +27,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -124,7 +124,7 @@ public class StreamingIndexedData
     {
         // TODO: use the code generator here
         checkState(currentPage != null, "getJoinPosition not called first");
-        int intPosition = Ints.checkedCast(position);
+        int intPosition = toIntExact(position);
         for (int i = 0; i < outputTypes.size(); i++) {
             Type type = outputTypes.get(i);
             Block block = currentPage.getBlock(i);

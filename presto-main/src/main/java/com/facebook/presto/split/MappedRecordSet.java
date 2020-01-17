@@ -21,8 +21,8 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class MappedRecordSet
@@ -63,12 +63,6 @@ public class MappedRecordSet
         {
             this.delegate = delegate;
             this.delegateFieldIndex = delegateFieldIndex;
-        }
-
-        @Override
-        public long getTotalBytes()
-        {
-            return delegate.getTotalBytes();
         }
 
         @Override

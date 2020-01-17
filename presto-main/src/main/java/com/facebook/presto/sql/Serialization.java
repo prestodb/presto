@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -21,6 +23,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 
 import javax.inject.Inject;
@@ -28,10 +31,16 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static java.lang.String.format;
 
 public final class Serialization
 {
+    // for variable SerDe; variable names might contain "()"; use angle brackets to avoid conflict
+    private static final char VARIABLE_TYPE_OPEN_BRACKET = '<';
+    private static final char VARIABLE_TYPE_CLOSE_BRACKET = '>';
+
     private Serialization() {}
 
     public static class ExpressionSerializer
@@ -41,7 +50,7 @@ public final class Serialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, false, Optional.empty()));
+            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, Optional.empty()));
         }
     }
 
@@ -60,7 +69,7 @@ public final class Serialization
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return rewriteQualifiedNamesToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
+            return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.getText()));
         }
     }
 
@@ -79,7 +88,41 @@ public final class Serialization
         public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return (FunctionCall) rewriteQualifiedNamesToSymbolReferences(sqlParser.createExpression(jsonParser.readValueAs(String.class)));
+            return (FunctionCall) rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.getText()));
+        }
+    }
+
+    public static class VariableReferenceExpressionSerializer
+            extends JsonSerializer<VariableReferenceExpression>
+    {
+        @Override
+        public void serialize(VariableReferenceExpression value, JsonGenerator jsonGenerator, SerializerProvider serializers)
+                throws IOException
+        {
+            // serialize variable as "name<type>"
+            jsonGenerator.writeFieldName(format("%s%s%s%s", value.getName(), VARIABLE_TYPE_OPEN_BRACKET, value.getType(), VARIABLE_TYPE_CLOSE_BRACKET));
+        }
+    }
+
+    public static class VariableReferenceExpressionDeserializer
+            extends KeyDeserializer
+    {
+        private final TypeManager typeManager;
+
+        @Inject
+        public VariableReferenceExpressionDeserializer(TypeManager typeManager)
+        {
+            this.typeManager = typeManager;
+        }
+
+        @Override
+        public Object deserializeKey(String key, DeserializationContext ctxt)
+        {
+            int p = key.indexOf(VARIABLE_TYPE_OPEN_BRACKET);
+            if (p <= 0 || key.charAt(key.length() - 1) != VARIABLE_TYPE_CLOSE_BRACKET) {
+                throw new IllegalArgumentException(format("Expect key to be of format 'name<type>', found %s", key));
+            }
+            return new VariableReferenceExpression(key.substring(0, p), typeManager.getType(parseTypeSignature(key.substring(p + 1, key.length() - 1))));
         }
     }
 }

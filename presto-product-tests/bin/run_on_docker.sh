@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
+
+source "${BASH_SOURCE%/*}/lib.sh"
 
 function retry() {
   END=$(($(date +%s) + 600))
@@ -25,41 +27,28 @@ function hadoop_master_container(){
 }
 
 function check_hadoop() {
-  docker exec $(hadoop_master_container) supervisorctl status hive-server2 | grep -i running
-}
-
-function stop_unnecessary_hadoop_services() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop mapreduce-historyserver
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop zookeeper
+  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
 }
 
 function run_in_application_runner_container() {
-  local CONTAINER_NAME=$( environment_compose run -d application-runner "$@" )
+  local CONTAINER_NAME
+  CONTAINER_NAME=$(environment_compose run -p 5007:5007 -d application-runner "$@")
   echo "Showing logs from $CONTAINER_NAME:"
   docker logs -f $CONTAINER_NAME
-  return $( docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME )
+  return $(docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME)
 }
 
 function check_presto() {
-  run_in_application_runner_container \
-    java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
-    --server presto-master:8080 \
-    --execute "SHOW CATALOGS" | grep -i hive
+  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
 }
 
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
   rm -rf "${REPORT_DIR}"
   mkdir -p "${REPORT_DIR}"
-  run_in_application_runner_container \
-    java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
-    -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
-    --report-dir "/docker/volumes/test-reports" \
-    --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
-    "$@" \
-    &
+  run_in_application_runner_container /docker/volumes/conf/docker/files/run-tempto.sh "$@" &
   PRODUCT_TESTS_PROCESS_ID=$!
   wait ${PRODUCT_TESTS_PROCESS_ID}
   local PRODUCT_TESTS_EXIT_CODE=$?
@@ -70,45 +59,8 @@ function run_product_tests() {
   return ${PRODUCT_TESTS_EXIT_CODE}
 }
 
-# docker-compose down is not good enough because it's ignores services created with "run" command
-function stop_application_runner_containers() {
-  local ENVIRONMENT=$1
-  APPLICATION_RUNNER_CONTAINERS=$(environment_compose ps -q application-runner)
-  for CONTAINER_NAME in ${APPLICATION_RUNNER_CONTAINERS}
-  do
-    echo "Stopping: ${CONTAINER_NAME}"
-    docker stop ${CONTAINER_NAME}
-    echo "Container stopped: ${CONTAINER_NAME}"
-  done
-}
-
-function stop_all_containers() {
-  local ENVIRONMENT
-  for ENVIRONMENT in $(getAvailableEnvironments)
-  do
-     stop_docker_compose_containers ${ENVIRONMENT}
-  done
-}
-
-function stop_docker_compose_containers() {
-  local ENVIRONMENT=$1
-  RUNNING_CONTAINERS=$(environment_compose ps -q)
-
-  if [[ ! -z ${RUNNING_CONTAINERS} ]]; then
-    # stop application runner containers started with "run"
-    stop_application_runner_containers ${ENVIRONMENT}
-
-    # stop containers started with "up", removing their volumes
-    environment_compose down -v
-  fi
-
-  echo "Docker compose containers stopped: [$ENVIRONMENT]"
-}
-
 function prefetch_images_silently() {
-  local IMAGES=$( docker_images_used )
-  for IMAGE in $IMAGES
-  do
+  for IMAGE in $(docker_images_used); do
     echo "Pulling docker image [$IMAGE]"
     docker pull $IMAGE > /dev/null
   done
@@ -118,14 +70,10 @@ function docker_images_used() {
   environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
 }
 
-function environment_compose() {
-  "${DOCKER_CONF_LOCATION}/${ENVIRONMENT}/compose.sh" "$@"
-}
-
 function cleanup() {
   stop_application_runner_containers ${ENVIRONMENT}
 
-  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT}" != "true" ]]; then
+  if [[ "${LEAVE_CONTAINERS_ALIVE_ON_EXIT:-false}" != "true" ]]; then
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
@@ -133,10 +81,10 @@ function cleanup() {
   # In most cases after the docker containers are stopped, logs processes must be terminated.
   # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
   # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if [[ ! -z ${HADOOP_LOGS_PID} ]]; then
+  if test ! -z ${HADOOP_LOGS_PID:-}; then
     kill ${HADOOP_LOGS_PID} 2>/dev/null || true
   fi
-  if [[ ! -z ${PRESTO_LOGS_PID} ]]; then
+  if test ! -z ${PRESTO_LOGS_PID:-}; then
     kill ${PRESTO_LOGS_PID} 2>/dev/null || true
   fi
 
@@ -152,26 +100,30 @@ function terminate() {
   exit 130
 }
 
-function getAvailableEnvironments() {
-  for i in $(ls -d $DOCKER_CONF_LOCATION/*/); do echo ${i%%/}; done\
-     | grep -v files | grep -v common | xargs -n1 basename
-}
+function usage() {
+  echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|' | sed 's/|$//'`> <product test args>"
+  exit 1
+ }
 
-source ${BASH_SOURCE%/*}/locations.sh
+if [[ $# == 0 ]]; then
+  usage
+fi
 
 ENVIRONMENT=$1
+shift 1
 
 # Get the list of valid environments
 if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
-   echo "Usage: run_on_docker.sh <`getAvailableEnvironments | tr '\n' '|'`> <product test args>"
-   exit 1
+  usage
 fi
-
-shift 1
 
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
+elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
 fi
 
 # check docker and docker compose installation
@@ -180,7 +132,7 @@ docker version
 
 stop_all_containers
 
-if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
+if [[ ${CONTINUOUS_INTEGRATION:-false} = true ]]; then
     prefetch_images_silently
     # This has to be done after fetching the images
     # or will present stale / no data for images that changed.
@@ -191,17 +143,31 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start external services
-EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
+  EXTERNAL_SERVICES="hadoop-master sqlserver"
+elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
+  EXTERNAL_SERVICES="hadoop-master ldapserver"
+elif [[ "$ENVIRONMENT" == "singlenode-mysql" ]]; then
+  EXTERNAL_SERVICES="hadoop-master mysql"
+elif [[ "$ENVIRONMENT" == "singlenode-postgresql" ]]; then
+  EXTERNAL_SERVICES="hadoop-master postgres"
+elif [[ "$ENVIRONMENT" == "singlenode-cassandra" ]]; then
+  EXTERNAL_SERVICES="hadoop-master cassandra"
+elif [[ "$ENVIRONMENT" == "singlenode-kafka" ]]; then
+  EXTERNAL_SERVICES="hadoop-master kafka"
+else
+  EXTERNAL_SERVICES="hadoop-master"
+fi
+
+# display how test environment is configured
+environment_compose config
+
 environment_compose up -d ${EXTERNAL_SERVICES}
 
 # start docker logs for the external services
 environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
-HADOOP_LOGS_PID=$!
 
-# wait until hadoop processes is started
-retry check_hadoop
-stop_unnecessary_hadoop_services
+HADOOP_LOGS_PID=$!
 
 # start presto containers
 environment_compose up -d ${PRESTO_SERVICES}
@@ -209,6 +175,9 @@ environment_compose up -d ${PRESTO_SERVICES}
 # start docker logs for presto containers
 environment_compose logs --no-color -f ${PRESTO_SERVICES} &
 PRESTO_LOGS_PID=$!
+
+# wait until hadoop processes are started
+retry check_hadoop
 
 # wait until presto is started
 retry check_presto

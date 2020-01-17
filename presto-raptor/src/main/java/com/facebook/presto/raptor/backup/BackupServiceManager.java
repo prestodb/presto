@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.google.inject.Inject;
+import javax.inject.Inject;
 
 import java.util.Optional;
 

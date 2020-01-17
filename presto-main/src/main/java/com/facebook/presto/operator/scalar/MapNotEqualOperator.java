@@ -38,9 +38,9 @@ public final class MapNotEqualOperator
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean notEqual(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") Block left,

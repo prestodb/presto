@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
@@ -29,7 +28,7 @@ public class TestIntervalDayTimeType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, 15);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);

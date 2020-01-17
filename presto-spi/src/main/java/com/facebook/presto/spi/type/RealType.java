@@ -20,7 +20,9 @@ import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class RealType
@@ -39,14 +41,14 @@ public final class RealType
         if (block.isNull(position)) {
             return null;
         }
-        return intBitsToFloat(block.getInt(position, 0));
+        return intBitsToFloat(block.getInt(position));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
 
         // direct equality is correct here
         // noinspection FloatingPointEquality
@@ -54,12 +56,19 @@ public final class RealType
     }
 
     @Override
+    public long hash(Block block, int position)
+    {
+        // convert to canonical NaN if necessary
+        return hash(floatToIntBits(intBitsToFloat(block.getInt(position))));
+    }
+
+    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
         // function being the equivalence of internal long representation.
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
         return Float.compare(leftValue, rightValue);
     }
 
@@ -67,7 +76,7 @@ public final class RealType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         try {
-            Math.toIntExact(value);
+            toIntExact(value);
         }
         catch (ArithmeticException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));

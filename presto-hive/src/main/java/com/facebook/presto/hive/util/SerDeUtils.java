@@ -15,8 +15,6 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -29,6 +27,7 @@ import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -62,8 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
+import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
@@ -80,6 +78,14 @@ public final class SerDeUtils
 
     public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
+        return serializeObject(type, builder, object, inspector, true);
+    }
+
+    // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
+    // that contain null map keys.  For production, null map keys are not allowed.
+    @VisibleForTesting
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
+    {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
                 serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
@@ -87,7 +93,7 @@ public final class SerDeUtils
             case LIST:
                 return serializeList(type, builder, object, (ListObjectInspector) inspector);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
             case STRUCT:
                 return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
         }
@@ -132,9 +138,9 @@ public final class SerDeUtils
                 type.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
                 return;
             case CHAR:
-                CharType charType = checkType(type, CharType.class, "type");
+                CharType charType = (CharType) type;
                 HiveChar hiveChar = ((HiveCharObjectInspector) inspector).getPrimitiveJavaObject(object);
-                type.writeSlice(builder, trimSpacesAndTruncateToLength(Slices.utf8Slice(hiveChar.getValue()), charType.getLength()));
+                type.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(hiveChar.getValue()), charType.getLength()));
                 return;
             case DATE:
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
@@ -146,7 +152,7 @@ public final class SerDeUtils
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DECIMAL:
-                DecimalType decimalType = checkType(type, DecimalType.class, "type");
+                DecimalType decimalType = (DecimalType) type;
                 HiveDecimalWritable hiveDecimal = ((HiveDecimalObjectInspector) inspector).getPrimitiveWritableObject(object);
                 if (decimalType.isShort()) {
                     decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
@@ -176,7 +182,7 @@ public final class SerDeUtils
             currentBuilder = builder.beginBlockEntry();
         }
         else {
-            currentBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), list.size());
+            currentBuilder = elementType.createBlockBuilder(null, list.size());
         }
 
         for (Object element : list) {
@@ -193,7 +199,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -208,28 +214,28 @@ public final class SerDeUtils
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
         BlockBuilder currentBuilder;
-        if (builder != null) {
-            currentBuilder = builder.beginBlockEntry();
+
+        boolean builderSynthesized = false;
+        if (builder == null) {
+            builderSynthesized = true;
+            builder = type.createBlockBuilder(null, 1);
         }
-        else {
-            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), map.size());
-        }
+        currentBuilder = builder.beginBlockEntry();
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
-            if (entry.getKey() != null) {
+            if (!filterNullMapKeys || entry.getKey() != null) {
                 serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
                 serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
             }
         }
 
-        if (builder != null) {
-            builder.closeEntry();
-            return null;
+        builder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
         }
         else {
-            Block resultBlock = currentBuilder.build();
-            return resultBlock;
+            return null;
         }
     }
 
@@ -244,25 +250,25 @@ public final class SerDeUtils
         List<? extends StructField> allStructFieldRefs = inspector.getAllStructFieldRefs();
         checkArgument(typeParameters.size() == allStructFieldRefs.size());
         BlockBuilder currentBuilder;
-        if (builder != null) {
-            currentBuilder = builder.beginBlockEntry();
+
+        boolean builderSynthesized = false;
+        if (builder == null) {
+            builderSynthesized = true;
+            builder = type.createBlockBuilder(null, 1);
         }
-        else {
-            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), typeParameters.size());
-        }
+        currentBuilder = builder.beginBlockEntry();
 
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
             serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
         }
 
-        if (builder != null) {
-            builder.closeEntry();
-            return null;
+        builder.closeEntry();
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
         }
         else {
-            Block resultBlock = currentBuilder.build();
-            return resultBlock;
+            return null;
         }
     }
 

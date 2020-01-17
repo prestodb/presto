@@ -13,31 +13,30 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.Multimap;
-
-import java.util.concurrent.CompletableFuture;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import static java.util.Objects.requireNonNull;
 
 public final class SplitPlacementResult
 {
-    private final CompletableFuture<?> blocked;
-    private final Multimap<Node, Split> assignments;
+    private final ListenableFuture<?> blocked;
+    private final Multimap<InternalNode, Split> assignments;
 
-    public SplitPlacementResult(CompletableFuture<?> blocked, Multimap<Node, Split> assignments)
+    public SplitPlacementResult(ListenableFuture<?> blocked, Multimap<InternalNode, Split> assignments)
     {
         this.blocked = requireNonNull(blocked, "blocked is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
     }
 
-    public CompletableFuture<?> getBlocked()
+    public ListenableFuture<?> getBlocked()
     {
         return blocked;
     }
 
-    public Multimap<Node, Split> getAssignments()
+    public Multimap<InternalNode, Split> getAssignments()
     {
         return assignments;
     }

@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -28,15 +30,17 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
 public class GroupIdMatcher
-    implements Matcher
+        implements Matcher
 {
-    private final List<List<Symbol>> groups;
-    private final Map<Symbol, Symbol> identityMappings;
+    private final List<List<String>> groups;
+    private final Map<String, String> identityMappings;
+    private final String groupIdAlias;
 
-    public GroupIdMatcher(List<List<Symbol>> groups, Map<Symbol, Symbol> identityMappings)
+    public GroupIdMatcher(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias)
     {
         this.groups = groups;
         this.identityMappings = identityMappings;
+        this.groupIdAlias = groupIdAlias;
     }
 
     @Override
@@ -46,29 +50,29 @@ public class GroupIdMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         GroupIdNode groudIdNode = (GroupIdNode) node;
-        List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
-        Map<Symbol, Symbol> actualArgumentMappings = groudIdNode.getArgumentMappings();
+        List<List<VariableReferenceExpression>> actualGroups = groudIdNode.getGroupingSets();
+        List<VariableReferenceExpression> actualAggregationArguments = groudIdNode.getAggregationArguments();
 
         if (actualGroups.size() != groups.size()) {
             return NO_MATCH;
         }
 
         for (int i = 0; i < actualGroups.size(); i++) {
-            if (!AggregationMatcher.matches(actualGroups.get(i), groups.get(i))) {
+            if (!AggregationMatcher.matches(groups.get(i), actualGroups.get(i), symbolAliases)) {
                 return NO_MATCH;
             }
         }
 
-        if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet())) {
+        if (!AggregationMatcher.matches(identityMappings.keySet(), actualAggregationArguments, symbolAliases)) {
             return NO_MATCH;
         }
 
-        return match();
+        return match(groupIdAlias, new SymbolReference(groudIdNode.getGroupIdVariable().getName()));
     }
 
     @Override

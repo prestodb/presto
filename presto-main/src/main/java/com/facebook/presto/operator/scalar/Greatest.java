@@ -14,6 +14,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+
 public final class Greatest
         extends AbstractGreatestLeast
 {
@@ -21,7 +25,7 @@ public final class Greatest
 
     public Greatest()
     {
-        super("greatest", OperatorType.GREATER_THAN);
+        super(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "greatest"), OperatorType.GREATER_THAN);
     }
 
     @Override

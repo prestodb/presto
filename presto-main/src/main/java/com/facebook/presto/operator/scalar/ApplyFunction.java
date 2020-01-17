@@ -14,18 +14,23 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.primitives.Primitives.wrap;
@@ -38,12 +43,12 @@ public final class ApplyFunction
 {
     public static final ApplyFunction APPLY_FUNCTION = new ApplyFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ApplyFunction.class, "apply", Object.class, MethodHandle.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ApplyFunction.class, "apply", Object.class, UnaryFunctionInterface.class);
 
     private ApplyFunction()
     {
         super(new Signature(
-                "apply",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "apply"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),
@@ -65,33 +70,35 @@ public final class ApplyFunction
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
+    @Override
     public String getDescription()
     {
         return "lambda apply function";
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type argumentType = boundVariables.getTypeVariable("T");
         Type returnType = boundVariables.getTypeVariable("U");
-        return new ScalarFunctionImplementation(
+        return new BuiltInScalarFunctionImplementation(
                 true,
-                ImmutableList.of(true, false),
+                ImmutableList.of(
+                        valueTypeArgumentProperty(USE_BOXED_TYPE),
+                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))
-                                .changeParameterType(0, wrap(argumentType.getJavaType()))),
-                isDeterministic());
+                                .changeParameterType(0, wrap(argumentType.getJavaType()))));
     }
 
-    public static Object apply(Object input, MethodHandle function)
+    public static Object apply(Object input, UnaryFunctionInterface function)
     {
-        try {
-            return function.invoke(input);
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
-        }
+        return function.apply(input);
     }
 }

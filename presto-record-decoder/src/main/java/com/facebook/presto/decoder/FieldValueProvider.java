@@ -14,6 +14,7 @@
 package com.facebook.presto.decoder;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 /**
@@ -21,8 +22,6 @@ import io.airlift.slice.Slice;
  */
 public abstract class FieldValueProvider
 {
-    public abstract boolean accept(DecoderColumnHandle columnHandle);
-
     public boolean getBoolean()
     {
         throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
@@ -41,6 +40,11 @@ public abstract class FieldValueProvider
     public Slice getSlice()
     {
         throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Slice not supported");
+    }
+
+    public Block getBlock()
+    {
+        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Block not supported");
     }
 
     public abstract boolean isNull();

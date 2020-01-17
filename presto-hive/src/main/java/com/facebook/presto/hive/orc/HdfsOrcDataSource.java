@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.AbstractOrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -22,17 +24,29 @@ import java.io.IOException;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class HdfsOrcDataSource
         extends AbstractOrcDataSource
 {
     private final FSDataInputStream inputStream;
+    private final FileFormatDataSourceStats stats;
 
-    public HdfsOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize, FSDataInputStream inputStream)
+    public HdfsOrcDataSource(
+            OrcDataSourceId id,
+            long size,
+            DataSize maxMergeDistance,
+            DataSize maxReadSize,
+            DataSize streamBufferSize,
+            boolean lazyReadSmallRanges,
+            FSDataInputStream inputStream,
+            FileFormatDataSourceStats stats)
     {
-        super(name, size, maxMergeDistance, maxReadSize, streamBufferSize);
-        this.inputStream = inputStream;
+        super(id, size, maxMergeDistance, maxReadSize, streamBufferSize, lazyReadSmallRanges);
+        this.inputStream = requireNonNull(inputStream, "inputStream is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -44,19 +58,23 @@ public class HdfsOrcDataSource
 
     @Override
     protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
     {
         try {
+            long readStart = System.nanoTime();
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+            stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
         catch (PrestoException e) {
             // just in case there is a Presto wrapper or hook
             throw e;
         }
         catch (Exception e) {
-            String message = format("HDFS error reading from %s at position %s", this, position);
+            String message = format("Error reading from %s at position %s", this, position);
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            if (e instanceof IOException) {
+                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message, e);
             }
             throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
         }

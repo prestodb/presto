@@ -24,9 +24,9 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;
@@ -39,8 +39,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class JmxRecordSetProvider
@@ -58,16 +58,19 @@ public class JmxRecordSetProvider
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoryHolder is null");
     }
 
-    public List<Object> getLiveRow(JmxTableHandle tableHandle, List<? extends ColumnHandle> columns, long entryTimestamp)
+    public List<Object> getLiveRow(String objectName, List<? extends ColumnHandle> columns, long entryTimestamp)
             throws JMException
     {
-        ImmutableMap<String, Optional<Object>> attributes = getAttributes(getColumnNames(columns), tableHandle);
+        ImmutableMap<String, Optional<Object>> attributes = getAttributes(getColumnNames(columns), objectName);
         List<Object> row = new ArrayList<>();
 
         for (ColumnHandle column : columns) {
-            JmxColumnHandle jmxColumn = checkType(column, JmxColumnHandle.class, "column");
+            JmxColumnHandle jmxColumn = (JmxColumnHandle) column;
             if (jmxColumn.getColumnName().equals(JmxMetadata.NODE_COLUMN_NAME)) {
                 row.add(nodeId);
+            }
+            else if (jmxColumn.getColumnName().equals(JmxMetadata.OBJECT_NAME_NAME)) {
+                row.add(objectName);
             }
             else if (jmxColumn.getColumnName().equals(JmxMetadata.TIMESTAMP_COLUMN_NAME)) {
                 row.add(entryTimestamp);
@@ -151,7 +154,7 @@ public class JmxRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
+        JmxTableHandle tableHandle = ((JmxSplit) split).getTableHandle();
 
         requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
@@ -159,12 +162,13 @@ public class JmxRecordSetProvider
         List<List<Object>> rows;
         try {
             if (tableHandle.isLiveData()) {
-                rows = ImmutableList.of(getLiveRow(tableHandle, columns));
+                rows = getLiveRows(tableHandle, columns);
             }
             else {
-                rows = jmxHistoricalData.getRows(
-                        tableHandle.getObjectName(),
-                        calculateSelectedColumns(tableHandle.getColumnHandles(), getColumnNames(columns)));
+                List<Integer> selectedColumns = calculateSelectedColumns(tableHandle.getColumnHandles(), getColumnNames(columns));
+                rows = tableHandle.getObjectNames().stream()
+                        .flatMap(objectName -> jmxHistoricalData.getRows(objectName, selectedColumns).stream())
+                        .collect(toImmutableList());
             }
         }
         catch (JMException e) {
@@ -189,7 +193,7 @@ public class JmxRecordSetProvider
     private static Set<String> getColumnNames(List<? extends ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
-                .map(column -> checkType(column, JmxColumnHandle.class, "column"))
+                .map(column -> (JmxColumnHandle) column)
                 .map(JmxColumnHandle::getColumnName)
                 .collect(Collectors.toSet());
     }
@@ -197,15 +201,15 @@ public class JmxRecordSetProvider
     private static List<Type> getColumnTypes(List<? extends ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
-                .map(column -> checkType(column, JmxColumnHandle.class, "column"))
+                .map(column -> (JmxColumnHandle) column)
                 .map(JmxColumnHandle::getColumnType)
                 .collect(Collectors.toList());
     }
 
-    private ImmutableMap<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, JmxTableHandle tableHandle)
+    private ImmutableMap<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, String name)
             throws JMException
     {
-        ObjectName objectName = new ObjectName(tableHandle.getObjectName());
+        ObjectName objectName = new ObjectName(name);
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
@@ -216,9 +220,13 @@ public class JmxRecordSetProvider
         return attributes.build();
     }
 
-    private List<Object> getLiveRow(JmxTableHandle tableHandle, List<? extends ColumnHandle> columns)
+    private List<List<Object>> getLiveRows(JmxTableHandle tableHandle, List<? extends ColumnHandle> columns)
             throws JMException
     {
-        return getLiveRow(tableHandle, columns, 0);
+        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
+        for (String objectName : tableHandle.getObjectNames()) {
+            rows.add(getLiveRow(objectName, columns, 0));
+        }
+        return rows.build();
     }
 }

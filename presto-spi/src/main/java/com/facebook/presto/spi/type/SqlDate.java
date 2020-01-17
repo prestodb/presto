@@ -22,6 +22,7 @@ public final class SqlDate
 {
     private final int days;
 
+    // TODO accept long
     public SqlDate(int days)
     {
         this.days = days;

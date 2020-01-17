@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
@@ -34,7 +33,7 @@ public class TestSmallintArrayType
 
     public static Block createTestBlock(Type arrayType)
     {
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 4);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(SMALLINT, 1, 2));
         arrayType.writeObject(blockBuilder, arrayBlockOf(SMALLINT, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(SMALLINT, 1, 2, 3));
@@ -46,7 +45,7 @@ public class TestSmallintArrayType
     protected Object getGreaterValue(Object value)
     {
         Block block = (Block) value;
-        BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(null, block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             SMALLINT.appendTo(block, i, blockBuilder);
         }

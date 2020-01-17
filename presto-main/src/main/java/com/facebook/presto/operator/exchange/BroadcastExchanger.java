@@ -15,34 +15,40 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
 class BroadcastExchanger
-        implements Consumer<Page>
+        implements LocalExchanger
 {
     private final List<Consumer<PageReference>> buffers;
-    private final LongConsumer memoryTracker;
+    private final LocalExchangeMemoryManager memoryManager;
 
-    public BroadcastExchanger(List<Consumer<PageReference>> buffers, LongConsumer memoryTracker)
+    public BroadcastExchanger(List<Consumer<PageReference>> buffers, LocalExchangeMemoryManager memoryManager)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(buffers, "buffers is null"));
-        this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
 
     @Override
     public void accept(Page page)
     {
-        memoryTracker.accept(page.getRetainedSizeInBytes());
+        memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
 
-        PageReference pageReference = new PageReference(page, buffers.size(), () -> memoryTracker.accept(-page.getRetainedSizeInBytes()));
+        PageReference pageReference = new PageReference(page, buffers.size(), () -> memoryManager.updateMemoryUsage(-page.getRetainedSizeInBytes()));
 
         for (Consumer<PageReference> buffer : buffers) {
             buffer.accept(pageReference);
         }
+    }
+
+    @Override
+    public ListenableFuture<?> waitForWriting()
+    {
+        return memoryManager.getNotFullFuture();
     }
 }

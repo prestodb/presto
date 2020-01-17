@@ -1,0 +1,35 @@
+{
+  "name": "presto-webui",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "private": true,
+  "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-loader": "^7.1.5",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-flow": "^6.23.0",
+    "babel-preset-react": "^6.24.1",
+    "flow-bin": "^0.85.0",
+    "webpack": "^4.16.0",
+    "webpack-command": "^0.4.1"
+  },
+  "dependencies": {
+    "d3": "^5.7.0",
+    "dagre-d3": "^0.6.1",
+    "react": "^16.4.1",
+    "react-dom": "^16.4.1",
+    "reactable": "^1.0.2"
+  },
+  "babel": {
+    "presets": [
+      "env",
+      "react",
+      "flow"
+    ]
+  },
+  "scripts": {
+    "install": "webpack --config webpack.config.js",
+    "package": "webpack --config webpack.config.js",
+    "watch": "webpack --config webpack.config.js --watch"
+  }
+}

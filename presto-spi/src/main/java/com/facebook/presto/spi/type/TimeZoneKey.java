@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -28,6 +29,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -48,7 +50,7 @@ public final class TimeZoneKey
     private static final TimeZoneKey[] OFFSET_TIME_ZONE_KEYS = new TimeZoneKey[OFFSET_TIME_ZONE_MAX - OFFSET_TIME_ZONE_MIN + 1];
 
     static {
-        try (InputStream in = TimeZoneIndex.class.getResourceAsStream("zone-index.properties")) {
+        try (InputStream in = TimeZoneKey.class.getResourceAsStream("zone-index.properties")) {
             // load zone file
             // todo parse file by hand since Properties ignores duplicate entries
             Properties data = new Properties()
@@ -137,7 +139,9 @@ public final class TimeZoneKey
             return UTC_KEY;
         }
 
-        checkArgument(offsetMinutes >= OFFSET_TIME_ZONE_MIN && offsetMinutes <= OFFSET_TIME_ZONE_MAX, "Invalid offset minutes %s", offsetMinutes);
+        if (!(offsetMinutes >= OFFSET_TIME_ZONE_MIN && offsetMinutes <= OFFSET_TIME_ZONE_MAX)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Invalid offset minutes %s", offsetMinutes));
+        }
         TimeZoneKey timeZoneKey = OFFSET_TIME_ZONE_KEYS[((int) offsetMinutes) - OFFSET_TIME_ZONE_MIN];
         if (timeZoneKey == null) {
             throw new TimeZoneNotSupportedException(zoneIdForOffset(offsetMinutes));
@@ -203,7 +207,8 @@ public final class TimeZoneKey
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
-        if (zoneId.startsWith("etc/")) {
+        boolean startsWithEtc = zoneId.startsWith("etc/");
+        if (startsWithEtc) {
             zoneId = zoneId.substring(4);
         }
 
@@ -217,7 +222,11 @@ public final class TimeZoneKey
 
         // In some zones systems, these will start with UTC, GMT or UT.
         int length = zoneId.length();
+        boolean startsWithEtcGmt = false;
         if (length > 3 && (zoneId.startsWith("utc") || zoneId.startsWith("gmt"))) {
+            if (startsWithEtc && zoneId.startsWith("gmt")) {
+                startsWithEtcGmt = true;
+            }
             zoneId = zoneId.substring(3);
             length = zoneId.length();
         }
@@ -248,6 +257,10 @@ public final class TimeZoneKey
         char signChar = zoneId.charAt(0);
         if (signChar != '+' && signChar != '-') {
             return originalZoneId;
+        }
+        if (startsWithEtcGmt) {
+            // Flip sign for Etc/GMT(+/-)H[H]
+            signChar = signChar == '-' ? '+' : '-';
         }
 
         // extract the tens and ones characters for the hour

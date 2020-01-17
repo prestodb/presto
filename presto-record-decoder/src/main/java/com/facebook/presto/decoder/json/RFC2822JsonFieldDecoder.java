@@ -15,16 +15,24 @@ package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 import java.util.Set;
 
+import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static com.facebook.presto.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,40 +41,32 @@ import static java.util.Objects.requireNonNull;
  * Uses hardcoded UTC timezone and english locale.
  */
 public class RFC2822JsonFieldDecoder
-        extends JsonFieldDecoder
+        implements JsonFieldDecoder
 {
-    @VisibleForTesting
-    static final String NAME = "rfc2822";
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
 
     /**
      * Todo - configurable time zones and locales.
      */
-    @VisibleForTesting
-    static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
+    private final DecoderColumnHandle columnHandle;
 
-    @Override
-    public Set<Class<?>> getJavaTypes()
+    public RFC2822JsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
-        return ImmutableSet.of(long.class, Slice.class);
+        this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+        if (!SUPPORTED_TYPES.contains(columnHandle.getType())) {
+            throwUnsupportedColumnType(columnHandle);
+        }
     }
 
     @Override
-    public String getFieldDecoderName()
+    public FieldValueProvider decode(JsonNode value)
     {
-        return NAME;
-    }
-
-    @Override
-    public FieldValueProvider decode(JsonNode value, DecoderColumnHandle columnHandle)
-    {
-        requireNonNull(columnHandle, "columnHandle is null");
-        requireNonNull(value, "value is null");
-
         return new RFC2822JsonValueProvider(value, columnHandle);
     }
 
     public static class RFC2822JsonValueProvider
-            extends DateTimeJsonValueProvider
+            extends AbstractDateTimeJsonValueProvider
     {
         public RFC2822JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {
@@ -76,16 +76,19 @@ public class RFC2822JsonFieldDecoder
         @Override
         protected long getMillis()
         {
-            if (isNull()) {
-                return 0L;
+            if (value.isValueNode()) {
+                try {
+                    return FORMATTER.parseMillis(value.asText());
+                }
+                catch (IllegalArgumentException e) {
+                    throw new PrestoException(
+                            DECODER_CONVERSION_NOT_SUPPORTED,
+                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                }
             }
-
-            if (value.canConvertToLong()) {
-                return value.asLong();
-            }
-
-            String textValue = value.isValueNode() ? value.asText() : value.toString();
-            return FORMATTER.parseMillis(textValue);
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
         }
     }
 }

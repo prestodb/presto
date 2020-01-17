@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -27,6 +26,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static java.lang.String.format;
 
 public class TestTinyintOperators
@@ -34,16 +34,14 @@ public class TestTinyintOperators
 {
     @Test
     public void testLiteral()
-            throws Exception
     {
         assertFunction("TINYINT'37'", TINYINT, (byte) 37);
         assertFunction("TINYINT'17'", TINYINT, (byte) 17);
-        assertInvalidCast("TINYINT'" + ((long) Byte.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("TINYINT'" + ((long) Byte.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
     public void testUnaryPlus()
-            throws Exception
     {
         assertFunction("+TINYINT'37'", TINYINT, (byte) 37);
         assertFunction("+TINYINT'17'", TINYINT, (byte) 17);
@@ -51,16 +49,14 @@ public class TestTinyintOperators
 
     @Test
     public void testUnaryMinus()
-            throws Exception
     {
         assertFunction("TINYINT'-37'", TINYINT, (byte) -37);
         assertFunction("TINYINT'-17'", TINYINT, (byte) -17);
-        assertInvalidFunction("TINYINT'-" + Byte.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("TINYINT'-" + Byte.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test
     public void testAdd()
-            throws Exception
     {
         assertFunction("TINYINT'37' + TINYINT'37'", TINYINT, (byte) (37 + 37));
         assertFunction("TINYINT'37' + TINYINT'17'", TINYINT, (byte) (37 + 17));
@@ -71,7 +67,6 @@ public class TestTinyintOperators
 
     @Test
     public void testSubtract()
-            throws Exception
     {
         assertFunction("TINYINT'37' - TINYINT'37'", TINYINT, (byte) 0);
         assertFunction("TINYINT'37' - TINYINT'17'", TINYINT, (byte) (37 - 17));
@@ -82,7 +77,6 @@ public class TestTinyintOperators
 
     @Test
     public void testMultiply()
-            throws Exception
     {
         assertFunction("TINYINT'11' * TINYINT'11'", TINYINT, (byte) (11 * 11));
         assertFunction("TINYINT'11' * TINYINT'9'", TINYINT, (byte) (11 * 9));
@@ -93,7 +87,6 @@ public class TestTinyintOperators
 
     @Test
     public void testDivide()
-            throws Exception
     {
         assertFunction("TINYINT'37' / TINYINT'37'", TINYINT, (byte) 1);
         assertFunction("TINYINT'37' / TINYINT'17'", TINYINT, (byte) (37 / 17));
@@ -104,7 +97,6 @@ public class TestTinyintOperators
 
     @Test
     public void testModulus()
-            throws Exception
     {
         assertFunction("TINYINT'37' % TINYINT'37'", TINYINT, (byte) 0);
         assertFunction("TINYINT'37' % TINYINT'17'", TINYINT, (byte) (37 % 17));
@@ -115,7 +107,6 @@ public class TestTinyintOperators
 
     @Test
     public void testNegation()
-            throws Exception
     {
         assertFunction("-(TINYINT'37')", TINYINT, (byte) -37);
         assertFunction("-(TINYINT'17')", TINYINT, (byte) -17);
@@ -125,7 +116,6 @@ public class TestTinyintOperators
 
     @Test
     public void testEqual()
-            throws Exception
     {
         assertFunction("TINYINT'37' = TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' = TINYINT'17'", BOOLEAN, false);
@@ -135,7 +125,6 @@ public class TestTinyintOperators
 
     @Test
     public void testNotEqual()
-            throws Exception
     {
         assertFunction("TINYINT'37' <> TINYINT'37'", BOOLEAN, false);
         assertFunction("TINYINT'37' <> TINYINT'17'", BOOLEAN, true);
@@ -145,7 +134,6 @@ public class TestTinyintOperators
 
     @Test
     public void testLessThan()
-            throws Exception
     {
         assertFunction("TINYINT'37' < TINYINT'37'", BOOLEAN, false);
         assertFunction("TINYINT'37' < TINYINT'17'", BOOLEAN, false);
@@ -155,7 +143,6 @@ public class TestTinyintOperators
 
     @Test
     public void testLessThanOrEqual()
-            throws Exception
     {
         assertFunction("TINYINT'37' <= TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' <= TINYINT'17'", BOOLEAN, false);
@@ -165,7 +152,6 @@ public class TestTinyintOperators
 
     @Test
     public void testGreaterThan()
-            throws Exception
     {
         assertFunction("TINYINT'37' > TINYINT'37'", BOOLEAN, false);
         assertFunction("TINYINT'37' > TINYINT'17'", BOOLEAN, true);
@@ -175,7 +161,6 @@ public class TestTinyintOperators
 
     @Test
     public void testGreaterThanOrEqual()
-            throws Exception
     {
         assertFunction("TINYINT'37' >= TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' >= TINYINT'17'", BOOLEAN, true);
@@ -185,7 +170,6 @@ public class TestTinyintOperators
 
     @Test
     public void testBetween()
-            throws Exception
     {
         assertFunction("TINYINT'37' BETWEEN TINYINT'37' AND TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' BETWEEN TINYINT'37' AND TINYINT'17'", BOOLEAN, false);
@@ -202,7 +186,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToBigint()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as bigint)", BIGINT, 37L);
         assertFunction("cast(TINYINT'17' as bigint)", BIGINT, 17L);
@@ -210,7 +193,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToInteger()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as integer)", INTEGER, 37);
         assertFunction("cast(TINYINT'17' as integer)", INTEGER, 17);
@@ -218,7 +200,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToSmallint()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as smallint)", SMALLINT, (short) 37);
         assertFunction("cast(TINYINT'17' as smallint)", SMALLINT, (short) 17);
@@ -226,7 +207,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToVarchar()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as varchar)", VARCHAR, "37");
         assertFunction("cast(TINYINT'17' as varchar)", VARCHAR, "17");
@@ -234,7 +214,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToDouble()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as double)", DOUBLE, 37.0);
         assertFunction("cast(TINYINT'17' as double)", DOUBLE, 17.0);
@@ -242,7 +221,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToFloat()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as real)", REAL, 37.0f);
         assertFunction("cast(TINYINT'-128' as real)", REAL, -128.0f);
@@ -251,7 +229,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastToBoolean()
-            throws Exception
     {
         assertFunction("cast(TINYINT'37' as boolean)", BOOLEAN, true);
         assertFunction("cast(TINYINT'17' as boolean)", BOOLEAN, true);
@@ -260,7 +237,6 @@ public class TestTinyintOperators
 
     @Test
     public void testCastFromVarchar()
-            throws Exception
     {
         assertFunction("cast('37' as tinyint)", TINYINT, (byte) 37);
         assertFunction("cast('17' as tinyint)", TINYINT, (byte) 17);
@@ -268,12 +244,21 @@ public class TestTinyintOperators
 
     @Test
     public void testIsDistinctFrom()
-            throws Exception
     {
         assertFunction("CAST(NULL AS TINYINT) IS DISTINCT FROM CAST(NULL AS TINYINT)", BOOLEAN, false);
         assertFunction("TINYINT'37' IS DISTINCT FROM TINYINT'37'", BOOLEAN, false);
         assertFunction("TINYINT'37' IS DISTINCT FROM TINYINT'38'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as tinyint)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(12 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(0 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(-23 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.4 as tinyint)", BOOLEAN, false);
     }
 }

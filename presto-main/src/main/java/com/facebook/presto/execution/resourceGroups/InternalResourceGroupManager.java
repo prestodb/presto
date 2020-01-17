@@ -13,22 +13,25 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryExecution;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.Managed;
 import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PostConstruct;
@@ -37,12 +40,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -53,22 +53,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
-import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory.LEGACY_RESOURCE_GROUP_MANAGER;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Maps.fromProperties;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-public final class InternalResourceGroupManager
-        implements ResourceGroupManager
+public final class InternalResourceGroupManager<C>
+        implements ResourceGroupManager<C>
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
@@ -77,43 +75,50 @@ public final class InternalResourceGroupManager
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
-    private final AtomicReference<ResourceGroupConfigurationManager> configurationManager = new AtomicReference<>();
-    private final ClusterMemoryPoolManager memoryPoolManager;
+    private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
+    private final ResourceGroupConfigurationManagerContext configurationManagerContext;
+    private final ResourceGroupConfigurationManager<?> legacyManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManagerFactory builtinFactory, ClusterMemoryPoolManager memoryPoolManager, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        this.memoryPoolManager = requireNonNull(memoryPoolManager, "memoryPoolManager is null");
-        requireNonNull(builtinFactory, "builtinFactory is null");
-        addConfigurationManagerFactory(builtinFactory);
+        this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
+        this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
+        this.configurationManager = new AtomicReference<>(cast(legacyManager));
     }
 
     @Override
     public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getInfo();
+        return groups.get(id).getFullInfo();
     }
 
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
+    public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
+    {
+        checkArgument(groups.containsKey(id), "Group %s does not exist", id);
+        return groups.get(id).getPathToRoot();
+    }
+
+    @Override
+    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
-        ResourceGroupId group;
-        try {
-            group = selectGroup(queryExecution.getSession());
-        }
-        catch (PrestoException e) {
-            queryExecution.fail(e);
-            return;
-        }
-        createGroupIfNecessary(group, queryExecution.getSession(), executor);
-        groups.get(group).run(queryExecution);
+        createGroupIfNecessary(selectionContext, executor);
+        groups.get(selectionContext.getResourceGroupId()).run(queryExecution);
+    }
+
+    @Override
+    public SelectionContext<C> selectGroup(SelectionCriteria criteria)
+    {
+        return configurationManager.get().match(criteria)
+                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
     }
 
     @Override
@@ -137,9 +142,6 @@ public final class InternalResourceGroupManager
 
             setConfigurationManager(configurationManagerName, properties);
         }
-        else {
-            setConfigurationManager(LEGACY_RESOURCE_GROUP_MANAGER, ImmutableMap.of());
-        }
     }
 
     @VisibleForTesting
@@ -153,28 +155,19 @@ public final class InternalResourceGroupManager
         ResourceGroupConfigurationManagerFactory configurationManagerFactory = configurationManagerFactories.get(name);
         checkState(configurationManagerFactory != null, "Resource group configuration manager %s is not registered", name);
 
-        ResourceGroupConfigurationManager configurationManager = configurationManagerFactory.create(ImmutableMap.copyOf(properties), () -> memoryPoolManager);
-        checkState(this.configurationManager.compareAndSet(null, configurationManager), "configurationManager already set");
+        ResourceGroupConfigurationManager<C> configurationManager = cast(configurationManagerFactory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
+        checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");
 
         log.info("-- Loaded resource group configuration manager %s --", name);
     }
 
+    @SuppressWarnings("ObjectEquality")
     @VisibleForTesting
-    public ResourceGroupConfigurationManager getConfigurationManager()
+    public ResourceGroupConfigurationManager<C> getConfigurationManager()
     {
-        return configurationManager.get();
-    }
-
-    private static Map<String, String> loadProperties(File file)
-            throws Exception
-    {
-        requireNonNull(file, "file is null");
-
-        Properties properties = new Properties();
-        try (FileInputStream in = new FileInputStream(file)) {
-            properties.load(in);
-        }
-        return fromProperties(properties);
+        ResourceGroupConfigurationManager<C> manager = configurationManager.get();
+        checkState(manager != legacyManager, "cannot fetch legacy manager");
+        return manager;
     }
 
     @PreDestroy
@@ -221,13 +214,13 @@ public final class InternalResourceGroupManager
         }
     }
 
-    private synchronized void createGroupIfNecessary(ResourceGroupId id, Session session, Executor executor)
+    private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
-        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
+        ResourceGroupId id = context.getResourceGroupId();
         if (!groups.containsKey(id)) {
             InternalResourceGroup group;
             if (id.getParent().isPresent()) {
-                createGroupIfNecessary(id.getParent().get(), session, executor);
+                createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
                 InternalResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
@@ -258,15 +251,36 @@ public final class InternalResourceGroupManager
         }
     }
 
-    private ResourceGroupId selectGroup(Session session)
+    @Managed
+    public int getQueriesQueuedOnInternal()
     {
-        SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
-        for (ResourceGroupSelector selector : configurationManager.get().getSelectors()) {
-            Optional<ResourceGroupId> group = selector.match(context);
-            if (group.isPresent()) {
-                return group.get();
+        int queriesQueuedInternal = 0;
+        for (RootInternalResourceGroup rootGroup : rootGroups) {
+            synchronized (rootGroup) {
+                queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
             }
         }
-        throw new PrestoException(QUERY_REJECTED, "Query did not match any selection rule");
+
+        return queriesQueuedInternal;
+    }
+
+    private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
+    {
+        if (resourceGroup.subGroups().isEmpty()) {
+            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries());
+        }
+
+        int queriesQueuedInternal = 0;
+        for (InternalResourceGroup subGroup : resourceGroup.subGroups()) {
+            queriesQueuedInternal += getQueriesQueuedOnInternal(subGroup);
+        }
+
+        return queriesQueuedInternal;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <C> ResourceGroupConfigurationManager<C> cast(ResourceGroupConfigurationManager<?> manager)
+    {
+        return (ResourceGroupConfigurationManager<C>) manager;
     }
 }

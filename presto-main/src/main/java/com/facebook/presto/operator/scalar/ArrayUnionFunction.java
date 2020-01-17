@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -44,8 +43,8 @@ public final class ArrayUnionFunction
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount);
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), leftArrayCount + rightArrayCount);
+        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount, "array_union");
+        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
         appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
         appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);
 
@@ -68,7 +67,7 @@ public final class ArrayUnionFunction
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
         LongSet set = new LongOpenHashSet(leftArrayCount + rightArrayCount);
-        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), leftArrayCount + rightArrayCount);
+        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(null, leftArrayCount + rightArrayCount);
         AtomicBoolean containsNull = new AtomicBoolean(false);
         appendBigintArray(leftArray, containsNull, set, distinctElementBlockBuilder);
         appendBigintArray(rightArray, containsNull, set, distinctElementBlockBuilder);

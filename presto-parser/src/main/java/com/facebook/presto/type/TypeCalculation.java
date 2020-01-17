@@ -32,6 +32,7 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
+import java.math.BigInteger;
 import java.util.Map;
 
 import static com.facebook.presto.type.TypeCalculationParser.ASTERISK;
@@ -62,7 +63,9 @@ public final class TypeCalculation
     {
         try {
             ParserRuleContext tree = parseTypeCalculation(calculation);
-            return new CalculateTypeVisitor(inputs).visit(tree);
+            CalculateTypeVisitor visitor = new CalculateTypeVisitor(inputs);
+            BigInteger result = visitor.visit(tree);
+            return result.longValueExact();
         }
         catch (StackOverflowError e) {
             throw new ParsingException("Type calculation is too large (stack overflow while parsing)");
@@ -127,7 +130,7 @@ public final class TypeCalculation
     }
 
     private static class CalculateTypeVisitor
-            extends TypeCalculationBaseVisitor<Long>
+            extends TypeCalculationBaseVisitor<BigInteger>
     {
         private final Map<String, Long> inputs;
 
@@ -137,82 +140,82 @@ public final class TypeCalculation
         }
 
         @Override
-        public Long visitTypeCalculation(TypeCalculationContext ctx)
+        public BigInteger visitTypeCalculation(TypeCalculationContext ctx)
         {
             return visit(ctx.expression());
         }
 
         @Override
-        public Long visitArithmeticBinary(ArithmeticBinaryContext ctx)
+        public BigInteger visitArithmeticBinary(ArithmeticBinaryContext ctx)
         {
-            Long left = visit(ctx.left);
-            Long right = visit(ctx.right);
+            BigInteger left = visit(ctx.left);
+            BigInteger right = visit(ctx.right);
             switch (ctx.operator.getType()) {
                 case PLUS:
-                    return left + right;
+                    return left.add(right);
                 case MINUS:
-                    return left - right;
+                    return left.subtract(right);
                 case ASTERISK:
-                    return left * right;
+                    return left.multiply(right);
                 case SLASH:
-                    return left / right;
+                    return left.divide(right);
                 default:
                     throw new IllegalStateException("Unsupported binary operator " + ctx.operator.getText());
             }
         }
 
         @Override
-        public Long visitArithmeticUnary(ArithmeticUnaryContext ctx)
+        public BigInteger visitArithmeticUnary(ArithmeticUnaryContext ctx)
         {
-            Long value = visit(ctx.expression());
+            BigInteger value = visit(ctx.expression());
             switch (ctx.operator.getType()) {
                 case PLUS:
                     return value;
                 case MINUS:
-                    return -1L * value;
+                    return value.negate();
                 default:
                     throw new IllegalStateException("Unsupported unary operator " + ctx.operator.getText());
             }
         }
 
         @Override
-        public Long visitBinaryFunction(BinaryFunctionContext ctx)
+        public BigInteger visitBinaryFunction(BinaryFunctionContext ctx)
         {
-            Long left = visit(ctx.left);
-            Long right = visit(ctx.right);
+            BigInteger left = visit(ctx.left);
+            BigInteger right = visit(ctx.right);
             switch (ctx.binaryFunctionName().name.getType()) {
                 case MIN:
-                    return Math.min(left, right);
+                    return left.min(right);
                 case MAX:
-                    return Math.max(left, right);
+                    return left.max(right);
                 default:
                     throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
             }
         }
 
         @Override
-        public Long visitNumericLiteral(NumericLiteralContext ctx)
+        public BigInteger visitNumericLiteral(NumericLiteralContext ctx)
         {
-            return Long.parseLong(ctx.INTEGER_VALUE().getText());
+            return new BigInteger(ctx.INTEGER_VALUE().getText());
         }
 
         @Override
-        public Long visitNullLiteral(NullLiteralContext ctx)
+        public BigInteger visitNullLiteral(NullLiteralContext ctx)
         {
-            return 0L;
+            return BigInteger.ZERO;
         }
 
         @Override
-        public Long visitIdentifier(IdentifierContext ctx)
+        public BigInteger visitIdentifier(IdentifierContext ctx)
         {
             String identifier = ctx.getText();
             Long value = inputs.get(identifier);
             checkState(value != null, "value for variable '%s' is not specified in the inputs", identifier);
-            return value;
+            return BigInteger.valueOf(value);
         }
 
         @Override
-        public Long visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
+        public BigInteger visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
         {
             return visit(ctx.expression());
         }

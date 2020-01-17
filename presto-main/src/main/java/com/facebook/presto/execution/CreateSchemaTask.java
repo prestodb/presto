@@ -14,25 +14,26 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateSchemaTask
         implements DataDefinitionTask<CreateSchema>
@@ -50,7 +51,7 @@ public class CreateSchemaTask
     }
 
     @Override
-    public CompletableFuture<?> execute(CreateSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
@@ -63,7 +64,7 @@ public class CreateSchemaTask
             if (!statement.isNotExists()) {
                 throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
-            return completedFuture(null);
+            return immediateFuture(null);
         }
 
         ConnectorId connectorId = metadata.getCatalogHandle(session, schema.getCatalogName())
@@ -72,13 +73,13 @@ public class CreateSchemaTask
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
                 connectorId,
                 schema.getCatalogName(),
-                statement.getProperties(),
+                mapFromProperties(statement.getProperties()),
                 session,
                 metadata,
                 parameters);
 
         metadata.createSchema(session, schema, properties);
 
-        return completedFuture(null);
+        return immediateFuture(null);
     }
 }

@@ -18,8 +18,6 @@ import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.google.common.collect.BiMap;
 import io.airlift.slice.Slice;
 
-import javax.validation.constraints.NotNull;
-
 import java.util.List;
 
 @AccumulatorStateMetadata(stateSerializerClass = LearnStateSerializer.class, stateFactoryClass = LearnStateFactory.class)
@@ -27,15 +25,12 @@ public interface LearnState
         extends AccumulatorState
 {
     // Mapping of string labels for classifiers that use strings instead of doubles
-    @NotNull
     BiMap<String, Integer> getLabelEnumeration();
 
     int enumerateLabel(String label);
 
-    @NotNull
     List<Double> getLabels();
 
-    @NotNull
     List<FeatureVector> getFeatureVectors();
 
     Slice getParameters();

@@ -23,21 +23,21 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +57,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static java.util.zip.GZIPInputStream.GZIP_MAGIC;
@@ -67,10 +68,7 @@ public class LocalFileRecordCursor
     private static final Splitter LINE_SPLITTER = Splitter.on("\t").trimResults();
 
     // TODO This should be a config option as it may be different for different log files
-    public static final DateTimeFormatter ISO_FORMATTER = new DateTimeFormatterBuilder()
-            .append(ISODateTimeFormat.dateHourMinuteSecondFraction())
-            .appendTimeZoneOffset("Z", true, 2, 2)
-            .toFormatter();
+    public static final DateTimeFormatter ISO_FORMATTER = ISO_OFFSET_DATE_TIME.withZone(ZoneId.systemDefault());
 
     private final int[] fieldToColumnIndex;
     private final HostAddress address;
@@ -130,14 +128,8 @@ public class LocalFileRecordCursor
             return new FilesReader(table.getTimestampColumn(), fileNames.iterator(), predicate);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return 0;
     }
 
     @Override
@@ -171,7 +163,7 @@ public class LocalFileRecordCursor
             return fields != null;
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -200,7 +192,7 @@ public class LocalFileRecordCursor
     public long getLong(int field)
     {
         if (getType(field).equals(TIMESTAMP)) {
-            return ISO_FORMATTER.parseDateTime(getFieldValue(field)).getMillis();
+            return Instant.from(ISO_FORMATTER.parse(getFieldValue(field))).toEpochMilli();
         }
         else {
             checkFieldType(field, BIGINT, INTEGER);
@@ -233,7 +225,7 @@ public class LocalFileRecordCursor
     {
         checkArgument(field < columns.size(), "Invalid field index");
         String fieldValue = getFieldValue(field);
-        return fieldValue.equals("null") || Strings.isNullOrEmpty(fieldValue);
+        return "null".equals(fieldValue) || Strings.isNullOrEmpty(fieldValue);
     }
 
     private void checkFieldType(int field, Type... expected)
@@ -301,14 +293,12 @@ public class LocalFileRecordCursor
                 return null;
             }
             File file = files.next();
-            FileInputStream fileInputStream = new FileInputStream(file);
-
+            InputStream fileInputStream = Files.newInputStream(file.toPath());
             InputStream in = isGZipped(file) ? new GZIPInputStream(fileInputStream) : fileInputStream;
             return new BufferedReader(new InputStreamReader(in));
         }
 
         public static boolean isGZipped(File file)
-                throws IOException
         {
             try (RandomAccessFile inputFile = new RandomAccessFile(file, "r")) {
                 int magic = inputFile.read() & 0xff | ((inputFile.read() << 8) & 0xff00);
@@ -349,7 +339,7 @@ public class LocalFileRecordCursor
                 return true;
             }
 
-            long millis = ISO_FORMATTER.parseDateTime(fields.get(timestampOrdinalPosition.getAsInt())).getMillis();
+            long millis = Instant.from(ISO_FORMATTER.parse(fields.get(timestampOrdinalPosition.getAsInt()))).toEpochMilli();
             return domain.get().includesNullableValue(millis);
         }
 

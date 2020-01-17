@@ -13,29 +13,35 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
-import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.base.Joiner;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
-import io.airlift.testing.FileUtils;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.LineItemGenerator;
@@ -49,33 +55,43 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.Stream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
-import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.LocationHandle.TableType.NEW;
+import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertGreaterThan;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestHivePageSink
@@ -90,39 +106,41 @@ public class TestHivePageSink
             throws Exception
     {
         HiveClientConfig config = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         File tempDir = Files.createTempDir();
         try {
-            ExtendedHiveMetastore metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(new File(tempDir, "metastore")));
+            ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {
                 config.setHiveStorageFormat(format);
-                config.setHiveCompressionCodec(NONE);
-                long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
+                config.setCompressionCodec(NONE);
+                long uncompressedLength = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
                 assertGreaterThan(uncompressedLength, 0L);
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
                     if (codec == NONE) {
                         continue;
                     }
-                    config.setHiveCompressionCodec(codec);
-                    long length = writeTestFile(config, metastore, makeFileName(tempDir, config));
+                    config.setCompressionCodec(codec);
+                    long length = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
             }
         }
         finally {
-            FileUtils.deleteRecursively(tempDir);
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
         }
     }
 
     private static String makeFileName(File tempDir, HiveClientConfig config)
     {
-        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionCodec().name();
+        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getCompressionCodec().name();
     }
 
-    private static long writeTestFile(HiveClientConfig config, ExtendedHiveMetastore metastore, String outputPath)
+    private static long writeTestFile(HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, String outputPath)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
-        ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath));
+        HiveWriterStats stats = new HiveWriterStats();
+        ConnectorPageSink pageSink = createPageSink(transaction, config, metastoreClientConfig, metastore, new Path("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
@@ -132,7 +150,7 @@ public class TestHivePageSink
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
         int rows = 0;
-        for (LineItem lineItem :  new LineItemGenerator(0.01, 1, 1)) {
+        for (LineItem lineItem : new LineItemGenerator(0.01, 1, 1)) {
             rows++;
             if (rows >= NUM_ROWS) {
                 break;
@@ -171,19 +189,19 @@ public class TestHivePageSink
         File outputFile = getOnlyElement(files);
         long length = outputFile.length();
 
-        ConnectorPageSource pageSource = createPageSource(transaction, config, outputFile);
+        ConnectorPageSource pageSource = createPageSource(transaction, config, metastoreClientConfig, outputFile);
 
         List<Page> pages = new ArrayList<>();
         while (!pageSource.isFinished()) {
             Page nextPage = pageSource.getNextPage();
             if (nextPage != null) {
-                nextPage.assureLoaded();
-                pages.add(nextPage);
+                pages.add(nextPage.getLoadedPage());
             }
         }
         MaterializedResult expectedResults = toMaterializedResult(getSession(config), columnTypes, ImmutableList.of(page));
         MaterializedResult results = toMaterializedResult(getSession(config), columnTypes, pages);
         assertEquals(results, expectedResults);
+        assertEquals(stats.getInputPageSizeInBytes().getAllTime().getMax(), page.getRetainedSizeInBytes());
         return length;
     }
 
@@ -197,23 +215,59 @@ public class TestHivePageSink
         return resultBuilder.build();
     }
 
-    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, File outputFile)
+    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toList())));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(HiveType::getHiveTypeName).collect(toList())));
-        HiveSplit split = new HiveSplit(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, "", "file:///" + outputFile.getAbsolutePath(), 0, outputFile.length(), splitProperties, ImmutableList.of(), ImmutableList.of(), OptionalInt.empty(), false, TupleDomain.all(), ImmutableMap.of());
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), TYPE_MANAGER);
-        return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
+        HiveSplit split = new HiveSplit(
+                SCHEMA_NAME,
+                TABLE_NAME,
+                "",
+                "file:///" + outputFile.getAbsolutePath(),
+                0,
+                outputFile.length(),
+                outputFile.length(),
+                new Storage(
+                        StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                OptionalInt.empty(),
+                OptionalInt.empty(),
+                false,
+                getColumnHandles().size(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                false,
+                Optional.empty());
+        TableHandle tableHandle = new TableHandle(
+                new ConnectorId(HIVE_CATALOG),
+                new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
+                transaction,
+                Optional.of(new HiveTableLayoutHandle(
+                        new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                        ImmutableList.of(),
+                        getColumnHandles().stream()
+                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                                .collect(toImmutableList()),
+                        ImmutableMap.of(),
+                        TupleDomain.all(),
+                        TRUE_CONSTANT,
+                        ImmutableMap.of(),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        "layout")));
+        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()));
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        LocationHandle locationHandle = new LocationHandle(outputPath, Optional.of(outputPath), false);
+        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, Optional.empty(), NEW, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
-                CLIENT_ID,
                 SCHEMA_NAME,
                 TABLE_NAME,
                 getColumnHandles(),
@@ -222,19 +276,35 @@ public class TestHivePageSink
                 locationHandle,
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
+                config.getCompressionCodec(),
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",
                 ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);
-        HivePageSinkProvider provider = new HivePageSinkProvider(hdfsEnvironment, metastore, new GroupByHashPageIndexerFactory(), TYPE_MANAGER, config, new HiveLocationService(hdfsEnvironment), partitionUpdateCodec);
-        return provider.createPageSink(transaction, getSession(config), handle);
+        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
+        HivePageSinkProvider provider = new HivePageSinkProvider(
+                getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
+                hdfsEnvironment,
+                PAGE_SORTER,
+                metastore,
+                new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
+                TYPE_MANAGER,
+                config,
+                metastoreClientConfig,
+                new HiveLocationService(hdfsEnvironment),
+                partitionUpdateCodec,
+                new TestingNodeManager("fake-environment"),
+                new HiveEventClient(),
+                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                stats,
+                getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
+        return provider.createPageSink(transaction, getSession(config), handle, PageSinkProperties.defaultProperties());
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }
 
     private static List<HiveColumnHandle> getColumnHandles()
@@ -244,7 +314,7 @@ public class TestHivePageSink
         for (int i = 0; i < columns.size(); i++) {
             LineItemColumn column = columns.get(i);
             HiveType hiveType = getHiveType(column.getType());
-            handles.add(new HiveColumnHandle(CLIENT_ID, column.getColumnName(), hiveType, hiveType.getTypeSignature(), i, REGULAR));
+            handles.add(new HiveColumnHandle(column.getColumnName(), hiveType, hiveType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
         return handles.build();
     }

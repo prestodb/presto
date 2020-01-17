@@ -15,13 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -41,26 +40,18 @@ public class MetadataDeleteOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final TableLayoutHandle tableLayout;
         private final Metadata metadata;
         private final Session session;
         private final TableHandle tableHandle;
         private boolean closed;
 
-        public MetadataDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, TableLayoutHandle tableLayout, Metadata metadata, Session session, TableHandle tableHandle)
+        public MetadataDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, Metadata metadata, Session session, TableHandle tableHandle)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
         }
 
         @Override
@@ -68,11 +59,11 @@ public class MetadataDeleteOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MetadataDeleteOperator.class.getSimpleName());
-            return new MetadataDeleteOperator(context, tableLayout, metadata, session, tableHandle);
+            return new MetadataDeleteOperator(context, metadata, session, tableHandle);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -80,22 +71,20 @@ public class MetadataDeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MetadataDeleteOperatorFactory(operatorId, planNodeId, tableLayout, metadata, session, tableHandle);
+            return new MetadataDeleteOperatorFactory(operatorId, planNodeId, metadata, session, tableHandle);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final TableLayoutHandle tableLayout;
     private final Metadata metadata;
     private final Session session;
     private final TableHandle tableHandle;
 
     private boolean finished;
 
-    public MetadataDeleteOperator(OperatorContext operatorContext, TableLayoutHandle tableLayout, Metadata metadata, Session session, TableHandle tableHandle)
+    public MetadataDeleteOperator(OperatorContext operatorContext, Metadata metadata, Session session, TableHandle tableHandle)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
@@ -105,12 +94,6 @@ public class MetadataDeleteOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return TYPES;
     }
 
     @Override
@@ -144,9 +127,11 @@ public class MetadataDeleteOperator
         }
         finished = true;
 
-        OptionalLong rowsDeletedCount = metadata.metadataDelete(session, tableHandle, tableLayout);
+        OptionalLong rowsDeletedCount = metadata.metadataDelete(session, tableHandle);
 
-        PageBuilder page = new PageBuilder(TYPES);
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         page.declarePosition();
         if (rowsDeletedCount.isPresent()) {

@@ -18,7 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static io.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 
 public class HandleJsonModule
         implements Module
@@ -35,6 +35,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(FunctionHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
     }

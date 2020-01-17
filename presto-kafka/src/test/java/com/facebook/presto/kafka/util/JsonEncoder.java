@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.kafka.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import kafka.serializer.Encoder;
 import kafka.utils.VerifiableProperties;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 
 public class JsonEncoder
         implements Encoder<Object>
@@ -37,8 +37,8 @@ public class JsonEncoder
         try {
             return objectMapper.writeValueAsBytes(o);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        catch (JsonProcessingException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

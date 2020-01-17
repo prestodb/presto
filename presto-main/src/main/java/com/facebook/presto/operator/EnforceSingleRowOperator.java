@@ -15,17 +15,13 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.FixedWidthBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
+import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.plan.PlanNodeId;
 
-import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
 
 public class EnforceSingleRowOperator
@@ -36,20 +32,12 @@ public class EnforceSingleRowOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
         private boolean closed;
 
-        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
+        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = ImmutableList.copyOf(requireNonNull(types, "type is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -57,11 +45,11 @@ public class EnforceSingleRowOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, EnforceSingleRowOperator.class.getSimpleName());
-            return new EnforceSingleRowOperator(operatorContext, types);
+            return new EnforceSingleRowOperator(operatorContext);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -69,33 +57,25 @@ public class EnforceSingleRowOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, types);
+            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId);
         }
     }
 
-    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
+    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]));
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
     private boolean finishing;
     private Page page;
 
-    public EnforceSingleRowOperator(OperatorContext operatorContext, List<Type> types)
+    public EnforceSingleRowOperator(OperatorContext operatorContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

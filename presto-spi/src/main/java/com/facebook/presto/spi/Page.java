@@ -16,7 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
-import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,17 +26,21 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Page
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
+            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+
     private final Block[] blocks;
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
     private final AtomicLong retainedSizeInBytes = new AtomicLong(-1);
+    private final AtomicLong logicalSizeInBytes = new AtomicLong(-1);
 
     public Page(Block... blocks)
     {
@@ -73,22 +77,25 @@ public class Page
         return sizeInBytes;
     }
 
-    public long getRetainedSizeInBytes()
+    public long getLogicalSizeInBytes()
     {
-        long retainedSizeInBytes = this.retainedSizeInBytes.get();
-        if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = 0;
+        long size = logicalSizeInBytes.get();
+        if (size < 0) {
+            size = 0;
             for (Block block : blocks) {
-                retainedSizeInBytes += block.getRetainedSizeInBytes();
+                size += block.getLogicalSizeInBytes();
             }
-            this.retainedSizeInBytes.set(retainedSizeInBytes);
+            logicalSizeInBytes.set(size);
         }
-        return retainedSizeInBytes;
+        return size;
     }
 
-    public Block[] getBlocks()
+    public long getRetainedSizeInBytes()
     {
-        return blocks.clone();
+        if (retainedSizeInBytes.get() < 0) {
+            updateRetainedSize();
+        }
+        return retainedSizeInBytes.get();
     }
 
     public Block getBlock(int channel)
@@ -96,10 +103,23 @@ public class Page
         return blocks[channel];
     }
 
+    /**
+     * Gets the values at the specified position as a single element page.  The method creates independent
+     * copy of the data.
+     */
+    public Page getSingleValuePage(int position)
+    {
+        Block[] singleValueBlocks = new Block[this.blocks.length];
+        for (int i = 0; i < this.blocks.length; i++) {
+            singleValueBlocks[i] = this.blocks[i].getSingleValueBlock(position);
+        }
+        return new Page(1, singleValueBlocks);
+    }
+
     public Page getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in page with " + positionCount + " positions");
+            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
         }
 
         int channelCount = getChannelCount();
@@ -108,6 +128,18 @@ public class Page
             slicedBlocks[i] = blocks[i].getRegion(positionOffset, length);
         }
         return new Page(length, slicedBlocks);
+    }
+
+    public Page appendColumn(Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
+        newBlocks[blocks.length] = block;
+        return new Page(newBlocks);
     }
 
     public void compact()
@@ -121,11 +153,8 @@ public class Page
             if (block instanceof DictionaryBlock) {
                 continue;
             }
-            if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
-                // Copy the block to compact its size
-                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
-                blocks[i] = compactedBlock;
-            }
+            // Compact the block
+            blocks[i] = block.copyRegion(0, block.getPositionCount());
         }
 
         Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
@@ -137,11 +166,7 @@ public class Page
             }
         }
 
-        long retainedSize = 0;
-        for (Block block : blocks) {
-            retainedSize += block.getRetainedSizeInBytes();
-        }
-        retainedSizeInBytes.set(retainedSize);
+        updateRetainedSize();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -163,33 +188,32 @@ public class Page
     {
         DictionaryBlock firstDictionaryBlock = blocks.get(0);
         Block dictionary = firstDictionaryBlock.getDictionary();
-        Slice dictionaryIds = firstDictionaryBlock.getIds();
 
         int positionCount = firstDictionaryBlock.getPositionCount();
         int dictionarySize = dictionary.getPositionCount();
 
         // determine which dictionary entries are referenced and build a reindex for them
-        List<Integer> dictionaryPositionsToCopy = new ArrayList<>(min(dictionarySize, positionCount));
+        int[] dictionaryPositionsToCopy = new int[min(dictionarySize, positionCount)];
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
 
-        int newIndex = 0;
+        int numberOfIndexes = 0;
         for (int i = 0; i < positionCount; i++) {
-            int position = getIndex(dictionaryIds, i);
+            int position = firstDictionaryBlock.getId(i);
             if (remapIndex[position] == -1) {
-                dictionaryPositionsToCopy.add(position);
-                remapIndex[position] = newIndex;
-                newIndex++;
+                dictionaryPositionsToCopy[numberOfIndexes] = position;
+                remapIndex[position] = numberOfIndexes;
+                numberOfIndexes++;
             }
         }
 
         // entire dictionary is referenced
-        if (dictionaryPositionsToCopy.size() == dictionarySize) {
+        if (numberOfIndexes == dictionarySize) {
             return blocks;
         }
 
         // compact the dictionaries
-        Slice newIdsSlice = wrappedIntArray(getNewIds(positionCount, dictionaryIds, remapIndex));
+        int[] newIds = getNewIds(positionCount, firstDictionaryBlock, remapIndex);
         List<DictionaryBlock> outputDictionaryBlocks = new ArrayList<>(blocks.size());
         DictionaryId newDictionaryId = randomDictionaryId();
         for (DictionaryBlock dictionaryBlock : blocks) {
@@ -198,22 +222,22 @@ public class Page
             }
 
             try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIdsSlice, true, newDictionaryId));
+                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, dictionaryBlock.getDictionary(), dictionaryBlock.getIds()));
+                outputDictionaryBlocks.add(dictionaryBlock);
             }
         }
         return outputDictionaryBlocks;
     }
 
-    private static int[] getNewIds(int positionCount, Slice ids, int[] remapIndex)
+    private static int[] getNewIds(int positionCount, DictionaryBlock dictionaryBlock, int[] remapIndex)
     {
         int[] newIds = new int[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            int newId = remapIndex[getIndex(ids, i)];
+            int newId = remapIndex[dictionaryBlock.getId(i)];
             if (newId == -1) {
                 throw new IllegalStateException("reference to a non-existent key");
             }
@@ -222,22 +246,29 @@ public class Page
         return newIds;
     }
 
-    private static int getIndex(Slice ids, int i)
-    {
-        return ids.getInt(i * SIZE_OF_INT);
-    }
-
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a page that assures all data is in memory.
+     * May return the same page if all page data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    public void assureLoaded()
+    public Page getLoadedPage()
     {
-        for (Block block : blocks) {
-            block.assureLoaded();
+        boolean allLoaded = true;
+        Block[] loadedBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            loadedBlocks[i] = blocks[i].getLoadedBlock();
+            if (loadedBlocks[i] != blocks[i]) {
+                allLoaded = false;
+            }
         }
+
+        if (allLoaded) {
+            return this;
+        }
+
+        return new Page(loadedBlocks);
     }
 
     @Override
@@ -259,6 +290,37 @@ public class Page
         }
 
         return blocks[0].getPositionCount();
+    }
+
+    public Page getPositions(int[] retainedPositions, int offset, int length)
+    {
+        requireNonNull(retainedPositions, "retainedPositions is null");
+
+        Block[] blocks = new Block[this.blocks.length];
+        Arrays.setAll(blocks, i -> this.blocks[i].getPositions(retainedPositions, offset, length));
+        return new Page(length, blocks);
+    }
+
+    public Page prependColumn(Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException(String.format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+        }
+
+        Block[] result = new Block[blocks.length + 1];
+        result[0] = column;
+        System.arraycopy(blocks, 0, result, 1, blocks.length);
+
+        return new Page(positionCount, result);
+    }
+
+    private void updateRetainedSize()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        for (Block block : blocks) {
+            retainedSizeInBytes += block.getRetainedSizeInBytes();
+        }
+        this.retainedSizeInBytes.set(retainedSizeInBytes);
     }
 
     private static class DictionaryBlockIndexes

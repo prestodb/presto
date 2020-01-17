@@ -75,7 +75,7 @@ that is equivalent to the following ``CASE`` expression:
 COALESCE
 --------
 
-.. function:: coalesce(value[, ...])
+.. function:: coalesce(value1, value2[, ...])
 
     Returns the first non-null ``value`` in the argument list.
     Like a ``CASE`` expression, arguments are only evaluated if necessary.

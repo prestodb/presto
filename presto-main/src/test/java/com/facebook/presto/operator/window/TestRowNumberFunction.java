@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.window.WindowAssertions.executeWindowQueryWithNulls;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -62,8 +61,8 @@ public class TestRowNumberFunction
         assertWindowQuery("row_number() OVER (ORDER BY orderkey)", expected);
 
         assertEquals(executeWindowQueryWithNulls("row_number() OVER ()").getMaterializedRows().stream()
-                .map(row -> row.getField(2))
-                .collect(Collectors.toList()),
+                        .map(row -> row.getField(2))
+                        .collect(Collectors.toList()),
                 ImmutableList.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
         assertWindowQueryWithNulls("row_number() OVER (ORDER BY orderkey, orderstatus)", expectedWithNulls);
     }

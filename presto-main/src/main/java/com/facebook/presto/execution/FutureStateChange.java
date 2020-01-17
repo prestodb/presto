@@ -14,13 +14,14 @@
 package com.facebook.presto.execution;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -31,21 +32,23 @@ public class FutureStateChange<T>
 {
     // Use a separate future for each listener so canceled listeners can be removed
     @GuardedBy("listeners")
-    private final Set<CompletableFuture<T>> listeners = new HashSet<>();
+    private final Set<SettableFuture<T>> listeners = new HashSet<>();
 
-    public CompletableFuture<T> createNewListener()
+    public ListenableFuture<T> createNewListener()
     {
-        CompletableFuture<T> listener = new CompletableFuture<>();
+        SettableFuture<T> listener = SettableFuture.create();
         synchronized (listeners) {
             listeners.add(listener);
         }
 
         // remove the listener when the future completes
-        listener.whenComplete((t, throwable) -> {
-            synchronized (listeners) {
-                listeners.remove(listener);
-            }
-        });
+        listener.addListener(
+                () -> {
+                    synchronized (listeners) {
+                        listeners.remove(listener);
+                    }
+                },
+                directExecutor());
 
         return listener;
     }
@@ -63,14 +66,14 @@ public class FutureStateChange<T>
     private void fireStateChange(T newState, Executor executor)
     {
         requireNonNull(executor, "executor is null");
-        Set<CompletableFuture<T>> futures;
+        Set<SettableFuture<T>> futures;
         synchronized (listeners) {
             futures = ImmutableSet.copyOf(listeners);
             listeners.clear();
         }
 
-        for (CompletableFuture<T> future : futures) {
-            executor.execute(() -> future.complete(newState));
+        for (SettableFuture<T> future : futures) {
+            executor.execute(() -> future.set(newState));
         }
     }
 }

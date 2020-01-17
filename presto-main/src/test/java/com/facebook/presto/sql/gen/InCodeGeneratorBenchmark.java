@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -39,20 +39,21 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.sql.relational.Signatures.IN;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
@@ -61,7 +62,7 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(AverageTime)
-@SuppressWarnings("FieldMayBeFinal")
+@SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 public class InCodeGeneratorBenchmark
 {
     @Param({"1", "5", "10", "25", "50", "75", "100", "150", "200", "250", "300", "350", "400", "450", "500", "750", "1000", "10000"})
@@ -123,21 +124,21 @@ public class InCodeGeneratorBenchmark
         }
         inputPage = pageBuilder.build();
 
-        RowExpression filter = call(
-                new Signature(IN, SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                BOOLEAN,
-                arguments);
+        RowExpression filter = specialForm(IN, BOOLEAN, arguments);
 
-        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(filter, ImmutableList.of(project)).get();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark
-    public Page benchmark()
+    public List<Optional<Page>> benchmark()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(prestoType));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
+        return ImmutableList.copyOf(
+                processor.process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage));
     }
 
     public static void main(String[] args)

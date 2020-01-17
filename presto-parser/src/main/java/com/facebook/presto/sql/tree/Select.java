@@ -62,6 +62,12 @@ public class Select
     }
 
     @Override
+    public List<? extends Node> getChildren()
+    {
+        return selectItems;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

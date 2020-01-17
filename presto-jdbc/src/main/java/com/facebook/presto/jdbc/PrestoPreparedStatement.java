@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.base.Joiner;
+import com.google.common.primitives.Ints;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -30,131 +33,235 @@ import java.sql.ResultSetMetaData;
 import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLType;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.facebook.presto.jdbc.ObjectCasts.castToBigDecimal;
+import static com.facebook.presto.jdbc.ObjectCasts.castToBinary;
+import static com.facebook.presto.jdbc.ObjectCasts.castToBoolean;
+import static com.facebook.presto.jdbc.ObjectCasts.castToByte;
+import static com.facebook.presto.jdbc.ObjectCasts.castToDate;
+import static com.facebook.presto.jdbc.ObjectCasts.castToDouble;
+import static com.facebook.presto.jdbc.ObjectCasts.castToFloat;
+import static com.facebook.presto.jdbc.ObjectCasts.castToInt;
+import static com.facebook.presto.jdbc.ObjectCasts.castToLong;
+import static com.facebook.presto.jdbc.ObjectCasts.castToShort;
+import static com.facebook.presto.jdbc.ObjectCasts.castToTime;
+import static com.facebook.presto.jdbc.ObjectCasts.castToTimestamp;
+import static com.facebook.presto.jdbc.PrestoResultSet.DATE_FORMATTER;
+import static com.facebook.presto.jdbc.PrestoResultSet.TIMESTAMP_FORMATTER;
+import static com.facebook.presto.jdbc.PrestoResultSet.TIME_FORMATTER;
+import static com.google.common.io.BaseEncoding.base16;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
-    PrestoPreparedStatement(PrestoConnection connection, String sql)
+    private final Map<Integer, String> parameters = new HashMap<>();
+    private final String statementName;
+    private final String originalSql;
+
+    PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql)
             throws SQLException
     {
         super(connection);
+        this.statementName = requireNonNull(statementName, "statementName is null");
+        this.originalSql = requireNonNull(sql, "sql is null");
+        super.execute(format("PREPARE %s FROM %s", statementName, sql));
+    }
+
+    @Override
+    public void close()
+            throws SQLException
+    {
+        super.execute(format("DEALLOCATE PREPARE %s", statementName));
+        super.close();
     }
 
     @Override
     public ResultSet executeQuery()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "executeQuery");
+        if (!super.execute(getExecuteSql())) {
+            throw new SQLException("Prepared SQL statement is not a query: " + originalSql);
+        }
+        return getResultSet();
     }
 
     @Override
     public int executeUpdate()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "executeUpdate");
+        return Ints.saturatedCast(executeLargeUpdate());
+    }
+
+    @Override
+    public long executeLargeUpdate()
+            throws SQLException
+    {
+        if (super.execute(getExecuteSql())) {
+            throw new SQLException("Prepared SQL is not an update statement: " + originalSql);
+        }
+        return getLargeUpdateCount();
+    }
+
+    @Override
+    public boolean execute()
+            throws SQLException
+    {
+        return super.execute(getExecuteSql());
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setNull");
+        checkOpen();
+        setParameter(parameterIndex, typedNull(sqlType));
     }
 
     @Override
     public void setBoolean(int parameterIndex, boolean x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setBoolean");
+        checkOpen();
+        setParameter(parameterIndex, formatBooleanLiteral(x));
     }
 
     @Override
     public void setByte(int parameterIndex, byte x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setByte");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("TINYINT", Byte.toString(x)));
     }
 
     @Override
     public void setShort(int parameterIndex, short x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setShort");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("SMALLINT", Short.toString(x)));
     }
 
     @Override
     public void setInt(int parameterIndex, int x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setInt");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("INTEGER", Integer.toString(x)));
     }
 
     @Override
     public void setLong(int parameterIndex, long x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setLong");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("BIGINT", Long.toString(x)));
     }
 
     @Override
     public void setFloat(int parameterIndex, float x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setFloat");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("REAL", Float.toString(x)));
     }
 
     @Override
     public void setDouble(int parameterIndex, double x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setDouble");
+        checkOpen();
+        setParameter(parameterIndex, formatLiteral("DOUBLE", Double.toString(x)));
     }
 
     @Override
     public void setBigDecimal(int parameterIndex, BigDecimal x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setBigDecimal");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.DECIMAL);
+        }
+        else {
+            setParameter(parameterIndex, formatLiteral("DECIMAL", x.toString()));
+        }
     }
 
     @Override
     public void setString(int parameterIndex, String x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setString");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.VARCHAR);
+        }
+        else {
+            setParameter(parameterIndex, formatStringLiteral(x));
+        }
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setBytes");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.VARBINARY);
+        }
+        else {
+            setParameter(parameterIndex, formatBinaryLiteral(x));
+        }
     }
 
     @Override
     public void setDate(int parameterIndex, Date x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setDate");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.DATE);
+        }
+        else {
+            setParameter(parameterIndex, formatLiteral("DATE", DATE_FORMATTER.print(x.getTime())));
+        }
     }
 
     @Override
     public void setTime(int parameterIndex, Time x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setTime");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.TIME);
+        }
+        else {
+            setParameter(parameterIndex, formatLiteral("TIME", TIME_FORMATTER.print(x.getTime())));
+        }
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setTimestamp");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.TIMESTAMP);
+        }
+        else {
+            setParameter(parameterIndex, formatLiteral("TIMESTAMP", TIMESTAMP_FORMATTER.print(x.getTime())));
+        }
     }
 
     @Override
@@ -182,28 +289,132 @@ public class PrestoPreparedStatement
     public void clearParameters()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "clearParameters");
+        checkOpen();
+        parameters.clear();
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setObject");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, targetSqlType);
+            return;
+        }
+        switch (targetSqlType) {
+            case Types.BOOLEAN:
+            case Types.BIT:
+                setBoolean(parameterIndex, castToBoolean(x, targetSqlType));
+                return;
+            case Types.TINYINT:
+                setByte(parameterIndex, castToByte(x, targetSqlType));
+                return;
+            case Types.SMALLINT:
+                setShort(parameterIndex, castToShort(x, targetSqlType));
+                return;
+            case Types.INTEGER:
+                setInt(parameterIndex, castToInt(x, targetSqlType));
+                return;
+            case Types.BIGINT:
+                setLong(parameterIndex, castToLong(x, targetSqlType));
+                return;
+            case Types.FLOAT:
+            case Types.REAL:
+                setFloat(parameterIndex, castToFloat(x, targetSqlType));
+                return;
+            case Types.DOUBLE:
+                setDouble(parameterIndex, castToDouble(x, targetSqlType));
+                return;
+            case Types.DECIMAL:
+            case Types.NUMERIC:
+                setBigDecimal(parameterIndex, castToBigDecimal(x, targetSqlType));
+                return;
+            case Types.CHAR:
+            case Types.NCHAR:
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+                setString(parameterIndex, x.toString());
+                return;
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                setBytes(parameterIndex, castToBinary(x, targetSqlType));
+                return;
+            case Types.DATE:
+                setDate(parameterIndex, castToDate(x, targetSqlType));
+                return;
+            case Types.TIME:
+                setTime(parameterIndex, castToTime(x, targetSqlType));
+                return;
+            case Types.TIMESTAMP:
+                setTimestamp(parameterIndex, castToTimestamp(x, targetSqlType));
+                return;
+            // TODO Types.TIME_WITH_TIMEZONE
+            // TODO Types.TIMESTAMP_WITH_TIMEZONE
+        }
+        throw new SQLException("Unsupported target SQL type: " + targetSqlType);
+    }
+
+    @Override
+    public void setObject(int parameterIndex, Object x, SQLType targetSqlType)
+            throws SQLException
+    {
+        setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber());
     }
 
     @Override
     public void setObject(int parameterIndex, Object x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setObject");
-    }
-
-    @Override
-    public boolean execute()
-            throws SQLException
-    {
-        throw new NotImplementedException("PreparedStatement", "execute");
+        checkOpen();
+        if (x == null) {
+            setNull(parameterIndex, Types.NULL);
+        }
+        else if (x instanceof Boolean) {
+            setBoolean(parameterIndex, (Boolean) x);
+        }
+        else if (x instanceof Byte) {
+            setByte(parameterIndex, (Byte) x);
+        }
+        else if (x instanceof Short) {
+            setShort(parameterIndex, (Short) x);
+        }
+        else if (x instanceof Integer) {
+            setInt(parameterIndex, (Integer) x);
+        }
+        else if (x instanceof Long) {
+            setLong(parameterIndex, (Long) x);
+        }
+        else if (x instanceof Float) {
+            setFloat(parameterIndex, (Float) x);
+        }
+        else if (x instanceof Double) {
+            setDouble(parameterIndex, (Double) x);
+        }
+        else if (x instanceof BigDecimal) {
+            setBigDecimal(parameterIndex, (BigDecimal) x);
+        }
+        else if (x instanceof String) {
+            setString(parameterIndex, (String) x);
+        }
+        else if (x instanceof byte[]) {
+            setBytes(parameterIndex, (byte[]) x);
+        }
+        else if (x instanceof Date) {
+            setDate(parameterIndex, (Date) x);
+        }
+        else if (x instanceof Time) {
+            setTime(parameterIndex, (Time) x);
+        }
+        else if (x instanceof Timestamp) {
+            setTimestamp(parameterIndex, (Timestamp) x);
+        }
+        else {
+            throw new SQLException("Unsupported object type: " + x.getClass().getName());
+        }
     }
 
     @Override
@@ -280,7 +491,7 @@ public class PrestoPreparedStatement
     public void setNull(int parameterIndex, int sqlType, String typeName)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setNull");
+        setNull(parameterIndex, sqlType);
     }
 
     @Override
@@ -308,7 +519,7 @@ public class PrestoPreparedStatement
     public void setNString(int parameterIndex, String value)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("setNString");
+        setString(parameterIndex, value);
     }
 
     @Override
@@ -431,9 +642,211 @@ public class PrestoPreparedStatement
     }
 
     @Override
+    public ResultSet executeQuery(String sql)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public int executeUpdate(String sql)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public int executeUpdate(String sql, int autoGeneratedKeys)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public int executeUpdate(String sql, int[] columnIndexes)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public int executeUpdate(String sql, String[] columnNames)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int autoGeneratedKeys)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, int[] columnIndexes)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public long executeLargeUpdate(String sql, String[] columnNames)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public boolean execute(String sql)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public boolean execute(String sql, int autoGeneratedKeys)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public boolean execute(String sql, int[] columnIndexes)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
+    public boolean execute(String sql, String[] columnNames)
+            throws SQLException
+    {
+        throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    @Override
     public void addBatch(String sql)
             throws SQLException
     {
         throw new SQLException("This method cannot be called on PreparedStatement");
+    }
+
+    private void setParameter(int parameterIndex, String value)
+            throws SQLException
+    {
+        if (parameterIndex < 1) {
+            throw new SQLException("Parameter index out of bounds: " + parameterIndex);
+        }
+        parameters.put(parameterIndex - 1, value);
+    }
+
+    private void formatParametersTo(StringBuilder builder)
+            throws SQLException
+    {
+        List<String> values = new ArrayList<>();
+        for (int index = 0; index < parameters.size(); index++) {
+            if (!parameters.containsKey(index)) {
+                throw new SQLException("No value specified for parameter " + (index + 1));
+            }
+            values.add(parameters.get(index));
+        }
+        Joiner.on(", ").appendTo(builder, values);
+    }
+
+    private String getExecuteSql()
+            throws SQLException
+    {
+        StringBuilder sql = new StringBuilder();
+        sql.append("EXECUTE ").append(statementName);
+        if (!parameters.isEmpty()) {
+            sql.append(" USING ");
+            formatParametersTo(sql);
+        }
+        return sql.toString();
+    }
+
+    private static String formatLiteral(String type, String x)
+    {
+        return type + " " + formatStringLiteral(x);
+    }
+
+    private static String formatBooleanLiteral(boolean x)
+    {
+        return Boolean.toString(x);
+    }
+
+    private static String formatStringLiteral(String x)
+    {
+        return "'" + x.replace("'", "''") + "'";
+    }
+
+    private static String formatBinaryLiteral(byte[] x)
+    {
+        return "X'" + base16().encode(x) + "'";
+    }
+
+    private static String typedNull(int targetSqlType)
+            throws SQLException
+    {
+        switch (targetSqlType) {
+            case Types.BOOLEAN:
+            case Types.BIT:
+                return typedNull("BOOLEAN");
+            case Types.TINYINT:
+                return typedNull("TINYINT");
+            case Types.SMALLINT:
+                return typedNull("SMALLINT");
+            case Types.INTEGER:
+                return typedNull("INTEGER");
+            case Types.BIGINT:
+                return typedNull("BIGINT");
+            case Types.FLOAT:
+            case Types.REAL:
+                return typedNull("REAL");
+            case Types.DOUBLE:
+                return typedNull("DOUBLE");
+            case Types.DECIMAL:
+            case Types.NUMERIC:
+                return typedNull("DECIMAL");
+            case Types.CHAR:
+            case Types.NCHAR:
+                return typedNull("CHAR");
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
+            case Types.CLOB:
+            case Types.NCLOB:
+                return typedNull("VARCHAR");
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+            case Types.BLOB:
+                return typedNull("VARBINARY");
+            case Types.DATE:
+                return typedNull("DATE");
+            case Types.TIME:
+                return typedNull("TIME");
+            case Types.TIMESTAMP:
+                return typedNull("TIMESTAMP");
+            // TODO Types.TIME_WITH_TIMEZONE
+            // TODO Types.TIMESTAMP_WITH_TIMEZONE
+            case Types.NULL:
+                return "NULL";
+        }
+        throw new SQLException("Unsupported target SQL type: " + targetSqlType);
+    }
+
+    private static String typedNull(String prestoType)
+    {
+        return format("CAST(NULL AS %s)", prestoType);
     }
 }

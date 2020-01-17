@@ -1,0 +1,59 @@
+{
+  "rowCount" : 7304,
+  "columns" : {
+    "o_orderkey" : {
+      "distinctValuesCount" : 7304,
+      "min" : 3,
+      "max" : 59975,
+      "dataSize" : null
+    },
+    "o_custkey" : {
+      "distinctValuesCount" : 996,
+      "min" : 1,
+      "max" : 1499,
+      "dataSize" : null
+    },
+    "o_orderstatus" : {
+      "distinctValuesCount" : 1,
+      "min" : "F",
+      "max" : "F",
+      "dataSize" : 1
+    },
+    "o_totalprice" : {
+      "distinctValuesCount" : 7303,
+      "min" : 874.89,
+      "max" : 408345.74,
+      "dataSize" : null
+    },
+    "o_orderdate" : {
+      "distinctValuesCount" : 1213,
+      "min" : 8035,
+      "max" : 9277,
+      "dataSize" : null
+    },
+    "o_orderpriority" : {
+      "distinctValuesCount" : 5,
+      "min" : "1-URGENT",
+      "max" : "5-LOW",
+      "dataSize" : 42
+    },
+    "o_clerk" : {
+      "distinctValuesCount" : 1000,
+      "min" : "Clerk#000000001",
+      "max" : "Clerk#000001000",
+      "dataSize" : 15000
+    },
+    "o_shippriority" : {
+      "distinctValuesCount" : 1,
+      "min" : 0,
+      "max" : 0,
+      "dataSize" : null
+    },
+    "o_comment" : {
+      "distinctValuesCount" : 7303,
+      "min" : " about the blithely ironic requests. fluffily ironic ",
+      "max" : "zzle final, final dependencies. final, final accounts are blith",
+      "dataSize" : 354862
+    }
+  }
+}

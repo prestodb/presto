@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -34,6 +34,9 @@ public class ShardRecoveryStats
     private final DistributionStat shardRecoveryShardSizeBytes = new DistributionStat();
     private final DistributionStat shardRecoveryTimeInMilliSeconds = new DistributionStat();
     private final DistributionStat shardRecoveryBytesPerSecond = new DistributionStat();
+
+    private final CounterStat corruptLocalFile = new CounterStat();
+    private final CounterStat corruptRecoveredFile = new CounterStat();
 
     public void incrementBackgroundShardRecovery()
     {
@@ -62,9 +65,19 @@ public class ShardRecoveryStats
 
     public void addShardRecoveryDataRate(DataSize rate, DataSize size, Duration duration)
     {
-        shardRecoveryBytesPerSecond.add(Math.round(rate.toBytes()));
+        shardRecoveryBytesPerSecond.add(rate.toBytes());
         shardRecoveryShardSizeBytes.add(size.toBytes());
         shardRecoveryTimeInMilliSeconds.add(duration.toMillis());
+    }
+
+    public void incrementCorruptLocalFile()
+    {
+        corruptLocalFile.update(1);
+    }
+
+    public void incrementCorruptRecoveredFile()
+    {
+        corruptRecoveredFile.update(1);
     }
 
     @Managed
@@ -121,5 +134,19 @@ public class ShardRecoveryStats
     public DistributionStat getShardRecoveryShardSizeBytes()
     {
         return shardRecoveryShardSizeBytes;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCorruptLocalFile()
+    {
+        return corruptLocalFile;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCorruptRecoveredFile()
+    {
+        return corruptRecoveredFile;
     }
 }

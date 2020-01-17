@@ -13,13 +13,35 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcType
@@ -55,10 +77,31 @@ public class OrcType
     private final OrcTypeKind orcTypeKind;
     private final List<Integer> fieldTypeIndexes;
     private final List<String> fieldNames;
+    private final Optional<Integer> length;
     private final Optional<Integer> precision;
     private final Optional<Integer> scale;
 
-    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> precision, Optional<Integer> scale)
+    private OrcType(OrcTypeKind orcTypeKind)
+    {
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private OrcType(OrcTypeKind orcTypeKind, int length)
+    {
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.of(length), Optional.empty(), Optional.empty());
+    }
+
+    private OrcType(OrcTypeKind orcTypeKind, int precision, int scale)
+    {
+        this(orcTypeKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(precision), Optional.of(scale));
+    }
+
+    private OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
+    {
+        this(orcTypeKind, fieldTypeIndexes, fieldNames, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale)
     {
         this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
@@ -69,6 +112,7 @@ public class OrcType
             this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
             checkArgument(fieldNames.size() == fieldTypeIndexes.size(), "fieldNames and fieldTypeIndexes have different sizes");
         }
+        this.length = requireNonNull(length, "length is null");
         this.precision = requireNonNull(precision, "precision is null");
         this.scale = requireNonNull(scale, "scale can not be null");
     }
@@ -88,6 +132,11 @@ public class OrcType
         return fieldTypeIndexes.get(field);
     }
 
+    public List<Integer> getFieldTypeIndexes()
+    {
+        return fieldTypeIndexes;
+    }
+
     public String getFieldName(int field)
     {
         return fieldNames.get(field);
@@ -96,6 +145,11 @@ public class OrcType
     public List<String> getFieldNames()
     {
         return fieldNames;
+    }
+
+    public Optional<Integer> getLength()
+    {
+        return length;
     }
 
     public Optional<Integer> getPrecision()
@@ -116,5 +170,116 @@ public class OrcType
                 .add("fieldTypeIndexes", fieldTypeIndexes)
                 .add("fieldNames", fieldNames)
                 .toString();
+    }
+
+    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
+    {
+        if (BOOLEAN.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.BOOLEAN));
+        }
+        if (TINYINT.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.BYTE));
+        }
+        if (SMALLINT.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.SHORT));
+        }
+        if (INTEGER.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.INT));
+        }
+        if (BIGINT.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.LONG));
+        }
+        if (DOUBLE.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.DOUBLE));
+        }
+        if (REAL.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.FLOAT));
+        }
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded()) {
+                return ImmutableList.of(new OrcType(OrcTypeKind.STRING));
+            }
+            return ImmutableList.of(new OrcType(OrcTypeKind.VARCHAR, varcharType.getLengthSafe()));
+        }
+        if (type instanceof CharType) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.CHAR, ((CharType) type).getLength()));
+        }
+        if (VARBINARY.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.BINARY));
+        }
+        if (DATE.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.DATE));
+        }
+        if (TIMESTAMP.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, decimalType.getPrecision(), decimalType.getScale()));
+        }
+        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0));
+        }
+        if (type.getTypeSignature().getBase().equals(MAP)) {
+            return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
+        }
+        if (type.getTypeSignature().getBase().equals(ROW)) {
+            List<String> fieldNames = new ArrayList<>();
+            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+            }
+            List<Type> fieldTypes = type.getTypeParameters();
+
+            return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes);
+        }
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+    }
+
+    private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)
+    {
+        nextFieldTypeIndex++;
+        List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, itemType);
+
+        List<OrcType> orcTypes = new ArrayList<>();
+        orcTypes.add(new OrcType(OrcTypeKind.LIST, ImmutableList.of(nextFieldTypeIndex), ImmutableList.of("item")));
+        orcTypes.addAll(itemTypes);
+        return orcTypes;
+    }
+
+    private static List<OrcType> createOrcMapType(int nextFieldTypeIndex, Type keyType, Type valueType)
+    {
+        nextFieldTypeIndex++;
+        List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, keyType);
+        List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), valueType);
+
+        List<OrcType> orcTypes = new ArrayList<>();
+        orcTypes.add(new OrcType(OrcTypeKind.MAP, ImmutableList.of(nextFieldTypeIndex, nextFieldTypeIndex + keyTypes.size()), ImmutableList.of("key", "value")));
+        orcTypes.addAll(keyTypes);
+        orcTypes.addAll(valueTypes);
+        return orcTypes;
+    }
+
+    public static List<OrcType> createOrcRowType(int nextFieldTypeIndex, List<String> fieldNames, List<Type> fieldTypes)
+    {
+        nextFieldTypeIndex++;
+        List<Integer> fieldTypeIndexes = new ArrayList<>();
+        List<List<OrcType>> fieldTypesList = new ArrayList<>();
+        for (Type fieldType : fieldTypes) {
+            fieldTypeIndexes.add(nextFieldTypeIndex);
+            List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, fieldType);
+            fieldTypesList.add(fieldOrcTypes);
+            nextFieldTypeIndex += fieldOrcTypes.size();
+        }
+
+        List<OrcType> orcTypes = new ArrayList<>();
+        orcTypes.add(new OrcType(
+                OrcTypeKind.STRUCT,
+                fieldTypeIndexes,
+                fieldNames));
+        fieldTypesList.forEach(orcTypes::addAll);
+
+        return orcTypes;
     }
 }

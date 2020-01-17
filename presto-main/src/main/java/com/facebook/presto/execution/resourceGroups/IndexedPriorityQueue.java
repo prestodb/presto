@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterators.transform;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,7 +32,7 @@ final class IndexedPriorityQueue<E>
 {
     private final Map<E, Entry<E>> index = new HashMap<>();
     private final Set<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
-        int priorityComparison = Integer.compare(entry2.getPriority(), entry1.getPriority());
+        int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
         if (priorityComparison != 0) {
             return priorityComparison;
         }
@@ -41,7 +42,7 @@ final class IndexedPriorityQueue<E>
     private long generation;
 
     @Override
-    public boolean addOrUpdate(E element, int priority)
+    public boolean addOrUpdate(E element, long priority)
     {
         Entry<E> entry = index.get(element);
         if (entry != null) {
@@ -111,13 +112,19 @@ final class IndexedPriorityQueue<E>
         return queue.isEmpty();
     }
 
+    @Override
+    public Iterator<E> iterator()
+    {
+        return transform(queue.iterator(), Entry::getValue);
+    }
+
     private static final class Entry<E>
     {
         private final E value;
-        private final int priority;
+        private final long priority;
         private final long generation;
 
-        private Entry(E value, int priority, long generation)
+        private Entry(E value, long priority, long generation)
         {
             this.value = requireNonNull(value, "value is null");
             this.priority = priority;
@@ -129,7 +136,7 @@ final class IndexedPriorityQueue<E>
             return value;
         }
 
-        public int getPriority()
+        public long getPriority()
         {
             return priority;
         }

@@ -36,6 +36,11 @@ public class ResettableRandomizedIterator<T>
         position = 0;
     }
 
+    public int size()
+    {
+        return list.size();
+    }
+
     @Override
     public boolean hasNext()
     {

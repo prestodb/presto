@@ -20,14 +20,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 
 public final class HiveSchemaProperties
 {
     public static final String LOCATION_PROPERTY = "location";
 
     public static final List<PropertyMetadata<?>> SCHEMA_PROPERTIES = ImmutableList.of(
-            stringSessionProperty(
+            stringProperty(
                     LOCATION_PROPERTY,
                     "Base file system location URI",
                     null,

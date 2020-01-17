@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionId;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -37,12 +40,23 @@ public class SystemConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemConnector(
             ConnectorId connectorId,
             InternalNodeManager nodeManager,
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
+    {
+        this(connectorId, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction, ImmutableList.of());
+    }
+
+    public SystemConnector(
+            ConnectorId connectorId,
+            InternalNodeManager nodeManager,
+            SystemTablesProvider tables,
+            Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction,
+            List<PropertyMetadata<?>> sessionProperties)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(nodeManager, "nodeManager is null");
@@ -54,6 +68,7 @@ public class SystemConnector
         this.splitManager = new SystemSplitManager(nodeManager, tables);
         this.pageSourceProvider = new SystemPageSourceProvider(tables);
         this.transactionHandleFunction = transactionHandleFunction;
+        this.sessionProperties = sessionProperties;
     }
 
     @Override
@@ -78,5 +93,11 @@ public class SystemConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 }

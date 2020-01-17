@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class TableNotFoundException
         extends NotFoundException
@@ -28,10 +29,7 @@ public class TableNotFoundException
     public TableNotFoundException(SchemaTableName tableName, String message)
     {
         super(message);
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
-        this.tableName = tableName;
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     public TableNotFoundException(SchemaTableName tableName, Throwable cause)
@@ -42,10 +40,7 @@ public class TableNotFoundException
     public TableNotFoundException(SchemaTableName tableName, String message, Throwable cause)
     {
         super(message, cause);
-        if (tableName == null) {
-            throw new NullPointerException("tableName is null");
-        }
-        this.tableName = tableName;
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     public SchemaTableName getTableName()

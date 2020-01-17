@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.TypedHeap;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxNStateFactory
         implements AccumulatorStateFactory<MinMaxNState>
@@ -48,6 +49,7 @@ public class MinMaxNStateFactory
             extends AbstractGroupedAccumulatorState
             implements MinMaxNState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedMinMaxNState.class).instanceSize();
         private final ObjectBigArray<TypedHeap> heaps = new ObjectBigArray<>();
         private long size;
 
@@ -60,7 +62,7 @@ public class MinMaxNStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return heaps.sizeOf() + size;
+            return INSTANCE_SIZE + heaps.sizeOf() + size;
         }
 
         @Override
@@ -90,15 +92,17 @@ public class MinMaxNStateFactory
     public static class SingleMinMaxNState
             implements MinMaxNState
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxNState.class).instanceSize();
         private TypedHeap typedHeap;
 
         @Override
         public long getEstimatedSize()
         {
-            if (typedHeap == null) {
-                return 0;
+            long estimatedSize = INSTANCE_SIZE;
+            if (typedHeap != null) {
+                estimatedSize += typedHeap.getEstimatedSize();
             }
-            return typedHeap.getEstimatedSize();
+            return estimatedSize;
         }
 
         @Override

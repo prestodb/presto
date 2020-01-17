@@ -1,4 +1,3 @@
-select * from hive.default.nation;
 n_nationkey |     n_name     | n_regionkey |                                                     n_comment
 -------------+----------------+-------------+--------------------------------------------------------------------------------------------------------------------
 0 | ALGERIA        |           0 |  haggle. carefully final deposits detect slyly agai

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -19,12 +18,11 @@ import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -35,8 +33,8 @@ class BlackHolePageSource
     private int pagesLeft;
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayInMillis;
-    private final long totalBytes;
     private long completedBytes;
+    private long completedPositions;
     private final long memoryUsageBytes;
     private boolean closed;
     private CompletableFuture<Page> currentPage;
@@ -48,7 +46,6 @@ class BlackHolePageSource
         this.pagesLeft = count;
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.pageProcessingDelayInMillis = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null").toMillis();
-        this.totalBytes = page.getSizeInBytes() * count;
         this.memoryUsageBytes = page.getSizeInBytes();
     }
 
@@ -67,6 +64,7 @@ class BlackHolePageSource
 
         pagesLeft--;
         completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
 
         if (pageProcessingDelayInMillis == 0) {
             return page;
@@ -94,21 +92,20 @@ class BlackHolePageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
-    }
-
-    @Override
-    public long getTotalBytes()
-    {
-        return totalBytes;
     }
 
     @Override
     public long getCompletedBytes()
     {
         return completedBytes;
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override

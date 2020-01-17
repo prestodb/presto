@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.testing;
 
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -26,7 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestingEventListenerManager
-    extends EventListenerManager
+        extends EventListenerManager
 {
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
 

@@ -13,21 +13,29 @@
  */
 package com.facebook.presto.transaction;
 
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Strings.nullToEmpty;
 
 public class TransactionManagerConfig
 {
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings().withKeyValueSeparator('=');
+
     private Duration idleCheckInterval = new Duration(1, TimeUnit.MINUTES);
     private Duration idleTimeout = new Duration(5, TimeUnit.MINUTES);
     private int maxFinishingConcurrency = 1;
+    private Map<String, String> companionCatalogs = ImmutableMap.of();
 
     @MinDuration("1ms")
     @NotNull
@@ -70,6 +78,20 @@ public class TransactionManagerConfig
     public TransactionManagerConfig setMaxFinishingConcurrency(int maxFinishingConcurrency)
     {
         this.maxFinishingConcurrency = maxFinishingConcurrency;
+        return this;
+    }
+
+    @NotNull
+    public Map<String, String> getCompanionCatalogs()
+    {
+        return this.companionCatalogs;
+    }
+
+    @Config("transaction.companion-catalogs")
+    @ConfigDescription("Companion catalogs: catalog_name1=catalog_name2,catalog_name3=catalog_name4,...")
+    public TransactionManagerConfig setCompanionCatalogs(String extraAccessibleCatalogs)
+    {
+        this.companionCatalogs = MAP_SPLITTER.split(nullToEmpty(extraAccessibleCatalogs));
         return this;
     }
 }

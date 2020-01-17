@@ -11,26 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.querystats;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.ResponseHandler;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Optional;
 
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.ResponseHandlerUtils.propagate;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 
 /**
  * Implementation of {@link QueryStatsClient} using Presto's /v1/query HTTP API.
@@ -86,7 +85,7 @@ public class HttpQueryStatsClient
                 return Optional.of(queryStats);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw new UncheckedIOException(e);
             }
         }
     }

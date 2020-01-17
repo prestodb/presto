@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.plugin.base.security;
 
+import com.facebook.airlift.configuration.ConfigurationFactory;
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
+import com.google.inject.ConfigurationException;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFileBasedAccessControlConfig
 {
@@ -28,19 +35,44 @@ public class TestFileBasedAccessControlConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FileBasedAccessControlConfig.class)
-                .setConfigFile(null));
+                .setConfigFile(null)
+                .setRefreshPeriod(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("security.config-file", "/test.json")
+                .put(SECURITY_CONFIG_FILE, "/test.json")
+                .put(SECURITY_REFRESH_PERIOD, "1s")
                 .build();
 
         FileBasedAccessControlConfig expected = new FileBasedAccessControlConfig()
-                .setConfigFile("/test.json");
+                .setConfigFile("/test.json")
+                .setRefreshPeriod(new Duration(1, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertThatThrownBy(() -> newInstance(ImmutableMap.of(SECURITY_REFRESH_PERIOD, "1ms")))
+                .isInstanceOf(ConfigurationException.class)
+                .hasMessageContaining("security.config-file: may not be null ");
+
+        assertThatThrownBy(() -> newInstance(ImmutableMap.of(
+                SECURITY_CONFIG_FILE, "/test.json",
+                SECURITY_REFRESH_PERIOD, "1us")))
+                .isInstanceOf(ConfigurationException.class)
+                .hasMessageContaining("Invalid configuration property security.refresh-period");
+
+        newInstance(ImmutableMap.of(SECURITY_CONFIG_FILE, "/test.json"));
+    }
+
+    private static FileBasedAccessControlConfig newInstance(Map<String, String> properties)
+    {
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
+        return configurationFactory.build(FileBasedAccessControlConfig.class);
     }
 }

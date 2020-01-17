@@ -1,0 +1,61 @@
+ {
+    "rowCount" : 86400.0,
+     "columns" : {
+        "t_meal_time" : {
+             "dataSize" : 248400.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 4.0
+        },
+        "t_minute" : {
+             "distinctValuesCount" : 37.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 59
+        },
+        "t_time_sk" : {
+             "distinctValuesCount" : 125124.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 86399
+        },
+        "t_time" : {
+             "distinctValuesCount" : 125124.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 86399
+        },
+        "t_hour" : {
+             "distinctValuesCount" : 19.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 23
+        },
+        "t_time_id" : {
+             "dataSize" : 1382400.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 71245.0
+        },
+        "t_second" : {
+             "distinctValuesCount" : 37.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 59
+        },
+        "t_sub_shift" : {
+             "dataSize" : 597600.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 5.0
+        },
+        "t_shift" : {
+             "dataSize" : 460800.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 3.0
+        },
+        "t_am_pm" : {
+             "dataSize" : 172800.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 2.0
+        },
+        "dummyColumn" : {}
+    }
+}

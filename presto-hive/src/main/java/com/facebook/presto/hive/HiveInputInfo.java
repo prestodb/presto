@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,16 +21,28 @@ import java.util.List;
 public class HiveInputInfo
 {
     private final List<String> partitionIds;
+    // Code that serialize HiveInputInfo into log would often need the ability to limit the length of log entries.
+    // This boolean field allows such code to mark the log entry as length limited.
+    private final boolean truncated;
 
     @JsonCreator
-    public HiveInputInfo(@JsonProperty("partitionIds") List<String> partitionIds)
+    public HiveInputInfo(
+            @JsonProperty("partitionIds") List<String> partitionIds,
+            @JsonProperty("truncated") boolean truncated)
     {
         this.partitionIds = partitionIds;
+        this.truncated = truncated;
     }
 
     @JsonProperty
     public List<String> getPartitionIds()
     {
         return partitionIds;
+    }
+
+    @JsonProperty
+    public boolean isTruncated()
+    {
+        return truncated;
     }
 }

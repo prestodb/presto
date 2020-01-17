@@ -14,10 +14,14 @@
 package com.facebook.presto.array;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 public final class SliceBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBigArray.class).instanceSize();
+    private static final int SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
     private final ObjectBigArray<Slice> array;
+    private final ReferenceCountMap trackedSlices = new ReferenceCountMap();
     private long sizeOfSlices;
 
     public SliceBigArray()
@@ -35,7 +39,7 @@ public final class SliceBigArray
      */
     public long sizeOf()
     {
-        return array.sizeOf() + sizeOfSlices;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfSlices + trackedSlices.sizeOf();
     }
 
     /**
@@ -56,13 +60,7 @@ public final class SliceBigArray
      */
     public void set(long index, Slice value)
     {
-        Slice currentValue = array.get(index);
-        if (currentValue != null) {
-            sizeOfSlices -= currentValue.length();
-        }
-        if (value != null) {
-            sizeOfSlices += value.length();
-        }
+        updateRetainedSize(index, value);
         array.set(index, value);
     }
 
@@ -73,5 +71,34 @@ public final class SliceBigArray
     public void ensureCapacity(long length)
     {
         array.ensureCapacity(length);
+    }
+
+    private void updateRetainedSize(long index, Slice value)
+    {
+        Slice currentValue = array.get(index);
+        if (currentValue != null) {
+            int baseReferenceCount = trackedSlices.decrementAndGet(currentValue.getBase());
+            int sliceReferenceCount = trackedSlices.decrementAndGet(currentValue);
+            if (baseReferenceCount == 0) {
+                // it is the last referenced base
+                sizeOfSlices -= currentValue.getRetainedSize();
+            }
+            else if (sliceReferenceCount == 0) {
+                // it is the last referenced slice
+                sizeOfSlices -= SLICE_INSTANCE_SIZE;
+            }
+        }
+        if (value != null) {
+            int baseReferenceCount = trackedSlices.incrementAndGet(value.getBase());
+            int sliceReferenceCount = trackedSlices.incrementAndGet(value);
+            if (baseReferenceCount == 1) {
+                // it is the first referenced base
+                sizeOfSlices += value.getRetainedSize();
+            }
+            else if (sliceReferenceCount == 1) {
+                // it is the first referenced slice
+                sizeOfSlices += SLICE_INSTANCE_SIZE;
+            }
+        }
     }
 }

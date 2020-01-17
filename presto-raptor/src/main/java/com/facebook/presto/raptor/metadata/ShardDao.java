@@ -36,6 +36,8 @@ public interface ShardDao
     int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
     int CLEANUP_TRANSACTIONS_BATCH_SIZE = 10_000;
 
+    String SHARD_METADATA_COLUMNS = "table_id, shard_id, shard_uuid, is_delta, delta_uuid, bucket_number, row_count, compressed_size, uncompressed_size, xxhash64";
+
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
     int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -44,10 +46,10 @@ public interface ShardDao
             "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
     void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
 
-    @SqlUpdate("DELETE FROM shard_nodes\n" +
+    @SqlBatch("DELETE FROM shard_nodes\n" +
             "WHERE shard_id = (SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid)\n" +
             "  AND node_id = :nodeId")
-    void deleteShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
+    void deleteShardNodes(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") Iterable<Integer> nodeId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Integer getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -59,7 +61,11 @@ public interface ShardDao
     @Mapper(RaptorNode.Mapper.class)
     List<RaptorNode> getNodes();
 
-    @SqlQuery("SELECT table_id, shard_id, shard_uuid, bucket_number, row_count, compressed_size, uncompressed_size\n" +
+    @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + " FROM shards WHERE shard_uuid = :shardUuid")
+    @Mapper(ShardMetadata.Mapper.class)
+    ShardMetadata getShard(@Bind("shardUuid") UUID shardUuid);
+
+    @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + "\n" +
             "FROM (\n" +
             "    SELECT s.*\n" +
             "    FROM shards s\n" +
@@ -78,6 +84,32 @@ public interface ShardDao
             "      s.bucket_number = b.bucket_number)\n" +
             "    JOIN nodes n ON (b.node_id = n.node_id)\n" +
             "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
+            ") x")
+    @Mapper(ShardMetadata.Mapper.class)
+    Set<ShardMetadata> getNodeShardsAndDeltas(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") Long tableId);
+
+    @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + "\n" +
+            "FROM (\n" +
+            "    SELECT s.*\n" +
+            "    FROM shards s\n" +
+            "    JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            "    JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND s.bucket_number IS NULL\n" +
+            "      AND s.is_delta = false\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
+            "  UNION ALL\n" +
+            "    SELECT s.*\n" +
+            "    FROM shards s\n" +
+            "    JOIN tables t ON (s.table_id = t.table_id)\n" +
+            "    JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
+            "    JOIN buckets b ON (\n" +
+            "      d.distribution_id = b.distribution_id AND\n" +
+            "      s.bucket_number = b.bucket_number)\n" +
+            "    JOIN nodes n ON (b.node_id = n.node_id)\n" +
+            "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND s.is_delta  = false\n" +
             "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
             ") x")
     @Mapper(ShardMetadata.Mapper.class)
@@ -197,6 +229,16 @@ public interface ShardDao
             "ORDER BY b.bucket_number")
     @Mapper(BucketNode.Mapper.class)
     List<BucketNode> getBucketNodes(@Bind("distributionId") long distributionId);
+
+    @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
+            "FROM distributions\n" +
+            "WHERE distribution_id IN (SELECT distribution_id FROM tables)")
+    List<Distribution> listActiveDistributions();
+
+    @SqlQuery("SELECT SUM(compressed_size)\n" +
+            "FROM tables\n" +
+            "WHERE distribution_id = :distributionId")
+    long getDistributionSizeBytes(@Bind("distributionId") long distributionId);
 
     @SqlUpdate("UPDATE buckets SET node_id = :nodeId\n" +
             "WHERE distribution_id = :distributionId\n" +

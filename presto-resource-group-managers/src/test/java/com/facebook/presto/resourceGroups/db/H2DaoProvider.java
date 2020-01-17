@@ -14,10 +14,13 @@
 package com.facebook.presto.resourceGroups.db;
 
 import org.h2.jdbcx.JdbcDataSource;
-import org.skife.jdbi.v2.DBI;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
+
+import static java.util.Objects.requireNonNull;
 
 public class H2DaoProvider
         implements Provider<ResourceGroupsDao>
@@ -28,9 +31,12 @@ public class H2DaoProvider
     public H2DaoProvider(DbResourceGroupConfig config)
     {
         JdbcDataSource ds = new JdbcDataSource();
-        ds.setURL(config.getConfigDbUrl());
-        DBI dbi = new DBI(ds);
-        this.dao = dbi.open(H2ResourceGroupsDao.class);
+        ds.setURL(requireNonNull(config.getConfigDbUrl(), "resource-groups.config-db-url is null"));
+        // TODO: this should use onDemand()
+        this.dao = Jdbi.create(ds)
+                .installPlugin(new SqlObjectPlugin())
+                .open()
+                .attach(H2ResourceGroupsDao.class);
     }
 
     @Override

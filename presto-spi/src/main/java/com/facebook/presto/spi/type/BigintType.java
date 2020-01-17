@@ -35,7 +35,7 @@ public final class BigintType
             return null;
         }
 
-        return block.getLong(position, 0);
+        return block.getLong(position);
     }
 
     @Override

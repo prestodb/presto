@@ -11,24 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 final class JoinMatcher
@@ -37,12 +41,14 @@ final class JoinMatcher
     private final JoinNode.Type joinType;
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
     private final Optional<Expression> filter;
+    private final Optional<DistributionType> distributionType;
 
-    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter)
+    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter, Optional<DistributionType> distributionType)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
         this.filter = requireNonNull(filter, "filter can not be null");
+        this.distributionType = requireNonNull(distributionType, "distributionType is null");
     }
 
     @Override
@@ -57,7 +63,7 @@ final class JoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -71,8 +77,16 @@ final class JoinMatcher
             if (!joinNode.getFilter().isPresent()) {
                 return NO_MATCH;
             }
-            if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {
-                return NO_MATCH;
+            RowExpression expression = joinNode.getFilter().get();
+            if (isExpression(expression)) {
+                if (!new ExpressionVerifier(symbolAliases).process(castToExpression(expression), filter.get())) {
+                    return NO_MATCH;
+                }
+            }
+            else {
+                if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.get(), expression)) {
+                    return NO_MATCH;
+                }
             }
         }
         else {
@@ -81,15 +95,20 @@ final class JoinMatcher
             }
         }
 
+        if (distributionType.isPresent() && !distributionType.equals(joinNode.getDistributionType())) {
+            return NO_MATCH;
+        }
+
         /*
          * Have to use order-independent comparison; there are no guarantees what order
          * the equi criteria will have after planning and optimizing.
          */
-        Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
-        Set<JoinNode.EquiJoinClause> expected =
+        Set<List<String>> actual = joinNode.getCriteria().stream().map(criteria -> ImmutableList.of(criteria.getLeft().getName(), criteria.getRight().getName())).collect(toImmutableSet());
+        Set<List<String>> expected =
                 equiCriteria.stream()
-                .map(maker -> maker.getExpectedValue(symbolAliases))
-                .collect(toImmutableSet());
+                        .map(maker -> maker.getExpectedValue(symbolAliases))
+                        .map(criteria -> ImmutableList.of(criteria.getLeft().getName(), criteria.getRight().getName()))
+                        .collect(toImmutableSet());
 
         return new MatchResult(expected.equals(actual));
     }
@@ -98,8 +117,11 @@ final class JoinMatcher
     public String toString()
     {
         return toStringHelper(this)
+                .omitNullValues()
+                .add("type", joinType)
                 .add("equiCriteria", equiCriteria)
-                .add("filter", filter)
+                .add("filter", filter.orElse(null))
+                .add("distributionType", distributionType)
                 .toString();
     }
 }

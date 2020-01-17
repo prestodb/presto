@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -32,21 +35,26 @@ import static java.util.Objects.requireNonNull;
 
 public class TableLayout
 {
-    private final TableLayoutHandle handle;
+    private final ConnectorId connectorId;
+    private final ConnectorTableHandle connectorTableHandle;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayout layout;
 
-    public TableLayout(TableLayoutHandle handle, ConnectorTableLayout layout)
+    public TableLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
-        requireNonNull(handle, "handle is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(connectorTableHandle, "connectorTableHandle is null");
+        requireNonNull(transactionHandle, "transactionHandle is null");
         requireNonNull(layout, "layout is null");
-
-        this.handle = handle;
+        this.connectorTableHandle = connectorTableHandle;
+        this.connectorId = connectorId;
+        this.transactionHandle = transactionHandle;
         this.layout = layout;
     }
 
     public ConnectorId getConnectorId()
     {
-        return handle.getConnectorId();
+        return connectorId;
     }
 
     public Optional<List<ColumnHandle>> getColumns()
@@ -64,23 +72,28 @@ public class TableLayout
         return layout.getLocalProperties();
     }
 
-    public TableLayoutHandle getHandle()
+    public ConnectorTableLayoutHandle getLayoutHandle()
     {
-        return handle;
+        return layout.getHandle();
     }
 
-    public Optional<NodePartitioning> getNodePartitioning()
+    public TableHandle getNewTableHandle()
     {
-        return layout.getNodePartitioning()
-                .map(nodePartitioning -> new NodePartitioning(
+        return new TableHandle(connectorId, connectorTableHandle, transactionHandle, Optional.of(layout.getHandle()));
+    }
+
+    public Optional<TablePartitioning> getTablePartitioning()
+    {
+        return layout.getTablePartitioning()
+                .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
-                                Optional.of(handle.getConnectorId()),
-                                Optional.of(handle.getTransactionHandle()),
+                                Optional.of(connectorId),
+                                Optional.of(transactionHandle),
                                 nodePartitioning.getPartitioningHandle()),
                         nodePartitioning.getPartitioningColumns()));
     }
 
-    public Optional<Set<ColumnHandle>> getPartitioningColumns()
+    public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {
         return layout.getStreamPartitioningColumns();
     }
@@ -90,17 +103,17 @@ public class TableLayout
         return layout.getDiscretePredicates();
     }
 
-    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
-        return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
+        return new TableLayout(connectorId, connectorTableHandle, transactionHandle, layout);
     }
 
-    public static class NodePartitioning
+    public static class TablePartitioning
     {
         private final PartitioningHandle partitioningHandle;
         private final List<ColumnHandle> partitioningColumns;
 
-        public NodePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
+        public TablePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
         {
             this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
             this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
@@ -125,7 +138,7 @@ public class TableLayout
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            NodePartitioning that = (NodePartitioning) o;
+            TablePartitioning that = (TablePartitioning) o;
             return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(partitioningColumns, that.partitioningColumns);
         }

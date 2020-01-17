@@ -14,11 +14,11 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public interface Spiller
         extends Closeable
@@ -26,7 +26,7 @@ public interface Spiller
     /**
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      */
-    CompletableFuture<?> spill(Iterator<Page> pageIterator);
+    ListenableFuture<?> spill(Iterator<Page> pageIterator);
 
     /**
      * Returns list of previously spilled Pages streams.

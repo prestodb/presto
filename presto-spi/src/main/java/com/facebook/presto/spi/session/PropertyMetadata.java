@@ -20,7 +20,9 @@ import java.util.function.Function;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -53,10 +55,10 @@ public final class PropertyMetadata<T>
         requireNonNull(encoder, "encoder is null");
 
         if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name)) {
-            throw new IllegalArgumentException(String.format("Invalid session property name '%s'", name));
+            throw new IllegalArgumentException(format("Invalid property name '%s'", name));
         }
         if (description.isEmpty() || !description.trim().equals(description)) {
-            throw new IllegalArgumentException(String.format("Invalid session property description '%s'", description));
+            throw new IllegalArgumentException(format("Invalid property description '%s'", description));
         }
 
         this.name = name;
@@ -70,7 +72,7 @@ public final class PropertyMetadata<T>
     }
 
     /**
-     * Name of the session property.  This must be a valid identifier.
+     * Name of the property.  This must be a valid identifier.
      */
     public String getName()
     {
@@ -133,7 +135,7 @@ public final class PropertyMetadata<T>
         return encoder.apply(value);
     }
 
-    public static <T> PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
+    public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -146,12 +148,12 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
+    public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
                 description,
-                BIGINT,
+                INTEGER,
                 Integer.class,
                 defaultValue,
                 hidden,
@@ -159,7 +161,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
+    public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -172,7 +174,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
+    public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -185,7 +187,7 @@ public final class PropertyMetadata<T>
                 object -> object);
     }
 
-    public static PropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
+    public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,

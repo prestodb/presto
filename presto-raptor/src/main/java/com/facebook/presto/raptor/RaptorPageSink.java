@@ -13,21 +13,23 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -41,20 +43,23 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_TOO_MANY_FILES_CREATED;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.allAsList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
         implements ConnectorPageSink
 {
+    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
+
     private final long transactionId;
     private final StorageManager storageManager;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final PageSorter pageSorter;
     private final List<Long> columnIds;
     private final List<Type> columnTypes;
@@ -65,13 +70,17 @@ public class RaptorPageSink
     private final long maxBufferBytes;
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
+    private final TemporalFunction temporalFunction;
+    private final int maxAllowedFilesPerWriter;
+    private final FileSystemContext context;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
+            FileSystemContext context,
             PageSorter pageSorter,
             StorageManager storageManager,
-            JsonCodec<ShardInfo> shardInfoCodec,
+            TemporalFunction temporalFunction,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -80,21 +89,24 @@ public class RaptorPageSink
             OptionalInt bucketCount,
             List<Long> bucketColumnIds,
             Optional<RaptorColumnHandle> temporalColumnHandle,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            int maxAllowedFilesPerWriter)
     {
         this.transactionId = transactionId;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
+        this.maxAllowedFilesPerWriter = maxAllowedFilesPerWriter;
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
         this.bucketCount = bucketCount;
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
+        this.context = requireNonNull(context, "context is null");
 
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
@@ -128,7 +140,7 @@ public class RaptorPageSink
             pageBuffer.flush();
             CompletableFuture<List<ShardInfo>> futureShards = pageBuffer.getStoragePageSink().commit();
             return futureShards.thenApply(shards -> shards.stream()
-                    .map(shard -> Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)))
+                    .map(shard -> Slices.wrappedBuffer(SHARD_INFO_CODEC.toJsonBytes(shard)))
                     .collect(toList()));
         }).collect(toList());
 
@@ -161,7 +173,7 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true),
+                storageManager.createStoragePageSink(context, transactionId, bucketNumber, columnIds, columnTypes, true),
                 columnTypes,
                 sortFields,
                 sortOrders,
@@ -197,7 +209,6 @@ public class RaptorPageSink
             implements PageWriter
     {
         private final Optional<BucketFunction> bucketFunction;
-        private final Optional<TemporalFunction> temporalFunction;
         private final Long2ObjectMap<PageStore> pageStores = new Long2ObjectOpenHashMap<>();
 
         public PartitionedPageWriter()
@@ -210,7 +221,6 @@ public class RaptorPageSink
                     .collect(toList());
 
             this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt(), bucketTypes)) : Optional.empty();
-            this.temporalFunction = temporalColumnType.map(TemporalFunction::create);
         }
 
         @Override
@@ -222,7 +232,7 @@ public class RaptorPageSink
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = bucketFunction.isPresent() ? bucketFunction.get().getBucket(bucketArgs, position) : 0;
-                int day = temporalFunction.isPresent() ? temporalFunction.get().getDay(temporalBlock, position) : 0;
+                int day = temporalColumnType.isPresent() ? temporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
 
                 long partition = (((long) bucket) << 32) | (day & 0xFFFF_FFFFL);
                 PageStore store = pageStores.get(partition);
@@ -265,6 +275,10 @@ public class RaptorPageSink
             long totalBytes = 0;
             long maxBytes = 0;
             PageBuffer maxBuffer = null;
+
+            if (pageStores.size() > maxAllowedFilesPerWriter) {
+                throw new PrestoException(RAPTOR_TOO_MANY_FILES_CREATED, format("Number of files created: %s , has exceeded the limit of %s files created per worker per query", pageStores.size(), maxAllowedFilesPerWriter));
+            }
 
             for (PageStore store : pageStores.values()) {
                 long bytes = store.getUsedMemoryBytes();
@@ -323,24 +337,6 @@ public class RaptorPageSink
                 pageBuffer.add(pageBuilder.build());
                 pageBuilder.reset();
             }
-        }
-    }
-
-    private interface TemporalFunction
-    {
-        int getDay(Block temporalBlock, int position);
-
-        static TemporalFunction create(Type temporalColumnType)
-        {
-            if (temporalColumnType.equals(DATE)) {
-                return (temporalBlock, position) -> Ints.checkedCast(DATE.getLong(temporalBlock, position));
-            }
-
-            if (temporalColumnType.equals(TIMESTAMP)) {
-                return (temporalBlock, position) -> Ints.checkedCast(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
-            }
-
-            throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);
         }
     }
 }

@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.execution.buffer.ClientBuffer.PageReference;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -33,24 +32,24 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
-import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class BroadcastOutputBuffer
@@ -67,24 +66,28 @@ public class BroadcastOutputBuffer
     private final Map<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final List<PageReference> initialPagesForNewBuffers = new ArrayList<>();
+    private final List<SerializedPageReference> initialPagesForNewBuffers = new ArrayList<>();
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
 
+    private final ConcurrentMap<Lifespan, AtomicLong> outstandingPageCountPerLifespan = new ConcurrentHashMap<>();
+    private final Set<Lifespan> noMorePagesForLifespan = ConcurrentHashMap.newKeySet();
+    private volatile Consumer<Lifespan> lifespanCompletionCallback;
+
     public BroadcastOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            SystemMemoryUsageListener systemMemoryUsageListener,
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null"),
+                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
     }
 
@@ -104,6 +107,12 @@ public class BroadcastOutputBuffer
     public double getUtilization()
     {
         return memoryManager.getUtilization();
+    }
+
+    @Override
+    public boolean isOverutilized()
+    {
+        return memoryManager.isOverutilized();
     }
 
     @Override
@@ -138,6 +147,7 @@ public class BroadcastOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
+        checkState(!Thread.holdsLock(this), "Can not set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
 
         synchronized (this) {
@@ -177,44 +187,56 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(Page page)
+    public ListenableFuture<?> isFull()
     {
-        requireNonNull(page, "page is null");
+        return memoryManager.getBufferBlockedFuture();
+    }
+
+    @Override
+    public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
+    {
+        checkState(lifespanCompletionCallback == null, "lifespanCompletionCallback is already set");
+        this.lifespanCompletionCallback = requireNonNull(callback, "callback is null");
+    }
+
+    @Override
+    public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
+    {
+        checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
+        requireNonNull(pages, "pages is null");
+        checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback must be set before enqueueing data");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages()) {
-            return immediateFuture(true);
+        if (!state.get().canAddPages() || noMorePagesForLifespan.contains(lifespan)) {
+            return;
         }
 
-        // split the page
-        List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(Page::getPositionCount).sum();
-        checkState(rowCount == page.getPositionCount());
+        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(pages.size());
         totalBufferedPages.addAndGet(pages.size());
+        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(pages.size());
 
         // create page reference counts with an initial single reference
-        List<PageReference> pageReferences = pages.stream()
-                .map(pageSplit -> new PageReference(pageSplit, 1, () -> {
-                    checkState(totalBufferedPages.decrementAndGet() >= 0);
-                    memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
-                }))
+        List<SerializedPageReference> serializedPageReferences = pages.stream()
+                .map(pageSplit -> new SerializedPageReference(
+                        pageSplit,
+                        1,
+                        () -> dereferencePage(pageSplit, lifespan)))
                 .collect(toImmutableList());
 
         // if we can still add buffers, remember the pages for the future buffers
         Collection<ClientBuffer> buffers;
         synchronized (this) {
             if (state.get().canAddBuffers()) {
-                pageReferences.stream().forEach(ClientBuffer.PageReference::addReference);
-                initialPagesForNewBuffers.addAll(pageReferences);
+                serializedPageReferences.forEach(SerializedPageReference::addReference);
+                initialPagesForNewBuffers.addAll(serializedPageReferences);
             }
 
             // make a copy while holding the lock to avoid race with initialPagesForNewBuffers.addAll above
@@ -222,24 +244,23 @@ public class BroadcastOutputBuffer
         }
 
         // add pages to all existing buffers (each buffer will increment the reference count)
-        buffers.stream().forEach(partition -> partition.enqueuePages(pageReferences));
+        buffers.forEach(partition -> partition.enqueuePages(serializedPageReferences));
 
         // drop the initial reference
-        pageReferences.stream().forEach(ClientBuffer.PageReference::dereferencePage);
-
-        return memoryManager.getNotFullFuture();
+        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partitionNumber, Page page)
+    public void enqueue(Lifespan lifespan, int partitionNumber, List<SerializedPage> pages)
     {
         checkState(partitionNumber == 0, "Expected partition number to be zero");
-        return enqueue(page);
+        enqueue(lifespan, pages);
     }
 
     @Override
-    public CompletableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
     {
+        checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
@@ -247,8 +268,18 @@ public class BroadcastOutputBuffer
     }
 
     @Override
+    public void acknowledge(OutputBufferId bufferId, long sequenceId)
+    {
+        checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
+        requireNonNull(bufferId, "bufferId is null");
+
+        getBuffer(bufferId).acknowledgePages(sequenceId);
+    }
+
+    @Override
     public void abort(OutputBufferId bufferId)
     {
+        checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).destroy();
@@ -259,6 +290,7 @@ public class BroadcastOutputBuffer
     @Override
     public void setNoMorePages()
     {
+        checkState(!Thread.holdsLock(this), "Can not set no more pages while holding a lock on this");
         state.compareAndSet(OPEN, NO_MORE_PAGES);
         state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
         memoryManager.setNoBlockOnFull();
@@ -271,6 +303,8 @@ public class BroadcastOutputBuffer
     @Override
     public void destroy()
     {
+        checkState(!Thread.holdsLock(this), "Can not destroy while holding a lock on this");
+
         // ignore destroy if the buffer already in a terminal state.
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
             noMoreBuffers();
@@ -278,6 +312,7 @@ public class BroadcastOutputBuffer
             safeGetBuffersSnapshot().forEach(ClientBuffer::destroy);
 
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -287,8 +322,39 @@ public class BroadcastOutputBuffer
         // ignore fail if the buffer already in a terminal state.
         if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
+    }
+
+    @Override
+    public void setNoMorePagesForLifespan(Lifespan lifespan)
+    {
+        requireNonNull(lifespan, "lifespan is null");
+        noMorePagesForLifespan.add(lifespan);
+    }
+
+    @Override
+    public boolean isFinishedForLifespan(Lifespan lifespan)
+    {
+        if (!noMorePagesForLifespan.contains(lifespan)) {
+            return false;
+        }
+
+        AtomicLong outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan);
+        return outstandingPageCount == null || outstandingPageCount.get() == 0;
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
+    @VisibleForTesting
+    void forceFreeMemory()
+    {
+        memoryManager.close();
     }
 
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
@@ -298,23 +364,31 @@ public class BroadcastOutputBuffer
             return buffer;
         }
 
-        checkState(state.get().canAddBuffers(), "No more buffers already set");
+        // NOTE: buffers are allowed to be created in the FINISHED state because destroy() can move to the finished state
+        // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
+        // the buffer will be immediately destroyed.
+        BufferState state = this.state.get();
+        checkState(state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
         buffer = new ClientBuffer(taskInstanceId, id);
 
-        // add initial pages
-        buffer.enqueuePages(initialPagesForNewBuffers);
+        // do not setup the new buffer if we are already failed
+        if (state != FAILED) {
+            // add initial pages
+            buffer.enqueuePages(initialPagesForNewBuffers);
 
-        // update state
-        if (!state.get().canAddPages()) {
-            buffer.setNoMorePages();
-        }
+            // update state
+            if (!state.canAddPages()) {
+                // BE CAREFUL: set no more pages only if not FAILED, because this allows clients to FINISH
+                buffer.setNoMorePages();
+            }
 
-        // buffer may have finished immediately before calling this method
-        if (state.get() == FINISHED) {
-            buffer.destroy();
+            // buffer may have finished immediately before calling this method
+            if (state == FINISHED) {
+                buffer.destroy();
+            }
         }
 
         buffers.put(id, buffer);
@@ -329,31 +403,48 @@ public class BroadcastOutputBuffer
     private void noMoreBuffers()
     {
         checkState(!Thread.holdsLock(this), "Can not set no more buffers while holding a lock on this");
-        List<PageReference> pages;
+        List<SerializedPageReference> pages;
         synchronized (this) {
             pages = ImmutableList.copyOf(initialPagesForNewBuffers);
             initialPagesForNewBuffers.clear();
 
-            // verify all created buffers have been declared
-            SetView<OutputBufferId> undeclaredCreatedBuffers = Sets.difference(buffers.keySet(), outputBuffers.getBuffers().keySet());
-            checkState(undeclaredCreatedBuffers.isEmpty(), "Final output buffers does not contain all created buffer ids: %s", undeclaredCreatedBuffers);
+            if (outputBuffers.isNoMoreBufferIds()) {
+                // verify all created buffers have been declared
+                SetView<OutputBufferId> undeclaredCreatedBuffers = Sets.difference(buffers.keySet(), outputBuffers.getBuffers().keySet());
+                checkState(undeclaredCreatedBuffers.isEmpty(), "Final output buffers does not contain all created buffer ids: %s", undeclaredCreatedBuffers);
+            }
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.stream().forEach(ClientBuffer.PageReference::dereferencePage);
+        pages.forEach(SerializedPageReference::dereferencePage);
     }
 
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
+        if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
             return;
         }
 
-        for (ClientBuffer buffer : safeGetBuffersSnapshot()) {
-            if (!buffer.isDestroyed()) {
-                return;
-            }
+        if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
+            destroy();
         }
-        destroy();
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager getMemoryManager()
+    {
+        return memoryManager;
+    }
+
+    private void dereferencePage(SerializedPage pageSplit, Lifespan lifespan)
+    {
+        long outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan).decrementAndGet();
+        if (outstandingPageCount == 0 && noMorePagesForLifespan.contains(lifespan)) {
+            checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback is not null");
+            lifespanCompletionCallback.accept(lifespan);
+        }
+
+        checkState(totalBufferedPages.decrementAndGet() >= 0);
+        memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
     }
 }

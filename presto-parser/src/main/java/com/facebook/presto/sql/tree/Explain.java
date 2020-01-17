@@ -27,23 +27,25 @@ public class Explain
 {
     private final Statement statement;
     private final boolean analyze;
+    private final boolean verbose;
     private final List<ExplainOption> options;
 
-    public Explain(Statement statement, boolean analyze, List<ExplainOption> options)
+    public Explain(Statement statement, boolean analyze, boolean verbose, List<ExplainOption> options)
     {
-        this(Optional.empty(), analyze, statement, options);
+        this(Optional.empty(), analyze, verbose, statement, options);
     }
 
-    public Explain(NodeLocation location, boolean analyze, Statement statement, List<ExplainOption> options)
+    public Explain(NodeLocation location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
     {
-        this(Optional.of(location), analyze, statement, options);
+        this(Optional.of(location), analyze, verbose, statement, options);
     }
 
-    private Explain(Optional<NodeLocation> location, boolean analyze, Statement statement, List<ExplainOption> options)
+    private Explain(Optional<NodeLocation> location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");
         this.analyze = analyze;
+        this.verbose = verbose;
         if (options == null) {
             this.options = ImmutableList.of();
         }
@@ -62,6 +64,11 @@ public class Explain
         return analyze;
     }
 
+    public boolean isVerbose()
+    {
+        return verbose;
+    }
+
     public List<ExplainOption> getOptions()
     {
         return options;
@@ -71,6 +78,15 @@ public class Explain
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExplain(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .add(statement)
+                .addAll(options)
+                .build();
     }
 
     @Override

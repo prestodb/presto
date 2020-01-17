@@ -40,6 +40,23 @@ public class LastValueFunction
             return;
         }
 
-        windowIndex.appendTo(argumentChannel, frameEnd, output);
+        int valuePosition = frameEnd;
+
+        if (ignoreNulls) {
+            while (valuePosition >= frameStart) {
+                if (!windowIndex.isNull(argumentChannel, valuePosition)) {
+                    break;
+                }
+
+                valuePosition--;
+            }
+
+            if (valuePosition < frameStart) {
+                output.appendNull();
+                return;
+            }
+        }
+
+        windowIndex.appendTo(argumentChannel, valuePosition, output);
     }
 }

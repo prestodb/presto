@@ -14,23 +14,20 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.orc.stream.InputStreamSources;
 
 import java.io.IOException;
 import java.util.List;
 
 public interface StreamReader
 {
-    Block readBlock(Type type)
+    void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException;
 
-    void prepareNextRead(int batchSize);
-
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException;
 
-    void startRowGroup(StreamSources dataStreamSources)
-            throws IOException;
+    void close();
+
+    long getRetainedSizeInBytes();
 }

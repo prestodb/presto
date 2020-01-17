@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 
 public final class FailureFunction
@@ -31,12 +31,53 @@ public final class FailureFunction
 
     // We shouldn't be using UNKNOWN as an explicit type. This will be fixed when we fix type inference
     @Description("Decodes json to an exception and throws it")
-    @ScalarFunction(hidden = true)
+    @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
-    public static void fail(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
+    public static boolean failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {
         FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
         // wrap the failure in a new exception to append the current stack trace
         throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
+    }
+
+    // This function is only used to propagate optimization failures.
+    @Description("Decodes json to an exception and throws it with supplied errorCode")
+    @ScalarFunction(value = "fail", hidden = true)
+    @SqlType("unknown")
+    public static boolean failWithException(
+            @SqlType(StandardTypes.INTEGER) long errorCode,
+            @SqlType(StandardTypes.JSON) Slice failureInfoSlice)
+    {
+        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
+        // wrap the failure in a new exception to append the current stack trace
+        for (StandardErrorCode standardErrorCode : StandardErrorCode.values()) {
+            if (standardErrorCode.toErrorCode().getCode() == errorCode) {
+                throw new PrestoException(standardErrorCode, failureInfo.toException());
+            }
+        }
+        throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Unable to find error for code: " + errorCode, failureInfo.toException());
+    }
+
+    @Description("Throws an exception with a given message")
+    @ScalarFunction(value = "fail", hidden = true)
+    @SqlType("unknown")
+    public static boolean fail(@SqlType(StandardTypes.VARCHAR) Slice message)
+    {
+        throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, message.toStringUtf8());
+    }
+
+    @Description("Throws an exception with a given error code and message")
+    @ScalarFunction(value = "fail", hidden = true)
+    @SqlType("unknown")
+    public static boolean fail(
+            @SqlType(StandardTypes.INTEGER) long errorCode,
+            @SqlType(StandardTypes.VARCHAR) Slice message)
+    {
+        for (StandardErrorCode standardErrorCode : StandardErrorCode.values()) {
+            if (standardErrorCode.toErrorCode().getCode() == errorCode) {
+                throw new PrestoException(standardErrorCode, message.toStringUtf8());
+            }
+        }
+        throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Unable to find error for code: " + errorCode);
     }
 }

@@ -1,0 +1,33 @@
+{
+  "rowCount" : 11745000,
+  "columns" : {
+    "inv_date_sk" : {
+      "distinctValuesCount" : 261,
+      "nullsCount" : 0,
+      "min" : 2450815,
+      "max" : 2452635,
+      "dataSize" : null
+    },
+    "inv_item_sk" : {
+      "distinctValuesCount" : 18000,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 18000,
+      "dataSize" : null
+    },
+    "inv_warehouse_sk" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 5,
+      "dataSize" : null
+    },
+    "inv_quantity_on_hand" : {
+      "distinctValuesCount" : 1001,
+      "nullsCount" : 586913,
+      "min" : 0,
+      "max" : 1000,
+      "dataSize" : null
+    }
+  }
+}

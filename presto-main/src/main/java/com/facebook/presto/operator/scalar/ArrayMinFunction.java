@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
@@ -21,7 +20,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
@@ -31,9 +29,8 @@ import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayM
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
 import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarFunction("array_min")
 @Description("Get minimum value of array")
@@ -44,18 +41,8 @@ public final class ArrayMinFunction
     @TypeParameter("T")
     @SqlType("T")
     @SqlNullable
-    public static Void arrayWithUnknownType(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
-            @SqlType("array(T)") Block block)
-    {
-        return null;
-    }
-
-    @TypeParameter("T")
-    @SqlType("T")
-    @SqlNullable
     public static Long longArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -66,7 +53,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Boolean booleanArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -77,7 +64,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Double doubleArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -88,7 +75,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Slice sliceArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -99,7 +86,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Block blockArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -122,9 +109,7 @@ public final class ArrayMinFunction
             return selectedValue;
         }
         catch (Throwable t) {
-            propagateIfInstanceOf(t, Error.class);
-            propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throw internalError(t);
         }
     }
 }

@@ -13,66 +13,19 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-import java.util.Optional;
-
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.block.TestingSession.SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlockEncoding
 {
-    private static final ConnectorSession SESSION = new ConnectorSession()
-    {
-        @Override
-        public String getQueryId()
-        {
-            return "test_query_id";
-        }
-
-        @Override
-        public Identity getIdentity()
-        {
-            return new Identity("user", Optional.empty());
-        }
-
-        @Override
-        public TimeZoneKey getTimeZoneKey()
-        {
-            return UTC_KEY;
-        }
-
-        @Override
-        public Locale getLocale()
-        {
-            return ENGLISH;
-        }
-
-        @Override
-        public long getStartTime()
-        {
-            return 0;
-        }
-
-        @Override
-        public <T> T getProperty(String name, Class<T> type)
-        {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
-        }
-    };
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
 
     @Test
     public void testRoundTrip()
@@ -80,7 +33,7 @@ public class TestDictionaryBlockEncoding
         int positionCount = 40;
 
         // build dictionary
-        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 4);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
         VARCHAR.writeString(dictionaryBuilder, "alice");
         VARCHAR.writeString(dictionaryBuilder, "bob");
         VARCHAR.writeString(dictionaryBuilder, "charlie");
@@ -92,19 +45,19 @@ public class TestDictionaryBlockEncoding
         for (int i = 0; i < 40; i++) {
             ids[i] = i % 4;
         }
-        Slice idsSlice = Slices.wrappedIntArray(ids);
 
-        BlockEncoding blockEncoding = new DictionaryBlockEncoding(new VariableWidthBlockEncoding());
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, idsSlice);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        blockEncoding.writeBlock(sliceOutput, dictionaryBlock);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        blockEncodingSerde.writeBlock(sliceOutput, dictionaryBlock);
+        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
 
         assertTrue(actualBlock instanceof DictionaryBlock);
         DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
         assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
-        assertEquals(actualDictionaryBlock.getIds(), idsSlice);
+        for (int position = 0; position < actualDictionaryBlock.getPositionCount(); position++) {
+            assertEquals(actualDictionaryBlock.getId(position), ids[position]);
+        }
         assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
     }
 

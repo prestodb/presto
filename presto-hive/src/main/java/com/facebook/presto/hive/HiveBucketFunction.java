@@ -40,7 +40,7 @@ public class HiveBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount);
+        return HiveBucketing.getHiveBucket(bucketCount, typeInfos, page, position);
     }
 
     @Override

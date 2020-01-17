@@ -84,6 +84,11 @@ Additionally, the relations within a ``WITH`` clause can chain::
       z AS (SELECT b AS c FROM y)
     SELECT c FROM z;
 
+.. WARNING::
+    Currently, the SQL for the ``WITH`` clause will be inlined anywhere the named
+    relation is used. This means that if the relation is used more than once and the query
+    is non-deterministic, the results may be different each time.
+
 GROUP BY Clause
 ---------------
 
@@ -364,6 +369,48 @@ only unique grouping sets are generated::
 
 The default set quantifier is ``ALL``.
 
+**GROUPING Operation**
+
+``grouping(col1, ..., colN) -> bigint``
+
+The grouping operation returns a bit set converted to decimal, indicating which columns are present in a
+grouping. It must be used in conjunction with ``GROUPING SETS``, ``ROLLUP``, ``CUBE``  or ``GROUP BY``
+and its arguments must match exactly the columns referenced in the corresponding ``GROUPING SETS``,
+``ROLLUP``, ``CUBE`` or ``GROUP BY`` clause.
+
+To compute the resulting bit set for a particular row, bits are assigned to the argument columns with
+the rightmost column being the least significant bit. For a given grouping, a bit is set to 0 if the
+corresponding column is included in the grouping and to 1 otherwise. For example, consider the query
+below::
+
+    SELECT origin_state, origin_zip, destination_state, sum(package_weight),
+           grouping(origin_state, origin_zip, destination_state)
+    FROM shipping
+    GROUP BY GROUPING SETS (
+            (origin_state),
+            (origin_state, origin_zip),
+            (destination_state));
+
+.. code-block:: none
+
+    origin_state | origin_zip | destination_state | _col3 | _col4
+    --------------+------------+-------------------+-------+-------
+    California   | NULL       | NULL              |  1397 |     3
+    New Jersey   | NULL       | NULL              |   225 |     3
+    New York     | NULL       | NULL              |     3 |     3
+    California   |      94131 | NULL              |    60 |     1
+    New Jersey   |       7081 | NULL              |   225 |     1
+    California   |      90210 | NULL              |  1337 |     1
+    New York     |      10002 | NULL              |     3 |     1
+    NULL         | NULL       | New Jersey        |    58 |     6
+    NULL         | NULL       | Connecticut       |  1562 |     6
+    NULL         | NULL       | Colorado          |     5 |     6
+    (10 rows)
+
+The first grouping in the above result only includes the ``origin_state`` column and excludes
+the ``origin_zip`` and ``destination_state`` columns. The bit set constructed for that grouping
+is ``011`` where the most significant bit represents ``origin_state``.
+
 HAVING Clause
 -------------
 
@@ -453,7 +500,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -467,7 +514,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION ALL
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -486,7 +533,7 @@ possible ``INTERSECT`` clauses. It selects the values ``13`` and ``42`` and comb
 this result set with a second query that selects the value ``13``.  Since ``42``
 is only in the result set of the first query, it is not included in the final results.::
 
-    SELECT * FROM VALUES (13, 42)
+    SELECT * FROM (VALUES 13, 42)
     INTERSECT
     SELECT 13;
 
@@ -505,8 +552,8 @@ possible ``EXCEPT`` clauses. It selects the values ``13`` and ``42`` and combine
 this result set with a second query that selects the value ``13``.  Since ``13``
 is also in the result set of the second query, it is not included in the final result.::
 
-    SELECT * FROM VALUES (13, 42)
-     EXCEPT
+    SELECT * FROM (VALUES 13, 42)
+    EXCEPT
     SELECT 13;
 
 .. code-block:: none
@@ -515,6 +562,8 @@ is also in the result set of the second query, it is not included in the final r
     -------
        42
     (2 rows)
+
+.. _order-by-clause:
 
 ORDER BY Clause
 ---------------
@@ -614,13 +663,13 @@ is added to the end.
 ``UNNEST`` is normally used with a ``JOIN`` and can reference columns
 from relations on the left side of the join.
 
-Using a single column::
+Using a single array column::
 
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
 
-Using multiple columns::
+Using multiple array columns::
 
     SELECT numbers, animals, n, a
     FROM (
@@ -662,6 +711,29 @@ Using multiple columns::
      [7, 8, 9] | 8 | 2
      [7, 8, 9] | 9 | 3
     (5 rows)
+
+Using a single map column::
+
+    SELECT
+        animals, a, n
+    FROM (
+        VALUES
+            (MAP(ARRAY['dog', 'cat', 'bird'], ARRAY[1, 2, 0])),
+            (MAP(ARRAY['dog', 'cat'], ARRAY[4, 5]))
+    ) AS x (animals)
+    CROSS JOIN UNNEST(animals) AS t (a, n);
+
+.. code-block:: none
+
+               animals          |  a   | n
+    ----------------------------+------+---
+     {"cat":2,"bird":0,"dog":1} | dog  | 1 
+     {"cat":2,"bird":0,"dog":1} | cat  | 2 
+     {"cat":2,"bird":0,"dog":1} | bird | 0 
+     {"cat":5,"dog":4}          | dog  | 4 
+     {"cat":5,"dog":4}          | cat  | 5 
+    (5 rows)
+
 
 Joins
 -----
@@ -731,6 +803,76 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     SELECT name
     FROM nation
     CROSS JOIN region;
+
+
+USING
+^^^^^
+The ``USING`` clause allows you to write shorter queries when both tables you 
+are joining have the same name for the join key.
+
+For example::
+
+    SELECT *
+    FROM table_1 
+    JOIN table_2
+    ON table_1.key_A = table_2.key_A AND table_1.key_B = table_2.key_B
+
+can be rewritten to::
+
+    SELECT *
+    FROM table_1
+    JOIN table_2
+    USING (key_A, key_B)
+
+
+The output of doing ``JOIN`` with ``USING`` will be one copy of the join key 
+columns (``key_A`` and ``key_B`` in the example above) followed by the remaining columns
+in ``table_1`` and then the remaining columns in ``table_2``. Note that the join keys are not
+included in the list of columns from the origin tables for the purpose of
+referencing them in the query. You cannot access them with a table prefix and 
+if you run ``SELECT table_1.*, table_2.*``, the join columns are not included in the output.
+
+The following two queries are equivalent::
+
+    SELECT *
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+    -----------------------------
+
+    SELECT key_A, key_B, table_1.*, table_2.*
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+And produce the output:
+
+.. code-block:: none
+
+     key_A | key_B | y1 | y2  
+    -------+-------+----+-----
+         1 |     3 | 10 | 100 
+         2 |     4 | 20 | 200 
+    (2 rows)
+
+
 
 Subqueries
 ----------

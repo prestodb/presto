@@ -15,6 +15,5 @@ package com.facebook.presto.spi;
 
 public interface ConnectorIndex
 {
-    // TODO: switch RecordSet SPI usage to PageSource
-    RecordSet lookup(RecordSet recordSet);
+    ConnectorPageSource lookup(RecordSet recordSet);
 }

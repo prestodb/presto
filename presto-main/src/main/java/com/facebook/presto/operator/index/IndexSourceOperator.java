@@ -21,21 +21,18 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.plan.PlanNodeId;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +45,6 @@ public class IndexSourceOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final ConnectorIndex index;
-        private final List<Type> types;
         private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
 
@@ -56,13 +52,11 @@ public class IndexSourceOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 ConnectorIndex index,
-                List<Type> types,
                 Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.index = requireNonNull(index, "index is null");
-            this.types = requireNonNull(types, "types is null");
             this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
         }
 
@@ -70,12 +64,6 @@ public class IndexSourceOperator
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -87,12 +75,11 @@ public class IndexSourceOperator
                     operatorContext,
                     sourceId,
                     index,
-                    types,
                     probeKeyNormalizer);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             closed = true;
         }
@@ -101,7 +88,6 @@ public class IndexSourceOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final ConnectorIndex index;
-    private final List<Type> types;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
     private Operator source;
@@ -110,13 +96,11 @@ public class IndexSourceOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             ConnectorIndex index,
-            List<Type> types,
             Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.index = requireNonNull(index, "index is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
     }
 
@@ -136,17 +120,19 @@ public class IndexSourceOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
         checkState(source == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
-        RecordSet result = index.lookup(normalizedRecordSet);
-        source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
+        ConnectorPageSource result = index.lookup(normalizedRecordSet);
+        source = new PageSourceOperator(result, operatorContext);
 
-        operatorContext.setInfoSupplier(split::getInfo);
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+        }
 
         return Optional::empty;
     }
@@ -155,14 +141,8 @@ public class IndexSourceOperator
     public void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(operatorContext, types);
+            source = new FinishedOperator(operatorContext);
         }
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

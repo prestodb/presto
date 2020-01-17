@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spi.eventlistener;
 
 import java.time.Duration;
@@ -24,7 +23,6 @@ public class SplitStatistics
     private final Duration cpuTime;
     private final Duration wallTime;
     private final Duration queuedTime;
-    private final Duration userTime;
     private final Duration completedReadTime;
 
     private final long completedPositions;
@@ -33,12 +31,19 @@ public class SplitStatistics
     private final Optional<Duration> timeToFirstByte;
     private final Optional<Duration> timeToLastByte;
 
-    public SplitStatistics(Duration cpuTime, Duration wallTime, Duration queuedTime, Duration userTime, Duration completedReadTime, long completedPositions, long completedDataSizeBytes, Optional<Duration> timeToFirstByte, Optional<Duration> timeToLastByte)
+    public SplitStatistics(
+            Duration cpuTime,
+            Duration wallTime,
+            Duration queuedTime,
+            Duration completedReadTime,
+            long completedPositions,
+            long completedDataSizeBytes,
+            Optional<Duration> timeToFirstByte,
+            Optional<Duration> timeToLastByte)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
-        this.userTime = requireNonNull(userTime, "userTime is null");
         this.completedReadTime = requireNonNull(completedReadTime, "completedReadTime is null");
         this.completedPositions = completedPositions;
         this.completedDataSizeBytes = completedDataSizeBytes;
@@ -59,11 +64,6 @@ public class SplitStatistics
     public Duration getQueuedTime()
     {
         return queuedTime;
-    }
-
-    public Duration getUserTime()
-    {
-        return userTime;
     }
 
     public Duration getCompletedReadTime()

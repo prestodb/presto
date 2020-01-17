@@ -13,42 +13,40 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 public class SortNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> orderBy;
-    private final Map<Symbol, SortOrder> orderings;
+    private final OrderingScheme orderingScheme;
+    private final boolean isPartial;
 
     @JsonCreator
     public SortNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("orderBy") List<Symbol> orderBy,
-            @JsonProperty("orderings") Map<Symbol, SortOrder> orderings)
+            @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
+            @JsonProperty("isPartial") boolean isPartial)
     {
         super(id);
 
         requireNonNull(source, "source is null");
-        requireNonNull(orderBy, "orderBy is null");
-        Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
-        Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
+        requireNonNull(orderingScheme, "orderingScheme is null");
 
         this.source = source;
-        this.orderBy = ImmutableList.copyOf(orderBy);
-        this.orderings = ImmutableMap.copyOf(orderings);
+        this.orderingScheme = orderingScheme;
+        this.isPartial = isPartial;
     }
 
     @Override
@@ -64,26 +62,32 @@ public class SortNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputSymbols();
+        return source.getOutputVariables();
     }
 
-    @JsonProperty("orderBy")
-    public List<Symbol> getOrderBy()
+    @JsonProperty("orderingScheme")
+    public OrderingScheme getOrderingScheme()
     {
-        return orderBy;
+        return orderingScheme;
     }
 
-    @JsonProperty("orderings")
-    public Map<Symbol, SortOrder> getOrderings()
+    @JsonProperty("isPartial")
+    public boolean isPartial()
     {
-        return orderings;
+        return isPartial;
     }
 
     @Override
-    public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSort(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
     }
 }

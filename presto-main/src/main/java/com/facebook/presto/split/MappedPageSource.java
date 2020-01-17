@@ -37,15 +37,15 @@ public class MappedPageSource
     }
 
     @Override
-    public long getTotalBytes()
-    {
-        return delegate.getTotalBytes();
-    }
-
-    @Override
     public long getCompletedBytes()
     {
         return delegate.getCompletedBytes();
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
     }
 
     @Override
@@ -64,6 +64,9 @@ public class MappedPageSource
     public Page getNextPage()
     {
         Page nextPage = delegate.getNextPage();
+        if (nextPage == null) {
+            return null;
+        }
         Block[] blocks = Arrays.stream(delegateFieldIndex)
                 .mapToObj(nextPage::getBlock)
                 .toArray(Block[]::new);

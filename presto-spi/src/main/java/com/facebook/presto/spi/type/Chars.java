@@ -16,6 +16,7 @@ package com.facebook.presto.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.type.Varchars.byteCount;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static java.util.Objects.requireNonNull;
@@ -73,44 +74,57 @@ public final class Chars
         return buffer;
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, Type type)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");
         if (!isCharType(type)) {
             throw new IllegalArgumentException("type must be the instance of CharType");
         }
-        return trimSpacesAndTruncateToLength(slice, CharType.class.cast(type));
+        return truncateToLengthAndTrimSpaces(slice, CharType.class.cast(type));
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, CharType charType)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return trimSpacesAndTruncateToLength(slice, charType.getLength());
+        return truncateToLengthAndTrimSpaces(slice, charType.getLength());
     }
 
-    public static Slice trimSpacesAndTruncateToLength(Slice slice, int maxLength)
+    public static Slice truncateToLengthAndTrimSpaces(Slice slice, int maxLength)
     {
         requireNonNull(slice, "slice is null");
         if (maxLength < 0) {
             throw new IllegalArgumentException("Max length must be greater or equal than zero");
         }
-        return truncateToLength(trimSpaces(slice), maxLength);
+        return trimTrailingSpaces(truncateToLength(slice, maxLength));
     }
 
-    public static Slice trimSpaces(Slice slice)
+    public static Slice trimTrailingSpaces(Slice slice)
     {
         requireNonNull(slice, "slice is null");
-        return slice.slice(0, sliceLengthWithoutTrailingSpaces(slice));
+        return slice.slice(0, byteCountWithoutTrailingSpace(slice, 0, slice.length()));
     }
 
-    private static int sliceLengthWithoutTrailingSpaces(Slice slice)
+    public static int byteCountWithoutTrailingSpace(Slice slice, int offset, int length)
     {
-        for (int i = slice.length(); i > 0; --i) {
+        requireNonNull(slice, "slice is null");
+        if (length < 0) {
+            throw new IllegalArgumentException("length must be greater than or equal to zero");
+        }
+        if (offset < 0 || offset + length > slice.length()) {
+            throw new IllegalArgumentException("invalid offset/length");
+        }
+        for (int i = length + offset; i > offset; i--) {
             if (slice.getByte(i - 1) != ' ') {
-                return i;
+                return i - offset;
             }
         }
         return 0;
+    }
+
+    public static int byteCountWithoutTrailingSpace(Slice slice, int offset, int length, int codePointCount)
+    {
+        int truncatedLength = byteCount(slice, offset, length, codePointCount);
+        return byteCountWithoutTrailingSpace(slice, offset, truncatedLength);
     }
 
     public static int compareChars(Slice left, Slice right)

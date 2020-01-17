@@ -2,7 +2,7 @@ Java Cryptography Extension Policy Files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Java Runtime Environment is shipped with policy files that limit the
-strengh of the cryptographic keys that can be used. Kerberos, by default, uses
+strength of the cryptographic keys that can be used. Kerberos, by default, uses
 keys that are larger than those supported by the included policy files. There
 are two possible solutions to the problem:
 

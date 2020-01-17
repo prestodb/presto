@@ -13,27 +13,30 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.http.server.HttpServerInfo;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
@@ -61,9 +64,19 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class PluginManager
 {
+    // When generating code the AfterBurner module loads classes with *some* classloader.
+    // When the AfterBurner module is configured not to use the value classloader
+    // (e.g., AfterBurner().setUseValueClassLoader(false)) AppClassLoader is used for loading those
+    // classes. Otherwise, the PluginClassLoader is used, which is the default behavior.
+    // Therefore, in the former case Afterburner won't be able to load the connector classes
+    // as AppClassLoader doesn't see them, and in the latter case the PluginClassLoader won't be
+    // able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
+    // and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
+    // AfterBurner classes.
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
             .add("com.fasterxml.jackson.annotation.")
+            .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")
@@ -73,10 +86,12 @@ public class PluginManager
 
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
+    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -87,18 +102,18 @@ public class PluginManager
     @Inject
     public PluginManager(
             NodeInfo nodeInfo,
-            HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             Metadata metadata,
-            ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
+            PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
+            SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(httpServerInfo, "httpServerInfo is null");
         requireNonNull(config, "config is null");
 
         installedPluginsDir = config.getInstalledPluginsDir();
@@ -114,8 +129,10 @@ public class PluginManager
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
@@ -153,7 +170,6 @@ public class PluginManager
     }
 
     private void loadPlugin(URLClassLoader pluginClassLoader)
-            throws Exception
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
@@ -170,9 +186,9 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getBlockEncodingFactories(blockEncodingManager)) {
-            log.info("Registering block encoding %s", blockEncodingFactory.getName());
-            blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
+        for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
+            log.info("Registering block encoding %s", blockEncoding.getName());
+            blockEncodingManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {
@@ -192,7 +208,17 @@ public class PluginManager
 
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
-            metadata.addFunctions(extractFunctions(functionClass));
+            metadata.registerBuiltInFunctions(extractFunctions(functionClass));
+        }
+
+        for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
+            log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
+            metadata.getFunctionManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+        }
+
+        for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
+            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
+            sessionPropertyDefaults.addConfigurationManagerFactory(sessionConfigFactory);
         }
 
         for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {
@@ -203,6 +229,11 @@ public class PluginManager
         for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
             log.info("Registering system access control %s", accessControlFactory.getName());
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        }
+
+        for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
+            log.info("Registering password authenticator %s", authenticatorFactory.getName());
+            passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
         }
 
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {

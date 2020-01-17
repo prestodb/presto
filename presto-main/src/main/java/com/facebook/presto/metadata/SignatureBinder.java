@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.LongVariableConstraint;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.Type;
@@ -20,7 +24,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.type.FunctionType;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,10 +41,10 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.facebook.presto.type.TypeRegistry.isCovariantTypeBase;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -172,6 +175,30 @@ public class SignatureBinder
                 .collect(toList());
 
         return new TypeSignature(baseType, parameters);
+    }
+
+    public static List<Type> applyBoundVariables(TypeManager typeManager, List<TypeSignature> typeSignatures, BoundVariables boundVariables)
+    {
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (TypeSignature typeSignature : typeSignatures) {
+            builder.add(applyBoundVariables(typeManager, typeSignature, boundVariables));
+        }
+        return builder.build();
+    }
+
+    public static Type applyBoundVariables(TypeManager typeManager, TypeSignature typeSignature, BoundVariables boundVariables)
+    {
+        String baseType = typeSignature.getBase();
+        if (boundVariables.containsTypeVariable(baseType)) {
+            checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
+            return boundVariables.getTypeVariable(baseType);
+        }
+
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
+                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
+                .collect(toList());
+
+        return typeManager.getParameterizedType(baseType, parameters);
     }
 
     /**
@@ -457,7 +484,7 @@ public class SignatureBinder
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
                 return TypeSignatureParameter.of(new NamedTypeSignature(
-                        namedTypeSignature.getName(),
+                        namedTypeSignature.getFieldName(),
                         applyBoundVariables(typeSignature, boundVariables)));
             }
             case VARIABLE: {
@@ -717,12 +744,15 @@ public class SignatureBinder
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
-                if (!getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(lambdaArgumentTypes.get());
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
+                    return SolverReturnStatus.UNSOLVABLE;
+                }
                 verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
             }
 
@@ -734,7 +764,7 @@ public class SignatureBinder
             if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), false)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), false)) {
+            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
@@ -831,7 +861,7 @@ public class SignatureBinder
 
             TypeSignature boundSignature = applyBoundVariables(superTypeSignature, bindings.build());
 
-            return satisfiesCoercion(allowCoercion, actualType, boundSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNSOLVABLE;
+            return satisfiesCoercion(allowCoercion, actualType, boundSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
         }
     }
 }

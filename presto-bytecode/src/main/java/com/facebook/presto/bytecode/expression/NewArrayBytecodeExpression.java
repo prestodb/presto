@@ -46,28 +46,22 @@ class NewArrayBytecodeExpression
 
     public NewArrayBytecodeExpression(ParameterizedType type, BytecodeExpression length)
     {
-        super(type);
-        requireNonNull(type, "type is null");
-        checkArgument(type.getArrayComponentType() != null, "type %s must be array type");
-        this.elementType = type.getArrayComponentType();
-        this.length = requireNonNull(length, "length is null");
-        this.elements = null;
+        this(type, length, null);
     }
 
     public NewArrayBytecodeExpression(ParameterizedType type, List<BytecodeExpression> elements)
     {
+        this(type, constantInt(elements.size()), elements);
+    }
+
+    private NewArrayBytecodeExpression(ParameterizedType type, BytecodeExpression length, List<BytecodeExpression> elements)
+    {
         super(type);
         requireNonNull(type, "type is null");
         checkArgument(type.getArrayComponentType() != null, "type %s must be array type", type);
-        requireNonNull(elements, "elements is null");
         this.elementType = type.getArrayComponentType();
-        for (int i = 0; i < elements.size(); i++) {
-            BytecodeExpression element = elements.get(i);
-            ParameterizedType elementType = element.getType();
-            checkArgument(elementType.equals(this.elementType), "element %s must be %s type, but is %s", i, this.elementType, elementType);
-        }
-        this.length = constantInt(elements.size());
-        this.elements = elements;
+        this.length = requireNonNull(length, "length is null");
+        this.elements = (elements == null) ? null : ImmutableList.copyOf(elements);
     }
 
     @Override

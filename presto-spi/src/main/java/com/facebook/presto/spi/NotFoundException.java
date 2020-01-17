@@ -37,9 +37,4 @@ public abstract class NotFoundException
     {
         super(NOT_FOUND, message, cause);
     }
-
-    protected NotFoundException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
-    {
-        super(NOT_FOUND, message, cause, enableSuppression, writableStackTrace);
-    }
 }

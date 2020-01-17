@@ -18,25 +18,28 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class HivePlugin
         implements Plugin
 {
     private final String name;
-    private ExtendedHiveMetastore metastore;
+    private final Optional<ExtendedHiveMetastore> metastore;
 
     public HivePlugin(String name)
     {
-        this(name, null);
+        this(name, Optional.empty());
     }
 
-    public HivePlugin(String name, ExtendedHiveMetastore metastore)
+    public HivePlugin(String name, Optional<ExtendedHiveMetastore> metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.metastore = metastore;
+        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override

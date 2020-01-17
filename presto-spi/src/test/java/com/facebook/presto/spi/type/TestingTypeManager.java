@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.function.OperatorType;
 import com.google.common.collect.ImmutableList;
 
+import java.lang.invoke.MethodHandle;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,13 +58,19 @@ public class TestingTypeManager
     }
 
     @Override
-    public Optional<Type> getCommonSuperType(List<? extends Type> types)
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    public boolean canCoerce(Type actualType, Type expectedType)
     {
         throw new UnsupportedOperationException();
     }
@@ -74,6 +83,12 @@ public class TestingTypeManager
 
     @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         throw new UnsupportedOperationException();
     }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -82,6 +82,6 @@ public final class IndexHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + transactionHandle + ":" + connectorHandle;
+        return connectorId + ":" + connectorHandle;
     }
 }

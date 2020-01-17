@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CoalesceExpression
@@ -27,9 +27,12 @@ public class CoalesceExpression
 {
     private final List<Expression> operands;
 
-    public CoalesceExpression(Expression... operands)
+    public CoalesceExpression(Expression first, Expression second, Expression... additional)
     {
-        this(Optional.empty(), ImmutableList.copyOf(operands));
+        this(Optional.empty(), ImmutableList.<Expression>builder()
+                .add(first, second)
+                .add(additional)
+                .build());
     }
 
     public CoalesceExpression(List<Expression> operands)
@@ -46,7 +49,7 @@ public class CoalesceExpression
     {
         super(location);
         requireNonNull(operands, "operands is null");
-        Preconditions.checkArgument(!operands.isEmpty(), "operands is empty");
+        checkArgument(operands.size() >= 2, "must have at least two operands");
 
         this.operands = ImmutableList.copyOf(operands);
     }
@@ -60,6 +63,12 @@ public class CoalesceExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitCoalesceExpression(this, context);
+    }
+
+    @Override
+    public List<? extends Node> getChildren()
+    {
+        return operands;
     }
 
     @Override

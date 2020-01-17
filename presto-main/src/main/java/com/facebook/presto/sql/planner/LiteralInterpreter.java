@@ -13,69 +13,77 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.google.common.base.Throwables;
+import com.facebook.presto.type.IntervalDayTimeType;
+import com.facebook.presto.type.IntervalYearMonthType;
+import com.facebook.presto.type.SqlIntervalDayTime;
+import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
-import static com.facebook.presto.util.DateTimeUtils.parseTime;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
-import static java.util.Objects.requireNonNull;
+import static java.lang.String.format;
 
 public final class LiteralInterpreter
 {
@@ -89,139 +97,92 @@ public final class LiteralInterpreter
         return new LiteralVisitor(metadata).process(node, session);
     }
 
-    public static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    public static Object evaluate(ConnectorSession session, ConstantExpression node)
     {
-        requireNonNull(objects, "objects is null");
-        requireNonNull(types, "types is null");
-        checkArgument(objects.size() == types.size(), "objects and types do not have the same size");
+        Type type = node.getType();
 
-        ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
-        for (int i = 0; i < objects.size(); i++) {
-            Object object = objects.get(i);
-            Type type = types.get(i);
-            expressions.add(toExpression(object, type));
+        if (node.getValue() == null) {
+            return null;
         }
-        return expressions.build();
+        if (type instanceof BooleanType) {
+            return node.getValue();
+        }
+        if (type instanceof BigintType || type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType) {
+            return node.getValue();
+        }
+        if (type instanceof DoubleType) {
+            return node.getValue();
+        }
+        if (type instanceof RealType) {
+            Long number = (Long) node.getValue();
+            return intBitsToFloat(number.intValue());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                checkState(node.getValue() instanceof Long);
+                return decodeDecimal(BigInteger.valueOf((long) node.getValue()), decimalType);
+            }
+            checkState(node.getValue() instanceof Slice);
+            Slice value = (Slice) node.getValue();
+            return decodeDecimal(decodeUnscaledValue(value), decimalType);
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) node.getValue()).toStringUtf8();
+        }
+        if (type instanceof VarbinaryType) {
+            return new SqlVarbinary(((Slice) node.getValue()).getBytes());
+        }
+        if (type instanceof DateType) {
+            return new SqlDate(((Long) node.getValue()).intValue());
+        }
+        if (type instanceof TimeType) {
+            if (session.isLegacyTimestamp()) {
+                return new SqlTime((long) node.getValue(), session.getTimeZoneKey());
+            }
+            return new SqlTime((long) node.getValue());
+        }
+        if (type instanceof TimestampType) {
+            try {
+                if (session.isLegacyTimestamp()) {
+                    return new SqlTimestamp((long) node.getValue(), session.getTimeZoneKey());
+                }
+                return new SqlTimestamp((long) node.getValue());
+            }
+            catch (RuntimeException e) {
+                throw new PrestoException(GENERIC_USER_ERROR, format("'%s' is not a valid timestamp literal", (String) node.getValue()));
+            }
+        }
+        if (type instanceof IntervalDayTimeType) {
+            return new SqlIntervalDayTime((long) node.getValue());
+        }
+        if (type instanceof IntervalYearMonthType) {
+            return new SqlIntervalYearMonth(((Long) node.getValue()).intValue());
+        }
+        if (type.getJavaType().equals(Slice.class)) {
+            // DO NOT ever remove toBase64. Calling toString directly on Slice whose base is not byte[] will cause JVM to crash.
+            return "'" + VarbinaryFunctions.toBase64((Slice) node.getValue()).toStringUtf8() + "'";
+        }
+
+        // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
+        return node.getValue();
     }
 
-    public static Expression toExpression(Object object, Type type)
+    private static Number decodeDecimal(BigInteger unscaledValue, DecimalType type)
     {
-        requireNonNull(type, "type is null");
-
-        if (object instanceof Expression) {
-            return (Expression) object;
-        }
-
-        if (object == null) {
-            if (type.equals(UNKNOWN)) {
-                return new NullLiteral();
-            }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
-        }
-
-        if (type.equals(INTEGER)) {
-            return new LongLiteral(object.toString());
-        }
-
-        if (type.equals(BIGINT)) {
-            LongLiteral expression = new LongLiteral(object.toString());
-            if (expression.getValue() >= Integer.MIN_VALUE && expression.getValue() <= Integer.MAX_VALUE) {
-                return new GenericLiteral("BIGINT", object.toString());
-            }
-            return new LongLiteral(object.toString());
-        }
-
-        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
-
-        if (type.equals(DOUBLE)) {
-            Double value = (Double) object;
-            // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
-            // if you remove this, you will need to update the TupleDomainOrcPredicate
-            // When changing this, don't forget about similar code for REAL below
-            if (value.isNaN()) {
-                return new FunctionCall(QualifiedName.of("nan"), ImmutableList.of());
-            }
-            else if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()));
-            }
-            else if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
-            }
-            else {
-                return new DoubleLiteral(object.toString());
-            }
-        }
-
-        if (type.equals(REAL)) {
-            Float value = intBitsToFloat(((Long) object).intValue());
-            // WARNING for ORC predicate code as above (for double)
-            if (value.isNaN()) {
-                return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), StandardTypes.REAL);
-            }
-            else if (value.equals(Float.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL));
-            }
-            else if (value.equals(Float.POSITIVE_INFINITY)) {
-                return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL);
-            }
-            else {
-                return new GenericLiteral("REAL", value.toString());
-            }
-        }
-
-        if (type instanceof VarcharType) {
-            if (object instanceof String) {
-                object = Slices.utf8Slice((String) object);
-            }
-
-            if (object instanceof Slice) {
-                Slice value = (Slice) object;
-                int length = SliceUtf8.countCodePoints(value);
-
-                if (length == ((VarcharType) type).getLength()) {
-                    return new StringLiteral(value.toStringUtf8());
-                }
-
-                return new Cast(new StringLiteral(value.toStringUtf8()), type.getDisplayName(), false, true);
-            }
-
-            throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
-        }
-
-        if (type.equals(BOOLEAN)) {
-            return new BooleanLiteral(object.toString());
-        }
-
-        if (object instanceof Block) {
-            SliceOutput output = new DynamicSliceOutput(((Block) object).getSizeInBytes());
-            BlockSerdeUtil.writeBlock(output, (Block) object);
-            object = output.slice();
-            // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
-        }
-
-        if (object instanceof Slice) {
-            // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
-            // able to encode it in the plan that gets sent to workers.
-            // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
-            FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-            return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
-        }
-
-        Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
-
-        return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
+        return new BigDecimal(unscaledValue, type.getScale(), new MathContext(type.getPrecision()));
     }
 
     private static class LiteralVisitor
             extends AstVisitor<Object, ConnectorSession>
     {
         private final Metadata metadata;
+        private final InterpretedFunctionInvoker functionInvoker;
 
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
         }
 
         @Override
@@ -281,44 +242,42 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                ScalarFunctionImplementation operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
-                try {
-                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
-                }
-                catch (Throwable throwable) {
-                    throw Throwables.propagate(throwable);
-                }
+                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
 
-            ScalarFunctionImplementation operator;
             try {
-                Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
-                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature);
+                FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
+                return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-            }
-            try {
-                return ExpressionInterpreter.invoke(session, operator, ImmutableList.of(utf8Slice(node.getValue())));
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
             }
         }
 
         @Override
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
-            return parseTime(session.getTimeZoneKey(), node.getValue());
+            if (session.isLegacyTimestamp()) {
+                return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
+            }
+            else {
+                return parseTimeLiteral(node.getValue());
+            }
         }
 
         @Override
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
             try {
-                return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (session.isLegacyTimestamp()) {
+                    return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                }
+                else {
+                    return parseTimestampLiteral(node.getValue());
+                }
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
         }

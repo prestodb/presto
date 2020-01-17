@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.authentication;
 
-import com.google.common.base.Throwables;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 public class SimpleHadoopAuthentication
         implements HadoopAuthentication
@@ -25,10 +25,10 @@ public class SimpleHadoopAuthentication
     public UserGroupInformation getUserGroupInformation()
     {
         try {
-            return UserGroupInformation.getCurrentUser();
+            return UserGroupInformation.getLoginUser();
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

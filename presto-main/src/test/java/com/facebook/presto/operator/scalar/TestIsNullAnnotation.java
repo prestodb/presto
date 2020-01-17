@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -31,12 +32,13 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestIsNullAnnotation
         extends AbstractTestFunctions
 {
-    private TestIsNullAnnotation()
+    @BeforeClass
+    public void setUp()
     {
         registerScalar(getClass());
     }
 
-    @ScalarFunction("test_is_null_simple")
+    @ScalarFunction(value = "test_is_null_simple", calledOnNullInput = true)
     @SqlType(StandardTypes.BIGINT)
     public static long testIsNullSimple(@SqlType(StandardTypes.BIGINT) long value, @IsNull boolean isNull)
     {
@@ -46,7 +48,7 @@ public class TestIsNullAnnotation
         return 2 * value;
     }
 
-    @ScalarFunction("test_is_null")
+    @ScalarFunction(value = "test_is_null", calledOnNullInput = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice testIsNull(
             ConnectorSession session,
@@ -82,9 +84,9 @@ public class TestIsNullAnnotation
         return utf8Slice(builder.toString());
     }
 
-    @ScalarFunction("test_is_null_void")
+    @ScalarFunction(value = "test_is_null_void", calledOnNullInput = true)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean testIsNullVoid(@SqlType("unknown") Void value, @IsNull boolean isNull)
+    public static boolean testIsNullVoid(@SqlType("unknown") boolean value, @IsNull boolean isNull)
     {
         return isNull;
     }

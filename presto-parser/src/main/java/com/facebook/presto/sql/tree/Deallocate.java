@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 public class Deallocate
         extends Statement
 {
-    private final String name;
+    private final Identifier name;
 
-    public Deallocate(NodeLocation location, String name)
+    public Deallocate(NodeLocation location, Identifier name)
     {
         this(Optional.of(location), name);
     }
 
-    public Deallocate(String name)
+    public Deallocate(Identifier name)
     {
         this(Optional.empty(), name);
     }
 
-    private Deallocate(Optional<NodeLocation> location, String name)
+    private Deallocate(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
     }
 
-    public String getName()
+    public Identifier getName()
     {
         return name;
     }
@@ -49,6 +52,12 @@ public class Deallocate
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitDeallocate(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

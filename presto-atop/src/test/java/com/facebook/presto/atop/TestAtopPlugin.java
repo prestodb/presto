@@ -15,14 +15,13 @@ package com.facebook.presto.atop;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestAtopPlugin
 {
     @Test
     public void testGetConnectorFactory()
-            throws Exception
     {
         AtopPlugin plugin = new AtopPlugin();
         assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);

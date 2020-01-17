@@ -22,18 +22,18 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang.StringUtils;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -56,9 +56,9 @@ import static java.util.Objects.requireNonNull;
 
 public class Row
 {
-    private static final DateTimeFormatter DATE_PARSER = ISODateTimeFormat.date();
-    private static final DateTimeFormatter TIME_PARSER = DateTimeFormat.forPattern("HH:mm:ss");
-    private static final DateTimeFormatter TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter DATE_PARSER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter TIME_PARSER = DateTimeFormatter.ISO_LOCAL_TIME;
+    private static final DateTimeFormatter TIMESTAMP_PARSER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     private final List<Field> fields = new ArrayList<>();
 
@@ -202,7 +202,7 @@ public class Row
             return Boolean.parseBoolean(str);
         }
         else if (type.equals(DATE)) {
-            return new Date(TimeUnit.MILLISECONDS.toDays(DATE_PARSER.parseDateTime(str).getMillis()));
+            return Date.valueOf(LocalDate.parse(str, DATE_PARSER));
         }
         else if (type.equals(DOUBLE)) {
             return Double.parseDouble(str);
@@ -217,10 +217,10 @@ public class Row
             return Short.parseShort(str);
         }
         else if (type.equals(TIME)) {
-            return new Time(TIME_PARSER.parseDateTime(str).getMillis());
+            return Time.valueOf(LocalTime.parse(str, TIME_PARSER));
         }
         else if (type.equals(TIMESTAMP)) {
-            return new Timestamp(TIMESTAMP_PARSER.parseDateTime(str).getMillis());
+            return Timestamp.valueOf(LocalDateTime.parse(str, TIMESTAMP_PARSER));
         }
         else if (type.equals(TINYINT)) {
             return Byte.valueOf(str);

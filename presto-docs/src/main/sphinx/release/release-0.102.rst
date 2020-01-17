@@ -37,7 +37,7 @@ General Changes
 * Optimize map subscript operator.
 * Add :func:`from_utf8` and :func:`to_utf8` functions.
 * Add ``task_writer_count`` session property to set ``task.writer-count``.
-* Add cast from ``ARRAY<F>`` to ``ARRAY<T>``.
+* Add cast from ``ARRAY(F)`` to ``ARRAY(T)``.
 * Extend implicit coercions to ``ARRAY`` element types.
 * Implement implicit coercions in ``VALUES`` expressions.
 * Fix potential deadlock in scheduler.

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.atop;
 
 import com.facebook.presto.Session;
@@ -34,16 +33,16 @@ public class TestAtopSecurity
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         String path = this.getClass().getResource("security.json").getPath();
         queryRunner = createQueryRunner(ImmutableMap.of("atop.security", "file", "security.config-file", path), TestingAtopFactory.class);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

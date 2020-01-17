@@ -46,6 +46,7 @@ Property Name                         Description
 ``mongodb.connection-timeout``        The socket connect timeout
 ``mongodb.socket-timeout``            The socket timeout
 ``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket
+``mongodb.ssl.enabled``               Use TLS/SSL for connections to mongod/mongos
 ``mongodb.read-preference``           The read preference
 ``mongodb.write-concern``             The write concern
 ``mongodb.required-replica-set``      The required replica set name
@@ -118,6 +119,13 @@ This flag controls the socket keep alive feature that keeps a connection alive t
 
 This property is optional; the default is ``false``.
 
+``mongodb.ssl.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This flag enables SSL connections to MongoDB servers.
+
+This property is optional; the default is ``false``.
+
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -179,7 +187,7 @@ A schema collection consists of a MongoDB document for a table.
         "table": ...,
         "fields": [
               { "name" : ...,
-                "type" : "varchar|bigint|boolean|double|date|array<bigint>|...",
+                "type" : "varchar|bigint|boolean|double|date|array(bigint)|...",
                 "hidden" : false },
                 ...
             ]
@@ -229,7 +237,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 
     INSERT INTO orders VALUES(1, 'bad', 50.0, current_date);
     INSERT INTO orders VALUES(2, 'good', 100.0, current_date);
-    SELECT _id, * FROM orders3;
+    SELECT _id, * FROM orders;
 
 .. code-block:: none
 
@@ -241,7 +249,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 
 .. code-block:: sql
 
-    SELECT _id, * FROM orders3 WHERE _id = ObjectId('55b151633864d6438c61a9ce');
+    SELECT _id, * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
 
 .. code-block:: none
 

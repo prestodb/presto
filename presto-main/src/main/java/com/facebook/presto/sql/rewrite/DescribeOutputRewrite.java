@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -38,13 +39,13 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -58,9 +59,10 @@ final class DescribeOutputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -72,6 +74,7 @@ final class DescribeOutputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final AccessControl accessControl;
+        private final WarningCollector warningCollector;
 
         public Visitor(
                 Session session,
@@ -79,7 +82,8 @@ final class DescribeOutputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
-                AccessControl accessControl)
+                AccessControl accessControl,
+                WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -87,15 +91,16 @@ final class DescribeOutputRewrite
             this.queryExplainer = queryExplainer;
             this.parameters = parameters;
             this.accessControl = accessControl;
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
-            String sqlString = session.getPreparedStatement(node.getName());
-            Statement statement = parser.createStatement(sqlString);
+            String sqlString = session.getPreparedStatement(node.getName().getValue());
+            Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<String> limit = Optional.empty();
@@ -107,13 +112,13 @@ final class DescribeOutputRewrite
             }
             return simpleQuery(
                     selectList(
-                            nameReference("Column Name"),
-                            nameReference("Catalog"),
-                            nameReference("Schema"),
-                            nameReference("Table"),
-                            nameReference("Type"),
-                            nameReference("Type Size"),
-                            nameReference("Aliased")),
+                            identifier("Column Name"),
+                            identifier("Catalog"),
+                            identifier("Schema"),
+                            identifier("Table"),
+                            identifier("Type"),
+                            identifier("Type Size"),
+                            identifier("Aliased")),
                     aliased(
                             values(rows),
                             "Statement Output",
@@ -121,7 +126,7 @@ final class DescribeOutputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    emptyList(),
+                    Optional.empty(),
                     limit);
         }
 

@@ -15,10 +15,12 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,16 +31,24 @@ public class ServerInfo
     private final NodeVersion nodeVersion;
     private final String environment;
     private final boolean coordinator;
+    private final boolean starting;
+
+    // optional to maintain compatibility with older servers
+    private final Optional<Duration> uptime;
 
     @JsonCreator
     public ServerInfo(
             @JsonProperty("nodeVersion") NodeVersion nodeVersion,
             @JsonProperty("environment") String environment,
-            @JsonProperty("coordinator") boolean coordinator)
+            @JsonProperty("coordinator") boolean coordinator,
+            @JsonProperty("starting") boolean starting,
+            @JsonProperty("uptime") Optional<Duration> uptime)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.coordinator = requireNonNull(coordinator, "coordinator is null");
+        this.coordinator = coordinator;
+        this.starting = starting;
+        this.uptime = requireNonNull(uptime, "uptime is null");
     }
 
     @JsonProperty
@@ -57,6 +67,18 @@ public class ServerInfo
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    @JsonProperty
+    public boolean isStarting()
+    {
+        return starting;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getUptime()
+    {
+        return uptime;
     }
 
     @Override
@@ -87,6 +109,8 @@ public class ServerInfo
                 .add("nodeVersion", nodeVersion)
                 .add("environment", environment)
                 .add("coordinator", coordinator)
+                .add("uptime", uptime.orElse(null))
+                .omitNullValues()
                 .toString();
     }
 }

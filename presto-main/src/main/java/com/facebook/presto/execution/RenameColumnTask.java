@@ -16,25 +16,25 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
@@ -46,30 +46,34 @@ public class RenameColumnTask
     }
 
     @Override
-    public CompletableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
 
-        String source = statement.getSource().toLowerCase(ENGLISH);
-        String target = statement.getTarget().toLowerCase(ENGLISH);
+        String source = statement.getSource().getValue().toLowerCase(ENGLISH);
+        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
-        if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
-        }
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
-        if (!columnHandles.containsKey(source)) {
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        ColumnHandle columnHandle = columnHandles.get(source);
+        if (columnHandle == null) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
         }
 
         if (columnHandles.containsKey(target)) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
-        metadata.renameColumn(session, tableHandle.get(), columnHandles.get(source), target);
 
-        return completedFuture(null);
+        if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
+            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
+        }
+
+        metadata.renameColumn(session, tableHandle, columnHandle, target);
+
+        return immediateFuture(null);
     }
 }

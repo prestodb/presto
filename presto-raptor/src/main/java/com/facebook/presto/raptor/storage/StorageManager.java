@@ -14,11 +14,14 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -26,26 +29,34 @@ import java.util.UUID;
 public interface StorageManager
 {
     default ConnectorPageSource getPageSource(
+            FileSystemContext fileSystemContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes)
     {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+        return getPageSource(fileSystemContext, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
     }
 
     ConnectorPageSource getPageSource(
+            FileSystemContext fileSystemContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId);
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> allColumnTypes);
 
     StoragePageSink createStoragePageSink(
+            FileSystemContext fileSystemContext,
             long transactionId,
             OptionalInt bucketNumber,
             List<Long> columnIds,

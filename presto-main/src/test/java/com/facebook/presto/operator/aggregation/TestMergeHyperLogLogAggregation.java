@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
-import io.airlift.stats.cardinality.HyperLogLog;
 
 import java.util.List;
 
@@ -30,13 +29,16 @@ public class TestMergeHyperLogLogAggregation
 {
     private static final int NUMBER_OF_BUCKETS = 16;
 
+    // use dense for expected and actual to assure same serialized bytes
+
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             HyperLogLog hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
             hll.add(i);
+            hll.makeDense();
             HYPER_LOG_LOG.writeSlice(blockBuilder, hll.serialize());
         }
         return new Block[] {blockBuilder.build()};
@@ -65,6 +67,7 @@ public class TestMergeHyperLogLogAggregation
         for (int i = start; i < start + length; i++) {
             hll.add(i);
         }
+        hll.makeDense();
         return new SqlVarbinary(hll.serialize().getBytes());
     }
 }

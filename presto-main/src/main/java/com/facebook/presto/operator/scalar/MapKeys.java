@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -35,7 +34,7 @@ public final class MapKeys
             @TypeParameter("K") Type keyType,
             @SqlType("map(K,V)") Block block)
     {
-        BlockBuilder blockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() / 2);
+        BlockBuilder blockBuilder = keyType.createBlockBuilder(null, block.getPositionCount() / 2);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             keyType.appendTo(block, i, blockBuilder);
         }

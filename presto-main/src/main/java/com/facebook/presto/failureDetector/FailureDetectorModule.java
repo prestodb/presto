@@ -18,8 +18,8 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.weakref.jmx.guice.ExportBinder;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class FailureDetectorModule
         implements Module
@@ -29,7 +29,6 @@ public class FailureDetectorModule
     {
         httpClientBinder(binder)
                 .bindHttpClient("failure-detector", ForFailureDetector.class)
-                .withPrivateIoThreadPool()
                 .withTracing();
 
         configBinder(binder).bindConfig(FailureDetectorConfig.class);

@@ -27,13 +27,14 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Rollup;
@@ -53,7 +54,7 @@ import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
-import java.util.Set;
+import java.util.List;
 
 public class TreePrinter
 {
@@ -87,12 +88,9 @@ public class TreePrinter
 
                 print(indentLevel, "QueryBody");
                 process(node.getQueryBody(), indentLevel);
-
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
@@ -130,15 +128,15 @@ public class TreePrinter
                     for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
                         print(indentLevel, "SimpleGroupBy");
                         if (groupingElement instanceof SimpleGroupBy) {
-                            for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
+                            for (Expression column : groupingElement.getExpressions()) {
                                 process(column, indentLevel + 1);
                             }
                         }
                         else if (groupingElement instanceof GroupingSets) {
                             print(indentLevel + 1, "GroupingSets");
-                            for (Set<Expression> column : groupingElement.enumerateGroupingSets()) {
+                            for (List<Expression> set : ((GroupingSets) groupingElement).getSets()) {
                                 print(indentLevel + 2, "GroupingSet[");
-                                for (Expression expression : column) {
+                                for (Expression expression : set) {
                                     process(expression, indentLevel + 3);
                                 }
                                 print(indentLevel + 2, "]");
@@ -146,14 +144,14 @@ public class TreePrinter
                         }
                         else if (groupingElement instanceof Cube) {
                             print(indentLevel + 1, "Cube");
-                            for (QualifiedName column : ((Cube) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
+                            for (Expression column : groupingElement.getExpressions()) {
+                                process(column, indentLevel + 1);
                             }
                         }
                         else if (groupingElement instanceof Rollup) {
                             print(indentLevel + 1, "Rollup");
-                            for (QualifiedName column : ((Rollup) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
+                            for (Expression column : groupingElement.getExpressions()) {
+                                process(column, indentLevel + 1);
                             }
                         }
                     }
@@ -164,15 +162,22 @@ public class TreePrinter
                     process(node.getHaving().get(), indentLevel + 1);
                 }
 
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
                     print(indentLevel, "Limit: " + node.getLimit().get());
+                }
+
+                return null;
+            }
+
+            protected Void visitOrderBy(OrderBy node, Integer indentLevel)
+            {
+                for (SortItem sortItem : node.getSortItems()) {
+                    process(sortItem, indentLevel);
                 }
 
                 return null;
@@ -220,7 +225,7 @@ public class TreePrinter
             @Override
             protected Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitComparisonExpression(node, indentLevel + 1);
 
@@ -230,7 +235,7 @@ public class TreePrinter
             @Override
             protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitArithmeticBinary(node, indentLevel + 1);
 
@@ -240,7 +245,7 @@ public class TreePrinter
             @Override
             protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitLogicalBinaryExpression(node, indentLevel + 1);
 
@@ -286,14 +291,14 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Integer indentLevel)
+            protected Void visitIdentifier(Identifier node, Integer indentLevel)
             {
                 QualifiedName resolved = resolvedNameReferences.get(node);
                 String resolvedName = "";
                 if (resolved != null) {
                     resolvedName = "=>" + resolved.toString();
                 }
-                print(indentLevel, "QualifiedName[" + node.getName() + resolvedName + "]");
+                print(indentLevel, "Identifier[" + node.getValue() + resolvedName + "]");
                 return null;
             }
 

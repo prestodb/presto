@@ -14,13 +14,13 @@
 package com.facebook.presto.redis.decoder.zset;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
+
+import static java.util.Collections.emptyMap;
 
 /**
  * The row decoder for the 'zset' format. Zset's can contain redis keys for tables
@@ -31,19 +31,10 @@ public class ZsetRedisRowDecoder
     public static final String NAME = "zset";
 
     @Override
-    public String getName()
-    {
-        return NAME;
-    }
-
-    @Override
-    public boolean decodeRow(
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
             byte[] data,
-            Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+            Map<String, String> dataMap)
     {
-        return false;
+        return Optional.of(emptyMap());
     }
 }

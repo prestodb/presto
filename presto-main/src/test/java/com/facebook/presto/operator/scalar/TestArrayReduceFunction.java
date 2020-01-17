@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 
@@ -34,23 +34,20 @@ public class TestArrayReduceFunction
 
     @Test
     public void testEmpty()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 0L);
     }
 
     @Test
     public void testBasic()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [5, 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
         assertFunction("reduce(ARRAY [5 + RANDOM(1), 20, 50], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, 75L);
-        assertFunction("reduce(ARRAY [5, 6, 10, 20], 0.0, (s, x) -> s + x, s -> s)", DOUBLE, 41.0);
+        assertFunction("reduce(ARRAY [5, 6, 10, 20], 0.0E0, (s, x) -> s + x, s -> s)", DOUBLE, 41.0);
     }
 
     @Test
     public void testNulls()
-            throws Exception
     {
         assertFunction("reduce(ARRAY [NULL], CAST (0 AS BIGINT), (s, x) -> s + x, s -> s)", BIGINT, null);
         assertFunction("reduce(ARRAY [NULL, NULL, NULL], CAST (0 AS BIGINT), (s, x) -> coalesce(x, 1) + s, s -> s)", BIGINT, 3L);
@@ -67,7 +64,6 @@ public class TestArrayReduceFunction
 
     @Test
     public void testTwoValueState()
-        throws Exception
     {
         assertFunction(
                 "reduce(" +
@@ -80,7 +76,7 @@ public class TestArrayReduceFunction
         assertFunction(
                 "reduce(" +
                         "ARRAY [5, 6, 10, 20], " +
-                        "CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
+                        "CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
                         "(s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), " +
                         "s -> s.sum / s.count)",
                 DOUBLE,
@@ -94,5 +90,13 @@ public class TestArrayReduceFunction
                 "reduce(ARRAY[ARRAY[1, 2], ARRAY[3, 4], ARRAY[5, NULL, 7]], CAST(ARRAY[] AS ARRAY(INTEGER)), (s, x) -> concat(s, x), s -> s)",
                 new ArrayType(INTEGER),
                 asList(1, 2, 3, 4, 5, null, 7));
+    }
+
+    @Test
+    public void testCoercion()
+    {
+        assertFunction("reduce(ARRAY [123456789012345, NULL, 54321], 0, (s, x) -> s + coalesce(x, 0), s -> s)", BIGINT, 123456789066666L);
+        // TODO: Support coercion of return type of lambda
+        assertInvalidFunction("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)", FUNCTION_NOT_FOUND);
     }
 }

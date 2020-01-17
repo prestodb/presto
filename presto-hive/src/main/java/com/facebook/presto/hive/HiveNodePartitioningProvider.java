@@ -16,39 +16,23 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.ToIntFunction;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.util.Types.checkType;
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final String connectorId;
-    private final NodeManager nodeManager;
-
-    @Inject
-    public HiveNodePartitioningProvider(HiveConnectorId connectorId, NodeManager nodeManager)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
     @Override
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
@@ -57,24 +41,16 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveTypes = handle.getHiveTypes();
         return new HiveBucketFunction(bucketCount, hiveTypes);
     }
 
     @Override
-    public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
-
-        List<Node> nodes = shuffle(nodeManager.getRequiredWorkerNodes());
-
-        int bucketCount = handle.getBucketCount();
-        ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
-        for (int i = 0; i < bucketCount; i++) {
-            distribution.put(i, nodes.get(i % nodes.size()));
-        }
-        return distribution.build();
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        return createBucketNodeMap(handle.getBucketCount());
     }
 
     @Override
@@ -83,13 +59,15 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> checkType(value, HiveSplit.class, "value").getBucketNumber().getAsInt();
+        return value -> ((HiveSplit) value).getReadBucketNumber()
+                .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
     }
 
-    private static <T> List<T> shuffle(Collection<T> items)
+    @Override
+    public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        List<T> list = new ArrayList<>(items);
-        Collections.shuffle(list);
-        return list;
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        int bucketCount = handle.getBucketCount();
+        return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
     }
 }

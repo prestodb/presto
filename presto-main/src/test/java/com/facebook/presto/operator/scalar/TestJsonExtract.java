@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -30,12 +31,21 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestJsonExtract
+        extends AbstractTestFunctions
 {
+    @BeforeClass
+    public void setUp()
+    {
+        // for "utf8" function
+        registerScalar(TestStringFunctions.class);
+    }
+
     @Test
     public void testJsonTokenizer()
     {
@@ -60,7 +70,7 @@ public class TestJsonExtract
 
         assertQuotedPathToken("-1.1");
         assertQuotedPathToken("!@#$%^&*()[]{}/?'");
-        assertQuotedPathToken("ab\\u0001c");
+        assertQuotedPathToken("ab\u0001c");
         assertQuotedPathToken("ab\0c");
         assertQuotedPathToken("ab\t\n\rc");
         assertQuotedPathToken(".");
@@ -68,7 +78,11 @@ public class TestJsonExtract
         assertQuotedPathToken("]");
         assertQuotedPathToken("[");
         assertQuotedPathToken("'");
-        assertQuotedPathToken("!@#$%^&*(){}[]<>?/\\|.,`~\r\n\t \0");
+        assertQuotedPathToken("!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0");
+        assertQuotedPathToken("a\\\\b\\\"", "a\\b\"");
+
+        // backslash not followed by valid escape
+        assertInvalidPath("$[\"a\\ \"]");
 
         // colon in subscript must be quoted
         assertInvalidPath("$[foo:bar]");
@@ -96,16 +110,25 @@ public class TestJsonExtract
 
     private static void assertQuotedPathToken(String fieldName)
     {
-        assertPathTokenQuoting(fieldName);
+        assertQuotedPathToken(fieldName, fieldName);
+    }
+
+    private static void assertQuotedPathToken(String fieldName, String expectedTokenizedField)
+    {
+        assertPathTokenQuoting(fieldName, expectedTokenizedField);
         // without quoting we should get an error
         assertInvalidPath("$." + fieldName);
     }
 
     private static void assertPathTokenQuoting(String fieldName)
     {
-        assertTrue(fieldName.indexOf('"') < 0);
-        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(fieldName));
-        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", fieldName, "bar"));
+        assertPathTokenQuoting(fieldName, fieldName);
+    }
+
+    private static void assertPathTokenQuoting(String fieldName, String expectedTokenizedField)
+    {
+        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(expectedTokenizedField));
+        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", expectedTokenizedField, "bar"));
     }
 
     public static void assertInvalidPath(String path)
@@ -198,7 +221,6 @@ public class TestJsonExtract
 
     @Test
     public void testFullScalarExtract()
-            throws Exception
     {
         assertEquals(doScalarExtract("{}", "$"), null);
         assertEquals(doScalarExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), null); // Null b/c value is complex type
@@ -236,7 +258,6 @@ public class TestJsonExtract
 
     @Test
     public void testFullJsonExtract()
-            throws Exception
     {
         assertEquals(doJsonExtract("{}", "$"), "{}");
         assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), "{\"bar\":1}");
@@ -315,6 +336,13 @@ public class TestJsonExtract
         assertInvalidExtract("", " ", "Invalid JSON path: ' '");
         assertInvalidExtract("", ".", "Invalid JSON path: '.'");
         assertInvalidExtract("{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }", "$.store.book[", "Invalid JSON path: '$.store.book['");
+    }
+
+    @Test
+    public void testNoAutomaticEncodingDetection()
+    {
+        // Automatic encoding detection treats the following input as UTF-32
+        assertFunction("JSON_EXTRACT_SCALAR(UTF8(X'00 00 00 00 7b 22 72 22'), '$.x')", VARCHAR, null);
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)

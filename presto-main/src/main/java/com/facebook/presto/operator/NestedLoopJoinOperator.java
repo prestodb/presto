@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
@@ -28,9 +27,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
@@ -42,60 +41,73 @@ public class NestedLoopJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
-        private final List<Type> probeTypes;
-        private final List<Type> types;
+        private final JoinBridgeManager<NestedLoopJoinBridge> joinBridgeManager;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.nestedLoopJoinPagesSupplier = nestedLoopJoinPagesSupplier;
-            this.nestedLoopJoinPagesSupplier.retain();
-            this.probeTypes = probeTypes;
-            this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .addAll(nestedLoopJoinPagesSupplier.getTypes())
-                    .build();
+            this.joinBridgeManager = nestedLoopJoinBridgeManager;
+            this.joinBridgeManager.incrementProbeFactoryCount();
         }
 
-        @Override
-        public List<Type> getTypes()
+        private NestedLoopJoinOperatorFactory(NestedLoopJoinOperatorFactory other)
         {
-            return types;
+            requireNonNull(other, "other is null");
+            this.operatorId = other.operatorId;
+            this.planNodeId = other.planNodeId;
+
+            this.joinBridgeManager = other.joinBridgeManager;
+
+            // closed is intentionally not copied
+            closed = false;
+
+            joinBridgeManager.incrementProbeFactoryCount();
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
-            return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier, probeTypes);
+
+            joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
+            return new NestedLoopJoinOperator(
+                    operatorContext,
+                    nestedLoopJoinBridge,
+                    () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (closed) {
                 return;
             }
             closed = true;
-            nestedLoopJoinPagesSupplier.release();
+            joinBridgeManager.probeOperatorFactoryClosedForAllLifespans();
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            joinBridgeManager.probeOperatorFactoryClosed(lifespan);
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperatorFactory(this);
         }
     }
 
-    private final NestedLoopJoinPagesSupplier buildPagesSupplier;
     private final ListenableFuture<NestedLoopJoinPages> nestedLoopJoinPagesFuture;
 
     private final OperatorContext operatorContext;
-    private final List<Type> types;
+    private final Runnable afterClose;
 
     private List<Page> buildPages;
     private Page probePage;
@@ -104,30 +116,17 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesSupplier buildPagesSupplier, List<Type> probeTypes)
+    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.buildPagesSupplier = requireNonNull(buildPagesSupplier, "buildPagesSupplier is null");
-        this.nestedLoopJoinPagesFuture = buildPagesSupplier.getPagesFuture();
-        buildPagesSupplier.retain();
-
-        requireNonNull(probeTypes, "probeTypes is null");
-        this.types = ImmutableList.<Type>builder()
-                .addAll(probeTypes)
-                .addAll(buildPagesSupplier.getTypes())
-                .build();
+        this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
+        this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -214,7 +213,8 @@ public class NestedLoopJoinOperator
             return;
         }
         closed = true;
-        buildPagesSupplier.release();
+        // `afterClose` must be run last.
+        afterClose.run();
     }
 
     /**
@@ -307,7 +307,9 @@ public class NestedLoopJoinOperator
             }
 
             // Put the page with more rows in the blocks array
-            System.arraycopy(largePage.getBlocks(), 0, blocks, indexForPageBlocks, largePage.getChannelCount());
+            for (int i = 0; i < largePage.getChannelCount(); i++) {
+                blocks[indexForPageBlocks + i] = largePage.getBlock(i);
+            }
 
             return new Page(largePage.getPositionCount(), blocks);
         }

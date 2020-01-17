@@ -14,20 +14,16 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.DoubleHistogramStateSerializer;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.google.common.primitives.Ints;
-
-import javax.validation.constraints.NotNull;
 
 import java.util.Map;
 
@@ -35,6 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("numeric_histogram")
 public final class DoubleHistogramAggregation
@@ -49,18 +46,18 @@ public final class DoubleHistogramAggregation
     public interface State
             extends AccumulatorState
     {
-        @NotNull
         NumericHistogram get();
+
         void set(NumericHistogram value);
     }
 
     @InputFunction
-    public static void add(State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value, @SqlType(DOUBLE) double weight)
+    public static void add(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value, @SqlType(DOUBLE) double weight)
     {
         NumericHistogram histogram = state.get();
         if (histogram == null) {
             checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "numeric_histogram bucket count must be greater than one");
-            histogram = new NumericHistogram(Ints.checkedCast(buckets), ENTRY_BUFFER_SIZE);
+            histogram = new NumericHistogram(toIntExact(buckets), ENTRY_BUFFER_SIZE);
             state.set(histogram);
         }
 
@@ -68,13 +65,13 @@ public final class DoubleHistogramAggregation
     }
 
     @InputFunction
-    public static void add(State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value)
+    public static void add(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(DOUBLE) double value)
     {
         add(state, buckets, value, 1);
     }
 
     @CombineFunction
-    public static void merge(State state, State other)
+    public static void merge(@AggregationState State state, State other)
     {
         NumericHistogram input = other.get();
         NumericHistogram previous = state.get();
@@ -88,20 +85,19 @@ public final class DoubleHistogramAggregation
     }
 
     @OutputFunction("map(double,double)")
-    public static void output(State state, BlockBuilder out)
+    public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+
+            BlockBuilder entryBuilder = out.beginBlockEntry();
             for (Map.Entry<Double, Double> entry : value.entrySet()) {
-                DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getKey());
-                DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getValue());
+                DoubleType.DOUBLE.writeDouble(entryBuilder, entry.getKey());
+                DoubleType.DOUBLE.writeDouble(entryBuilder, entry.getValue());
             }
-            Block block = blockBuilder.build();
-            out.writeObject(block);
             out.closeEntry();
         }
     }

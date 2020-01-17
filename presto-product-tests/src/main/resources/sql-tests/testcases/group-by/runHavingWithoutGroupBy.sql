@@ -1,2 +1,2 @@
--- database: presto; requires: com.facebook.presto.tests.ImmutableTpchTablesRequirements; tables: workers; groups: group-by;
+-- database: presto; tables: nation; groups: group-by;
 SELECT COUNT(*) FROM nation HAVING COUNT(*) > 20

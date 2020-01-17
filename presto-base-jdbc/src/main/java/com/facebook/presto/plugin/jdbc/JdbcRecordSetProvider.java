@@ -25,7 +25,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
@@ -42,13 +41,13 @@ public class JdbcRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        JdbcSplit jdbcSplit = checkType(split, JdbcSplit.class, "split");
+        JdbcSplit jdbcSplit = (JdbcSplit) split;
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
-            handles.add(checkType(handle, JdbcColumnHandle.class, "columnHandle"));
+            handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, jdbcSplit, handles.build());
+        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, handles.build());
     }
 }

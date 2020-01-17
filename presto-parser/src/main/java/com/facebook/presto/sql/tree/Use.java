@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,20 +25,20 @@ import static java.util.Objects.requireNonNull;
 public final class Use
         extends Statement
 {
-    private final Optional<String> catalog;
-    private final String schema;
+    private final Optional<Identifier> catalog;
+    private final Identifier schema;
 
-    public Use(Optional<String> catalog, String schema)
+    public Use(Optional<Identifier> catalog, Identifier schema)
     {
         this(Optional.empty(), catalog, schema);
     }
 
-    public Use(NodeLocation location, Optional<String> catalog, String schema)
+    public Use(NodeLocation location, Optional<Identifier> catalog, Identifier schema)
     {
         this(Optional.of(location), catalog, schema);
     }
 
-    private Use(Optional<NodeLocation> location, Optional<String> catalog, String schema)
+    private Use(Optional<NodeLocation> location, Optional<Identifier> catalog, Identifier schema)
     {
         super(location);
         requireNonNull(catalog, "catalog is null");
@@ -44,12 +47,12 @@ public final class Use
         this.schema = schema;
     }
 
-    public Optional<String> getCatalog()
+    public Optional<Identifier> getCatalog()
     {
         return catalog;
     }
 
-    public String getSchema()
+    public Identifier getSchema()
     {
         return schema;
     }
@@ -58,6 +61,12 @@ public final class Use
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitUse(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

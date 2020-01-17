@@ -15,8 +15,13 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import javax.annotation.Nullable;
+
+import java.util.Optional;
+import java.util.function.BiConsumer;
+
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlock
@@ -30,42 +35,76 @@ public class ArrayBlock
     private final Block values;
     private final int[] offsets;
 
-    private final int sizeInBytes;
-    private final int retainedSizeInBytes;
+    private volatile long sizeInBytes;
+    private final long retainedSizeInBytes;
 
-    public ArrayBlock(int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    /**
+     * Create an array block directly from columnar nulls, values, and offsets into the values.
+     * A null array must have no entries.
+     */
+    public static Block fromElementBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] arrayOffset, Block values)
     {
-        this(0, positionCount, valueIsNull, offsets, values);
+        validateConstructorArguments(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
+        // for performance reasons per element checks are only performed on the public construction
+        for (int i = 0; i < positionCount; i++) {
+            int offset = arrayOffset[i];
+            int length = arrayOffset[i + 1] - offset;
+            if (length < 0) {
+                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
+            }
+            if (valueIsNull.isPresent() && valueIsNull.get()[i] && length != 0) {
+                throw new IllegalArgumentException("A null array must have zero entries");
+            }
+        }
+        return new ArrayBlock(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
     }
 
-    ArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    /**
+     * Create an array block directly without per element validations.
+     */
+    static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
+    {
+        validateConstructorArguments(arrayOffset, positionCount, valueIsNull, offsets, values);
+        return new ArrayBlock(arrayOffset, positionCount, valueIsNull, offsets, values);
+    }
+
+    private static void validateConstructorArguments(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
         }
-        this.arrayOffset = arrayOffset;
 
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
         }
-        this.positionCount = positionCount;
 
-        requireNonNull(valueIsNull, "valueIsNull is null");
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
-        this.valueIsNull = valueIsNull;
 
         requireNonNull(offsets, "offsets is null");
         if (offsets.length - arrayOffset < positionCount + 1) {
             throw new IllegalArgumentException("offsets length is less than positionCount");
         }
-        this.offsets = offsets;
 
+        requireNonNull(values, "values is null");
+    }
+
+    /**
+     * Use createArrayBlockInternal or fromElementBlock instead of this method.  The caller of this method is assumed to have
+     * validated the arguments with validateConstructorArguments.
+     */
+    private ArrayBlock(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
+    {
+        // caller must check arguments with validateConstructorArguments
+        this.arrayOffset = arrayOffset;
+        this.positionCount = positionCount;
+        this.valueIsNull = valueIsNull;
+        this.offsets = offsets;
         this.values = requireNonNull(values);
 
-        sizeInBytes = values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * this.positionCount);
-        retainedSizeInBytes = intSaturatedCast(INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull));
+        sizeInBytes = -1;
+        retainedSizeInBytes = INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull);
     }
 
     @Override
@@ -75,19 +114,38 @@ public class ArrayBlock
     }
 
     @Override
-    public int getSizeInBytes()
+    public long getSizeInBytes()
     {
+        if (sizeInBytes < 0) {
+            calculateSize();
+        }
         return sizeInBytes;
     }
 
+    private void calculateSize()
+    {
+        int valueStart = offsets[arrayOffset];
+        int valueEnd = offsets[arrayOffset + positionCount];
+        sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
+    }
+
     @Override
-    public int getRetainedSizeInBytes()
+    public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }
 
     @Override
-    protected Block getValues()
+    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    {
+        consumer.accept(values, values.getRetainedSizeInBytes());
+        consumer.accept(offsets, sizeOf(offsets));
+        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        consumer.accept(this, (long) INSTANCE_SIZE);
+    }
+
+    @Override
+    protected Block getRawElementBlock()
     {
         return values;
     }
@@ -99,12 +157,13 @@ public class ArrayBlock
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return arrayOffset;
     }
 
     @Override
+    @Nullable
     protected boolean[] getValueIsNull()
     {
         return valueIsNull;
@@ -117,5 +176,21 @@ public class ArrayBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedValuesBlock = values.getLoadedBlock();
+
+        if (loadedValuesBlock == values) {
+            return this;
+        }
+        return createArrayBlockInternal(
+                arrayOffset,
+                positionCount,
+                valueIsNull,
+                offsets,
+                loadedValuesBlock);
     }
 }

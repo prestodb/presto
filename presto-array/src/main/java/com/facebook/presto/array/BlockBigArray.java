@@ -14,10 +14,13 @@
 package com.facebook.presto.array;
 
 import com.facebook.presto.spi.block.Block;
+import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BlockBigArray.class).instanceSize();
     private final ObjectBigArray<Block> array;
+    private final ReferenceCountMap trackedObjects = new ReferenceCountMap();
     private long sizeOfBlocks;
 
     public BlockBigArray()
@@ -35,7 +38,7 @@ public final class BlockBigArray
      */
     public long sizeOf()
     {
-        return array.sizeOf() + sizeOfBlocks;
+        return INSTANCE_SIZE + array.sizeOf() + sizeOfBlocks + trackedObjects.sizeOf();
     }
 
     /**
@@ -58,10 +61,30 @@ public final class BlockBigArray
     {
         Block currentValue = array.get(index);
         if (currentValue != null) {
-            sizeOfBlocks -= currentValue.getRetainedSizeInBytes();
+            currentValue.retainedBytesForEachPart((object, size) -> {
+                if (currentValue == object) {
+                    // track instance size separately as the reference count for an instance is always 1
+                    sizeOfBlocks -= size;
+                    return;
+                }
+                if (trackedObjects.decrementAndGet(object) == 0) {
+                    // decrement the size only when it is the last reference
+                    sizeOfBlocks -= size;
+                }
+            });
         }
         if (value != null) {
-            sizeOfBlocks += value.getRetainedSizeInBytes();
+            value.retainedBytesForEachPart((object, size) -> {
+                if (value == object) {
+                    // track instance size separately as the reference count for an instance is always 1
+                    sizeOfBlocks += size;
+                    return;
+                }
+                if (trackedObjects.incrementAndGet(object) == 1) {
+                    // increment the size only when it is the first reference
+                    sizeOfBlocks += size;
+                }
+            });
         }
         array.set(index, value);
     }

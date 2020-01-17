@@ -176,7 +176,7 @@ public final class FormatUtils
         int range = width - markerWidth; // "lower" must fall within this range for the marker to fit within the bar
         int lower = tick % range;
 
-        if (((tick / range) % 2) == 1) { // are we going or coming back?
+        if (((tick / range) % 2) != 0) { // are we going or coming back?
             lower = range - lower;
         }
 

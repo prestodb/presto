@@ -30,7 +30,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
-import static com.facebook.presto.atop.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -57,13 +56,13 @@ public final class AtopPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        AtopSplit atopSplit = checkType(split, AtopSplit.class, "split");
+        AtopSplit atopSplit = (AtopSplit) split;
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         ImmutableList.Builder<AtopColumn> atopColumns = ImmutableList.builder();
 
         for (ColumnHandle column : columns) {
-            AtopColumnHandle atopColumnHandle = checkType(column, AtopColumnHandle.class, "column");
+            AtopColumnHandle atopColumnHandle = (AtopColumnHandle) column;
             AtopColumn atopColumn = atopSplit.getTable().getColumn(atopColumnHandle.getName());
             atopColumns.add(atopColumn);
             types.add(typeManager.getType(atopColumn.getType()));

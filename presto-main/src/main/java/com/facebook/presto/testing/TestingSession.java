@@ -15,30 +15,40 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
 {
     public static final String TESTING_CATALOG = "testing_catalog";
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+
+    /*
+     * Pacific/Apia
+     *  - has DST (e.g. January 2017)
+     *  - had DST change at midnight (on Sunday, 26 September 2010, 00:00:00 clocks were turned forward 1 hour)
+     *  - had offset change since 1970 (offset in January 1970: -11:00, offset in January 2017: +14:00, offset in June 2017: +13:00)
+     *  - a whole day was skipped during policy change (on Friday, 30 December 2011, 00:00:00 clocks were turned forward 24 hours)
+     */
+    public static final TimeZoneKey DEFAULT_TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey("Pacific/Apia");
 
     private TestingSession() {}
 
@@ -55,7 +65,7 @@ public final class TestingSession
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setTimeZoneKey(UTC_KEY)
+                .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
@@ -87,7 +97,7 @@ public final class TestingSession
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new SystemTablesMetadata(new ConnectorId("test_session_connector"), ImmutableSet.of());
+                return new SystemTablesMetadata(new ConnectorId("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
             }
 
             @Override

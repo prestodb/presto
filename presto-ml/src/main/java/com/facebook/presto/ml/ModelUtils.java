@@ -15,7 +15,6 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.spi.block.Block;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +45,7 @@ public final class ModelUtils
     private static final int HASH_OFFSET = VERSION_OFFSET + SIZE_OF_INT;
     private static final int ALGORITHM_OFFSET = HASH_OFFSET + 32;
     private static final int HYPERPARAMETER_LENGTH_OFFSET = ALGORITHM_OFFSET + SIZE_OF_INT;
-    private static final int HYPERPARAMETERS_OFFSET = HYPERPARAMETER_LENGTH_OFFSET +  SIZE_OF_INT;
+    private static final int HYPERPARAMETERS_OFFSET = HYPERPARAMETER_LENGTH_OFFSET + SIZE_OF_INT;
 
     private static final int CURRENT_FORMAT_VERSION = 1;
 
@@ -80,7 +79,7 @@ public final class ModelUtils
      * byte[]: hyperparameters (currently not used)
      * long: length of data section
      * byte[]: model data
-     *
+     * <p>
      * note: all multibyte values are in little endian
      */
     public static Slice serialize(Model model)
@@ -154,11 +153,11 @@ public final class ModelUtils
             return (Model) deserialize.invoke(null, new Object[] {data});
         }
         catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
-    public static byte[] serializeModels(Model...models)
+    public static byte[] serializeModels(Model... models)
     {
         List<byte[]> serializedModels = new ArrayList<>();
         int size = SIZE_OF_INT + SIZE_OF_INT * models.length;

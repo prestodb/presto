@@ -1,0 +1,13 @@
+version: '2'
+services:
+
+  cassandra:
+      hostname: cassandra
+      image: 'cassandra:3.9'
+      ports:
+        - '9042:9042'
+      environment:
+          - HEAP_NEWSIZE=128M
+          - MAX_HEAP_SIZE=512M
+      entrypoint: []
+      command: [bash, -cxeu,  "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f"]

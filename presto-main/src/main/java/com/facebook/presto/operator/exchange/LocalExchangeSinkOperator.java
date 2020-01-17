@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
+import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -36,24 +37,24 @@ public class LocalExchangeSinkOperator
     public static class LocalExchangeSinkOperatorFactory
             implements OperatorFactory, LocalPlannerAware
     {
+        private final LocalExchangeFactory localExchangeFactory;
+
         private final int operatorId;
-        private final LocalExchangeSinkFactory sinkFactory;
+        // There will be a LocalExchangeSinkFactory per LocalExchangeSinkOperatorFactory per Driver Group.
+        // A LocalExchangeSinkOperatorFactory needs to have access to LocalExchangeSinkFactories for each Driver Group.
+        private final LocalExchangeSinkFactoryId sinkFactoryId;
         private final PlanNodeId planNodeId;
         private final Function<Page, Page> pagePreprocessor;
         private boolean closed;
 
-        public LocalExchangeSinkOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchangeSinkFactory sinkFactory, Function<Page, Page> pagePreprocessor)
+        public LocalExchangeSinkOperatorFactory(LocalExchangeFactory localExchangeFactory, int operatorId, PlanNodeId planNodeId, LocalExchangeSinkFactoryId sinkFactoryId, Function<Page, Page> pagePreprocessor)
         {
+            this.localExchangeFactory = requireNonNull(localExchangeFactory, "localExchangeFactory is null");
+
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.sinkFactory = requireNonNull(sinkFactory, "sinkFactory is null");
+            this.sinkFactoryId = requireNonNull(sinkFactoryId, "sinkFactoryId is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return sinkFactory.getTypes();
         }
 
         @Override
@@ -61,28 +62,37 @@ public class LocalExchangeSinkOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSinkOperator.class.getSimpleName());
-            return new LocalExchangeSinkOperator(operatorContext, sinkFactory.createSink(), pagePreprocessor);
+
+            LocalExchangeSinkFactory localExchangeSinkFactory = localExchangeFactory.getLocalExchange(driverContext.getLifespan()).getSinkFactory(sinkFactoryId);
+
+            return new LocalExchangeSinkOperator(operatorContext, localExchangeSinkFactory.createSink(), pagePreprocessor);
         }
 
         @Override
-        public void close()
+        public void noMoreOperators()
         {
             if (!closed) {
                 closed = true;
-                sinkFactory.close();
+                localExchangeFactory.closeSinks(sinkFactoryId);
             }
+        }
+
+        @Override
+        public void noMoreOperators(Lifespan lifespan)
+        {
+            localExchangeFactory.getLocalExchange(lifespan).getSinkFactory(sinkFactoryId).close();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new LocalExchangeSinkOperatorFactory(operatorId, planNodeId, sinkFactory.duplicate(), pagePreprocessor);
+            return new LocalExchangeSinkOperatorFactory(localExchangeFactory, operatorId, planNodeId, localExchangeFactory.newSinkFactoryId(), pagePreprocessor);
         }
 
         @Override
         public void localPlannerComplete()
         {
-            sinkFactory.noMoreSinkFactories();
+            localExchangeFactory.noMoreSinkFactories();
         }
     }
 
@@ -101,12 +111,6 @@ public class LocalExchangeSinkOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return sink.getTypes();
     }
 
     @Override
@@ -139,7 +143,7 @@ public class LocalExchangeSinkOperator
         requireNonNull(page, "page is null");
         page = pagePreprocessor.apply(page);
         sink.addPage(page);
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

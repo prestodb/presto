@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,13 +27,13 @@ public class Query
 {
     private final Optional<With> with;
     private final QueryBody queryBody;
-    private final List<SortItem> orderBy;
+    private final Optional<OrderBy> orderBy;
     private final Optional<String> limit;
 
     public Query(
             Optional<With> with,
             QueryBody queryBody,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         this(Optional.empty(), with, queryBody, orderBy, limit);
@@ -41,7 +43,7 @@ public class Query
             NodeLocation location,
             Optional<With> with,
             QueryBody queryBody,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         this(Optional.of(location), with, queryBody, orderBy, limit);
@@ -51,7 +53,7 @@ public class Query
             Optional<NodeLocation> location,
             Optional<With> with,
             QueryBody queryBody,
-            List<SortItem> orderBy,
+            Optional<OrderBy> orderBy,
             Optional<String> limit)
     {
         super(location);
@@ -76,7 +78,7 @@ public class Query
         return queryBody;
     }
 
-    public List<SortItem> getOrderBy()
+    public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
     }
@@ -90,6 +92,16 @@ public class Query
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitQuery(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        with.ifPresent(nodes::add);
+        nodes.add(queryBody);
+        orderBy.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

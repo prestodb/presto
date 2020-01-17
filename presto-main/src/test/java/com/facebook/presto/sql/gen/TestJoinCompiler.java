@@ -14,21 +14,26 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -43,17 +48,18 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJoinCompiler
 {
-    private static final JoinCompiler joinCompiler = new JoinCompiler();
+    private static final JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final boolean groupByUsesEqualTo = new FeaturesConfig().isGroupByUsesEqualTo();
 
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testSingleChannel(boolean hashEnabled)
-            throws Exception
     {
         List<Type> joinTypes = ImmutableList.of(VARCHAR);
         List<Integer> joinChannels = Ints.asList(0);
@@ -67,14 +73,14 @@ public class TestJoinCompiler
                 BlockAssertions.createStringSequenceBlock(20, 30),
                 BlockAssertions.createStringSequenceBlock(15, 25));
 
-        Optional<Integer> hashChannel = Optional.empty();
+        OptionalInt hashChannel = OptionalInt.empty();
         List<List<Block>> channels = ImmutableList.of(channel);
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (Block block : channel) {
                 hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, block));
             }
-            hashChannel = Optional.of(1);
+            hashChannel = OptionalInt.of(1);
             channels = ImmutableList.of(channel, hashChannelBuilder.build());
         }
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
@@ -133,13 +139,14 @@ public class TestJoinCompiler
 
     @Test(dataProvider = "hashEnabledValues")
     public void testMultiChannel(boolean hashEnabled)
-            throws Exception
     {
         // compile a single channel hash strategy
-        JoinCompiler joinCompiler = new JoinCompiler();
-        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
         List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
         List<Integer> joinChannels = Ints.asList(1, 2, 3, 4);
+        List<Integer> outputChannels = Ints.asList(1, 2, 3, 4, 0);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> extraChannel = ImmutableList.of(
@@ -162,30 +169,37 @@ public class TestJoinCompiler
                 BlockAssertions.createBooleanSequenceBlock(10, 20),
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
                 BlockAssertions.createBooleanSequenceBlock(15, 25));
+        List<Block> extraUnusedChannel = ImmutableList.of(
+                BlockAssertions.createBooleanSequenceBlock(10, 20),
+                BlockAssertions.createBooleanSequenceBlock(20, 30),
+                BlockAssertions.createBooleanSequenceBlock(15, 25));
 
-        Optional<Integer> hashChannel = Optional.empty();
-        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
+        OptionalInt hashChannel = OptionalInt.empty();
+        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
         List<Block> precomputedHash = ImmutableList.of();
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (int i = 0; i < 3; i++) {
                 hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
             }
-            hashChannel = Optional.of(5);
+            hashChannel = OptionalInt.of(6);
             precomputedHash = hashChannelBuilder.build();
-            channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, precomputedHash);
-            types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT);
+            channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel, precomputedHash);
+            types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
+            outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
+            outputChannels = Ints.asList(1, 2, 3, 4, 0, 6);
         }
 
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
         // todo add tests for filter function
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel);
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), FUNCTION_MANAGER, groupByUsesEqualTo);
 
         // verify channel count
-        assertEquals(hashStrategy.getChannelCount(), types.size());
+        assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
         // verify size
-        long sizeInBytes = channels.stream()
+        int instanceSize = ClassLayout.parseClass(hashStrategy.getClass()).instanceSize();
+        long sizeInBytes = instanceSize + channels.stream()
                 .flatMap(List::stream)
                 .mapToLong(Block::getRetainedSizeInBytes)
                 .sum();
@@ -193,7 +207,7 @@ public class TestJoinCompiler
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {
-            PageBuilder pageBuilder = new PageBuilder(types);
+            PageBuilder pageBuilder = new PageBuilder(outputTypes);
 
             Block[] leftBlocks = new Block[4];
             leftBlocks[0] = varcharChannel.get(leftBlockIndex);
@@ -251,21 +265,21 @@ public class TestJoinCompiler
             // verify output block matches
             Page page = pageBuilder.build();
             if (hashEnabled) {
-                assertPageEquals(types, page, new Page(
-                        extraChannel.get(leftBlockIndex),
+                assertPageEquals(outputTypes, page, new Page(
                         varcharChannel.get(leftBlockIndex),
                         longChannel.get(leftBlockIndex),
                         doubleChannel.get(leftBlockIndex),
                         booleanChannel.get(leftBlockIndex),
+                        extraChannel.get(leftBlockIndex),
                         precomputedHash.get(leftBlockIndex)));
             }
             else {
-                assertPageEquals(types, page, new Page(
-                        extraChannel.get(leftBlockIndex),
+                assertPageEquals(outputTypes, page, new Page(
                         varcharChannel.get(leftBlockIndex),
                         longChannel.get(leftBlockIndex),
                         doubleChannel.get(leftBlockIndex),
-                        booleanChannel.get(leftBlockIndex)));
+                        booleanChannel.get(leftBlockIndex),
+                        extraChannel.get(leftBlockIndex)));
             }
         }
     }

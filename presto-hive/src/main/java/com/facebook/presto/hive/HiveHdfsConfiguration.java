@@ -13,32 +13,23 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.Map;
+import java.util.Set;
 
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
+import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
-    private static final Configuration INITIAL_CONFIGURATION;
-
-    static {
-        Configuration.addDefaultResource("hdfs-default.xml");
-        Configuration.addDefaultResource("hdfs-site.xml");
-
-        // must not be transitively reloaded during the future loading of various Hadoop modules
-        // all the required default resources must be declared above
-        INITIAL_CONFIGURATION = new Configuration(false);
-        Configuration defaultConfiguration = new Configuration();
-        for (Map.Entry<String, String> entry : defaultConfiguration) {
-            INITIAL_CONFIGURATION.set(entry.getKey(), entry.getValue());
-        }
-    }
+    private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -46,27 +37,36 @@ public class HiveHdfsConfiguration
         @Override
         protected Configuration initialValue()
         {
-            Configuration config = new Configuration(false);
-            for (Map.Entry<String, String> entry : INITIAL_CONFIGURATION) {
-                config.set(entry.getKey(), entry.getValue());
-            }
-            updater.updateConfiguration(config);
-            return config;
+            Configuration configuration = new Configuration(false);
+            copy(INITIAL_CONFIGURATION, configuration);
+            initializer.updateConfiguration(configuration);
+            return configuration;
         }
     };
 
-    private final HdfsConfigurationUpdater updater;
+    private final HdfsConfigurationInitializer initializer;
+    private final Set<DynamicConfigurationProvider> dynamicProviders;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationUpdater updater)
+    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
-        this.updater = requireNonNull(updater, "updater is null");
+        this.initializer = requireNonNull(initializer, "initializer is null");
+        this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));
     }
 
     @Override
-    public Configuration getConfiguration(URI uri)
+    public Configuration getConfiguration(HdfsContext context, URI uri)
     {
-        // use the same configuration for everything
-        return hadoopConfiguration.get();
+        if (dynamicProviders.isEmpty()) {
+            // use the same configuration for everything
+            return hadoopConfiguration.get();
+        }
+
+        Configuration config = new Configuration(false);
+        copy(hadoopConfiguration.get(), config);
+        for (DynamicConfigurationProvider provider : dynamicProviders) {
+            provider.updateConfiguration(config, context, uri);
+        }
+        return config;
     }
 }
