@@ -49,6 +49,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -61,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
@@ -102,6 +104,13 @@ public class FunctionManager
     private final Map<CatalogSchemaPrefix, String> functionNamespaces = new ConcurrentHashMap<>();
     private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new ConcurrentHashMap<>();
 
+    private final AtomicLong exactMatchFunctionCount = new AtomicLong();
+    private final AtomicLong genericMatchFunctionCount = new AtomicLong();
+    private final AtomicLong coercionMatchFunctionCount = new AtomicLong();
+    private final AtomicLong resolveOperatorCount = new AtomicLong();
+    private final AtomicLong resolveFunctionCount = new AtomicLong();
+    private final AtomicLong lookupFunctionCount = new AtomicLong();
+
     @Inject
     public FunctionManager(
             TypeManager typeManager,
@@ -129,6 +138,42 @@ public class FunctionManager
     {
         // TODO: Convert this constructor to a function in the testing package
         this(typeManager, createTestTransactionManager(), blockEncodingSerde, featuresConfig, new HandleResolver());
+    }
+
+    @Managed
+    public long getExactMatchFunctionCount()
+    {
+        return exactMatchFunctionCount.get();
+    }
+
+    @Managed
+    public long getGenericMatchFunctionCount()
+    {
+        return genericMatchFunctionCount.get();
+    }
+
+    @Managed
+    public long getCoercionMatchFunctionCount()
+    {
+        return coercionMatchFunctionCount.get();
+    }
+
+    @Managed
+    public long getResolveOperatorCount()
+    {
+        return resolveOperatorCount.get();
+    }
+
+    @Managed
+    public long getResolveFunctionCount()
+    {
+        return resolveFunctionCount.get();
+    }
+
+    @Managed
+    public long getLookupFunctionCount()
+    {
+        return lookupFunctionCount.get();
     }
 
     public void loadFunctionNamespaceManager(
@@ -233,6 +278,7 @@ public class FunctionManager
             functionName = QualifiedFunctionName.of(new CatalogSchemaName(name.getOriginalParts().get(0), name.getOriginalParts().get(1)), name.getOriginalParts().get(2));
         }
 
+        resolveFunctionCount.incrementAndGet();
         return resolveFunction(transactionId, functionName, parameterTypes);
     }
 
@@ -259,6 +305,7 @@ public class FunctionManager
 
         Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
         if (match.isPresent()) {
+            coercionMatchFunctionCount.incrementAndGet();
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
@@ -323,6 +370,7 @@ public class FunctionManager
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
+            resolveFunctionCount.incrementAndGet();
             return resolveFunction(Optional.empty(), operatorType.getFunctionName(), argumentTypes);
         }
         catch (PrestoException e) {
@@ -347,6 +395,7 @@ public class FunctionManager
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
+        lookupFunctionCount.incrementAndGet();
         QualifiedFunctionName functionName = QualifiedFunctionName.of(DEFAULT_NAMESPACE, name);
         Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
         return lookupFunction(builtInFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
@@ -381,6 +430,7 @@ public class FunctionManager
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
+            exactMatchFunctionCount.incrementAndGet();
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
@@ -390,6 +440,7 @@ public class FunctionManager
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
+            genericMatchFunctionCount.incrementAndGet();
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
