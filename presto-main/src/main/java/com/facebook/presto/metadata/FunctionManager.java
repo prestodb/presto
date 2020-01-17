@@ -40,15 +40,22 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -58,6 +65,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,6 +109,8 @@ public class FunctionManager
     private final HandleResolver handleResolver;
     private final Map<CatalogSchemaPrefix, String> functionNamespaces = new ConcurrentHashMap<>();
     private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
+    private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
     public FunctionManager(
@@ -122,6 +132,11 @@ public class FunctionManager
         }
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(BuiltInFunctionNamespaceManager.ID, builtInFunctionNamespaceManager);
+        this.functionCache = CacheBuilder.newBuilder()
+                .recordStats()
+                .maximumSize(1000)
+                .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
+        this.cacheStatsMBean = new CacheStatsMBean(functionCache);
     }
 
     @VisibleForTesting
@@ -129,6 +144,13 @@ public class FunctionManager
     {
         // TODO: Convert this constructor to a function in the testing package
         this(typeManager, createTestTransactionManager(), blockEncodingSerde, featuresConfig, new HandleResolver());
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getFunctionResolutionCacheStats()
+    {
+        return cacheStatsMBean;
     }
 
     public void loadFunctionNamespaceManager(
@@ -238,6 +260,14 @@ public class FunctionManager
 
     public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
     {
+        if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE) && parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
+            return lookupCachedFunction(functionName, parameterTypes);
+        }
+        return resolveFunctionInternal(transactionId, functionName, parameterTypes);
+    }
+
+    private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
         Optional<String> functionNamespaceManagerId = getServingFunctionNamespaceManagerId(functionName.getFunctionNamespace());
         if (!functionNamespaceManagerId.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
@@ -276,6 +306,13 @@ public class FunctionManager
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+    }
+
+    private FunctionHandle resolveBuiltInFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        checkArgument(functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
+        return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
 
     @Override
@@ -348,6 +385,9 @@ public class FunctionManager
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         QualifiedFunctionName functionName = QualifiedFunctionName.of(DEFAULT_NAMESPACE, name);
+        if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
+            return lookupCachedFunction(functionName, parameterTypes);
+        }
         Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
         return lookupFunction(builtInFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
     }
@@ -366,6 +406,19 @@ public class FunctionManager
             throw e;
         }
         return builtInFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+    }
+
+    private FunctionHandle lookupCachedFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        try {
+            return functionCache.getUnchecked(new FunctionResolutionCacheKey(functionName, parameterTypes));
+        }
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof PrestoException) {
+                throw (PrestoException) e.getCause();
+            }
+            throw e;
+        }
     }
 
     private FunctionHandle lookupFunction(
@@ -685,6 +738,50 @@ public class FunctionManager
                     .add("declaredSignature", declaredSignature)
                     .add("boundSignature", boundSignature)
                     .add("calledOnNullInput", calledOnNullInput)
+                    .toString();
+        }
+    }
+
+    private static class FunctionResolutionCacheKey
+    {
+        private final QualifiedFunctionName functionName;
+        private final List<TypeSignature> parameterTypes;
+
+        private FunctionResolutionCacheKey(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+        {
+            checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Only type signatures without dependency can be cached");
+            this.functionName = requireNonNull(functionName, "functionName is null");
+            this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null").stream()
+                    .map(TypeSignatureProvider::getTypeSignature)
+                    .collect(toImmutableList());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionName, parameterTypes);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            FunctionResolutionCacheKey other = (FunctionResolutionCacheKey) obj;
+            return Objects.equals(this.functionName, other.functionName) &&
+                    Objects.equals(this.parameterTypes, other.parameterTypes);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("functionName", functionName)
+                    .add("parameterTypes", parameterTypes)
                     .toString();
         }
     }
