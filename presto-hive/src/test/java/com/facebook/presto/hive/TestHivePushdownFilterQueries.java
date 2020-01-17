@@ -644,6 +644,7 @@ public class TestHivePushdownFilterQueries
         // filter-only struct
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL");
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey = 16515", rewriter);
+        assertQueryReturnsEmptyResult("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey = 16515 and info.orderkey = 16516");
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey + 1 = 16514", rewriter);
 
         // filters on subfields
@@ -1031,6 +1032,13 @@ public class TestHivePushdownFilterQueries
         finally {
             assertUpdate("DROP TABLE test_nan");
         }
+    }
+
+    @Test
+    public void testFilterFunctionsWithOptimization()
+    {
+        assertQuery("SELECT partkey FROM lineitem WHERE orderkey > 10 OR if(json_extract(json_parse('{}'), '$.a') IS NOT NULL, quantity * discount) > 0",
+                "SELECT partkey FROM lineitem WHERE orderkey > 10");
     }
 
     private Path getPartitionDirectory(String tableName, String partitionClause)
