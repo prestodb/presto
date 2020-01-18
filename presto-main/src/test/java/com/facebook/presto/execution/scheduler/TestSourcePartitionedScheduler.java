@@ -508,6 +508,8 @@ public class TestSourcePartitionedScheduler
         SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(
                 new StageExecutionId(stageId, 0),
                 tableScanPlan.getFragment(),
+                // TODO:
+                new byte[] {},
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,

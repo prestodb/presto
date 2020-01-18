@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.block.BlockEncodingManager;
@@ -28,10 +29,13 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
+import static com.facebook.presto.execution.TaskTestUtils.SERIALIZED_PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
@@ -251,14 +256,19 @@ public class TestSqlTaskManager
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 new BlockEncodingManager(new TypeRegistry()),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                // TODO: inject...
+                JsonCodec.jsonCodec(PlanFragment.class),
+                SmileCodec.smileCodec(PlanFragment.class),
+                new InternalCommunicationConfig());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
     {
-        return sqlTaskManager.updateTask(TEST_SESSION,
+        return sqlTaskManager.updateTask(
+                TEST_SESSION,
                 taskId,
-                Optional.of(PLAN_FRAGMENT),
+                Optional.of(SERIALIZED_PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
@@ -276,7 +286,7 @@ public class TestSqlTaskManager
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,
-                Optional.of(PLAN_FRAGMENT),
+                Optional.of(SERIALIZED_PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));

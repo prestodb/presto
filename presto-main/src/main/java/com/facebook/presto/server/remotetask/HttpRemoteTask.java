@@ -128,6 +128,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final String nodeId;
     private final PlanFragment planFragment;
+    private final byte[] serializedPlanFragment;
 
     private final Set<PlanNodeId> tableScanPlanNodeIds;
     private final Set<PlanNodeId> remoteSourcePlanNodeIds;
@@ -191,6 +192,7 @@ public final class HttpRemoteTask
             String nodeId,
             URI location,
             PlanFragment planFragment,
+            byte[] serializedPlanFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
@@ -216,6 +218,7 @@ public final class HttpRemoteTask
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
+        requireNonNull(serializedPlanFragment, "serializedPlanFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
@@ -234,6 +237,7 @@ public final class HttpRemoteTask
             this.session = session;
             this.nodeId = nodeId;
             this.planFragment = planFragment;
+            this.serializedPlanFragment = serializedPlanFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -620,12 +624,12 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
+        Optional<byte[]> serializedFragment = sendPlan.get() ? Optional.of(serializedPlanFragment) : Optional.empty();
         Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
-                fragment,
+                serializedFragment,
                 sources,
                 outputBuffers.get(),
                 writeInfo);
@@ -635,7 +639,7 @@ public final class HttpRemoteTask
             throw new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes));
         }
 
-        if (fragment.isPresent()) {
+        if (serializedFragment.isPresent()) {
             stats.updateWithPlanSize(taskUpdateRequestJson.length);
         }
         else {

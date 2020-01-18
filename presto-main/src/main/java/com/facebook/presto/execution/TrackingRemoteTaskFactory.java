@@ -41,20 +41,24 @@ public class TrackingRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
+            byte[] serializedPlanFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        RemoteTask task = remoteTaskFactory.createRemoteTask(session,
+        RemoteTask task = remoteTaskFactory.createRemoteTask(
+                session,
                 taskId,
                 node,
                 fragment,
+                serializedPlanFragment,
                 initialSplits,
                 outputBuffers,
                 partitionedSplitCountTracker,

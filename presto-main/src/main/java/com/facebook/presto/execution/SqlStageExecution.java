@@ -91,6 +91,7 @@ public final class SqlStageExecution
     private final Session session;
     private final StageExecutionStateMachine stateMachine;
     private final PlanFragment planFragment;
+    private final byte[] serializedPlanFragment;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -138,6 +139,7 @@ public final class SqlStageExecution
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
             PlanFragment fragment,
+            byte[] serializedPlanFragment,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             boolean summarizeTaskInfo,
@@ -149,6 +151,7 @@ public final class SqlStageExecution
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
+        requireNonNull(serializedPlanFragment, "serializedPlanFragment is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -161,6 +164,7 @@ public final class SqlStageExecution
                 session,
                 new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
                 fragment,
+                serializedPlanFragment,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
@@ -176,6 +180,7 @@ public final class SqlStageExecution
             Session session,
             StageExecutionStateMachine stateMachine,
             PlanFragment planFragment,
+            byte[] serializedPlanFragment,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
@@ -187,6 +192,7 @@ public final class SqlStageExecution
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
+        this.serializedPlanFragment = requireNonNull(serializedPlanFragment, "serializedPlanFragment is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
@@ -503,6 +509,7 @@ public final class SqlStageExecution
                 taskId,
                 node,
                 planFragment,
+                serializedPlanFragment,
                 initialSplits.build(),
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),

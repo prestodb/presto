@@ -25,10 +25,12 @@ import com.google.common.collect.Multimap;
 
 public interface RemoteTaskFactory
 {
-    RemoteTask createRemoteTask(Session session,
+    RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
+            byte[] serializedPlanFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,

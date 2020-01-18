@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CostCalculator;
@@ -33,6 +34,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
@@ -53,6 +58,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
@@ -85,6 +91,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -124,6 +131,7 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final Codec<PlanFragment> planFragmentCodec;
 
     private SqlQueryExecution(
             String query,
@@ -154,7 +162,8 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Codec<PlanFragment> planFragmentCodec)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", session.getQueryId())) {
             this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
@@ -174,6 +183,7 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -511,7 +521,8 @@ public class SqlQueryExecution
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
-                metadata);
+                metadata,
+                planFragmentCodec);
 
         queryScheduler.set(scheduler);
 
@@ -681,6 +692,7 @@ public class SqlQueryExecution
         private final ClusterSizeMonitor clusterSizeMonitor;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final Codec<PlanFragment> planFragmentCodec;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -704,7 +716,10 @@ public class SqlQueryExecution
                 SplitSchedulerStats schedulerStats,
                 ClusterSizeMonitor clusterSizeMonitor,
                 StatsCalculator statsCalculator,
-                CostCalculator costCalculator)
+                CostCalculator costCalculator,
+                JsonCodec<PlanFragment> planFragmentJsonCodec,
+                SmileCodec<PlanFragment> planFragmentSmileCodec,
+                InternalCommunicationConfig communicationConfig)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -730,6 +745,15 @@ public class SqlQueryExecution
             this.planOptimizers = planOptimizers.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+
+            boolean isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
+            if (isBinaryTransportEnabled) {
+                planFragmentCodec = planFragmentSmileCodec;
+            }
+            else {
+                planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
+            }
+
         }
 
         @Override
@@ -774,7 +798,8 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
-                    warningCollector);
+                    warningCollector,
+                    planFragmentCodec);
 
             return execution;
         }

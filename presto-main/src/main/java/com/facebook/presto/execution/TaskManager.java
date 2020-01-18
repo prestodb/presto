@@ -86,7 +86,7 @@ public interface TaskManager
     TaskInfo updateTask(
             Session session,
             TaskId taskId,
-            Optional<PlanFragment> fragment,
+            Optional<byte[]> serializedPlanFragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
             Optional<TableWriteInfo> tableWriteInfo);

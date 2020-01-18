@@ -34,7 +34,7 @@ public class TaskUpdateRequest
     private final SessionRepresentation session;
     // extraCredentials is stored separately from SessionRepresentation to avoid being leaked
     private final Map<String, String> extraCredentials;
-    private final Optional<PlanFragment> fragment;
+    private final Optional<byte[]> serializedPlanFragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
     private final Optional<TableWriteInfo> tableWriteInfo;
@@ -43,21 +43,21 @@ public class TaskUpdateRequest
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
-            @JsonProperty("fragment") Optional<PlanFragment> fragment,
+            @JsonProperty("fragment") Optional<byte[]> serializedPlanFragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
             @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "credentials is null");
-        requireNonNull(fragment, "fragment is null");
+        requireNonNull(serializedPlanFragment, "serializedPlanFragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
-        this.fragment = fragment;
+        this.serializedPlanFragment = serializedPlanFragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
         this.tableWriteInfo = tableWriteInfo;
@@ -76,9 +76,9 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public Optional<PlanFragment> getFragment()
+    public Optional<byte[]> getSerializedPlanFragment()
     {
-        return fragment;
+        return serializedPlanFragment;
     }
 
     @JsonProperty
@@ -105,7 +105,7 @@ public class TaskUpdateRequest
         return toStringHelper(this)
                 .add("session", session)
                 .add("extraCredentials", extraCredentials.keySet())
-                .add("fragment", fragment)
+                .add("serializedPlanFragment", serializedPlanFragment)
                 .add("sources", sources)
                 .add("outputIds", outputIds)
                 .toString();

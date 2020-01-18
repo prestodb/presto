@@ -101,6 +101,8 @@ public class TestSqlStageExecution
         SqlStageExecution stage = createSqlStageExecution(
                 new StageExecutionId(stageId, 0),
                 createExchangePlanFragment(),
+                // TODO...
+                new byte[] {},
                 new MockRemoteTaskFactory(executor, scheduledExecutor),
                 TEST_SESSION,
                 true,

@@ -110,6 +110,8 @@ public final class TaskTestUtils
             false,
             StatsAndCosts.empty(),
             Optional.empty());
+    // TODO...
+    public static final byte[] SERIALIZED_PLAN_FRAGMENT = new byte[] {};
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

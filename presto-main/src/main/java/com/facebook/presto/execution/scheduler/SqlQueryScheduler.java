@@ -36,6 +36,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -137,6 +138,7 @@ public class SqlQueryScheduler
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
     private final int maxConcurrentMaterializations;
+    private final Codec<PlanFragment> planFragmentCodec;
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             QueryStateMachine queryStateMachine,
@@ -156,7 +158,8 @@ public class SqlQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
-            Metadata metadata)
+            Metadata metadata,
+            Codec<PlanFragment> planFragmentCodec)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -176,7 +179,8 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
-                metadata);
+                metadata,
+                planFragmentCodec);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -199,7 +203,8 @@ public class SqlQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
-            Metadata metadata)
+            Metadata metadata,
+            Codec<PlanFragment> planFragmentCodec)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
@@ -207,6 +212,7 @@ public class SqlQueryScheduler
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
 
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         sectionedPlan = extractStreamingSections(plan);
@@ -395,6 +401,7 @@ public class SqlQueryScheduler
         SqlStageExecution stageExecution = createSqlStageExecution(
                 new StageExecutionId(stageId, 0),
                 plan.getFragment(),
+                planFragmentCodec.toBytes(plan.getFragment()),
                 remoteTaskFactory,
                 session,
                 summarizeTaskInfo,

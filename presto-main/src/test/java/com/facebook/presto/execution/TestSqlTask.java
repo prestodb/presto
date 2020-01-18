@@ -125,7 +125,8 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.updateTask(TEST_SESSION,
+        taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
@@ -143,7 +144,8 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        TaskInfo taskInfo = sqlTask.updateTask(
+                TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),

@@ -135,6 +135,7 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -425,8 +426,11 @@ public class ServerMainModule
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
+        jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
         smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
         smileCodecBinder(binder).bindSmileCodec(ConnectorSplit.class);
+        smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
+
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);

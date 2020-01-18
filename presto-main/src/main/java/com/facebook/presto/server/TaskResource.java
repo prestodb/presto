@@ -130,7 +130,7 @@ public class TaskResource
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
-                taskUpdateRequest.getFragment(),
+                taskUpdateRequest.getSerializedPlanFragment(),
                 taskUpdateRequest.getSources(),
                 taskUpdateRequest.getOutputIds(),
                 taskUpdateRequest.getTableWriteInfo());

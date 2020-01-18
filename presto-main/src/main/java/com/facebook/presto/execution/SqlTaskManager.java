@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.CounterStat;
@@ -33,6 +34,9 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -72,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -98,6 +103,11 @@ public class SqlTaskManager
     private final Duration clientTimeout;
 
     private final LocalMemoryManager localMemoryManager;
+
+    boolean isBinaryTransportEnabled;
+    private final JsonCodec<PlanFragment> planFragmentJsonCodec;
+    private final SmileCodec<PlanFragment> planFragmentSmileCodec;
+
     private final LoadingCache<QueryId, QueryContext> queryContexts;
     private final LoadingCache<TaskId, SqlTask> tasks;
 
@@ -127,7 +137,10 @@ public class SqlTaskManager
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
+            SmileCodec<PlanFragment> planFragmentSmileCodec,
+            InternalCommunicationConfig communicationConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -155,6 +168,10 @@ public class SqlTaskManager
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
+
+        isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
+        this.planFragmentSmileCodec = requireNonNull(planFragmentSmileCodec, "planFragmentSmileCodec is null");
+        this.planFragmentJsonCodec = requireNonNull(planFragmentJsonCodec, "planFragmentJsonCodec is null");
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, nodeMemoryConfig, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
@@ -362,14 +379,14 @@ public class SqlTaskManager
     public TaskInfo updateTask(
             Session session,
             TaskId taskId,
-            Optional<PlanFragment> fragment,
+            Optional<byte[]> serializedPlanFragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
             Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(fragment, "fragment is null");
+        requireNonNull(serializedPlanFragment, "serializedPlanFragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
@@ -380,7 +397,16 @@ public class SqlTaskManager
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
+
+        Optional<PlanFragment> planFragment;
+        if (isBinaryTransportEnabled) {
+            planFragment = serializedPlanFragment.map(planFragmentSmileCodec::fromSmile);
+        }
+        else {
+            planFragment = serializedPlanFragment.map(planFragmentJsonCodec::fromJson);
+        }
+
+        return sqlTask.updateTask(session, planFragment, sources, outputBuffers, tableWriteInfo);
     }
 
     @Override

@@ -135,6 +135,8 @@ public class MockRemoteTaskFactory
                 taskId,
                 newNode,
                 testFragment,
+                // TODO:
+                new byte[] {},
                 initialSplits.build(),
                 createInitialEmptyOutputBuffers(BROADCAST),
                 partitionedSplitCountTracker,
@@ -148,6 +150,7 @@ public class MockRemoteTaskFactory
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
+            byte[] serializedPlanFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,

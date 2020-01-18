@@ -140,21 +140,25 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
+            byte[] serializedPlanFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return new HttpRemoteTask(session,
+        return new HttpRemoteTask(
+                session,
                 taskId,
                 node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
+                serializedPlanFragment,
                 initialSplits,
                 outputBuffers,
                 httpClient,
