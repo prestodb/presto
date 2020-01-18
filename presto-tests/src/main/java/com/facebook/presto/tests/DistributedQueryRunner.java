@@ -335,6 +335,13 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
     }
 
+    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String functionNamespaceManagerId, List<String> catalogSchemaPrefix, Map<String, String> properties)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManagerId, catalogSchemaPrefix, properties);
+        }
+    }
+
     private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)
     {
         for (TestingPrestoServer server : servers) {
