@@ -11,7 +11,7 @@
             <source>NOTICE</source>
         </file>
     </files>
-    
+
     <dependencySets>
         <!-- lib -->
         <dependencySet>
