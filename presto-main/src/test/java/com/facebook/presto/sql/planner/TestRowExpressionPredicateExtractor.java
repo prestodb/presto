@@ -52,7 +52,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -123,7 +123,7 @@ public class TestRowExpressionPredicateExtractor
     private Map<VariableReferenceExpression, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         scanAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
