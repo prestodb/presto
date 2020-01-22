@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
+import static com.facebook.presto.verifier.framework.Column.Category.ROW;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.function.Function.identity;
@@ -46,12 +47,14 @@ public class ChecksumValidator
     public ChecksumValidator(
             SimpleColumnValidator simpleColumnValidator,
             FloatingPointColumnValidator floatingPointColumnValidator,
-            ArrayColumnValidator arrayColumnValidator)
+            ArrayColumnValidator arrayColumnValidator,
+            RowColumnValidator rowColumnValidator)
     {
         this.columnValidators = ImmutableMap.of(
                 SIMPLE, simpleColumnValidator,
                 FLOATING_POINT, floatingPointColumnValidator,
-                ARRAY, arrayColumnValidator);
+                ARRAY, arrayColumnValidator,
+                ROW, rowColumnValidator);
     }
 
     public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns)

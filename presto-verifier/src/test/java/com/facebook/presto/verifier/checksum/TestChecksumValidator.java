@@ -46,6 +46,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
+import static com.facebook.presto.verifier.framework.Column.Category.ROW;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static org.testng.Assert.assertEquals;
@@ -66,6 +67,7 @@ public class TestChecksumValidator
     private static final Column INT_ARRAY_COLUMN = new Column("int_array", ARRAY, new ArrayType(INTEGER));
     private static final Column ROW_ARRAY_COLUMN = new Column("row_array", ARRAY, typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = new Column("map_array", ARRAY, typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
+    private static final Column ROW_COLUMN = new Column("row", ROW, typeRegistry.getType(parseTypeSignature("row(a int,double,array(row(a int,b varchar)),b varchar)")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
     private static final double ABSOLUTE_ERROR_MARGIN = 1e-12;
@@ -82,7 +84,8 @@ public class TestChecksumValidator
     private final ChecksumValidator checksumValidator = new ChecksumValidator(
             new SimpleColumnValidator(),
             new FloatingPointColumnValidator(new VerifierConfig().setRelativeErrorMargin(RELATIVE_ERROR_MARGIN).setAbsoluteErrorMargin(ABSOLUTE_ERROR_MARGIN)),
-            new ArrayColumnValidator());
+            new ArrayColumnValidator(),
+            new RowColumnValidator());
 
     @Test
     public void testChecksumQuery()
@@ -96,7 +99,8 @@ public class TestChecksumValidator
                         REAL_COLUMN,
                         INT_ARRAY_COLUMN,
                         ROW_ARRAY_COLUMN,
-                        MAP_ARRAY_COLUMN));
+                        MAP_ARRAY_COLUMN,
+                        ROW_COLUMN));
         Statement expectedChecksumQuery = sqlParser.createStatement(
                 "SELECT\n" +
                         "  \"count\"(*)\n" +
@@ -116,6 +120,11 @@ public class TestChecksumValidator
                         ", COALESCE(\"sum\"(\"cardinality\"(\"row_array\")), 0) \"row_array_cardinality_sum\"" +
                         ", \"checksum\"(\"map_array\") \"map_array_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array_cardinality_sum\"" +
+                        ", \"checksum\"(\"row\") \"row_checksum\"\n " +
+                        ", \"checksum\"(\"row\".a) \"row$a_checksum\"\n " +
+                        ", \"checksum\"(\"row\"[2]) \"row$$col2_checksum\"\n " +
+                        ", \"checksum\"(\"row\"[3]) \"row$$col3_checksum\"\n " +
+                        ", \"checksum\"(\"row\".b) \"row$b_checksum\"\n " +
                         "FROM\n" +
                         "  test:di",
                 PARSING_OPTIONS);
@@ -326,6 +335,55 @@ public class TestChecksumValidator
                 ImmutableMap.builder()
                         .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0a, cardinality_sum: 3) test(checksum: 1a, cardinality_sum: 2)"))
                         .put(MAP_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0b, cardinality_sum: 7) test(checksum: 1b, cardinality_sum: 5)"))
+                        .build());
+    }
+
+    @Test
+    public void testRow()
+    {
+        List<Column> columns = ImmutableList.of(ROW_COLUMN);
+        ChecksumResult controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("row_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("row$a_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("row$$col2_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("row$$col3_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("row$b_checksum", new SqlVarbinary(new byte[] {0xe}))
+                        .build());
+
+        assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, controlChecksum).isEmpty());
+
+        // Mismatched different elements
+        ChecksumResult testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("row_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("row$a_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("row$$col2_checksum", new SqlVarbinary(new byte[] {0x1c}))
+                        .put("row$$col3_checksum", new SqlVarbinary(new byte[] {0x1d}))
+                        .put("row$b_checksum", new SqlVarbinary(new byte[] {0x1e}))
+                        .build());
+        assertEquals(
+                checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
+                ImmutableMap.builder()
+                        .put(ROW_COLUMN, new ColumnMatchResult(false, "control(row_checksum: 0a, row$a_checksum: 0b, row$$col2_checksum: 0c, row$$col3_checksum: 0d, row$b_checksum: 0e) test(row_checksum: 1a, row$a_checksum: 1b, row$$col2_checksum: 1c, row$$col3_checksum: 1d, row$b_checksum: 1e)"))
+                        .build());
+
+        // Mismatched only one elements
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("row_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("row$a_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("row$$col2_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("row$$col3_checksum", new SqlVarbinary(new byte[] {0x1d}))
+                        .put("row$b_checksum", new SqlVarbinary(new byte[] {0xe}))
+                        .build());
+        assertEquals(
+                checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
+                ImmutableMap.builder()
+                        .put(ROW_COLUMN, new ColumnMatchResult(false, "control(row_checksum: 0a, row$$col3_checksum: 0d) test(row_checksum: 1a, row$$col3_checksum: 1d)"))
                         .build());
     }
 }

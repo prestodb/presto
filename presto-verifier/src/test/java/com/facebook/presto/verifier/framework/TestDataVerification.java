@@ -21,6 +21,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
+import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
@@ -112,7 +113,8 @@ public class TestDataVerification
         ChecksumValidator checksumValidator = new ChecksumValidator(
                 new SimpleColumnValidator(),
                 new FloatingPointColumnValidator(verifierConfig),
-                new ArrayColumnValidator());
+                new ArrayColumnValidator(),
+                new RowColumnValidator());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
         return new DataVerification(
                 (verification, e) -> false,
