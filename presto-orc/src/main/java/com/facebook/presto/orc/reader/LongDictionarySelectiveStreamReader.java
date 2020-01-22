@@ -30,9 +30,11 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -50,6 +52,11 @@ public class LongDictionarySelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionarySelectiveStreamReader.class).instanceSize();
 
+    // filter evaluation status for dictionary entries; using byte instead of enum for memory efficiency
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
+
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
@@ -63,6 +70,7 @@ public class LongDictionarySelectiveStreamReader
     private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
     private int dictionarySize;
     private long[] dictionary = new long[0];
+    private byte[] dictionaryFilterStatus;
 
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
@@ -187,11 +195,31 @@ public class LongDictionarySelectiveStreamReader
                 }
             }
             else {
+                boolean filterPassed;
                 long value = dataStream.next();
                 if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
-                    value = dictionary[(int) value];
+                    int id = (int) value;
+                    value = dictionary[id];
+
+                    if (!nonDeterministicFilter) {
+                        if (dictionaryFilterStatus[id] == FILTER_NOT_EVALUATED) {
+                            if (filter.testLong(value)) {
+                                dictionaryFilterStatus[id] = FILTER_PASSED;
+                            }
+                            else {
+                                dictionaryFilterStatus[id] = FILTER_FAILED;
+                            }
+                        }
+                        filterPassed = dictionaryFilterStatus[id] == FILTER_PASSED;
+                    }
+                    else {
+                        filterPassed = filter.testLong(value);
+                    }
                 }
-                if (filter == null || filter.testLong(value)) {
+                else {
+                    filterPassed = filter.testLong(value);
+                }
+                if (filterPassed) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
                         if (presentStream != null && nullsAllowed) {
@@ -257,6 +285,10 @@ public class LongDictionarySelectiveStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
             }
             dictionaryStream.nextLongVector(dictionarySize, dictionary);
+            if (filter != null && !nonDeterministicFilter) {
+                dictionaryFilterStatus = ensureCapacity(dictionaryFilterStatus, dictionarySize);
+                Arrays.fill(dictionaryFilterStatus, 0, dictionarySize, FILTER_NOT_EVALUATED);
+            }
         }
         dictionaryOpen = true;
 
@@ -341,6 +373,11 @@ public class LongDictionarySelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(dictionary) + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions);
+        return INSTANCE_SIZE +
+                sizeOf(dictionary) +
+                sizeOf(dictionaryFilterStatus) +
+                sizeOf(values) +
+                sizeOf(nulls) +
+                sizeOf(outputPositions);
     }
 }
