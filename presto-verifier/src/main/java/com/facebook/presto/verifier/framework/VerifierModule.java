@@ -36,6 +36,7 @@ import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
+import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
@@ -143,6 +144,7 @@ public class VerifierModule
         binder.bind(SimpleColumnValidator.class).in(SINGLETON);
         binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
         binder.bind(ArrayColumnValidator.class).in(SINGLETON);
+        binder.bind(RowColumnValidator.class).in(SINGLETON);
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
         binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }
