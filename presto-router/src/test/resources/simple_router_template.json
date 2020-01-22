@@ -1,0 +1,13 @@
+{
+  "groups": [
+    {
+      "name": "all",
+      "members": ${SERVERS}
+    }
+  ],
+  "selectors": [
+    {
+      "targetGroup": "all"
+    }
+  ]
+}
