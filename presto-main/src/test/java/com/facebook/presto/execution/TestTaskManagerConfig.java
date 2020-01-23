@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.QUERY_FAIR;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static io.airlift.units.DataSize.Unit;
 
 public class TestTaskManagerConfig
@@ -62,7 +64,8 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setStatisticsCpuTimerEnabled(true)
-                .setLegacyLifespanCompletionCondition(false));
+                .setLegacyLifespanCompletionCondition(false)
+                .setTaskPriorityTracking(TASK_FAIR));
     }
 
     @Test
@@ -99,6 +102,7 @@ public class TestTaskManagerConfig
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
                 .put("task.legacy-lifespan-completion-condition", "true")
+                .put("task.task-priority-tracking", "QUERY_FAIR")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -131,7 +135,8 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setStatisticsCpuTimerEnabled(false)
-                .setLegacyLifespanCompletionCondition(true);
+                .setLegacyLifespanCompletionCondition(true)
+                .setTaskPriorityTracking(QUERY_FAIR);
 
         assertFullMapping(properties, expected);
     }
