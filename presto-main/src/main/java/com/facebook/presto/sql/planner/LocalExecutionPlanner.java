@@ -2195,7 +2195,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getPartitioningScheme().isPresent()) {
+            if (node.getTablePartitioningScheme().isPresent()) {
                 context.setDriverInstanceCount(getTaskPartitionedWriterCount(session));
             }
             else {
