@@ -15,12 +15,15 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.Subfield.NestedField;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -31,11 +34,13 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -55,19 +60,11 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -81,8 +78,9 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.Subfield.allSubscripts;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -108,7 +106,7 @@ public class PushdownSubfields
             return plan;
         }
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types), plan, new Rewriter.Context());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata), plan, new Rewriter.Context());
     }
 
     private static class Rewriter
@@ -116,16 +114,18 @@ public class PushdownSubfields
     {
         private final Session session;
         private final Metadata metadata;
-        private final TypeProvider types;
+        private final StandardFunctionResolution functionResolution;
+        private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
         private static final QualifiedFunctionName ARBITRARY_AGGREGATE_FUNCTION = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "arbitrary");
 
-        public Rewriter(Session session, Metadata metadata, TypeProvider types)
+        public Rewriter(Session session, Metadata metadata)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.types = requireNonNull(types, "types is null");
-            this.subfieldExtractor = new SubfieldExtractor(types);
+            this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+            this.expressionOptimizer = new RowExpressionOptimizer(metadata);
+            this.subfieldExtractor = new SubfieldExtractor(functionResolution, expressionOptimizer, session.toConnectorSession());
         }
 
         @Override
@@ -140,14 +140,14 @@ public class PushdownSubfields
                 // Allow sub-field pruning to pass through the arbitrary() aggregation
                 QualifiedFunctionName aggregateName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
                 if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
-                    SymbolReference argument = (SymbolReference) castToExpression(aggregation.getArguments().get(0));
-                    context.get().addAssignment(variable, new VariableReferenceExpression(argument.getName(), types.get(argument)));
+                    checkState(aggregation.getArguments().get(0) instanceof VariableReferenceExpression);
+                    context.get().addAssignment(variable, (VariableReferenceExpression) aggregation.getArguments().get(0));
                 }
                 else {
-                    aggregation.getArguments().forEach(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+                    aggregation.getArguments().forEach(expression -> expression.accept(subfieldExtractor, context.get()));
                 }
 
-                aggregation.getFilter().ifPresent(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+                aggregation.getFilter().ifPresent(expression -> expression.accept(subfieldExtractor, context.get()));
 
                 aggregation.getOrderBy()
                         .map(OrderingScheme::getOrderByVariables)
@@ -183,7 +183,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
-            subfieldExtractor.process(castToExpression(node.getPredicate()), context.get());
+            node.getPredicate().accept(subfieldExtractor, context.get());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -220,8 +220,7 @@ public class PushdownSubfields
                     .forEach(context.get().variables::add);
 
             node.getFilter()
-                    .map(OriginalExpressionUtils::castToExpression)
-                    .ifPresent(expression -> subfieldExtractor.process(expression, context.get()));
+                    .ifPresent(expression -> expression.accept(subfieldExtractor, context.get()));
 
             return context.defaultRewrite(node, context.get());
         }
@@ -245,20 +244,20 @@ public class PushdownSubfields
         {
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
-                Expression expression = castToExpression(entry.getValue());
+                RowExpression expression = entry.getValue();
 
-                if (expression instanceof SymbolReference) {
-                    context.get().addAssignment(variable, new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(expression)));
+                if (expression instanceof VariableReferenceExpression) {
+                    context.get().addAssignment(variable, (VariableReferenceExpression) expression);
                     continue;
                 }
 
-                Optional<Subfield> subfield = toSubfield(expression);
+                Optional<Subfield> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession());
                 if (subfield.isPresent()) {
                     context.get().addAssignment(variable, subfield.get());
                     continue;
                 }
 
-                subfieldExtractor.process(expression, context.get());
+                expression.accept(subfieldExtractor, context.get());
             }
 
             return context.defaultRewrite(node, context.get());
@@ -290,7 +289,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Context> context)
         {
-            subfieldExtractor.process(castToExpression(node.getFilter()), context.get());
+            node.getFilter().accept(subfieldExtractor, context.get());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -443,8 +442,7 @@ public class PushdownSubfields
                     .map(WindowNode.Function::getFunctionCall)
                     .map(CallExpression::getArguments)
                     .flatMap(List::stream)
-                    .map(OriginalExpressionUtils::castToExpression)
-                    .forEach(expression -> subfieldExtractor.process(expression, context.get()));
+                    .forEach(expression -> expression.accept(subfieldExtractor, context.get()));
 
             node.getWindowFunctions().values().stream()
                     .map(WindowNode.Function::getFrame)
@@ -478,48 +476,66 @@ public class PushdownSubfields
             return metadata.getColumnMetadata(session, tableHandle, columnHandle).getName();
         }
 
-        private static Optional<Subfield> toSubfield(Node expression)
+        private static Optional<Subfield> toSubfield(
+                RowExpression expression,
+                StandardFunctionResolution functionResolution,
+                ExpressionOptimizer expressionOptimizer,
+                ConnectorSession connectorSession)
         {
             ImmutableList.Builder<Subfield.PathElement> elements = ImmutableList.builder();
             while (true) {
-                if (expression instanceof SymbolReference) {
-                    return Optional.of(new Subfield(((SymbolReference) expression).getName(), elements.build().reverse()));
+                if (expression instanceof VariableReferenceExpression) {
+                    return Optional.of(new Subfield(((VariableReferenceExpression) expression).getName(), elements.build().reverse()));
                 }
 
-                if (expression instanceof DereferenceExpression) {
-                    DereferenceExpression dereference = (DereferenceExpression) expression;
-                    elements.add(nestedField(dereference.getField().getValue()));
-                    expression = dereference.getBase();
-                }
-                else if (expression instanceof SubscriptExpression) {
-                    SubscriptExpression subscript = (SubscriptExpression) expression;
-                    Expression index = subscript.getIndex();
-                    if (index instanceof Cast) {
-                        index = ((Cast) index).getExpression();
-                    }
-                    if (index instanceof LongLiteral) {
-                        elements.add(new Subfield.LongSubscript(((LongLiteral) index).getValue()));
-                    }
-                    else if (index instanceof StringLiteral) {
-                        elements.add(new Subfield.StringSubscript(((StringLiteral) index).getValue()));
-                    }
-                    else if (index instanceof GenericLiteral) {
-                        GenericLiteral literal = (GenericLiteral) index;
-                        if (BIGINT.getTypeSignature().equals(TypeSignature.parseTypeSignature(literal.getType()))) {
-                            elements.add(new Subfield.LongSubscript(Long.valueOf(literal.getValue())));
-                        }
-                        else {
-                            return Optional.empty();
+                if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == DEREFERENCE) {
+                    SpecialFormExpression dereference = (SpecialFormExpression) expression;
+                    RowExpression base = dereference.getArguments().get(0);
+                    RowType baseType = (RowType) base.getType();
+
+                    RowExpression indexExpression = expressionOptimizer.optimize(
+                            dereference.getArguments().get(1),
+                            ExpressionOptimizer.Level.OPTIMIZED,
+                            connectorSession);
+
+                    if (indexExpression instanceof ConstantExpression) {
+                        Object index = ((ConstantExpression) indexExpression).getValue();
+                        if (index instanceof Number) {
+                            Optional<String> fieldName = baseType.getFields().get(((Number) index).intValue()).getName();
+                            if (fieldName.isPresent()) {
+                                elements.add(nestedField(fieldName.get()));
+                                expression = base;
+                                continue;
+                            }
                         }
                     }
-                    else {
-                        return Optional.empty();
-                    }
-                    expression = subscript.getBase();
-                }
-                else {
                     return Optional.empty();
                 }
+                if (expression instanceof CallExpression && functionResolution.isSubscriptFunction(((CallExpression) expression).getFunctionHandle())) {
+                    List<RowExpression> arguments = ((CallExpression) expression).getArguments();
+                    RowExpression indexExpression = expressionOptimizer.optimize(
+                            arguments.get(1),
+                            ExpressionOptimizer.Level.OPTIMIZED,
+                            connectorSession);
+
+                    if (indexExpression instanceof ConstantExpression) {
+                        Object index = ((ConstantExpression) indexExpression).getValue();
+                        if (index instanceof Number) {
+                            elements.add(new Subfield.LongSubscript(((Number) index).longValue()));
+                            expression = arguments.get(0);
+                            continue;
+                        }
+
+                        if (isVarcharType(indexExpression.getType())) {
+                            elements.add(new Subfield.StringSubscript(((Slice) index).toStringUtf8()));
+                            expression = arguments.get(0);
+                            continue;
+                        }
+                    }
+                    return Optional.empty();
+                }
+
+                return Optional.empty();
             }
         }
 
@@ -529,47 +545,60 @@ public class PushdownSubfields
         }
 
         private static final class SubfieldExtractor
-                extends DefaultExpressionTraversalVisitor<Void, Context>
+                extends DefaultRowExpressionTraversalVisitor<Context>
         {
-            private final TypeProvider typeProvider;
+            private final StandardFunctionResolution functionResolution;
+            private final ExpressionOptimizer expressionOptimizer;
+            private final ConnectorSession connectorSession;
 
-            private SubfieldExtractor(TypeProvider typeProvider)
+            private SubfieldExtractor(StandardFunctionResolution functionResolution, ExpressionOptimizer expressionOptimizer, ConnectorSession connectorSession)
             {
-                this.typeProvider = requireNonNull(typeProvider, "typeProvider is null");
+                this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+                this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+                this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
             }
 
             @Override
-            protected Void visitSubscriptExpression(SubscriptExpression node, Context context)
+            public Void visitCall(CallExpression call, Context context)
             {
-                Optional<Subfield> subfield = toSubfield(node);
+                if (!functionResolution.isSubscriptFunction(call.getFunctionHandle())) {
+                    call.getArguments().forEach(argument -> argument.accept(this, context));
+                    return null;
+                }
+
+                // visit subscript expressions only
+                Optional<Subfield> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession);
                 if (subfield.isPresent()) {
                     context.subfields.add(subfield.get());
                 }
                 else {
-                    process(node.getBase(), context);
-                    process(node.getIndex(), context);
+                    call.getArguments().forEach(argument -> argument.accept(this, context));
                 }
                 return null;
             }
 
             @Override
-            protected Void visitDereferenceExpression(DereferenceExpression node, Context context)
+            public Void visitSpecialForm(SpecialFormExpression specialForm, Context context)
             {
-                Optional<Subfield> subfield = toSubfield(node);
+                if (specialForm.getForm() != DEREFERENCE) {
+                    specialForm.getArguments().forEach(argument -> argument.accept(this, context));
+                    return null;
+                }
+
+                Optional<Subfield> subfield = toSubfield(specialForm, functionResolution, expressionOptimizer, connectorSession);
                 if (subfield.isPresent()) {
                     context.subfields.add(subfield.get());
                 }
                 else {
-                    process(node.getBase(), context);
-                    process(node.getField(), context);
+                    specialForm.getArguments().forEach(argument -> argument.accept(this, context));
                 }
                 return null;
             }
 
             @Override
-            protected Void visitSymbolReference(SymbolReference node, Context context)
+            public Void visitVariableReference(VariableReferenceExpression reference, Context context)
             {
-                context.variables.add(new VariableReferenceExpression(node.getName(), typeProvider.get(node)));
+                context.variables.add(reference);
                 return null;
             }
         }
