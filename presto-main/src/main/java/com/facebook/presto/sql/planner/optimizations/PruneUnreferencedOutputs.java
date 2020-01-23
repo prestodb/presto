@@ -669,8 +669,8 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(node.getColumns());
-            if (node.getPartitioningScheme().isPresent()) {
-                PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            if (node.getTablePartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getTablePartitioningScheme().get();
                 partitioningScheme.getPartitioning().getVariableReferences().forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
@@ -691,7 +691,7 @@ public class PruneUnreferencedOutputs
                     node.getTableCommitContextVariable(),
                     node.getColumns(),
                     node.getColumnNames(),
-                    node.getPartitioningScheme(),
+                    node.getTablePartitioningScheme(),
                     node.getStatisticsAggregation());
         }
 

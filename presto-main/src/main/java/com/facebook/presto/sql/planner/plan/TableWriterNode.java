@@ -47,7 +47,7 @@ public class TableWriterNode
     private final VariableReferenceExpression tableCommitContextVariable;
     private final List<VariableReferenceExpression> columns;
     private final List<String> columnNames;
-    private final Optional<PartitioningScheme> partitioningScheme;
+    private final Optional<PartitioningScheme> tablePartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final List<VariableReferenceExpression> outputs;
 
@@ -61,7 +61,7 @@ public class TableWriterNode
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
             @JsonProperty("columns") List<VariableReferenceExpression> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
+            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
     {
         super(id);
@@ -77,7 +77,7 @@ public class TableWriterNode
         this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
@@ -134,9 +134,9 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<PartitioningScheme> getPartitioningScheme()
+    public Optional<PartitioningScheme> getTablePartitioningScheme()
     {
-        return partitioningScheme;
+        return tablePartitioningScheme;
     }
 
     @JsonProperty
@@ -166,7 +166,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, partitioningScheme, statisticsAggregation);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, tablePartitioningScheme, statisticsAggregation);
     }
 
     // only used during planning -- will not be serialized

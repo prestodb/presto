@@ -235,7 +235,7 @@ public class SymbolMapper
                 map(node.getTableCommitContextVariable()),
                 columns,
                 node.getColumnNames(),
-                node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
+                node.getTablePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map));
     }
 
