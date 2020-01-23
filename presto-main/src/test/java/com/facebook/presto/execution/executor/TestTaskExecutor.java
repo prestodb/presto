@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.QUERY_FAIR;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -50,7 +52,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, TASK_FAIR, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -144,7 +146,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, QUERY_FAIR, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -178,7 +180,7 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, TASK_FAIR, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -217,7 +219,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(1, 3, 3, 4, TASK_FAIR, new MultilevelSplitQueue(2), ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
 
@@ -301,7 +303,7 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, QUERY_FAIR, ticker);
         taskExecutor.start();
 
         try {
@@ -337,8 +339,8 @@ public class TestTaskExecutor
     public void testLevelContributionCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
-        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
@@ -357,7 +359,7 @@ public class TestTaskExecutor
     public void testUpdateLevelWithCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), new TaskPriorityTracker(splitQueue), () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         long quantaNanos = MINUTES.toNanos(10);
         handle0.addScheduledNanos(quantaNanos);
@@ -376,7 +378,7 @@ public class TestTaskExecutor
         int maxDriversPerTask = 2;
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, QUERY_FAIR, splitQueue, ticker);
         taskExecutor.start();
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -416,7 +418,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2 and 4
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, splitQueue, ticker);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, TASK_FAIR, splitQueue, ticker);
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1

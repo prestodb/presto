@@ -39,6 +39,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.Histogram.fromContinuous;
 import static com.facebook.presto.execution.executor.Histogram.fromDiscrete;
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
@@ -78,7 +79,7 @@ public class TaskExecutorSimulator
     private TaskExecutorSimulator()
     {
         splitQueue = new MultilevelSplitQueue(2);
-        taskExecutor = new TaskExecutor(36, 72, 3, 8, splitQueue, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(36, 72, 3, 8, TASK_FAIR, splitQueue, Ticker.systemTicker());
         taskExecutor.start();
     }
 
