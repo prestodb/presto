@@ -419,13 +419,6 @@ public class PlanOptimizers
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
 
-        builder.add(new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new PushdownSubfields(metadata));
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -435,9 +428,15 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        // TODO: move PushdownSubfields below this rule
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+
+        builder.add(new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new PushdownSubfields(metadata));
 
         builder.add(new IterativeOptimizer(
                 // Because ReorderJoins runs only once,
