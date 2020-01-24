@@ -518,6 +518,7 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getColumns(),
                                 originalTableWriterNode.getColumnNames(),
                                 originalTableWriterNode.getTablePartitioningScheme(),
+                                originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
                         fixedParallelism(),
                         fixedParallelism());
@@ -542,6 +543,7 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getColumns(),
                                 originalTableWriterNode.getColumnNames(),
                                 originalTableWriterNode.getTablePartitioningScheme(),
+                                originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
                         exchange.getProperties());
             }

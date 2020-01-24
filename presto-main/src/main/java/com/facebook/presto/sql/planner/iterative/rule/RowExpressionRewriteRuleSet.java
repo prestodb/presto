@@ -498,6 +498,7 @@ public class RowExpressionRewriteRuleSet
                         node.getColumns(),
                         node.getColumnNames(),
                         node.getTablePartitioningScheme(),
+                        node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation));
             }
             return Result.empty();
