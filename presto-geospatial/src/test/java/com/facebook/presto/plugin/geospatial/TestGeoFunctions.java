@@ -601,7 +601,46 @@ public class TestGeoFunctions
         assertSTPoints("LINESTRING (8 4, 3 9, 8 4)", "8 4", "3 9", "8 4");
         assertSTPoints("LINESTRING (8 4, 3 9, 5 6)", "8 4", "3 9", "5 6");
         assertSTPoints("LINESTRING (8 4, 3 9, 5 6, 3 9, 8 4)", "8 4", "3 9", "5 6", "3 9", "8 4");
-        assertInvalidFunction("ST_Points(ST_GeometryFromText('POLYGON ((8 4, 3 9, 5 6, 8 4))'))", "ST_Points only applies to LINE_STRING. Input type is: POLYGON");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 8 4))", "8 4", "5 6", "3 9", "8 4");
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))", "8 4", "7 2", "5 6", "3 9", "8 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POINT (0 0)", "0 0");
+        assertSTPoints("POINT (0 1)", "0 1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOINT (0 0)", "0 0");
+        assertSTPoints("MULTIPOINT (0 0, 1 2)", "0 0", "1 2");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTILINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1), (2 3, 3 2))", "0 0", "1 1", "2 3", "3 2");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))", "0 0", "1 1", "1 2", "2 3", "3 2", "5 4");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (1 2, 3 2, 5 4))", "0 0", "1 1", "1 2", "1 2", "3 2", "5 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))",
+                "0 0", "0 4", "4 4", "4 0", "0 0",
+                "1 1", "2 1", "2 2", "1 2", "1 1",
+                "-1 -1", "-1 -2", "-2 -2", "-2 -1", "-1 -1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('GEOMETRYCOLLECTION EMPTY'))", new ArrayType(GEOMETRY), null);
+        String geometryCollection = String.join("",
+                "GEOMETRYCOLLECTION(",
+                "          POINT ( 0 1 ),",
+                "          LINESTRING ( 0 3, 3 4 ),",
+                "          POLYGON (( 2 0, 2 3, 0 2, 2 0 )),",
+                "          POLYGON (( 3 0, 3 3, 6 3, 6 0, 3 0 ),",
+                "                   ( 5 1, 4 2, 5 2, 5 1 )),",
+                "          MULTIPOLYGON (",
+                "                  (( 0 5, 0 8, 4 8, 4 5, 0 5 ),",
+                "                   ( 1 6, 3 6, 2 7, 1 6 )),",
+                "                  (( 5 4, 5 8, 6 7, 5 4 ))",
+                "           )",
+                ")");
+        assertSTPoints(geometryCollection, "0 1", "0 3", "3 4", "2 0", "0 2", "2 3", "2 0", "3 0", "3 3", "6 3", "6 0", "3 0",
+                "5 1", "5 2", "4 2", "5 1", "0 5", "0 8", "4 8", "4 5", "0 5", "1 6", "3 6", "2 7", "1 6", "5 4", "5 8", "6 7", "5 4");
     }
 
     private void assertSTPoints(String wkt, String... expected)

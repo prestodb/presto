@@ -51,9 +51,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
@@ -868,22 +870,42 @@ public final class GeoFunctions
     }
 
     @SqlNullable
-    @Description("Returns an array of points in a linestring")
+    @Description("Returns an array of points in a geometry")
     @ScalarFunction("ST_Points")
     @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
     public static Block stPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Geometry geometry = deserialize(input);
-        validateType("ST_Points", geometry, EnumSet.of(LINE_STRING));
         if (geometry.isEmpty()) {
             return null;
         }
-        LineString lineString = (LineString) geometry;
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, lineString.getNumPoints());
-        for (int i = 0; i < lineString.getNumPoints(); i++) {
-            GEOMETRY.writeSlice(blockBuilder, serialize(lineString.getPointN(i)));
-        }
+
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, geometry.getNumPoints());
+        buildPointsBlock(geometry, blockBuilder);
+
         return blockBuilder.build();
+    }
+
+    private static void buildPointsBlock(Geometry geometry, BlockBuilder blockBuilder)
+    {
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
+        if (type == GeometryType.POINT) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(geometry));
+        }
+        else if (type == GeometryType.GEOMETRY_COLLECTION) {
+            GeometryCollection collection = (GeometryCollection) geometry;
+            for (int i = 0; i < collection.getNumGeometries(); i++) {
+                Geometry entry = collection.getGeometryN(i);
+                buildPointsBlock(entry, blockBuilder);
+            }
+        }
+        else {
+            GeometryFactory geometryFactory = geometry.getFactory();
+            Coordinate[] vertices = geometry.getCoordinates();
+            for (Coordinate coordinate : vertices) {
+                GEOMETRY.writeSlice(blockBuilder, serialize(geometryFactory.createPoint(coordinate)));
+            }
+        }
     }
 
     @SqlNullable
