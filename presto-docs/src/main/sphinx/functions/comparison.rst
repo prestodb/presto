@@ -153,3 +153,48 @@ Expression              Meaning
 ====================    ===========
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
+
+LIKE
+----
+The LIKE operator is used to match a specified character pattern in a string. Patterns can contain
+regular characters as well as wildcards. Wildcard characters can be escaped using the single character
+specified for the ESCAPE parameter. Matching is case sensitive.
+
+Syntax::
+
+   expression LIKE pattern [ ESCAPE 'escape_character' ]
+
+if ``pattern`` or ``escape_character`` is null, the expression evaluates to null.
+
+====================    ===========
+Wildcard                Representation
+====================    ===========
+``%``                   The percent sign represents zero, one, or multiple characters
+``_``                   The underscore represents a single character
+====================    ===========
+
+Examples::
+
+    SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+    WHERE name LIKE '%b%'
+    --returns 'abc' and  'bcd'
+
+    SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+    WHERE name LIKE '_b%'
+    --returns 'abc'
+
+    SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+    WHERE name LIKE 'b%'
+    --returns 'bcd'
+
+    SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+    WHERE name LIKE 'B%'
+    --returns nothing
+
+    SELECT * FROM (VALUES ('a_c'), ('_cd'), ('cde')) AS t (name)
+    WHERE name LIKE '%#_%' ESCAPE '#'
+    --returns 'a_c' and  '_cd'
+
+    SELECT * FROM (VALUES ('a%c'), ('%cd'), ('cde')) AS t (name)
+    WHERE name LIKE '%#%%' ESCAPE '#'
+    --returns 'a%c' and  '%cd'
