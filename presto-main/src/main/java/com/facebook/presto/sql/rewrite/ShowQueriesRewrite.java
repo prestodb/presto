@@ -28,6 +28,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
@@ -525,15 +526,17 @@ final class ShowQueriesRewrite
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions(session)) {
+                Signature signature = function.getSignature();
                 rows.add(row(
-                        function.getSignature().getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE) ?
-                                new StringLiteral(function.getSignature().getNameSuffix()) :
-                                new StringLiteral(function.getSignature().getName().toString()),
-                        new StringLiteral(function.getSignature().getReturnType().toString()),
-                        new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                        signature.getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE) ?
+                                new StringLiteral(signature.getNameSuffix()) :
+                                new StringLiteral(signature.getName().toString()),
+                        new StringLiteral(signature.getReturnType().toString()),
+                        new StringLiteral(Joiner.on(", ").join(signature.getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),
                         function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
-                        new StringLiteral(nullToEmpty(function.getDescription()))));
+                        new StringLiteral(nullToEmpty(function.getDescription())),
+                        signature.isVariableArity() ? TRUE_LITERAL : FALSE_LITERAL));
             }
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
@@ -543,6 +546,7 @@ final class ShowQueriesRewrite
                     .put("function_type", "Function Type")
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
+                    .put("variable_arity", "Variable Arity")
                     .build();
 
             return simpleQuery(
