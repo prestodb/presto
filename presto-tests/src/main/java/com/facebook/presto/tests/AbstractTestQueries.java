@@ -4914,11 +4914,13 @@ public abstract class AbstractTestQueries
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
+        assertEquals(functions.get("rank").asList().get(0).getField(4), true);
 
-        assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'split_part'");
+        assertTrue(functions.containsKey("split_part"), "Expected function names " + functions + " to contain 'split_part'");
         assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
         assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar(x), varchar(y), bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("split_part").asList().get(0).getField(4), true);
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
