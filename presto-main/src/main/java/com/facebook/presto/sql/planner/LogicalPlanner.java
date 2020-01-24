@@ -320,6 +320,7 @@ public class LogicalPlanner
                 analysis.getParameters(),
                 analysis.getCreateTableComment());
         Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForNewTable(session, destination.getCatalogName(), tableMetadata);
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
@@ -334,6 +335,7 @@ public class LogicalPlanner
                 new CreateName(new ConnectorId(destination.getCatalogName()), tableMetadata, newTableLayout),
                 columnNames,
                 newTableLayout,
+                preferredShuffleLayout,
                 statisticsMetadata);
     }
 
@@ -388,6 +390,8 @@ public class LogicalPlanner
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
+        Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForInsert(session, insert.getTarget());
+
         String catalogName = insert.getTarget().getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
@@ -397,6 +401,7 @@ public class LogicalPlanner
                 new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
                 visibleTableColumnNames,
                 newTableLayout,
+                preferredShuffleLayout,
                 statisticsMetadata);
     }
 
@@ -406,37 +411,20 @@ public class LogicalPlanner
             WriterTarget target,
             List<String> columnNames,
             Optional<NewTableLayout> writeTableLayout,
+            Optional<NewTableLayout> preferredShuffleLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
+        verify(!(writeTableLayout.isPresent() && preferredShuffleLayout.isPresent()), "writeTableLayout and preferredShuffleLayout cannot both exist");
+
         PlanNode source = plan.getRoot();
 
         if (!analysis.isCreateTableAsSelectWithData()) {
             source = new LimitNode(idAllocator.getNextId(), source, 0L, FINAL);
         }
 
-        // todo this should be checked in analysis
-        writeTableLayout.ifPresent(layout -> {
-            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
-                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
-            }
-        });
-
         List<VariableReferenceExpression> variables = plan.getFieldMappings();
-
-        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
-        if (writeTableLayout.isPresent()) {
-            List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
-            writeTableLayout.get().getPartitionColumns().stream()
-                    .mapToInt(columnNames::indexOf)
-                    .mapToObj(variables::get)
-                    .forEach(partitionFunctionArguments::add);
-
-            List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
-
-            partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(writeTableLayout.get().getPartitioning(), partitionFunctionArguments),
-                    outputLayout));
-        }
+        Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
+        Optional<PartitioningScheme> preferredShufflePartitioningScheme = getPartitioningSchemeForTableWrite(preferredShuffleLayout, columnNames, variables);
 
         if (!statisticsMetadata.isEmpty()) {
             verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
@@ -458,7 +446,8 @@ public class LogicalPlanner
                             variableAllocator.newVariable("commitcontext", VARBINARY),
                             plan.getFieldMappings(),
                             columnNames,
-                            partitioningScheme,
+                            tablePartitioningScheme,
+                            preferredShufflePartitioningScheme,
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
                             // the data consumed by the TableWriteOperator
                             Optional.of(aggregations.getPartialAggregation())),
@@ -483,7 +472,8 @@ public class LogicalPlanner
                         variableAllocator.newVariable("commitcontext", VARBINARY),
                         plan.getFieldMappings(),
                         columnNames,
-                        partitioningScheme,
+                        tablePartitioningScheme,
+                        preferredShufflePartitioningScheme,
                         Optional.empty()),
                 Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
@@ -579,5 +569,31 @@ public class LogicalPlanner
             resultMap.put(lambdaArgumentDeclaration, variableAllocator.newVariable(lambdaArgumentDeclaration.getNode(), entry.getValue()));
         }
         return resultMap;
+    }
+
+    private static Optional<PartitioningScheme> getPartitioningSchemeForTableWrite(Optional<NewTableLayout> tableLayout, List<String> columnNames, List<VariableReferenceExpression> variables)
+    {
+        // todo this should be checked in analysis
+        tableLayout.ifPresent(layout -> {
+            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
+                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+            }
+        });
+
+        Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        if (tableLayout.isPresent()) {
+            List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
+            tableLayout.get().getPartitionColumns().stream()
+                    .mapToInt(columnNames::indexOf)
+                    .mapToObj(variables::get)
+                    .forEach(partitionFunctionArguments::add);
+
+            List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
+
+            partitioningScheme = Optional.of(new PartitioningScheme(
+                    Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments),
+                    outputLayout));
+        }
+        return partitioningScheme;
     }
 }

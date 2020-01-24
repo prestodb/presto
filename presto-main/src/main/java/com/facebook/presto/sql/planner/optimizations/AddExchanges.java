@@ -575,27 +575,31 @@ public class AddExchanges
         {
             PlanWithProperties source = node.getSource().accept(this, preferredProperties);
 
-            Optional<PartitioningScheme> partitioningScheme = node.getTablePartitioningScheme();
-            if (!partitioningScheme.isPresent()) {
+            Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
+            if (!shufflePartitioningScheme.isPresent()) {
+                shufflePartitioningScheme = node.getPreferredShufflePartitioningScheme();
+            }
+
+            if (!shufflePartitioningScheme.isPresent()) {
                 if (scaleWriters) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
                 }
                 else if (redistributeWrites) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
                 }
             }
 
-            if (partitioningScheme.isPresent() &&
+            if (shufflePartitioningScheme.isPresent() &&
                     // TODO: Deprecate compatible table partitioning
-                    !source.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, metadata, session) &&
-                    !(source.getProperties().isRefinedPartitioningOver(partitioningScheme.get().getPartitioning(), false, metadata, session) &&
+                    !source.getProperties().isCompatibleTablePartitioningWith(shufflePartitioningScheme.get().getPartitioning(), false, metadata, session) &&
+                    !(source.getProperties().isRefinedPartitioningOver(shufflePartitioningScheme.get().getPartitioning(), false, metadata, session) &&
                             canPushdownPartialMerge(source.getNode(), partialMergePushdownStrategy))) {
                 source = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 source.getNode(),
-                                partitioningScheme.get()),
+                                shufflePartitioningScheme.get()),
                         source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);

@@ -450,6 +450,9 @@ public class PlanFragmenter
             if (node.getTablePartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
+            if (node.getPreferredShufflePartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPreferredShufflePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
             return context.defaultRewrite(node, context.get());
         }
 
@@ -745,6 +748,7 @@ public class PlanFragmenter
                     outputs,
                     outputColumnNames,
                     Optional.of(partitioningScheme),
+                    Optional.empty(),
                     Optional.empty());
 
             PlanNode tableWriterMerge = tableWriter;

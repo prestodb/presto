@@ -661,6 +661,50 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
     }
 
+    @Test
+    public void testCreatePartitionedTableAsShuffleOnPartitionColumns()
+    {
+        testCreatePartitionedTableAsShuffleOnPartitionColumns(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "1")
+                        .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
+                        .build(),
+                HiveStorageFormat.ORC);
+    }
+
+    public void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_partitioned_table_as_shuffle_on_partition_columns " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(session, createTable, "SELECT count(*) from orders");
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as_shuffle_on_partition_columns");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
+
+        List<?> partitions = getPartitions("test_create_partitioned_table_as_shuffle_on_partition_columns");
+        assertEquals(partitions.size(), 3);
+
+        assertQuery(
+                session,
+                "SELECT count(distinct \"$path\") from test_create_partitioned_table_as_shuffle_on_partition_columns",
+                "SELECT 3");
+
+        assertQuery(session, "SELECT * from test_create_partitioned_table_as_shuffle_on_partition_columns", "SELECT orderkey, shippriority, orderstatus FROM orders");
+
+        assertUpdate(session, "DROP TABLE test_create_partitioned_table_as_shuffle_on_partition_columns");
+
+        assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as_shuffle_on_partition_columns"));
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
@@ -1326,6 +1370,65 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 
         assertFalse(getQueryRunner().tableExists(session, "test_insert_partitioned_table"));
+    }
+
+    @Test
+    public void testInsertPartitionedTableShuffleOnPartitionColumns()
+    {
+        testInsertPartitionedTableShuffleOnPartitionColumns(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "1")
+                        .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
+                        .build(),
+                HiveStorageFormat.ORC);
+    }
+
+    public void testInsertPartitionedTableShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_insert_partitioned_table_shuffle_on_partition_columns";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'order_status' ]" +
+                ") ";
+
+        assertUpdate(session, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("order_status"));
+
+        assertUpdate(
+                session,
+                "INSERT INTO " + tableName + " " +
+                        "SELECT orderkey, comment, orderstatus " +
+                        "FROM tpch.tiny.orders",
+                "SELECT count(*) from orders");
+
+        // verify the partitions
+        List<?> partitions = getPartitions(tableName);
+        assertEquals(partitions.size(), 3);
+
+        assertQuery(
+                session,
+                "SELECT * from " + tableName,
+                "SELECT orderkey, comment, orderstatus FROM orders");
+
+        assertQuery(
+                session,
+                "SELECT count(distinct \"$path\") from " + tableName,
+                "SELECT 3");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
