@@ -4879,7 +4879,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
         ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
-            assertEquals(input.getFieldCount(), 7);
+            assertEquals(input.getFieldCount(), 9);
             return (String) input.getField(0);
         });
 
@@ -4908,21 +4908,29 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("abs").asList().get(0).getField(4), true);
         assertEquals(functions.get("abs").asList().get(0).getField(6), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(7), true);
+        assertEquals(functions.get("abs").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
         assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("rand").asList().get(0).getField(4), false);
         assertEquals(functions.get("rand").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(7), true);
+        assertEquals(functions.get("rand").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
         assertEquals(functions.get("rank").asList().get(0).getField(4), true);
         assertEquals(functions.get("rank").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(7), true);
+        assertEquals(functions.get("rank").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("greatest"), "Expected function names " + functions + " to contain 'greatest'");
         assertEquals(functions.get("greatest").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("greatest").asList().get(0).getField(4), true);
         assertEquals(functions.get("greatest").asList().get(0).getField(6), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(7), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("split_part"), "Expected function names " + functions + " to contain 'split_part'");
         assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
@@ -4930,6 +4938,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("split_part").asList().get(0).getField(4), true);
         assertEquals(functions.get("split_part").asList().get(0).getField(6), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(7), true);
+        assertEquals(functions.get("split_part").asList().get(0).getField(8), "");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
