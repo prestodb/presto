@@ -278,8 +278,14 @@ public class HiveMetadata
 
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     private static final String PRESTO_TEMPORARY_TABLE_NAME_PREFIX = "__presto_temporary_table_";
-    private static final ConnectorTableLayout EMPTY_TABLE_LAYOUT = new ConnectorTableLayout(new ConnectorTableLayoutHandle() {}) {};
-
+    private static final ConnectorTableLayout EMPTY_TABLE_LAYOUT = new ConnectorTableLayout(
+            new ConnectorTableLayoutHandle() {},
+            Optional.empty(),
+            TupleDomain.none(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            emptyList());
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
