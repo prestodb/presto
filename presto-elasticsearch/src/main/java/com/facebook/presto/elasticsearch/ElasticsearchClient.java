@@ -251,6 +251,7 @@ public class ElasticsearchClient
         List<ColumnMetadata> result = new ArrayList<>();
         for (ElasticsearchColumn column : columns) {
             Map<String, Object> properties = new HashMap<>();
+            properties.put("originalColumnName", column.getName());
             properties.put("jsonPath", column.getJsonPath());
             properties.put("jsonType", column.getJsonType());
             properties.put("isList", column.isList());
