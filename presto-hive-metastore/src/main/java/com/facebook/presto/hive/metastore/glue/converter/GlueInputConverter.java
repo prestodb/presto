@@ -31,10 +31,10 @@ import com.google.common.collect.ImmutableMap;
 import java.util.EnumSet;
 import java.util.List;
 
+import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toList;
