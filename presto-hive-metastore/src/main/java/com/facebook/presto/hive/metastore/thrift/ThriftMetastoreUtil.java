@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
@@ -34,17 +34,10 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import com.google.common.primitives.Longs;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -103,31 +96,13 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -150,11 +125,6 @@ public final class ThriftMetastoreUtil
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String NUM_FILES = "numFiles";
-    private static final String NUM_ROWS = "numRows";
-    private static final String RAW_DATA_SIZE = "rawDataSize";
-    private static final String TOTAL_SIZE = "totalSize";
-    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     private ThriftMetastoreUtil() {}
 
@@ -372,7 +342,7 @@ public final class ThriftMetastoreUtil
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
     {
         org.apache.hadoop.hive.metastore.api.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
-        partition.setParameters(updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
+        partition.setParameters(MetastoreUtil.updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
         return partition;
     }
 
@@ -596,36 +566,6 @@ public final class ThriftMetastoreUtil
         return OptionalLong.empty();
     }
 
-    /**
-     * Hive calculates NDV considering null as a distinct value
-     */
-    private static OptionalLong fromMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount, OptionalLong rowCount)
-    {
-        if (distinctValuesCount.isPresent() && nullsCount.isPresent() && rowCount.isPresent()) {
-            return OptionalLong.of(fromMetastoreDistinctValuesCount(distinctValuesCount.getAsLong(), nullsCount.getAsLong(), rowCount.getAsLong()));
-        }
-        return OptionalLong.empty();
-    }
-
-    private static long fromMetastoreDistinctValuesCount(long distinctValuesCount, long nullsCount, long rowCount)
-    {
-        long nonNullsCount = rowCount - nullsCount;
-        if (nullsCount > 0 && distinctValuesCount > 0) {
-            distinctValuesCount--;
-        }
-
-        // normalize distinctValuesCount in case there is a non null element
-        if (nonNullsCount > 0 && distinctValuesCount == 0) {
-            distinctValuesCount = 1;
-        }
-
-        // the metastore may store an estimate, so the value stored may be higher than the total number of rows
-        if (distinctValuesCount > nonNullsCount) {
-            return nonNullsCount;
-        }
-        return distinctValuesCount;
-    }
-
     public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
     {
         return ImmutableSet.copyOf(grants.stream().map(ThriftMetastoreUtil::fromRolePrincipalGrant).collect(toList()));
@@ -745,45 +685,6 @@ public final class ThriftMetastoreUtil
             default:
                 throw new IllegalArgumentException("Unsupported privilege name: " + name);
         }
-    }
-
-    public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
-    {
-        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
-        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
-        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
-        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
-        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
-    }
-
-    private static OptionalLong parse(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
-        }
-        Long longValue = Longs.tryParse(parameterValue);
-        if (longValue == null || longValue < 0) {
-            return OptionalLong.empty();
-        }
-        return OptionalLong.of(longValue);
-    }
-
-    public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
-    {
-        ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-
-        parameters.forEach((key, value) -> {
-            if (!STATS_PROPERTIES.contains(key)) {
-                result.put(key, value);
-            }
-        });
-
-        statistics.getFileCount().ifPresent(count -> result.put(NUM_FILES, Long.toString(count)));
-        statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
-        statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
-        statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
-
-        return result.build();
     }
 
     public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)
@@ -925,35 +826,5 @@ public final class ThriftMetastoreUtil
             return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
         }
         return OptionalDouble.empty();
-    }
-
-    public static Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        if (type.equals(BOOLEAN)) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
-        }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
-            // TODO #7122 support non-legacy TIMESTAMP
-            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
-        }
-        if (isVarcharType(type) || isCharType(type)) {
-            // TODO Collect MIN,MAX once it is used by the optimizer
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
-        }
-        if (type.equals(VARBINARY)) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
-        }
-        if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
-            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
-        }
-        // Throwing here to make sure this method is updated when a new type is added in Hive connector
-        throw new IllegalArgumentException("Unsupported type: " + type);
-    }
-
-    private static boolean isNumericType(Type type)
-    {
-        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
-                type.equals(DOUBLE) || type.equals(REAL) ||
-                type instanceof DecimalType;
     }
 }

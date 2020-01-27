@@ -40,9 +40,9 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;

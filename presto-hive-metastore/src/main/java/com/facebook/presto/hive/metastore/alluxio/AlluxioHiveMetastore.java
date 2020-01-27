@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.alluxio;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.exception.status.AlluxioStatusException;
+import alluxio.grpc.table.ColumnStatisticsInfo;
 import alluxio.grpc.table.Constraint;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -22,16 +23,19 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -45,15 +49,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 /**
  * Implementation of the {@link HiveMetastore} interface through Alluxio.
@@ -108,19 +113,26 @@ public class AlluxioHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        throw new UnsupportedOperationException("getSupportedColumnStatistics is not supported in AlluxioHiveMetastore");
+        return MetastoreUtil.getSupportedColumnStatistics(type);
+    }
+
+    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsInfo> statistics, OptionalLong rowCount)
+    {
+        return statistics.stream()
+                .collect(toImmutableMap(ColumnStatisticsInfo::getColName, statisticsInfo -> AlluxioProtoUtils.fromProto(statisticsInfo.getData(), rowCount)));
     }
 
     @Override
     public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
         try {
-            Table table = getTable(databaseName, tableName).orElseThrow(() -> new PrestoException(
-                    HIVE_METASTORE_ERROR,
-                    String.format("Could not retrieve table %s.%s", databaseName, tableName)));
-            HiveBasicStatistics basicStats = ThriftMetastoreUtil.getHiveBasicStatistics(table.getParameters());
-            // TODO implement logic to populate Map<string, HiveColumnStatistics>
-            return new PartitionStatistics(basicStats, ImmutableMap.of());
+            Table table = getTable(databaseName, tableName).orElseThrow(
+                    () -> new PrestoException(HIVE_METASTORE_ERROR, String.format("Could not retrieve table %s.%s", databaseName, tableName)));
+            HiveBasicStatistics basicStatistics = getHiveBasicStatistics(table.getParameters());
+            List<Column> columns = table.getPartitionColumns();
+            List<String> columnNames = columns.stream().map(Column::getName).collect(toImmutableList());
+            List<ColumnStatisticsInfo> columnStatistics = client.getTableColumnStatistics(table.getDatabaseName(), table.getTableName(), columnNames);
+            return new PartitionStatistics(basicStatistics, groupStatisticsByColumn(columnStatistics, basicStatistics.getRowCount()));
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -130,9 +142,45 @@ public class AlluxioHiveMetastore
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        // TODO implement partition statistics
-        // currently returns a map of partitionName to empty statistics to satisfy presto requirements
-        return partitionNames.stream().collect(toImmutableMap(identity(), (p) -> PartitionStatistics.empty()));
+        Table table = getTable(databaseName, tableName).orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        Map<String, HiveBasicStatistics> partitionBasicStatistics = getPartitionsByNames(databaseName, tableName, ImmutableList.copyOf(partitionNames)).entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(
+                        entry -> MetastoreUtil.makePartName(table.getPartitionColumns(), entry.getValue().get().getValues()),
+                        entry -> getHiveBasicStatistics(entry.getValue().get().getParameters())));
+
+        Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
+
+        List<String> dataColumns = table.getDataColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        Map<String, List<ColumnStatisticsInfo>> columnStatisticss;
+        try {
+            columnStatisticss = client.getPartitionColumnStatistics(
+                    table.getDatabaseName(),
+                    table.getTableName(),
+                    partitionBasicStatistics.keySet().stream().collect(toImmutableList()),
+                    dataColumns);
+        }
+        catch (AlluxioStatusException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+
+        Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = columnStatisticss.entrySet().stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> groupStatisticsByColumn(entry.getValue(), partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
+
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+        for (String partitionName : partitionBasicStatistics.keySet()) {
+            HiveBasicStatistics basicStatistics = partitionBasicStatistics.get(partitionName);
+            Map<String, HiveColumnStatistics> columnStatistics = partitionColumnStatistics.getOrDefault(partitionName, ImmutableMap.of());
+            result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
+        }
+        return result.build();
     }
 
     @Override
