@@ -18,20 +18,28 @@ import java.io.File;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class LocalRepository
+public class GitRepository
 {
     private final String upstreamName;
     private final String originName;
     private final File directory;
 
-    public LocalRepository(String repositoryName, LocalRepositoryConfig repositoryConfig)
+    private GitRepository(String upstreamName, String originName, File directory)
     {
-        this.upstreamName = requireNonNull(repositoryConfig.getUpstreamName(), "upstreamName is null");
-        this.originName = requireNonNull(repositoryConfig.getOriginName(), "originName is null");
-        this.directory = validateGitDirectory(
-                repositoryConfig.getDirectory().orElse(System.getProperty("user.dir")),
-                repositoryName,
-                repositoryConfig.isCheckDirectoryName());
+        this.upstreamName = requireNonNull(upstreamName, "upstreamName is null");
+        this.originName = requireNonNull(originName, "originName is null");
+        this.directory = requireNonNull(directory, "directory is null");
+    }
+
+    public static GitRepository fromFile(String repositoryName, FileRepositoryConfig config)
+    {
+        return new GitRepository(
+                config.getUpstreamName(),
+                config.getOriginName(),
+                validateGitDirectory(
+                        config.getDirectory().orElse(System.getProperty("user.dir")),
+                        repositoryName,
+                        config.isCheckDirectoryName()));
     }
 
     public String getUpstreamName()

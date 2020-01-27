@@ -17,52 +17,54 @@ import com.facebook.presto.release.AbstractAnnotatedProvider;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.Singleton;
 
 import java.lang.annotation.Annotation;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
-// To perform the binding: gitBinder(binder).bind(annotation, repositoryName)
-public class GitBinder
+public class GitRepositoryModule
+        implements Module
 {
-    private final Binder binder;
+    private final Class<? extends Annotation> annotation;
+    private final String repositoryName;
 
-    private GitBinder(Binder binder)
+    public GitRepositoryModule(Class<? extends Annotation> annotation, String repositoryName)
     {
-        this.binder = requireNonNull(binder, "binder is null");
+        this.annotation = requireNonNull(annotation, "annotation is null");
+        this.repositoryName = requireNonNull(repositoryName, "repositoryName is null");
     }
 
-    public static GitBinder gitBinder(Binder binder)
+    @Override
+    public void configure(Binder binder)
     {
-        return new GitBinder(binder);
-    }
-
-    public void bind(Class<? extends Annotation> annotation, String repositoryName)
-    {
-        configBinder(binder).bindConfig(LocalRepositoryConfig.class, annotation, repositoryName);
-        binder.bind(LocalRepository.class).annotatedWith(annotation)
-                .toProvider(new LocalRepositoryProvider(annotation, repositoryName));
+        configBinder(binder).bindConfig(FileRepositoryConfig.class, annotation, repositoryName);
+        binder.bind(GitRepository.class).annotatedWith(annotation)
+                .toProvider(new GitRepositoryProvider(annotation, repositoryName))
+                .in(Singleton.class);
         binder.bind(Git.class).annotatedWith(annotation)
-                .toProvider(new GitProvider(annotation));
+                .toProvider(new GitProvider(annotation))
+                .in(Singleton.class);
     }
 
-    private static final class LocalRepositoryProvider
-            extends AbstractAnnotatedProvider<LocalRepository>
+    private static final class GitRepositoryProvider
+            extends AbstractAnnotatedProvider<GitRepository>
     {
         private final String repositoryName;
 
-        public LocalRepositoryProvider(Class<? extends Annotation> annotation, String repositoryName)
+        public GitRepositoryProvider(Class<? extends Annotation> annotation, String repositoryName)
         {
             super(annotation);
             this.repositoryName = requireNonNull(repositoryName, "repositoryName is null");
         }
 
         @Override
-        protected LocalRepository get(Injector injector, Class<? extends Annotation> annotation)
+        protected GitRepository get(Injector injector, Class<? extends Annotation> annotation)
         {
-            LocalRepositoryConfig config = injector.getInstance(Key.get(LocalRepositoryConfig.class, annotation));
-            return new LocalRepository(repositoryName, config);
+            FileRepositoryConfig config = injector.getInstance(Key.get(FileRepositoryConfig.class, annotation));
+            return GitRepository.fromFile(repositoryName, config);
         }
     }
 
@@ -78,8 +80,8 @@ public class GitBinder
         protected Git get(Injector injector, Class<? extends Annotation> annotation)
         {
             GitConfig gitConfig = injector.getInstance(GitConfig.class);
-            LocalRepository localRepository = injector.getInstance(Key.get(LocalRepository.class, annotation));
-            return new GitCommands(localRepository, gitConfig);
+            GitRepository repository = injector.getInstance(Key.get(GitRepository.class, annotation));
+            return new GitCommands(repository, gitConfig);
         }
     }
 }

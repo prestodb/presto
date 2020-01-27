@@ -32,16 +32,22 @@ import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractCommands
 {
     private static final Logger log = Logger.get(AbstractCommands.class);
 
-    protected abstract String getExecutable();
+    private final String executable;
+    private final Map<String, String> environment;
+    private final File directory;
 
-    protected abstract Map<String, String> getEnvironment();
-
-    protected abstract File getDirectory();
+    public AbstractCommands(String executable, Map<String, String> environment, File directory)
+    {
+        this.executable = requireNonNull(executable, "executable is null");
+        this.environment = requireNonNull(environment, "environment is null");
+        this.directory = requireNonNull(directory, "directory is null");
+    }
 
     protected String command(String... arguments)
     {
@@ -52,11 +58,11 @@ public abstract class AbstractCommands
     {
         return command(
                 ImmutableList.<String>builder()
-                        .add(getExecutable())
+                        .add(executable)
                         .addAll(arguments)
                         .build(),
-                getEnvironment(),
-                getDirectory());
+                environment,
+                directory);
     }
 
     protected static String command(List<String> command, Map<String, String> environment, File workingDirectory)

@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-public class LocalRepositoryConfig
+public class FileRepositoryConfig
 {
     private String upstreamName = "upstream";
     private String originName = "origin";
@@ -33,7 +33,7 @@ public class LocalRepositoryConfig
     }
 
     @Config("git.upstream-name")
-    public LocalRepositoryConfig setUpstreamName(String upstreamName)
+    public FileRepositoryConfig setUpstreamName(String upstreamName)
     {
         this.upstreamName = upstreamName;
         return this;
@@ -46,7 +46,7 @@ public class LocalRepositoryConfig
     }
 
     @Config("git.origin-name")
-    public LocalRepositoryConfig setOriginName(String originName)
+    public FileRepositoryConfig setOriginName(String originName)
     {
         this.originName = originName;
         return this;
@@ -59,7 +59,7 @@ public class LocalRepositoryConfig
     }
 
     @Config("git.directory")
-    public LocalRepositoryConfig setDirectory(String gitDirectory)
+    public FileRepositoryConfig setDirectory(String gitDirectory)
     {
         this.directory = Optional.ofNullable(gitDirectory);
         return this;
@@ -71,7 +71,7 @@ public class LocalRepositoryConfig
     }
 
     @Config("git.check-directory-name")
-    public LocalRepositoryConfig setCheckDirectoryName(boolean checkDirectoryName)
+    public FileRepositoryConfig setCheckDirectoryName(boolean checkDirectoryName)
     {
         this.checkDirectoryName = checkDirectoryName;
         return this;

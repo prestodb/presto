@@ -22,12 +22,12 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestLocalRepositoryConfig
+public class TestFileRepositoryConfig
 {
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(LocalRepositoryConfig.class)
+        assertRecordedDefaults(recordDefaults(FileRepositoryConfig.class)
                 .setUpstreamName("upstream")
                 .setOriginName("origin")
                 .setDirectory(null)
@@ -43,7 +43,7 @@ public class TestLocalRepositoryConfig
                 .put("git.directory", "/tmp/presto")
                 .put("git.check-directory-name", "false")
                 .build();
-        LocalRepositoryConfig expected = new LocalRepositoryConfig()
+        FileRepositoryConfig expected = new FileRepositoryConfig()
                 .setUpstreamName("u")
                 .setOriginName("o")
                 .setDirectory("/tmp/presto")

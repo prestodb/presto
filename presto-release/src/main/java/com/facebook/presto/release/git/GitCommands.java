@@ -17,8 +17,6 @@ import com.facebook.presto.release.AbstractCommands;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.io.File;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,37 +28,19 @@ public class GitCommands
         extends AbstractCommands
         implements Git
 {
-    private final String executable;
-    private final Optional<String> sshKeyFilePath;
-    private final LocalRepository repository;
+    private final GitRepository repository;
 
-    public GitCommands(LocalRepository repository, GitConfig gitConfig)
+    public GitCommands(GitRepository repository, GitConfig gitConfig)
     {
+        super(
+                gitConfig.getExecutable(),
+                gitConfig.getSshKeyFile().map(s -> ImmutableMap.of("GIT_SSH_COMMAND", format("ssh -i %s", s))).orElseGet(ImmutableMap::of),
+                repository.getDirectory());
+
         if (gitConfig.getSshKeyFile().isPresent()) {
             checkArgument(gitConfig.getSshKeyFile().get().exists(), "ssh key file does not exists: %s", gitConfig.getSshKeyFile().get().getAbsolutePath());
         }
-
         this.repository = requireNonNull(repository, "repository is null");
-        this.executable = requireNonNull(gitConfig.getExecutable(), "executable is null");
-        this.sshKeyFilePath = requireNonNull(gitConfig.getSshKeyFile().map(File::getAbsolutePath), "sshKeyFilePath is null");
-    }
-
-    @Override
-    protected String getExecutable()
-    {
-        return executable;
-    }
-
-    @Override
-    protected Map<String, String> getEnvironment()
-    {
-        return sshKeyFilePath.map(s -> ImmutableMap.of("GIT_SSH_COMMAND", format("ssh -i %s", s))).orElseGet(ImmutableMap::of);
-    }
-
-    @Override
-    protected File getDirectory()
-    {
-        return repository.getDirectory();
     }
 
     @Override
@@ -70,13 +50,11 @@ public class GitCommands
     }
 
     @Override
-    public void checkout(String branch, boolean newBranch)
+    public void checkout(Optional<String> ref, Optional<String> createBranch)
     {
         ImmutableList.Builder<String> arguments = ImmutableList.<String>builder().add("checkout");
-        if (newBranch) {
-            arguments.add("-b");
-        }
-        arguments.add(branch);
+        createBranch.ifPresent(branch -> arguments.add("-b").add(branch));
+        ref.ifPresent(arguments::add);
         command(arguments.build());
     }
 
@@ -87,18 +65,18 @@ public class GitCommands
     }
 
     @Override
-    public void fastForwardUpstream(String branch)
+    public void fastForwardUpstream(String ref)
     {
-        command("pull", "--ff-only", repository.getUpstreamName(), branch);
+        command("pull", "--ff-only", repository.getUpstreamName(), ref);
     }
 
     @Override
-    public void fetchUpstream(Optional<String> branch)
+    public void fetchUpstream(Optional<String> ref)
     {
         ImmutableList.Builder<String> arguments = ImmutableList.<String>builder()
                 .add("fetch")
                 .add(repository.getUpstreamName());
-        branch.ifPresent(arguments::add);
+        ref.ifPresent(arguments::add);
         command(arguments.build());
     }
 

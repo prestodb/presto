@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.release.git;
 
-import java.util.Optional;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 
-public interface Git
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+
+public class GitModule
+        implements Module
 {
-    void add(String path);
-
-    void checkout(Optional<String> ref, Optional<String> createBranch);
-
-    void commit(String commitTitle);
-
-    void fastForwardUpstream(String ref);
-
-    void fetchUpstream(Optional<String> ref);
-
-    String log(String revisionRange, String... options);
-
-    void pushOrigin(String branch);
+    @Override
+    public void configure(Binder binder)
+    {
+        configBinder(binder).bindConfig(GitConfig.class);
+    }
 }
