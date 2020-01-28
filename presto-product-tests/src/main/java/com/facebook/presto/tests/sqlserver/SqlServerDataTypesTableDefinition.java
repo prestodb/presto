@@ -44,7 +44,7 @@ public class SqlServerDataTypesTableDefinition
     private static final String INSERT_DDL =
             "CREATE TABLE %NAME% (bi bigint, si smallint, i int, f float," +
                     "c char(4), vc varchar(6), " +
-                    "pf30 float(30), d date) ";
+                    "pf30 float(30), d date, b bit) ";
 
     static {
         RelationalDataSource dataSource = () -> {

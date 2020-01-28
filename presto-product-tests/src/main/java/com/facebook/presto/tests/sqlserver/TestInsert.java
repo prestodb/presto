@@ -67,7 +67,7 @@ public class TestInsert
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
-                        "CHAR 'a   ', 'aa', DOUBLE '%s', DATE '%s')",
+                        "CHAR 'a   ', 'aa', DOUBLE '%s', DATE '%s', false)",
                 SQLSERVER, INSERT_TABLE_NAME, Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE,
                 Double.MIN_VALUE, Double.MIN_VALUE, Date.valueOf("1970-01-01"));
         // Min value for BIGINT would be updated to "-9223372036854775808" post https://github.com/prestodb/presto/issues/4571
@@ -80,7 +80,8 @@ public class TestInsert
                 .executeQuery(sql);
 
         assertThat(queryResult).contains(
-                row(Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")));
+                row(Long.valueOf("-9223372036854775807"), Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE,
+                        "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01"), Boolean.FALSE));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
@@ -88,7 +89,7 @@ public class TestInsert
     {
         String sql = format(
                 "INSERT INTO %s.%s values (BIGINT '%s', SMALLINT '%s', INTEGER '%s', DOUBLE '%s', " +
-                        "CHAR 'aaaa', 'aaaaaa', DOUBLE '%s', DATE '%s' )",
+                        "CHAR 'aaaa', 'aaaaaa', DOUBLE '%s', DATE '%s', true)",
                 SQLSERVER, INSERT_TABLE_NAME, Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE,
                 Double.MAX_VALUE, Double.valueOf("12345678912.3456756"), Date.valueOf("9999-12-31"));
         onPresto().executeQuery(sql);
@@ -100,15 +101,15 @@ public class TestInsert
                 .executeQuery(sql);
 
         assertThat(queryResult).contains(
-                row(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Double.MAX_VALUE, "aaaa", "aaaaaa", Double.valueOf("12345678912.3456756"),
-                        Date.valueOf("9999-12-31")));
+                row(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Double.MAX_VALUE,
+                        "aaaa", "aaaaaa", Double.valueOf("12345678912.3456756"), Date.valueOf("9999-12-31"), Boolean.TRUE));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertNull()
     {
         String sql = format(
-                "INSERT INTO %s.%s values (null, null, null, null, null, null, null, null)",
+                "INSERT INTO %s.%s values (null, null, null, null, null, null, null, null, null)",
                 SQLSERVER, INSERT_TABLE_NAME);
         onPresto().executeQuery(sql);
 
@@ -118,6 +119,6 @@ public class TestInsert
         QueryResult queryResult = onSqlServer()
                 .executeQuery(sql);
 
-        assertThat(queryResult).contains(row(null, null, null, null, null, null, null, null));
+        assertThat(queryResult).contains(row(null, null, null, null, null, null, null, null, null));
     }
 }
