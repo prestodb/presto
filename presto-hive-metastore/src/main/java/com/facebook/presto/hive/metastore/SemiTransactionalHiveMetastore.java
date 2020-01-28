@@ -685,6 +685,8 @@ public class SemiTransactionalHiveMetastore
             String tableName,
             Partition partition,
             Path currentLocation,
+            List<String> fileNames,
+            List<String> fileStats,
             PartitionStatistics statistics)
     {
         setShared();
@@ -695,7 +697,7 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, Optional.empty(), statistics, statistics), context));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, Optional.of(fileNames), Optional.of(fileStats), statistics, statistics), context));
             return;
         }
         switch (oldPartitionAction.getType()) {
@@ -705,7 +707,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, Optional.empty(), statistics, statistics), context));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, Optional.of(fileNames), Optional.of(fileStats), statistics, statistics), context));
                 break;
             }
             case ADD:
@@ -748,6 +750,7 @@ public class SemiTransactionalHiveMetastore
             List<String> partitionValues,
             Path currentLocation,
             List<String> fileNames,
+            List<String> fileStats,
             PartitionStatistics statisticsUpdate)
     {
         setShared();
@@ -771,6 +774,7 @@ public class SemiTransactionalHiveMetastore
                                     partition,
                                     currentLocation,
                                     Optional.of(fileNames),
+                                    Optional.of(fileStats),
                                     merge(currentStatistics, statisticsUpdate),
                                     statisticsUpdate),
                             context));
@@ -1304,7 +1308,7 @@ public class SemiTransactionalHiveMetastore
             SchemaTableName schemaTableName = new SchemaTableName(partition.getDatabaseName(), partition.getTableName());
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
                     schemaTableName,
-                    ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
+                    ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, partitionAndMore.getFileNames(), partitionAndMore.getFileStats(), PARTITION_COMMIT_BATCH_SIZE));
 
             if (pathExists(context, hdfsEnvironment, currentPath)) {
                 if (!targetPath.equals(currentPath)) {
@@ -2141,14 +2145,16 @@ public class SemiTransactionalHiveMetastore
         private final Partition partition;
         private final Path currentLocation;
         private final Optional<List<String>> fileNames;
+        private final Optional<List<String>> fileStats;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
 
-        public PartitionAndMore(Partition partition, Path currentLocation, Optional<List<String>> fileNames, PartitionStatistics statistics, PartitionStatistics statisticsUpdate)
+        public PartitionAndMore(Partition partition, Path currentLocation, Optional<List<String>> fileNames, Optional<List<String>> fileStats, PartitionStatistics statistics, PartitionStatistics statisticsUpdate)
         {
             this.partition = requireNonNull(partition, "partition is null");
             this.currentLocation = requireNonNull(currentLocation, "currentLocation is null");
             this.fileNames = requireNonNull(fileNames, "fileNames is null");
+            this.fileStats = requireNonNull(fileStats, "fileStats is null");
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
         }
@@ -2167,6 +2173,12 @@ public class SemiTransactionalHiveMetastore
         {
             checkState(fileNames.isPresent());
             return fileNames.get();
+        }
+
+        public List<String> getFileStats()
+        {
+            checkState(fileStats.isPresent());
+            return fileStats.get();
         }
 
         public PartitionStatistics getStatistics()
@@ -2614,15 +2626,19 @@ public class SemiTransactionalHiveMetastore
         private final ExtendedHiveMetastore metastore;
         private final int batchSize;
         private final List<PartitionWithStatistics> partitions;
+        private final List<String> fileNames;
+        private final List<String> fileStats;
         private List<List<String>> createdPartitionValues = new ArrayList<>();
 
-        public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
+        public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, List<String> fileNames, List<String> fileStats, int batchSize)
         {
             this.schemaName = schemaName;
             this.tableName = tableName;
             this.metastore = metastore;
             this.batchSize = batchSize;
             this.partitions = new ArrayList<>(batchSize);
+            this.fileNames = fileNames;
+            this.fileStats = fileStats;
         }
 
         public String getSchemaName()
@@ -2646,7 +2662,7 @@ public class SemiTransactionalHiveMetastore
             List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, batchSize);
             for (List<PartitionWithStatistics> batch : batchedPartitions) {
                 try {
-                    metastore.addPartitions(schemaName, tableName, batch);
+                    metastore.addPartitions(schemaName, tableName, batch, fileNames, fileStats);
                     for (PartitionWithStatistics partition : batch) {
                         createdPartitionValues.add(partition.getPartition().getValues());
                     }

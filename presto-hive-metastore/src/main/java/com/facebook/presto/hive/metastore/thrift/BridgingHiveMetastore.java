@@ -289,6 +289,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
+    {
+        delegate.addPartitions(databaseName, tableName, partitions, fileNames, fileStats);
+    }
+
+    @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         delegate.dropPartition(databaseName, tableName, parts, deleteData);

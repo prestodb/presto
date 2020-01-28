@@ -833,6 +833,12 @@ public class GlueHiveMetastore
         }
     }
 
+    @Override
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
+    {
+        addPartitions(databaseName, tableName, partitions);
+    }
+
     private static void propagatePartitionErrorToPrestoException(String databaseName, String tableName, List<PartitionError> partitionErrors)
     {
         if (partitionErrors != null && !partitionErrors.isEmpty()) {

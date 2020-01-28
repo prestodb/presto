@@ -602,6 +602,18 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
+    {
+        try {
+            delegate.addPartitions(databaseName, tableName, partitions, fileNames, fileStats);
+        }
+        finally {
+            // todo do we need to invalidate all partitions?
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         try {

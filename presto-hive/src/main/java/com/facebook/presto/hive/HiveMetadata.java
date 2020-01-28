@@ -1357,12 +1357,15 @@ public class HiveMetadata
                     update.getStatistics(),
                     columnTypes,
                     getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+            List<FileWriteInfo> fileWriteInfos = update.getFileWriteInfos();
             metastore.addPartition(
                     session,
                     handle.getSchemaName(),
                     handle.getTableName(),
                     partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion),
                     update.getWritePath(),
+                    getTargetFileNames(fileWriteInfos),
+                    fileWriteInfos.stream().map(FileWriteInfo::getFileStats).collect(toImmutableList()),
                     partitionStatistics);
         }
 
@@ -1595,6 +1598,7 @@ public class HiveMetadata
                         partitionValues,
                         partitionUpdate.getWritePath(),
                         getTargetFileNames(partitionUpdate.getFileWriteInfos()),
+                        partitionUpdate.getFileWriteInfos().stream().map(FileWriteInfo::getFileStats).collect(toImmutableList()),
                         partitionStatistics);
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
@@ -1606,12 +1610,21 @@ public class HiveMetadata
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
                     metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
                 }
+                List<FileWriteInfo> fileWriteInfos = partitionUpdate.getFileWriteInfos();
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partition.getValues()));
-                metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath(), partitionStatistics);
+                metastore.addPartition(
+                        session,
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        partition,
+                        partitionUpdate.getWritePath(),
+                        getTargetFileNames(fileWriteInfos),
+                        fileWriteInfos.stream().map(FileWriteInfo::getFileStats).collect(toImmutableList()),
+                        partitionStatistics);
             }
             else {
                 throw new IllegalArgumentException(format("Unsupported update mode: %s", partitionUpdate.getUpdateMode()));

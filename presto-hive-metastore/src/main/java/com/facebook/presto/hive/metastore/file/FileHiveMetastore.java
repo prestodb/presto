@@ -609,6 +609,12 @@ public class FileHiveMetastore
         }
     }
 
+    @Override
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
+    {
+        addPartitions(databaseName, tableName, partitions);
+    }
+
     private void verifiedPartition(Table table, Partition partition)
     {
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());

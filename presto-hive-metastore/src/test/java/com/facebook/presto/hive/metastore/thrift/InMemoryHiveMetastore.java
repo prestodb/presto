@@ -320,6 +320,12 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
+    {
+        addPartitions(databaseName, tableName, partitions);
+    }
+
+    @Override
     public synchronized void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         partitions.entrySet().removeIf(entry ->
