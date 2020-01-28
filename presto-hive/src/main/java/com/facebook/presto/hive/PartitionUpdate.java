@@ -211,14 +211,22 @@ public class PartitionUpdate
     {
         private final String writeFileName;
         private final String targetFileName;
+        private final String fileStats;
+
+        public FileWriteInfo(String writeFileName, String targetFileName)
+        {
+            this(writeFileName, targetFileName, "");
+        }
 
         @JsonCreator
         public FileWriteInfo(
                 @JsonProperty("writeFileName") String writeFileName,
-                @JsonProperty("targetFileName") String targetFileName)
+                @JsonProperty("targetFileName") String targetFileName,
+                @JsonProperty("fileStats") String fileStats)
         {
             this.writeFileName = requireNonNull(writeFileName, "writeFileName is null");
             this.targetFileName = requireNonNull(targetFileName, "targetFileName is null");
+            this.fileStats = requireNonNull(fileStats, "fileStats is null");
         }
 
         @JsonProperty
@@ -233,6 +241,12 @@ public class PartitionUpdate
             return targetFileName;
         }
 
+        @JsonProperty
+        public String getFileStats()
+        {
+            return fileStats;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -244,13 +258,14 @@ public class PartitionUpdate
             }
             FileWriteInfo that = (FileWriteInfo) o;
             return Objects.equals(writeFileName, that.writeFileName) &&
-                    Objects.equals(targetFileName, that.targetFileName);
+                    Objects.equals(targetFileName, that.targetFileName) &&
+                    Objects.equals(fileStats, that.fileStats);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(writeFileName, targetFileName);
+            return Objects.hash(writeFileName, targetFileName, fileStats);
         }
 
         @Override
@@ -259,6 +274,7 @@ public class PartitionUpdate
             return toStringHelper(this)
                     .add("writeFileName", writeFileName)
                     .add("targetFileName", targetFileName)
+                    .add("fileStats", fileStats)
                     .toString();
         }
     }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +40,7 @@ public class HiveWriter
 
     private long rowCount;
     private long inputSizeInBytes;
+    private String fileStats;
 
     public HiveWriter(
             HiveFileWriter fileWriter,
@@ -87,6 +89,7 @@ public class HiveWriter
     public void commit()
     {
         List<ColumnStatistics> stats = fileWriter.commit();
+        fileStats = stats.stream().map(ColumnStatistics::toString).collect(Collectors.joining("-", "{", "}"));
         onCommit.accept(this);
     }
 
@@ -112,7 +115,7 @@ public class HiveWriter
                 updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileWriteInfo),
+                ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStats)),
                 rowCount,
                 inputSizeInBytes,
                 fileWriter.getWrittenBytes());
