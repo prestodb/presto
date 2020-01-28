@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
+
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
@@ -44,23 +46,7 @@ public final class ArrayPositionFunction
             @SqlType("array(T)") Block array,
             @SqlType("T") boolean element)
     {
-        int size = array.getPositionCount();
-        for (int i = 0; i < size; i++) {
-            if (!array.isNull(i)) {
-                boolean arrayValue = type.getBoolean(array, i);
-                try {
-                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
-                    checkNotIndeterminate(result);
-                    if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
-                    }
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
-            }
-        }
-        return 0;
+        return ArrayPositionWithIndexFunction.arrayPositionWithIndex(type, equalMethodHandle, array, element, 1);
     }
 
     @TypeParameter("T")
@@ -71,23 +57,7 @@ public final class ArrayPositionFunction
             @SqlType("array(T)") Block array,
             @SqlType("T") long element)
     {
-        int size = array.getPositionCount();
-        for (int i = 0; i < size; i++) {
-            if (!array.isNull(i)) {
-                long arrayValue = type.getLong(array, i);
-                try {
-                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
-                    checkNotIndeterminate(result);
-                    if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
-                    }
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
-            }
-        }
-        return 0;
+        return ArrayPositionWithIndexFunction.arrayPositionWithIndex(type, equalMethodHandle, array, element, 1);
     }
 
     @TypeParameter("T")
@@ -98,23 +68,7 @@ public final class ArrayPositionFunction
             @SqlType("array(T)") Block array,
             @SqlType("T") double element)
     {
-        int size = array.getPositionCount();
-        for (int i = 0; i < size; i++) {
-            if (!array.isNull(i)) {
-                double arrayValue = type.getDouble(array, i);
-                try {
-                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
-                    checkNotIndeterminate(result);
-                    if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
-                    }
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
-            }
-        }
-        return 0;
+        return ArrayPositionWithIndexFunction.arrayPositionWithIndex(type, equalMethodHandle, array, element, 1);
     }
 
     @TypeParameter("T")
@@ -125,23 +79,7 @@ public final class ArrayPositionFunction
             @SqlType("array(T)") Block array,
             @SqlType("T") Slice element)
     {
-        int size = array.getPositionCount();
-        for (int i = 0; i < size; i++) {
-            if (!array.isNull(i)) {
-                Slice arrayValue = type.getSlice(array, i);
-                try {
-                    Boolean result = (Boolean) equalMethodHandle.invokeExact(arrayValue, element);
-                    checkNotIndeterminate(result);
-                    if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
-                    }
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
-            }
-        }
-        return 0;
+        return ArrayPositionWithIndexFunction.arrayPositionWithIndex(type, equalMethodHandle, array, element, 1);
     }
 
     @TypeParameter("T")
@@ -152,23 +90,7 @@ public final class ArrayPositionFunction
             @SqlType("array(T)") Block array,
             @SqlType("T") Block element)
     {
-        int size = array.getPositionCount();
-        for (int i = 0; i < size; i++) {
-            if (!array.isNull(i)) {
-                Object arrayValue = type.getObject(array, i);
-                try {
-                    Boolean result = (Boolean) equalMethodHandle.invoke(arrayValue, element);
-                    checkNotIndeterminate(result);
-                    if (result) {
-                        return i + 1; // result is 1-based (instead of 0)
-                    }
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
-            }
-        }
-        return 0;
+        return ArrayPositionWithIndexFunction.arrayPositionWithIndex(type, equalMethodHandle, array, element, 1);
     }
 
     private static void checkNotIndeterminate(Boolean equalsResult)
