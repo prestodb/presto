@@ -134,6 +134,11 @@ public class OrcWriteValidation
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
     }
 
+    public List<ColumnStatistics> getFileStatistics()
+    {
+        return fileStatistics;
+    }
+
     public List<Integer> getVersion()
     {
         return version;

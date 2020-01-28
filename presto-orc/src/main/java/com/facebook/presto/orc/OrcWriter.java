@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -56,7 +55,6 @@ import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.orc.OrcReader.validateFile;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
@@ -69,7 +67,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
@@ -134,6 +131,7 @@ public class OrcWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
+        validate = true;
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
@@ -511,18 +509,11 @@ public class OrcWriter
         }
     }
 
-    public void validate(OrcDataSource input)
+    public List<ColumnStatistics> validate(OrcDataSource input)
             throws OrcCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
-
-        validateFile(
-                validationBuilder.build(),
-                input,
-                types,
-                hiveStorageTimeZone,
-                orcEncoding,
-                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false));
+        return validationBuilder.build().getFileStatistics();
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)

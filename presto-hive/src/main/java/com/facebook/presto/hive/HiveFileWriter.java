@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.Page;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface HiveFileWriter
@@ -25,7 +27,7 @@ public interface HiveFileWriter
 
     void appendRows(Page dataPage);
 
-    void commit();
+    List<ColumnStatistics> commit();
 
     void rollback();
 

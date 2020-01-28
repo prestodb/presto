@@ -162,25 +162,22 @@ public class OrcFileWriterFactory
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
             OrcDataSink orcDataSink = createOrcDataSink(session, fileSystem, path);
 
-            Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
-                validationInputFactory = Optional.of(() -> {
-                    try {
-                        return new HdfsOrcDataSource(
-                                new OrcDataSourceId(path.toString()),
-                                fileSystem.getFileStatus(path).getLen(),
-                                getOrcMaxMergeDistance(session),
-                                getOrcMaxBufferSize(session),
-                                getOrcStreamBufferSize(session),
-                                false,
-                                fileSystem.open(path),
-                                readStats);
-                    }
-                    catch (IOException e) {
-                        throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
-                    }
-                });
-            }
+            Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.of(() -> {
+                try {
+                    return new HdfsOrcDataSource(
+                            new OrcDataSourceId(path.toString()),
+                            fileSystem.getFileStatus(path).getLen(),
+                            getOrcMaxMergeDistance(session),
+                            getOrcMaxBufferSize(session),
+                            getOrcStreamBufferSize(session),
+                            false,
+                            fileSystem.open(path),
+                            readStats);
+                }
+                catch (IOException e) {
+                    throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                }
+            });
 
             Callable<Void> rollbackAction = () -> {
                 fileSystem.delete(path, false);

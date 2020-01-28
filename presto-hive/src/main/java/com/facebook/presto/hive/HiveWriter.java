@@ -15,9 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -84,7 +86,7 @@ public class HiveWriter
 
     public void commit()
     {
-        fileWriter.commit();
+        List<ColumnStatistics> stats = fileWriter.commit();
         onCommit.accept(this);
     }
 

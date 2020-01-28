@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -139,7 +140,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public List<ColumnStatistics> commit()
     {
         try {
             orcWriter.close();
@@ -158,14 +159,16 @@ public class OrcFileWriter
             try {
                 try (OrcDataSource input = validationInputFactory.get().get()) {
                     long startThreadCpuTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-                    orcWriter.validate(input);
+                    List<ColumnStatistics> stats = orcWriter.validate(input);
                     validationCpuNanos += THREAD_MX_BEAN.getCurrentThreadCpuTime() - startThreadCpuTime;
+                    return stats;
                 }
             }
             catch (IOException | UncheckedIOException e) {
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+        return ImmutableList.of();
     }
 
     @Override

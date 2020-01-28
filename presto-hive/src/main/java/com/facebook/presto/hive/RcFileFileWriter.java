@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileDataSource;
@@ -130,7 +131,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public void commit()
+    public List<ColumnStatistics> commit()
     {
         try {
             rcFileWriter.close();
@@ -157,6 +158,7 @@ public class RcFileFileWriter
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+        return ImmutableList.of();
     }
 
     @Override

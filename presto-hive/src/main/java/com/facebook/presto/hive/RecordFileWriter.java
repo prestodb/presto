@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -175,7 +176,7 @@ public class RecordFileWriter
     }
 
     @Override
-    public void commit()
+    public List<ColumnStatistics> commit()
     {
         try {
             recordWriter.close(false);
@@ -184,6 +185,7 @@ public class RecordFileWriter
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
+        return ImmutableList.of();
     }
 
     @Override
