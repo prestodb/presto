@@ -50,26 +50,27 @@ import static java.util.function.Function.identity;
 public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
 {
-    private final Set<SqlStageExecution> schedulingStages;
+    private final Set<StageExecutionAndScheduler> schedulingStages;
 
-    public AllAtOnceExecutionSchedule(Collection<SqlStageExecution> stages)
+    public AllAtOnceExecutionSchedule(Collection<StageExecutionAndScheduler> stages)
     {
         requireNonNull(stages, "stages is null");
         List<PlanFragmentId> preferredScheduleOrder = getPreferredScheduleOrder(stages.stream()
+                .map(StageExecutionAndScheduler::getStageExecution)
                 .map(SqlStageExecution::getFragment)
                 .collect(toImmutableList()));
 
-        Ordering<SqlStageExecution> ordering = Ordering.explicit(preferredScheduleOrder)
+        Ordering<StageExecutionAndScheduler> ordering = Ordering.explicit(preferredScheduleOrder)
                 .onResultOf(PlanFragment::getId)
-                .onResultOf(SqlStageExecution::getFragment);
+                .onResultOf(execution -> execution.getStageExecution().getFragment());
         schedulingStages = new LinkedHashSet<>(ordering.sortedCopy(stages));
     }
 
     @Override
-    public Set<SqlStageExecution> getStagesToSchedule()
+    public Set<StageExecutionAndScheduler> getStagesToSchedule()
     {
-        for (Iterator<SqlStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
-            StageExecutionState state = iterator.next().getState();
+        for (Iterator<StageExecutionAndScheduler> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
+            StageExecutionState state = iterator.next().getStageExecution().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 iterator.remove();
             }
