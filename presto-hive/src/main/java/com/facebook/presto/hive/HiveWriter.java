@@ -40,7 +40,7 @@ public class HiveWriter
 
     private long rowCount;
     private long inputSizeInBytes;
-    private String fileStats;
+    private String fileStats = "";
 
     public HiveWriter(
             HiveFileWriter fileWriter,
@@ -89,7 +89,20 @@ public class HiveWriter
     public void commit()
     {
         List<ColumnStatistics> stats = fileWriter.commit();
-        fileStats = stats.stream().map(ColumnStatistics::toString).collect(Collectors.joining("-", "{", "}"));
+
+        int column = 0;
+        for (ColumnStatistics statistics : stats) {
+            String min = statistics.getMin();
+            String max = statistics.getMax();
+            String rows = !statistics.hasNumberOfValues() ? "-1" : String.valueOf(statistics.getNumberOfValues());
+            String line = String.format("col %s: {min = %s, max = %s, rows = %s}", column, min, max, rows);
+            column++;
+            if (column < stats.size()) {
+                line += ", ";
+            }
+
+            fileStats += line;
+        }
         onCommit.accept(this);
     }
 

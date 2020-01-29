@@ -70,6 +70,60 @@ public class ColumnStatistics
         this.bloomFilter = bloomFilter;
     }
 
+    public String getMin()
+    {
+        if (booleanStatistics != null) {
+            // if all true, min is true
+            return String.valueOf(booleanStatistics.getTrueValueCount() == numberOfValues);
+        }
+        if (integerStatistics != null) {
+            return String.valueOf(integerStatistics.getMin());
+        }
+        if (doubleStatistics != null) {
+            return String.valueOf(doubleStatistics.getMin());
+        }
+        if (stringStatistics != null) {
+            if (stringStatistics.getMin() == null) {
+                return null;
+            }
+            return stringStatistics.getMin().toStringUtf8();
+        }
+        if (dateStatistics != null) {
+            return String.valueOf(dateStatistics.getMin());
+        }
+        if (decimalStatistics != null) {
+            return String.valueOf(decimalStatistics.getMin());
+        }
+        return null;
+    }
+
+    public String getMax()
+    {
+        if (booleanStatistics != null) {
+            // if all false, max if false
+            return String.valueOf(booleanStatistics.getTrueValueCount() == 0);
+        }
+        if (integerStatistics != null) {
+            return String.valueOf(integerStatistics.getMax());
+        }
+        if (doubleStatistics != null) {
+            return String.valueOf(doubleStatistics.getMax());
+        }
+        if (stringStatistics != null) {
+            if (stringStatistics.getMax() == null) {
+                return null;
+            }
+            return stringStatistics.getMax().toStringUtf8();
+        }
+        if (dateStatistics != null) {
+            return String.valueOf(dateStatistics.getMax());
+        }
+        if (decimalStatistics != null) {
+            return String.valueOf(decimalStatistics.getMax());
+        }
+        return null;
+    }
+
     public boolean hasNumberOfValues()
     {
         return hasNumberOfValues;
