@@ -102,7 +102,7 @@ public class TestHeartbeatFailureDetector
             throws Exception
     {
         ObjectMapper objectMapper = new ObjectMapperProvider().get();
-        Stats stats = new Stats(new URI("http://example.com"));
+        Stats stats = new Stats(new URI("http://example.com"), 60);
         String serialized = objectMapper.writeValueAsString(stats);
         JsonNode deserialized = objectMapper.readTree(serialized);
         assertFalse(deserialized.has("lastFailureInfo"));
