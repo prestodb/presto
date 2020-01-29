@@ -79,7 +79,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 
-public class SqlQueryScheduler
+@Deprecated
+public class LegacySqlQueryScheduler
         implements SqlQuerySchedulerInterface
 {
     private final LocationFactory locationFactory;
@@ -99,7 +100,7 @@ public class SqlQueryScheduler
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
-    public static SqlQueryScheduler createSqlQueryScheduler(
+    public static LegacySqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
             ExecutorService queryExecutor,
@@ -113,7 +114,7 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             boolean summarizeTaskInfo)
     {
-        SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
+        LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
                 executionPolicy,
                 queryExecutor,
@@ -130,7 +131,7 @@ public class SqlQueryScheduler
         return sqlQueryScheduler;
     }
 
-    private SqlQueryScheduler(
+    private LegacySqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
             ExecutorService queryExecutor,
@@ -279,7 +280,6 @@ public class SqlQueryScheduler
         return stages.build();
     }
 
-    @Override
     public void start()
     {
         if (started.compareAndSet(false, true)) {
@@ -505,7 +505,6 @@ public class SqlQueryScheduler
         return new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
     }
 
-    @Override
     public long getUserMemoryReservation()
     {
         return stageExecutions.values().stream()
@@ -513,7 +512,6 @@ public class SqlQueryScheduler
                 .sum();
     }
 
-    @Override
     public long getTotalMemoryReservation()
     {
         return stageExecutions.values().stream()
@@ -521,7 +519,6 @@ public class SqlQueryScheduler
                 .sum();
     }
 
-    @Override
     public Duration getTotalCpuTime()
     {
         long millis = stageExecutions.values().stream()
@@ -530,7 +527,6 @@ public class SqlQueryScheduler
         return new Duration(millis, MILLISECONDS);
     }
 
-    @Override
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
@@ -540,7 +536,6 @@ public class SqlQueryScheduler
         return aggregateBasicStageStats(stageStats);
     }
 
-    @Override
     public StageInfo getStageInfo()
     {
         Map<StageId, StageExecutionInfo> stageInfos = stageExecutions.values().stream()
@@ -566,7 +561,6 @@ public class SqlQueryScheduler
                         .collect(toImmutableList()));
     }
 
-    @Override
     public void cancelStage(StageId stageId)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
@@ -576,7 +570,6 @@ public class SqlQueryScheduler
         }
     }
 
-    @Override
     public void abort()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {

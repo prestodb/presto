@@ -148,6 +148,7 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
+    private boolean useLegacyScheduler;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1194,6 +1195,19 @@ public class FeaturesConfig
     public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
     {
         this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isUseLegacyScheduler()
+    {
+        return useLegacyScheduler;
+    }
+
+    @Config("use-legacy-scheduler")
+    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
+    public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
+    {
+        this.useLegacyScheduler = useLegacyScheduler;
         return this;
     }
 }
