@@ -122,7 +122,7 @@ public class HiveWriter
         return toStringHelper(this)
                 .add("fileWriter", fileWriter)
                 .add("writeFilePath", writePath + "/" + fileWriteInfo.getWriteFileName())
-                .add("targetFilePath", writePath + "/" + fileWriteInfo.getTargetFileName())
+                .add("targetFilePath", targetPath + "/" + fileWriteInfo.getTargetFileName())
                 .toString();
     }
 }
