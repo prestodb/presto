@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -33,8 +34,10 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
 public class StageExecutionStats
@@ -397,5 +400,41 @@ public class StageExecutionStats
                 fullyBlocked,
                 blockedReasons,
                 progressPercentage);
+    }
+
+    public static StageExecutionStats zero(int stageId)
+    {
+        return new StageExecutionStats(
+                null,
+                new Distribution().snapshot(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                new StageGcStatistics(stageId, 0, 0, 0, 0, 0, 0, 0),
+                ImmutableList.of());
     }
 }
