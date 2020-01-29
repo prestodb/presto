@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
-import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
-import com.facebook.presto.execution.scheduler.SqlQueryScheduler.StreamingSubPlan;
+import com.facebook.presto.execution.scheduler.StreamingPlanSection;
+import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -37,7 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -64,7 +64,7 @@ public class PrestoSparkSplitEnumerator
 
     public PrestoSparkPlan preparePlan(Session session, SubPlan plan)
     {
-        SqlQueryScheduler.StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
+        StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
         checkState(streamingPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
         StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
         return new PrestoSparkPlan(resolveTaskSources(session, plan), createTableWriteInfo(streamingSubPlan, metadata, session));
