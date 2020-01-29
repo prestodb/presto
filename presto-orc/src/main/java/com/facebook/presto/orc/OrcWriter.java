@@ -513,7 +513,11 @@ public class OrcWriter
             throws OrcCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
-        return validationBuilder.build().getFileStatistics();
+        OrcWriteValidation validation = validationBuilder.build();
+        List<String> names = validation.getColumnNames();
+        checkState(names.size() + 1 == validation.getFileStatistics().size());
+        List<ColumnStatistics> stats = validation.getFileStatistics();
+        return validation.getFileStatistics().subList(1, stats.size());
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)

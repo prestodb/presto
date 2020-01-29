@@ -13,22 +13,28 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.Page;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveWriter
 {
+    private static final JsonCodec<FileStatistics> FILE_COLUMN_STATISTICS_JSON_CODEC = jsonCodec(FileStatistics.class);
+
     private final HiveFileWriter fileWriter;
     private final Optional<String> partitionName;
     private final UpdateMode updateMode;
@@ -90,20 +96,78 @@ public class HiveWriter
     {
         List<ColumnStatistics> stats = fileWriter.commit();
 
-        int column = 0;
+        int ordinal = 0;
+        List<FileColumnStatistics> statsList = new ArrayList<>();
         for (ColumnStatistics statistics : stats) {
-            String min = statistics.getMin();
-            String max = statistics.getMax();
-            String rows = !statistics.hasNumberOfValues() ? "-1" : String.valueOf(statistics.getNumberOfValues());
-            String line = String.format("col %s: {min = %s, max = %s, rows = %s}", column, min, max, rows);
-            column++;
-            if (column < stats.size()) {
-                line += ", ";
-            }
-
-            fileStats += line;
+            statsList.add(new FileColumnStatistics(ordinal, statistics.getMin(), statistics.getMax(), statistics.getNumberOfValues()));
+            ordinal++;
         }
+        FileStatistics fileStatistics = new FileStatistics(statsList);
+        fileStats = FILE_COLUMN_STATISTICS_JSON_CODEC.toJson(fileStatistics);
+
         onCommit.accept(this);
+    }
+
+    public class FileColumnStatistics
+    {
+        private final int ordinal;
+        private final String min;
+        private final String max;
+        private final Long rows;
+
+        @JsonCreator
+        public FileColumnStatistics(
+                @JsonProperty("ordinal") int ordinal,
+                @JsonProperty("min") String min,
+                @JsonProperty("max") String max,
+                @JsonProperty("rows") Long rows)
+        {
+            this.ordinal = ordinal;
+            this.min = min;
+            this.max = max;
+            this.rows = rows;
+        }
+
+        @JsonProperty
+        public int getOrdinal()
+        {
+            return ordinal;
+        }
+
+        @JsonProperty
+        public String getMin()
+        {
+            return min;
+        }
+
+        @JsonProperty
+        public String getMax()
+        {
+            return max;
+        }
+
+        @JsonProperty
+        public Long getRows()
+        {
+            return rows;
+        }
+    }
+
+    public class FileStatistics
+    {
+        private final List<FileColumnStatistics> columnStatistics;
+
+        @JsonCreator
+        public FileStatistics(@JsonProperty("columnStatistics") List<FileColumnStatistics> columnStatistics)
+        {
+            this.columnStatistics = columnStatistics;
+        }
+
+        @JsonProperty
+        public List<FileColumnStatistics> getColumnStatistics()
+        {
+            return columnStatistics;
+        }
     }
 
     long getValidationCpuNanos()
