@@ -133,6 +133,7 @@ public class TestQueryStateInfo
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
+                        Duration.valueOf("0m"),
                         Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
