@@ -36,6 +36,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.davidmoten.hilbert.HilbertCurve;
 
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,8 @@ public final class HiveBucketing
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
+        // TODO: fix this
+        HilbertCurve curve = HilbertCurve.bits(5).dimensions(2);
         return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
     }
 
