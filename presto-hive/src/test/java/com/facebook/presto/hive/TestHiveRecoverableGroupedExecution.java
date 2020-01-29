@@ -94,8 +94,9 @@ public class TestHiveRecoverableGroupedExecution
                         // this effectively disables the retries
                         "query.remote-task.max-error-duration", "1s",
                         // allow 2 out of 4 tasks to fail
-                        "max-failed-task-percentage", "0.6"),
-
+                        "max-failed-task-percentage", "0.6",
+                        // turn off the failure detector since with the shortened timeouts, it becomes too prone to failure
+                        "failure-detector.enabled", "false"),
                 Optional.empty());
         executor = listeningDecorator(newCachedThreadPool());
     }
