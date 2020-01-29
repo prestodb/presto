@@ -81,74 +81,78 @@ import static java.util.function.Function.identity;
 
 public class SqlQueryScheduler
 {
-    private final QueryStateMachine queryStateMachine;
     private final LocationFactory locationFactory;
     private final ExecutionPolicy executionPolicy;
+
+    private final SplitSchedulerStats schedulerStats;
+
+    private final QueryStateMachine queryStateMachine;
     private final SubPlan plan;
     private final StreamingPlanSection sectionedPlan;
-    private final Map<StageId, StageExecutionAndScheduler> stageExecutions;
-    private final ExecutorService executor;
     private final StageId rootStageId;
-    private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
-    private final AtomicBoolean started = new AtomicBoolean();
-    private final AtomicBoolean scheduling = new AtomicBoolean();
     private final int maxConcurrentMaterializations;
 
+    private final Map<StageId, StageExecutionAndScheduler> stageExecutions;
+    private final ExecutorService executor;
+    private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicBoolean scheduling = new AtomicBoolean();
+
     public static SqlQueryScheduler createSqlQueryScheduler(
-            QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
-            SubPlan plan,
+            ExecutionPolicy executionPolicy,
+            ExecutorService queryExecutor,
+            SplitSchedulerStats schedulerStats,
+            SectionExecutionFactory sectionExecutionFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
-            boolean summarizeTaskInfo,
-            ExecutorService queryExecutor,
+            QueryStateMachine queryStateMachine,
+            SubPlan plan,
             OutputBuffers rootOutputBuffers,
-            ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats,
-            SectionExecutionFactory sectionExecutionFactory)
+            boolean summarizeTaskInfo)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
-                queryStateMachine,
                 locationFactory,
-                plan,
+                executionPolicy,
+                queryExecutor,
+                schedulerStats,
+                sectionExecutionFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
+                queryStateMachine,
+                plan,
                 summarizeTaskInfo,
-                queryExecutor,
-                rootOutputBuffers,
-                executionPolicy,
-                schedulerStats,
-                sectionExecutionFactory);
+                rootOutputBuffers);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
 
     private SqlQueryScheduler(
-            QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
-            SubPlan plan,
+            ExecutionPolicy executionPolicy,
+            ExecutorService queryExecutor,
+            SplitSchedulerStats schedulerStats,
+            SectionExecutionFactory sectionExecutionFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
+            QueryStateMachine queryStateMachine,
+            SubPlan plan,
             boolean summarizeTaskInfo,
-            ExecutorService queryExecutor,
-            OutputBuffers rootOutputBuffers,
-            ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats,
-            SectionExecutionFactory sectionExecutionFactory)
+            OutputBuffers rootOutputBuffers)
     {
-        this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.plan = requireNonNull(plan, "plan is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
+        this.executor = queryExecutor;
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+        this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+        this.plan = requireNonNull(plan, "plan is null");
+        this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
 
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
-        sectionedPlan = extractStreamingSections(plan);
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
                 sectionExecutionFactory,
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
@@ -164,7 +168,6 @@ public class SqlQueryScheduler
         this.stageExecutions = stageExecutions.stream()
                 .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
 
-        this.executor = queryExecutor;
         this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
     }
 
@@ -273,62 +276,6 @@ public class SqlQueryScheduler
         stages.addAll(sectionStages);
 
         return stages.build();
-    }
-
-    public BasicStageExecutionStats getBasicStageStats()
-    {
-        List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
-                .map(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getBasicStageStats())
-                .collect(toImmutableList());
-
-        return aggregateBasicStageStats(stageStats);
-    }
-
-    public StageInfo getStageInfo()
-    {
-        Map<StageId, StageExecutionInfo> stageInfos = stageExecutions.values().stream()
-                .map(StageExecutionAndScheduler::getStageExecution)
-                .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), SqlStageExecution::getStageExecutionInfo));
-
-        return buildStageInfo(plan, stageInfos);
-    }
-
-    private StageInfo buildStageInfo(SubPlan subPlan, Map<StageId, StageExecutionInfo> stageExecutionInfos)
-    {
-        StageId stageId = getStageId(subPlan.getFragment().getId());
-        StageExecutionInfo stageExecutionInfo = stageExecutionInfos.get(stageId);
-        checkArgument(stageExecutionInfo != null, "No stageExecutionInfo for %s", stageId);
-        return new StageInfo(
-                stageId,
-                locationFactory.createStageLocation(stageId),
-                Optional.of(subPlan.getFragment()),
-                stageExecutionInfo,
-                ImmutableList.of(),
-                subPlan.getChildren().stream()
-                        .map(plan -> buildStageInfo(plan, stageExecutionInfos))
-                        .collect(toImmutableList()));
-    }
-
-    public long getUserMemoryReservation()
-    {
-        return stageExecutions.values().stream()
-                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getUserMemoryReservation())
-                .sum();
-    }
-
-    public long getTotalMemoryReservation()
-    {
-        return stageExecutions.values().stream()
-                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getTotalMemoryReservation())
-                .sum();
-    }
-
-    public Duration getTotalCpuTime()
-    {
-        long millis = stageExecutions.values().stream()
-                .mapToLong(stage -> stage.getStageExecution().getTotalCpuTime().toMillis())
-                .sum();
-        return new Duration(millis, MILLISECONDS);
     }
 
     public void start()
@@ -554,6 +501,62 @@ public class SqlQueryScheduler
     private StageId getStageId(PlanFragmentId fragmentId)
     {
         return new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
+    }
+
+    public long getUserMemoryReservation()
+    {
+        return stageExecutions.values().stream()
+                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getUserMemoryReservation())
+                .sum();
+    }
+
+    public long getTotalMemoryReservation()
+    {
+        return stageExecutions.values().stream()
+                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getTotalMemoryReservation())
+                .sum();
+    }
+
+    public Duration getTotalCpuTime()
+    {
+        long millis = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getTotalCpuTime().toMillis())
+                .sum();
+        return new Duration(millis, MILLISECONDS);
+    }
+
+    public BasicStageExecutionStats getBasicStageStats()
+    {
+        List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
+                .map(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getBasicStageStats())
+                .collect(toImmutableList());
+
+        return aggregateBasicStageStats(stageStats);
+    }
+
+    public StageInfo getStageInfo()
+    {
+        Map<StageId, StageExecutionInfo> stageInfos = stageExecutions.values().stream()
+                .map(StageExecutionAndScheduler::getStageExecution)
+                .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), SqlStageExecution::getStageExecutionInfo));
+
+        return buildStageInfo(plan, stageInfos);
+    }
+
+    private StageInfo buildStageInfo(SubPlan subPlan, Map<StageId, StageExecutionInfo> stageExecutionInfos)
+    {
+        StageId stageId = getStageId(subPlan.getFragment().getId());
+        StageExecutionInfo stageExecutionInfo = stageExecutionInfos.get(stageId);
+        checkArgument(stageExecutionInfo != null, "No stageExecutionInfo for %s", stageId);
+        return new StageInfo(
+                stageId,
+                locationFactory.createStageLocation(stageId),
+                Optional.of(subPlan.getFragment()),
+                stageExecutionInfo,
+                ImmutableList.of(),
+                subPlan.getChildren().stream()
+                        .map(plan -> buildStageInfo(plan, stageExecutionInfos))
+                        .collect(toImmutableList()));
     }
 
     public void cancelStage(StageId stageId)

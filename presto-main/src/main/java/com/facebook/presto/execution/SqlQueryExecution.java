@@ -473,18 +473,18 @@ public class SqlQueryExecution
         SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider);
         // build the stage execution objects (this doesn't schedule execution)
         SqlQueryScheduler scheduler = createSqlQueryScheduler(
-                stateMachine,
                 locationFactory,
-                outputStagePlan,
+                executionPolicy,
+                queryExecutor,
+                schedulerStats,
+                sectionExecutionFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 stateMachine.getSession(),
-                plan.isSummarizeTaskInfos(),
-                queryExecutor,
+                stateMachine,
+                outputStagePlan,
                 rootOutputBuffers,
-                executionPolicy,
-                schedulerStats,
-                sectionExecutionFactory);
+                plan.isSummarizeTaskInfos());
 
         queryScheduler.set(scheduler);
 
