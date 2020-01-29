@@ -70,7 +70,7 @@ import static java.util.regex.Pattern.MULTILINE;
 import static java.util.stream.Collectors.joining;
 
 public class GenerateReleaseNotesTask
-        implements Runnable
+        implements ReleaseTask
 {
     private static final Logger log = Logger.get(GenerateReleaseNotesTask.class);
 

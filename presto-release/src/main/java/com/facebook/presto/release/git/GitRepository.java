@@ -24,7 +24,10 @@ public class GitRepository
     private final String originName;
     private final File directory;
 
-    private GitRepository(String upstreamName, String originName, File directory)
+    private GitRepository(
+            String upstreamName,
+            String originName,
+            File directory)
     {
         this.upstreamName = requireNonNull(upstreamName, "upstreamName is null");
         this.originName = requireNonNull(originName, "originName is null");
