@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.BasicStageExecutionStats;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
@@ -30,46 +31,60 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
+import static com.facebook.presto.SystemSessionProperties.getMaxStageRetries;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
-import static com.facebook.presto.execution.StageExecutionState.ABORTED;
+import static com.facebook.presto.execution.SqlStageExecution.RECOVERABLE_ERROR_CODES;
+import static com.facebook.presto.execution.StageExecutionInfo.unscheduledExecutionInfo;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
 import static com.facebook.presto.execution.StageExecutionState.FAILED;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
-import static com.facebook.presto.execution.StageExecutionState.PLANNED;
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.sql.planner.PlanFragmenter.ROOT_FRAGMENT_ID;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
@@ -77,55 +92,59 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
 
 public class SqlQueryScheduler
         implements SqlQuerySchedulerInterface
 {
     private final LocationFactory locationFactory;
     private final ExecutionPolicy executionPolicy;
-
+    private final ExecutorService executor;
     private final SplitSchedulerStats schedulerStats;
+    private final SectionExecutionFactory sectionExecutionFactory;
+    private final RemoteTaskFactory remoteTaskFactory;
+    private final SplitSourceFactory splitSourceFactory;
+    private final InternalNodeManager nodeManager;
 
+    private final Session session;
     private final QueryStateMachine queryStateMachine;
     private final SubPlan plan;
     private final StreamingPlanSection sectionedPlan;
-    private final StageId rootStageId;
     private final boolean summarizeTaskInfo;
     private final int maxConcurrentMaterializations;
+    private final int maxStageRetries;
 
-    private final Map<StageId, StageExecutionAndScheduler> stageExecutions;
-    private final ExecutorService executor;
+    private final Map<StageId, List<SectionExecution>> sectionExecutions = new ConcurrentHashMap<>();
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
+    private final AtomicInteger retriedSections = new AtomicInteger();
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
-            ExecutorService queryExecutor,
+            ExecutorService executor,
             SplitSchedulerStats schedulerStats,
             SectionExecutionFactory sectionExecutionFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
+            InternalNodeManager nodeManager,
             Session session,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
-            OutputBuffers rootOutputBuffers,
             boolean summarizeTaskInfo)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
                 executionPolicy,
-                queryExecutor,
+                executor,
                 schedulerStats,
                 sectionExecutionFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
+                nodeManager,
                 session,
                 queryStateMachine,
                 plan,
-                summarizeTaskInfo,
-                rootOutputBuffers);
+                summarizeTaskInfo);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -133,86 +152,37 @@ public class SqlQueryScheduler
     private SqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
-            ExecutorService queryExecutor,
+            ExecutorService executor,
             SplitSchedulerStats schedulerStats,
             SectionExecutionFactory sectionExecutionFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
+            InternalNodeManager nodeManager,
             Session session,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
-            boolean summarizeTaskInfo,
-            OutputBuffers rootOutputBuffers)
+            boolean summarizeTaskInfo)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
-        this.executor = queryExecutor;
+        this.executor = requireNonNull(executor, "executor is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+        this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+        this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
+        this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.session = requireNonNull(session, "session is null");
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.plan = requireNonNull(plan, "plan is null");
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
-
-        OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
-        List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
-                sectionExecutionFactory,
-                (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
-                sectionedPlan,
-                Optional.of(new int[1]),
-                rootOutputBuffers,
-                remoteTaskFactory,
-                splitSourceFactory,
-                session);
-
-        this.rootStageId = Iterables.getLast(stageExecutions).getStageExecution().getStageExecutionId().getStageId();
-
-        this.stageExecutions = stageExecutions.stream()
-                .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
-
         this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
+        this.maxStageRetries = getMaxStageRetries(session);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
-        SqlStageExecution rootStage = stageExecutions.get(rootStageId).getStageExecution();
-        rootStage.addStateChangeListener(state -> {
-            if (state == FINISHED) {
-                queryStateMachine.transitionToFinishing();
-            }
-            else if (state == CANCELED) {
-                // output stage was canceled
-                queryStateMachine.transitionToCanceled();
-            }
-        });
-
-        for (StageExecutionAndScheduler stageExecutionInfo : stageExecutions.values()) {
-            SqlStageExecution stageExecution = stageExecutionInfo.getStageExecution();
-            stageExecution.addStateChangeListener(state -> {
-                if (queryStateMachine.isDone()) {
-                    return;
-                }
-                if (state == FAILED) {
-                    queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
-                }
-                else if (state == ABORTED) {
-                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
-                }
-                else if (state == FINISHED) {
-                    // checks if there's any new sections available for execution and starts the scheduling if any
-                    startScheduling();
-                }
-                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
-                    // if the stage has at least one task, we are running
-                    if (stageExecution.hasTasks()) {
-                        queryStateMachine.transitionToRunning();
-                    }
-                }
-            });
-            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
-        }
-
         // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
@@ -221,65 +191,8 @@ public class SqlQueryScheduler
         });
     }
 
-    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
-    {
-        Map<URI, TaskId> bufferLocations = tasks.stream()
-                .collect(toImmutableMap(
-                        task -> getBufferLocation(task, rootBufferId),
-                        RemoteTask::getTaskId));
-        queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
-    }
-
-    private static URI getBufferLocation(RemoteTask remoteTask, OutputBufferId rootBufferId)
-    {
-        URI location = remoteTask.getTaskStatus().getSelf();
-        return uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build();
-    }
-
-    /**
-     * returns a List of SqlStageExecutionInfos in a postorder representation of the tree
-     */
-    private List<StageExecutionAndScheduler> createStageExecutions(
-            SectionExecutionFactory sectionExecutionFactory,
-            ExchangeLocationsConsumer locationsConsumer,
-            StreamingPlanSection section,
-            Optional<int[]> bucketToPartition,
-            OutputBuffers outputBuffers,
-            RemoteTaskFactory remoteTaskFactory,
-            SplitSourceFactory splitSourceFactory,
-            Session session)
-    {
-        ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
-
-        for (StreamingPlanSection childSection : section.getChildren()) {
-            ExchangeLocationsConsumer childLocationsConsumer = (fragmentId, tasks, noMoreExhchangeLocations) -> {};
-            stages.addAll(createStageExecutions(
-                    sectionExecutionFactory,
-                    childLocationsConsumer,
-                    childSection,
-                    Optional.empty(),
-                    createDiscardingOutputBuffers(),
-                    remoteTaskFactory,
-                    splitSourceFactory,
-                    session));
-        }
-        List<StageExecutionAndScheduler> sectionStages =
-                sectionExecutionFactory.createSectionExecutions(
-                        session,
-                        section,
-                        locationsConsumer,
-                        bucketToPartition,
-                        outputBuffers,
-                        summarizeTaskInfo,
-                        remoteTaskFactory,
-                        splitSourceFactory,
-                        0).getSectionStages();
-        stages.addAll(sectionStages);
-
-        return stages.build();
-    }
-
     @Override
+
     public void start()
     {
         if (started.compareAndSet(false, true)) {
@@ -289,7 +202,6 @@ public class SqlQueryScheduler
 
     private void startScheduling()
     {
-        requireNonNull(stageExecutions);
         // still scheduling the previous batch of stages
         if (scheduling.get()) {
             return;
@@ -309,53 +221,54 @@ public class SqlQueryScheduler
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
             Set<StageId> completedStages = new HashSet<>();
 
-            List<ExecutionSchedule> sectionExecutionSchedules = new LinkedList<>();
+            List<ExecutionSchedule> executionSchedules = new LinkedList<>();
 
             while (!Thread.currentThread().isInterrupted()) {
                 // remove finished section
-                sectionExecutionSchedules.removeIf(ExecutionSchedule::isFinished);
+                executionSchedules.removeIf(ExecutionSchedule::isFinished);
 
                 // try to pull more section that are ready to be run
                 List<StreamingPlanSection> sectionsReadyForExecution = getSectionsReadyForExecution();
 
                 // all finished
-                if (sectionsReadyForExecution.isEmpty() && sectionExecutionSchedules.isEmpty()) {
+                if (sectionsReadyForExecution.isEmpty() && executionSchedules.isEmpty()) {
                     break;
                 }
 
-                List<List<StageExecutionAndScheduler>> sectionStageExecutions = getStageExecutions(sectionsReadyForExecution);
-                sectionStageExecutions.forEach(scheduledStageExecutions::addAll);
-                sectionStageExecutions.stream()
-                        .map(executionInfos -> executionInfos.stream()
-                                .collect(toImmutableList()))
-                        .map(executionPolicy::createExecutionSchedule)
-                        .forEach(sectionExecutionSchedules::add);
+                List<SectionExecution> sectionExecutions = createStageExecutions(sectionsReadyForExecution);
+                if (queryStateMachine.isDone()) {
+                    sectionExecutions.forEach(SectionExecution::abort);
+                }
 
-                while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
+                sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
+                sectionExecutions.stream()
+                        .map(SectionExecution::getSectionStages)
+                        .map(executionPolicy::createExecutionSchedule)
+                        .forEach(executionSchedules::add);
+
+                while (!executionSchedules.isEmpty() && executionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
                     List<ListenableFuture<?>> blockedStages = new ArrayList<>();
 
-                    List<StageExecutionAndScheduler> executionsToSchedule = sectionExecutionSchedules.stream()
+                    List<StageExecutionAndScheduler> executionsToSchedule = executionSchedules.stream()
                             .flatMap(schedule -> schedule.getStagesToSchedule().stream())
                             .collect(toImmutableList());
 
-                    for (StageExecutionAndScheduler stageExecutionAndScheduler : executionsToSchedule) {
-                        SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
-                        StageId stageId = stageExecution.getStageExecutionId().getStageId();
-                        stageExecution.beginScheduling();
+                    for (StageExecutionAndScheduler executionAndScheduler : executionsToSchedule) {
+                        executionAndScheduler.getStageExecution().beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
+                        ScheduleResult result = executionAndScheduler.getStageScheduler()
                                 .schedule();
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
-                            stageExecution.schedulingComplete();
+                            executionAndScheduler.getStageExecution().schedulingComplete();
                         }
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
                         }
-                        stageExecutionAndScheduler.getStageLinkage()
-                                .processScheduleResults(stageExecution.getState(), result.getNewTasks());
+                        executionAndScheduler.getStageLinkage()
+                                .processScheduleResults(executionAndScheduler.getStageExecution().getState(), result.getNewTasks());
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
                         if (result.getBlockedReason().isPresent()) {
                             switch (result.getBlockedReason().get()) {
@@ -452,8 +365,10 @@ public class SqlQueryScheduler
     {
         long runningPlanSections =
                 stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
-                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
-                        .filter(state -> !state.isDone() && state != PLANNED)
+                        .map(section -> getLatestSectionExecution(getStageId(section.getPlan().getFragment().getId())))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .filter(SectionExecution::isRunning)
                         .count();
         return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
                 // get all sections ready for execution
@@ -464,68 +379,193 @@ public class SqlQueryScheduler
 
     private boolean isReadyForExecution(StreamingPlanSection section)
     {
-        SqlStageExecution stageExecution = getStageExecution(section.getPlan().getFragment().getId());
-        if (stageExecution.getState() != PLANNED) {
+        Optional<SectionExecution> sectionExecution = getLatestSectionExecution(getStageId(section.getPlan().getFragment().getId()));
+        if (sectionExecution.isPresent() && (sectionExecution.get().isRunning() || sectionExecution.get().isFinished())) {
             // already scheduled
             return false;
         }
         for (StreamingPlanSection child : section.getChildren()) {
-            SqlStageExecution rootStageExecution = getStageExecution(child.getPlan().getFragment().getId());
-            if (rootStageExecution.getState() != FINISHED) {
+            Optional<SectionExecution> childSectionExecution = getLatestSectionExecution(getStageId(child.getPlan().getFragment().getId()));
+            if (!childSectionExecution.isPresent() || !childSectionExecution.get().isFinished()) {
                 return false;
             }
         }
         return true;
     }
 
-    private List<List<StageExecutionAndScheduler>> getStageExecutions(List<StreamingPlanSection> sections)
+    private Optional<SectionExecution> getLatestSectionExecution(StageId stageId)
     {
-        return sections.stream()
-                .map(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())).collect(toImmutableList()))
-                .map(plans -> plans.stream()
-                        .map(StreamingSubPlan::getFragment)
-                        .map(PlanFragment::getId)
-                        .map(this::getStageExecutionInfo)
-                        .collect(toImmutableList()))
-                .collect(toImmutableList());
-    }
-
-    private SqlStageExecution getStageExecution(PlanFragmentId planFragmentId)
-    {
-        return stageExecutions.get(getStageId(planFragmentId)).getStageExecution();
-    }
-
-    private StageExecutionAndScheduler getStageExecutionInfo(PlanFragmentId planFragmentId)
-    {
-        return stageExecutions.get(getStageId(planFragmentId));
+        List<SectionExecution> sectionExecutions = this.sectionExecutions.get(stageId);
+        if (sectionExecutions == null || sectionExecutions.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(getLast(sectionExecutions));
     }
 
     private StageId getStageId(PlanFragmentId fragmentId)
     {
-        return new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
+        return new StageId(session.getQueryId(), fragmentId.getId());
+    }
+
+    private List<SectionExecution> createStageExecutions(List<StreamingPlanSection> sections)
+    {
+        ImmutableList.Builder<SectionExecution> result = ImmutableList.builder();
+        for (StreamingPlanSection section : sections) {
+            StageId sectionId = getStageId(section.getPlan().getFragment().getId());
+            List<SectionExecution> attempts = sectionExecutions.computeIfAbsent(sectionId, (ignored) -> new CopyOnWriteArrayList<>());
+
+            // sectionExecutions only get created when they are about to be scheduled, so there should
+            // never be a non-failed SectionExecution for a section that's ready for execution
+            verify(attempts.isEmpty() || getLast(attempts).isFailed(), "Non-failed sectionExecutions already exists");
+
+            PlanFragment sectionRootFragment = section.getPlan().getFragment();
+
+            Optional<int[]> bucketToPartition;
+            OutputBuffers outputBuffers;
+            ExchangeLocationsConsumer locationsConsumer;
+            if (isRootFragment(sectionRootFragment)) {
+                bucketToPartition = Optional.of(new int[1]);
+                outputBuffers = createInitialEmptyOutputBuffers(sectionRootFragment.getPartitioningScheme().getPartitioning().getHandle())
+                        .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds();
+                OutputBufferId rootBufferId = getOnlyElement(outputBuffers.getBuffers().keySet());
+                locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) ->
+                        updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations);
+            }
+            else {
+                bucketToPartition = Optional.empty();
+                outputBuffers = createDiscardingOutputBuffers();
+                locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
+            }
+
+            int attemptId = attempts.size();
+            SectionExecution sectionExecution = sectionExecutionFactory.createSectionExecutions(
+                    session,
+                    section,
+                    locationsConsumer,
+                    bucketToPartition,
+                    outputBuffers,
+                    summarizeTaskInfo,
+                    remoteTaskFactory,
+                    splitSourceFactory,
+                    attemptId);
+
+            addStateChangeListeners(sectionExecution);
+            attempts.add(sectionExecution);
+            result.add(sectionExecution);
+        }
+        return result.build();
+    }
+
+    private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
+    {
+        Map<URI, TaskId> bufferLocations = tasks.stream()
+                .collect(toImmutableMap(
+                        task -> getBufferLocation(task, rootBufferId),
+                        RemoteTask::getTaskId));
+        queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
+    }
+
+    private static URI getBufferLocation(RemoteTask remoteTask, OutputBufferId rootBufferId)
+    {
+        URI location = remoteTask.getTaskStatus().getSelf();
+        return uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build();
+    }
+
+    private void addStateChangeListeners(SectionExecution sectionExecution)
+    {
+        for (StageExecutionAndScheduler stageExecutionAndScheduler : sectionExecution.getSectionStages()) {
+            SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
+            if (isRootFragment(stageExecution.getFragment())) {
+                stageExecution.addStateChangeListener(state -> {
+                    if (state == FINISHED) {
+                        queryStateMachine.transitionToFinishing();
+                    }
+                    else if (state == CANCELED) {
+                        // output stage was canceled
+                        queryStateMachine.transitionToCanceled();
+                    }
+                });
+            }
+            stageExecution.addStateChangeListener(state -> {
+                if (queryStateMachine.isDone()) {
+                    return;
+                }
+
+                if (state == FAILED) {
+                    ExecutionFailureInfo failureInfo = stageExecution.getStageExecutionInfo().getFailureCause()
+                            .orElseThrow(() -> new VerifyException(format("stage execution failed, but the failure info is missing: %s", stageExecution.getStageExecutionId())));
+                    Exception failureException = failureInfo.toException();
+
+                    boolean isRootSection = isRootFragment(sectionExecution.getRootStage().getStageExecution().getFragment());
+                    // root section directly streams the results to the user, cannot be retried
+                    if (isRootSection) {
+                        queryStateMachine.transitionToFailed(failureException);
+                        return;
+                    }
+
+                    if (retriedSections.get() >= maxStageRetries) {
+                        queryStateMachine.transitionToFailed(failureException);
+                        return;
+                    }
+
+                    if (!RECOVERABLE_ERROR_CODES.contains(failureInfo.getErrorCode())) {
+                        queryStateMachine.transitionToFailed(failureException);
+                        return;
+                    }
+
+                    try {
+                        if (sectionExecution.abort()) {
+                            retriedSections.incrementAndGet();
+                            nodeManager.refreshNodes();
+                            startScheduling();
+                        }
+                    }
+                    catch (Throwable t) {
+                        if (failureException != t) {
+                            failureException.addSuppressed(t);
+                        }
+                        queryStateMachine.transitionToFailed(failureException);
+                    }
+                }
+                else if (state == FINISHED) {
+                    // checks if there's any new sections available for execution and starts the scheduling if any
+                    startScheduling();
+                }
+                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
+                    // if the stage has at least one task, we are running
+                    if (stageExecution.hasTasks()) {
+                        queryStateMachine.transitionToRunning();
+                    }
+                }
+            });
+            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
+        }
+    }
+
+    private static boolean isRootFragment(PlanFragment fragment)
+    {
+        return fragment.getId().getId() == ROOT_FRAGMENT_ID;
     }
 
     @Override
     public long getUserMemoryReservation()
     {
-        return stageExecutions.values().stream()
-                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getUserMemoryReservation())
-                .sum();
+        return getAllStagesExecutions().mapToLong(SqlStageExecution::getUserMemoryReservation).sum();
     }
 
     @Override
     public long getTotalMemoryReservation()
     {
-        return stageExecutions.values().stream()
-                .mapToLong(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getTotalMemoryReservation())
-                .sum();
+        return getAllStagesExecutions().mapToLong(SqlStageExecution::getTotalMemoryReservation).sum();
     }
 
     @Override
     public Duration getTotalCpuTime()
     {
-        long millis = stageExecutions.values().stream()
-                .mapToLong(stage -> stage.getStageExecution().getTotalCpuTime().toMillis())
+        long millis = getAllStagesExecutions()
+                .map(SqlStageExecution::getTotalCpuTime)
+                .mapToLong(Duration::toMillis)
                 .sum();
         return new Duration(millis, MILLISECONDS);
     }
@@ -533,46 +573,72 @@ public class SqlQueryScheduler
     @Override
     public BasicStageExecutionStats getBasicStageStats()
     {
-        List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
-                .map(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getBasicStageStats())
+        List<BasicStageExecutionStats> stageStats = getAllStagesExecutions()
+                .map(SqlStageExecution::getBasicStageStats)
                 .collect(toImmutableList());
-
         return aggregateBasicStageStats(stageStats);
+    }
+
+    private Stream<SqlStageExecution> getAllStagesExecutions()
+    {
+        return sectionExecutions.values().stream()
+                .flatMap(Collection::stream)
+                .flatMap(sectionExecution -> sectionExecution.getSectionStages().stream())
+                .map(StageExecutionAndScheduler::getStageExecution);
     }
 
     @Override
     public StageInfo getStageInfo()
     {
-        Map<StageId, StageExecutionInfo> stageInfos = stageExecutions.values().stream()
-                .map(StageExecutionAndScheduler::getStageExecution)
-                .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), SqlStageExecution::getStageExecutionInfo));
-
-        return buildStageInfo(plan, stageInfos);
+        ListMultimap<StageId, SqlStageExecution> stageExecutions = getStageExecutions();
+        return buildStageInfo(plan, stageExecutions);
     }
 
-    private StageInfo buildStageInfo(SubPlan subPlan, Map<StageId, StageExecutionInfo> stageExecutionInfos)
+    private StageInfo buildStageInfo(SubPlan subPlan, ListMultimap<StageId, SqlStageExecution> stageExecutions)
     {
         StageId stageId = getStageId(subPlan.getFragment().getId());
-        StageExecutionInfo stageExecutionInfo = stageExecutionInfos.get(stageId);
-        checkArgument(stageExecutionInfo != null, "No stageExecutionInfo for %s", stageId);
+        List<SqlStageExecution> attempts = stageExecutions.get(stageId);
+
+        StageExecutionInfo latestAttemptInfo = attempts.isEmpty() ?
+                unscheduledExecutionInfo(stageId.getId(), queryStateMachine.isDone()) :
+                getLast(attempts).getStageExecutionInfo();
+        List<StageExecutionInfo> previousAttemptInfos = attempts.size() < 2 ?
+                ImmutableList.of() :
+                attempts.subList(0, attempts.size() - 1).stream()
+                        .map(SqlStageExecution::getStageExecutionInfo)
+                        .collect(toImmutableList());
+
         return new StageInfo(
                 stageId,
                 locationFactory.createStageLocation(stageId),
                 Optional.of(subPlan.getFragment()),
-                stageExecutionInfo,
-                ImmutableList.of(),
+                latestAttemptInfo,
+                previousAttemptInfos,
                 subPlan.getChildren().stream()
-                        .map(plan -> buildStageInfo(plan, stageExecutionInfos))
+                        .map(plan -> buildStageInfo(plan, stageExecutions))
                         .collect(toImmutableList()));
+    }
+
+    private ListMultimap<StageId, SqlStageExecution> getStageExecutions()
+    {
+        ImmutableListMultimap.Builder<StageId, SqlStageExecution> result = ImmutableListMultimap.builder();
+        for (Collection<SectionExecution> sectionExecutionAttempts : sectionExecutions.values()) {
+            for (SectionExecution sectionExecution : sectionExecutionAttempts) {
+                for (StageExecutionAndScheduler stageExecution : sectionExecution.getSectionStages()) {
+                    result.put(stageExecution.getStageExecution().getStageExecutionId().getStageId(), stageExecution.getStageExecution());
+                }
+            }
+        }
+        return result.build();
     }
 
     @Override
     public void cancelStage(StageId stageId)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            SqlStageExecution execution = stageExecutions.get(stageId).getStageExecution();
-            SqlStageExecution stage = requireNonNull(execution, () -> format("Stage %s does not exist", stageId));
-            stage.cancel();
+            getAllStagesExecutions()
+                    .filter(execution -> execution.getStageExecutionId().getStageId().equals(stageId))
+                    .forEach(SqlStageExecution::cancel);
         }
     }
 
@@ -580,7 +646,8 @@ public class SqlQueryScheduler
     public void abort()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            stageExecutions.values().forEach(stageExecutionInfo -> stageExecutionInfo.getStageExecution().abort());
+            checkState(queryStateMachine.isDone(), "query scheduler is expected to be aborted only if the query is finished: %s", queryStateMachine.getQueryState());
+            getAllStagesExecutions().forEach(SqlStageExecution::abort);
         }
     }
 }

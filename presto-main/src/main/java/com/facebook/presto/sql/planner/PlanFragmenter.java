@@ -134,6 +134,7 @@ import static java.util.function.Function.identity;
  */
 public class PlanFragmenter
 {
+    public static final int ROOT_FRAGMENT_ID = 0;
     public static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
             "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.";
 
@@ -312,8 +313,6 @@ public class PlanFragmenter
     private static class Fragmenter
             extends SimplePlanRewriter<FragmentProperties>
     {
-        private static final int ROOT_FRAGMENT_ID = 0;
-
         private final Session session;
         private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;

@@ -618,7 +618,6 @@ public class TestingPrestoServer
                     }
                 }
             }
-
             chain.doFilter(request, response);
         }
 

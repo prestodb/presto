@@ -81,7 +81,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public final class SqlStageExecution
 {
-    private static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
+    public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
             PAGE_TRANSPORT_TIMEOUT.toErrorCode(),

@@ -30,6 +30,7 @@ import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.execution.scheduler.SqlQuerySchedulerInterface;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -109,6 +110,7 @@ public class SqlQueryExecution
     private final LocationFactory locationFactory;
     private final ExecutorService queryExecutor;
     private final SectionExecutionFactory sectionExecutionFactory;
+    private final InternalNodeManager internalNodeManager;
 
     private final AtomicReference<SqlQuerySchedulerInterface> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
@@ -137,6 +139,7 @@ public class SqlQueryExecution
             LocationFactory locationFactory,
             ExecutorService queryExecutor,
             SectionExecutionFactory sectionExecutionFactory,
+            InternalNodeManager internalNodeManager,
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -154,6 +157,7 @@ public class SqlQueryExecution
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+            this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -496,10 +500,10 @@ public class SqlQueryExecution
                         sectionExecutionFactory,
                         remoteTaskFactory,
                         splitSourceFactory,
+                        internalNodeManager,
                         stateMachine.getSession(),
                         stateMachine,
                         outputStagePlan,
-                        rootOutputBuffers,
                         plan.isSummarizeTaskInfos());
 
         queryScheduler.set(scheduler);
@@ -661,6 +665,7 @@ public class SqlQueryExecution
         private final LocationFactory locationFactory;
         private final ExecutorService queryExecutor;
         private final SectionExecutionFactory sectionExecutionFactory;
+        private final InternalNodeManager internalNodeManager;
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final ClusterSizeMonitor clusterSizeMonitor;
         private final StatsCalculator statsCalculator;
@@ -679,6 +684,7 @@ public class SqlQueryExecution
                 TransactionManager transactionManager,
                 @ForQueryExecution ExecutorService queryExecutor,
                 SectionExecutionFactory sectionExecutionFactory,
+                InternalNodeManager internalNodeManager,
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
@@ -699,6 +705,7 @@ public class SqlQueryExecution
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+            this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
@@ -739,6 +746,7 @@ public class SqlQueryExecution
                     locationFactory,
                     queryExecutor,
                     sectionExecutionFactory,
+                    internalNodeManager,
                     queryExplainer,
                     executionPolicy,
                     schedulerStats,

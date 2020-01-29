@@ -424,7 +424,7 @@
                                 <exclude>**/TestHiveDistributedAggregationsWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithOptimizedRepartitioning.java</exclude>
-                                <exclude>**/TestHiveRecoverableGroupedExecution.java</exclude>
+                                <exclude>**/TestHiveRecoverableExecution.java</exclude>
                                 <exclude>**/TestHivePushdownFilterQueries.java</exclude>
                                 <exclude>**/TestHivePushdownIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestHivePushdownDistributedQueries.java</exclude>
@@ -485,7 +485,7 @@
             </build>
         </profile>
         <profile>
-            <id>test-hive-recoverable-grouped-execution</id>
+            <id>test-hive-recoverable-execution</id>
             <build>
                 <plugins>
                     <plugin>
@@ -493,7 +493,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveRecoverableGroupedExecution.java</include>
+                                <include>**/TestHiveRecoverableExecution.java</include>
                             </includes>
                         </configuration>
                     </plugin>
