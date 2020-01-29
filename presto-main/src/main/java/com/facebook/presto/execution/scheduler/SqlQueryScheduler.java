@@ -287,8 +287,8 @@ public class SqlQueryScheduler
     public StageInfo getStageInfo()
     {
         Map<StageId, StageExecutionInfo> stageInfos = stageExecutions.values().stream()
-                .map(stageExecutionInfo -> stageExecutionInfo.getStageExecution().getStageExecutionInfo())
-                .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), identity()));
+                .map(StageExecutionAndScheduler::getStageExecution)
+                .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), SqlStageExecution::getStageExecutionInfo));
 
         return buildStageInfo(plan, stageInfos);
     }
