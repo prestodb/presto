@@ -122,7 +122,6 @@
         <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
-        <module>presto-product-tests</module>
         <module>presto-jdbc</module>
         <module>presto-pinot</module>
         <module>presto-pinot-toolkit</module>
@@ -130,7 +129,6 @@
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
         <module>presto-server-rpm</module>
-        <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
