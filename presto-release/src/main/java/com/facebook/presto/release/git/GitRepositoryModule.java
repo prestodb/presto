@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.release.git;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.release.AbstractAnnotatedProvider;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Singleton;
 
 import java.lang.annotation.Annotation;
@@ -26,7 +26,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class GitRepositoryModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final Class<? extends Annotation> annotation;
     private final String repositoryName;
@@ -38,11 +38,16 @@ public class GitRepositoryModule
     }
 
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FileRepositoryConfig.class, annotation, repositoryName);
+
+        boolean initializeFromRemote = buildConfigObject(FileRepositoryConfig.class, repositoryName).isInitializeFromRemote();
+        if (initializeFromRemote) {
+            configBinder(binder).bindConfig(RemoteRepositoryConfig.class, annotation, repositoryName);
+        }
         binder.bind(GitRepository.class).annotatedWith(annotation)
-                .toProvider(new GitRepositoryProvider(annotation, repositoryName))
+                .toProvider(new GitRepositoryProvider(annotation, repositoryName, initializeFromRemote))
                 .in(Singleton.class);
         binder.bind(Git.class).annotatedWith(annotation)
                 .toProvider(new GitProvider(annotation))
@@ -53,18 +58,27 @@ public class GitRepositoryModule
             extends AbstractAnnotatedProvider<GitRepository>
     {
         private final String repositoryName;
+        private final boolean initializeFromRemote;
 
-        public GitRepositoryProvider(Class<? extends Annotation> annotation, String repositoryName)
+        public GitRepositoryProvider(Class<? extends Annotation> annotation, String repositoryName, boolean initializeFromRemote)
         {
             super(annotation);
             this.repositoryName = requireNonNull(repositoryName, "repositoryName is null");
+            this.initializeFromRemote = initializeFromRemote;
         }
 
         @Override
         protected GitRepository get(Injector injector, Class<? extends Annotation> annotation)
         {
-            FileRepositoryConfig config = injector.getInstance(Key.get(FileRepositoryConfig.class, annotation));
-            return GitRepository.fromFile(repositoryName, config);
+            FileRepositoryConfig fileConfig = injector.getInstance(Key.get(FileRepositoryConfig.class, annotation));
+            if (initializeFromRemote) {
+                return GitRepository.fromRemote(
+                        repositoryName,
+                        fileConfig,
+                        injector.getInstance(Key.get(RemoteRepositoryConfig.class, annotation)),
+                        injector.getInstance(Key.get(GitConfig.class)));
+            }
+            return GitRepository.fromFile(repositoryName, fileConfig);
         }
     }
 

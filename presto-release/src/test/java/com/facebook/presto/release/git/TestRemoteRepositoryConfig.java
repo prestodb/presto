@@ -22,35 +22,26 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestFileRepositoryConfig
+public class TestRemoteRepositoryConfig
 {
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(FileRepositoryConfig.class)
-                .setUpstreamName("upstream")
-                .setOriginName("origin")
-                .setDirectory(null)
-                .setCheckDirectoryName(true)
-                .setInitializeFromRemote(false));
+        assertRecordedDefaults(recordDefaults(RemoteRepositoryConfig.class)
+                .setUpstreamRepository(null)
+                .setOriginRepository(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("git.upstream-name", "u")
-                .put("git.origin-name", "o")
-                .put("git.directory", "/tmp/presto")
-                .put("git.check-directory-name", "false")
-                .put("git.initialize-from-remote", "true")
+                .put("git.upstream-repository", "prestodb/presto")
+                .put("git.origin-repository", "user/p")
                 .build();
-        FileRepositoryConfig expected = new FileRepositoryConfig()
-                .setUpstreamName("u")
-                .setOriginName("o")
-                .setDirectory("/tmp/presto")
-                .setCheckDirectoryName(false)
-                .setInitializeFromRemote(true);
+        RemoteRepositoryConfig expected = new RemoteRepositoryConfig()
+                .setUpstreamRepository("prestodb/presto")
+                .setOriginRepository("user/p");
 
         assertFullMapping(properties, expected);
     }

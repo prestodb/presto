@@ -25,6 +25,7 @@ public class FileRepositoryConfig
     private String originName = "origin";
     private Optional<String> directory = Optional.empty();
     private boolean checkDirectoryName = true;
+    private boolean initializeFromRemote;
 
     @NotNull
     public String getUpstreamName()
@@ -74,6 +75,18 @@ public class FileRepositoryConfig
     public FileRepositoryConfig setCheckDirectoryName(boolean checkDirectoryName)
     {
         this.checkDirectoryName = checkDirectoryName;
+        return this;
+    }
+
+    public boolean isInitializeFromRemote()
+    {
+        return initializeFromRemote;
+    }
+
+    @Config("git.initialize-from-remote")
+    public FileRepositoryConfig setInitializeFromRemote(boolean initializeFromRemote)
+    {
+        this.initializeFromRemote = initializeFromRemote;
         return this;
     }
 }

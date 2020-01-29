@@ -17,6 +17,8 @@ import com.facebook.presto.release.AbstractCommands;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.io.File;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,12 +36,9 @@ public class GitCommands
     {
         super(
                 gitConfig.getExecutable(),
-                gitConfig.getSshKeyFile().map(s -> ImmutableMap.of("GIT_SSH_COMMAND", format("ssh -i %s", s))).orElseGet(ImmutableMap::of),
+                getEnvironment(gitConfig.getSshKeyFile()),
                 repository.getDirectory());
 
-        if (gitConfig.getSshKeyFile().isPresent()) {
-            checkArgument(gitConfig.getSshKeyFile().get().exists(), "ssh key file does not exists: %s", gitConfig.getSshKeyFile().get().getAbsolutePath());
-        }
         this.repository = requireNonNull(repository, "repository is null");
     }
 
@@ -94,5 +93,13 @@ public class GitCommands
     public void pushOrigin(String branch)
     {
         command("push", repository.getOriginName(), "-u", branch + ":" + branch, "-f");
+    }
+
+    public static Map<String, String> getEnvironment(Optional<File> sshKeyFile)
+    {
+        if (sshKeyFile.isPresent()) {
+            checkArgument(sshKeyFile.get().exists(), "ssh key file does not exists: %s", sshKeyFile.get().getAbsolutePath());
+        }
+        return sshKeyFile.map(s -> ImmutableMap.of("GIT_SSH_COMMAND", format("ssh -i %s", s))).orElseGet(ImmutableMap::of);
     }
 }

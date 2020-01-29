@@ -65,7 +65,7 @@ public abstract class AbstractCommands
                 directory);
     }
 
-    protected static String command(List<String> command, Map<String, String> environment, File workingDirectory)
+    public static String command(List<String> command, Map<String, String> environment, File workingDirectory)
     {
         String commandLine = Joiner.on(" ").join(command);
 
