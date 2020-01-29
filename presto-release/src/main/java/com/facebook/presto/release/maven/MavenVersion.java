@@ -78,8 +78,18 @@ public class MavenVersion
         return new MavenVersion(versionNumber - 1);
     }
 
+    public MavenVersion getNextVersion()
+    {
+        return new MavenVersion(versionNumber + 1);
+    }
+
     public String getVersion()
     {
         return format("0.%s", versionNumber);
+    }
+
+    public String getSnapshotVersion()
+    {
+        return format("0.%s-SNAPSHOT", versionNumber);
     }
 }
