@@ -57,7 +57,12 @@ public final class RaptorQueryRunner
             Map<String, String> extraRaptorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
+                .setNodeCount(2)
+                // TODO: enable failure-detector for raptor. Currently enabling the failure detector causes failures.
+                .setCoordinatorProperties(ImmutableMap.of("failure-detector.enabled", "false"))
+                .setExtraProperties(extraProperties)
+                .build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

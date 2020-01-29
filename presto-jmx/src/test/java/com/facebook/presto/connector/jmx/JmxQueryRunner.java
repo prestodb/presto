@@ -15,6 +15,7 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
@@ -30,7 +31,11 @@ public final class JmxQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setNodeCount(3)
+                    // disable failure-detector to prevent flaky tests since the jmx tests rely on the number of nodes being consistent
+                    .setCoordinatorProperties(ImmutableMap.of("failure-detector.enabled", "false"))
+                    .build();
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");

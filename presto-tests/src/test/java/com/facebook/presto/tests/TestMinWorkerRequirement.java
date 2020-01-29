@@ -21,6 +21,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 // run single threaded to avoid creating multiple query runners at once
+// failure detector is disabled in these tests to prevent flakiness since the tests assert a specific number of workers are present
 @Test(singleThreaded = true)
 public class TestMinWorkerRequirement
 {
@@ -29,7 +30,10 @@ public class TestMinWorkerRequirement
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("query-manager.initialization-required-workers", "5")
+                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                        .put("query-manager.initialization-required-workers", "5")
+                        .put("failure-detector.enabled", "false")
+                        .build())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT 1");
@@ -43,7 +47,10 @@ public class TestMinWorkerRequirement
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                 .setSingleExtraProperty("node-scheduler.include-coordinator", "false")
-                .setSingleCoordinatorProperty("query-manager.initialization-required-workers", "4")
+                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                        .put("query-manager.initialization-required-workers", "4")
+                        .put("failure-detector.enabled", "false")
+                        .build())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT 1");
@@ -56,7 +63,10 @@ public class TestMinWorkerRequirement
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleCoordinatorProperty("query-manager.initialization-required-workers", "4")
+                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                        .put("query-manager.initialization-required-workers", "4")
+                        .put("failure-detector.enabled", "false")
+                        .build())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT 1");
@@ -77,6 +87,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.initialization-required-workers", "5")
                         .put("query-manager.initialization-timeout", "1ns")
+                        .put("failure-detector.enabled", "false")
                         .build())
                 .setNodeCount(4)
                 .build()) {
@@ -93,6 +104,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
+                        .put("failure-detector.enabled", "false")
                         .build())
                 .setNodeCount(4)
                 .build()) {
@@ -110,6 +122,7 @@ public class TestMinWorkerRequirement
                         .put("node-scheduler.include-coordinator", "false")
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
+                        .put("failure-detector.enabled", "false")
                         .build())
                 .setNodeCount(4)
                 .build()) {
@@ -126,6 +139,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
+                        .put("failure-detector.enabled", "false")
                         .build())
                 .setNodeCount(4)
                 .build()) {

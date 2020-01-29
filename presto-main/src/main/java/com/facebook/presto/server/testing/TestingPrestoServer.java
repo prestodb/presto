@@ -232,11 +232,6 @@ public class TestingPrestoServer
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4");
 
-        if (coordinator) {
-            // TODO: enable failure detector
-            serverProperties.put("failure-detector.enabled", "false");
-        }
-
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
