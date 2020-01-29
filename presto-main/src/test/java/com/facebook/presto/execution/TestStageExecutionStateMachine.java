@@ -272,7 +272,6 @@ public class TestStageExecutionStateMachine
         assertEquals(stateMachine.getStageExecutionId(), STAGE_ID);
 
         StageExecutionInfo stageExecutionInfo = stateMachine.getStageExecutionInfo(ImmutableList::of, 0, 0);
-        assertEquals(stageExecutionInfo.getStageExecutionId(), STAGE_ID);
         assertEquals(stageExecutionInfo.getTasks(), ImmutableList.of());
 
         assertEquals(stateMachine.getState(), expectedState);

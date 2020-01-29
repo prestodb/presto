@@ -1034,7 +1034,6 @@ public class QueryStateMachine
     private static StageExecutionInfo pruneStageExecutionInfo(StageExecutionInfo info)
     {
         return new StageExecutionInfo(
-                info.getStageExecutionId(),
                 info.getState(),
                 info.getStats(),
                 // Remove the tasks

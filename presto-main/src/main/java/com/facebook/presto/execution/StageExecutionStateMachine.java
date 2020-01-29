@@ -483,7 +483,6 @@ public class StageExecutionStateMachine
             failureInfo = Optional.of(failureCause.get());
         }
         return new StageExecutionInfo(
-                stageExecutionId,
                 state,
                 stageExecutionStats,
                 taskInfos,
