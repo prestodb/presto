@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -240,7 +241,7 @@ public class InMemoryHiveMetastore
 
         Optional<List<String>> partitionNames = metastore.getPartitionNames(schemaName, tableName);
         if (partitionNames.isPresent()) {
-            metastore.getPartitionsByNames(schemaName, tableName, partitionNames.get()).stream()
+            metastore.getPartitionsByNames(schemaName, tableName, partitionNames.get(), ImmutableMap.of()).stream()
                     .map(partition -> partition.getSd().getLocation())
                     .filter(location -> !location.startsWith(table.getSd().getLocation()))
                     .forEach(locations::add);
@@ -394,7 +395,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public synchronized List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, Map<Subfield, Domain> domains)
     {
         ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {

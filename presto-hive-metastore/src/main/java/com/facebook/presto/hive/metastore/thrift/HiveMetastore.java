@@ -19,6 +19,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -74,7 +75,7 @@ public interface HiveMetastore
 
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
-    List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, Map<Subfield, Domain> domains);
 
     Optional<Table> getTable(String databaseName, String tableName);
 

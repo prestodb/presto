@@ -215,7 +215,13 @@ public class HiveSplitManager
         if (bucketHandle.isPresent() && !bucketHandle.get().isVirtuallyBucketed()) {
             hiveBucketProperty = bucketHandle.map(HiveBucketHandle::toTableBucketProperty);
         }
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session);
+
+        Map<Subfield, Domain> domains = layout.getDomainPredicate().getDomains().orElse(ImmutableMap.of());
+        for (Map.Entry<Subfield, Domain> domain : domains.entrySet()) {
+            System.out.println(domain.getKey() + " -> " + domain.getValue().toString(session));
+        }
+
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session, domains);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -299,7 +305,8 @@ public class HiveSplitManager
             SchemaTableName tableName,
             List<HivePartition> hivePartitions,
             Optional<HiveBucketProperty> bucketProperty,
-            ConnectorSession session)
+            ConnectorSession session,
+            Map<Subfield, Domain> domains)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
@@ -317,7 +324,8 @@ public class HiveSplitManager
             Map<String, Optional<Partition>> batch = metastore.getPartitionsByNames(
                     tableName.getSchemaName(),
                     tableName.getTableName(),
-                    Lists.transform(partitionBatch, HivePartition::getPartitionId));
+                    Lists.transform(partitionBatch, HivePartition::getPartitionId),
+                    domains);
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
                 if (!entry.getValue().isPresent()) {
