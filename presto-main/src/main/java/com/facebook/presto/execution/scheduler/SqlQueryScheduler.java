@@ -378,7 +378,6 @@ public class SqlQueryScheduler
                 sectionStageExecutions.forEach(scheduledStageExecutions::addAll);
                 sectionStageExecutions.stream()
                         .map(executionInfos -> executionInfos.stream()
-                                .map(StageExecutionAndScheduler::getStageExecution)
                                 .collect(toImmutableList()))
                         .map(executionPolicy::createExecutionSchedule)
                         .forEach(sectionExecutionSchedules::add);
@@ -386,16 +385,17 @@ public class SqlQueryScheduler
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
                     List<ListenableFuture<?>> blockedStages = new ArrayList<>();
 
-                    List<SqlStageExecution> executionsToSchedule = sectionExecutionSchedules.stream()
+                    List<StageExecutionAndScheduler> executionsToSchedule = sectionExecutionSchedules.stream()
                             .flatMap(schedule -> schedule.getStagesToSchedule().stream())
                             .collect(toImmutableList());
 
-                    for (SqlStageExecution stageExecution : executionsToSchedule) {
+                    for (StageExecutionAndScheduler stageExecutionAndScheduler : executionsToSchedule) {
+                        SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
                         StageId stageId = stageExecution.getStageExecutionId().getStageId();
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutions.get(stageId).getStageScheduler()
+                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
                                 .schedule();
 
                         // modify parent and children based on the results of the scheduling
@@ -405,7 +405,7 @@ public class SqlQueryScheduler
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
                         }
-                        stageExecutions.get(stageId).getStageLinkage()
+                        stageExecutionAndScheduler.getStageLinkage()
                                 .processScheduleResults(stageExecution.getState(), result.getNewTasks());
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
                         if (result.getBlockedReason().isPresent()) {
