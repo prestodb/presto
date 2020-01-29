@@ -23,9 +23,11 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
+import com.facebook.presto.execution.scheduler.LegacySqlQueryScheduler;
 import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
+import com.facebook.presto.execution.scheduler.SqlQuerySchedulerInterface;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -78,9 +80,9 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -108,7 +110,7 @@ public class SqlQueryExecution
     private final ExecutorService queryExecutor;
     private final SectionExecutionFactory sectionExecutionFactory;
 
-    private final AtomicReference<SqlQueryScheduler> queryScheduler = new AtomicReference<>();
+    private final AtomicReference<SqlQuerySchedulerInterface> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
@@ -195,14 +197,14 @@ public class SqlQueryExecution
             stateMachine.setUpdateType(analysis.getUpdateType());
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
-            AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
+            AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
                     return;
                 }
 
                 // query is now done, so abort any work that is still running
-                SqlQueryScheduler scheduler = queryScheduler.get();
+                SqlQuerySchedulerInterface scheduler = queryScheduler.get();
                 if (scheduler != null) {
                     scheduler.abort();
                 }
@@ -230,7 +232,7 @@ public class SqlQueryExecution
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
         // the query finishes.
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
@@ -247,7 +249,7 @@ public class SqlQueryExecution
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
         // the query finishes.
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
@@ -285,7 +287,7 @@ public class SqlQueryExecution
     @Override
     public Duration getTotalCpuTime()
     {
-        SqlQueryScheduler scheduler = queryScheduler.get();
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
             return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
@@ -301,7 +303,7 @@ public class SqlQueryExecution
     {
         return stateMachine.getFinalQueryInfo()
                 .map(BasicQueryInfo::new)
-                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQuerySchedulerInterface::getBasicStageStats)));
     }
 
     @Override
@@ -350,7 +352,7 @@ public class SqlQueryExecution
                 }
 
                 // if query is not finished, start the scheduler, otherwise cancel it
-                SqlQueryScheduler scheduler = queryScheduler.get();
+                SqlQuerySchedulerInterface scheduler = queryScheduler.get();
 
                 if (!stateMachine.isDone()) {
                     scheduler.start();
@@ -472,19 +474,33 @@ public class SqlQueryExecution
 
         SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider);
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = createSqlQueryScheduler(
-                locationFactory,
-                executionPolicy,
-                queryExecutor,
-                schedulerStats,
-                sectionExecutionFactory,
-                remoteTaskFactory,
-                splitSourceFactory,
-                stateMachine.getSession(),
-                stateMachine,
-                outputStagePlan,
-                rootOutputBuffers,
-                plan.isSummarizeTaskInfos());
+        SqlQuerySchedulerInterface scheduler = isUseLegacyScheduler(getSession()) ?
+                LegacySqlQueryScheduler.createSqlQueryScheduler(
+                        locationFactory,
+                        executionPolicy,
+                        queryExecutor,
+                        schedulerStats,
+                        sectionExecutionFactory,
+                        remoteTaskFactory,
+                        splitSourceFactory,
+                        stateMachine.getSession(),
+                        stateMachine,
+                        outputStagePlan,
+                        rootOutputBuffers,
+                        plan.isSummarizeTaskInfos()) :
+                SqlQueryScheduler.createSqlQueryScheduler(
+                        locationFactory,
+                        executionPolicy,
+                        queryExecutor,
+                        schedulerStats,
+                        sectionExecutionFactory,
+                        remoteTaskFactory,
+                        splitSourceFactory,
+                        stateMachine.getSession(),
+                        stateMachine,
+                        outputStagePlan,
+                        rootOutputBuffers,
+                        plan.isSummarizeTaskInfos());
 
         queryScheduler.set(scheduler);
 
@@ -508,7 +524,7 @@ public class SqlQueryExecution
         requireNonNull(stageId, "stageId is null");
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            SqlQueryScheduler scheduler = queryScheduler.get();
+            SqlQuerySchedulerInterface scheduler = queryScheduler.get();
             if (scheduler != null) {
                 scheduler.cancelStage(stageId);
             }
@@ -566,7 +582,7 @@ public class SqlQueryExecution
             // acquire reference to scheduler before checking finalQueryInfo, because
             // state change listener sets finalQueryInfo and then clears scheduler when
             // the query finishes.
-            SqlQueryScheduler scheduler = queryScheduler.get();
+            SqlQuerySchedulerInterface scheduler = queryScheduler.get();
 
             return stateMachine.getFinalQueryInfo().orElseGet(() -> buildQueryInfo(scheduler));
         }
@@ -584,7 +600,7 @@ public class SqlQueryExecution
         return queryPlan.get();
     }
 
-    private QueryInfo buildQueryInfo(SqlQueryScheduler scheduler)
+    private QueryInfo buildQueryInfo(SqlQuerySchedulerInterface scheduler)
     {
         Optional<StageInfo> stageInfo = Optional.empty();
         if (scheduler != null) {
