@@ -360,12 +360,6 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
-    {
-        throw new UnsupportedOperationException("addPartitions is not supported in AlluxioHiveMetastore");
-    }
-
-    @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         throw new UnsupportedOperationException("dropPartition is not supported in AlluxioHiveMetastore");

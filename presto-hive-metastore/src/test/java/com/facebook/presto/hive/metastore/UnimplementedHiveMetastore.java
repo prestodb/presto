@@ -183,12 +183,6 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         throw new UnsupportedOperationException();

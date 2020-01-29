@@ -964,12 +964,6 @@ public class ThriftHiveMetastore
         }
     }
 
-    @Override
-    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
-    {
-        addPartitions(databaseName, tableName, partitions);
-    }
-
     private void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
     {
         if (partitions.isEmpty()) {

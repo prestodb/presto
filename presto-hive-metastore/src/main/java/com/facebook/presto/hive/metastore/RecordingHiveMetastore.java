@@ -372,13 +372,6 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats)
-    {
-        verifyRecordingMode();
-        delegate.addPartitions(databaseName, tableName, partitions, fileNames, fileStats);
-    }
-
-    @Override
     public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         verifyRecordingMode();

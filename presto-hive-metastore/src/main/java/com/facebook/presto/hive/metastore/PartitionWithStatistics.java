@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -22,13 +26,23 @@ public class PartitionWithStatistics
     private final Partition partition;
     private final String partitionName;
     private final PartitionStatistics statistics;
+    private final List<String> fileNames;
+    private final List<String> fileStats;
 
-    public PartitionWithStatistics(Partition partition, String partitionName, PartitionStatistics statistics)
+    public PartitionWithStatistics(Partition partition, String partitionName, PartitionStatistics statistics, List<String> fileNames, List<String> fileStats)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         checkArgument(toPartitionValues(partitionName).equals(partition.getValues()), "unexpected partition name: %s != %s", partitionName, partition.getValues());
         this.statistics = requireNonNull(statistics, "statistics is null");
+        this.fileNames = requireNonNull(fileNames, "fileNames is null");
+        this.fileStats = requireNonNull(fileStats, "fileStats is null");
+    }
+
+
+    public PartitionWithStatistics(Partition partition, String partitionName, PartitionStatistics statistics)
+    {
+        this(partition, partitionName, statistics, ImmutableList.of(), ImmutableList.of());
     }
 
     public Partition getPartition()
@@ -44,5 +58,15 @@ public class PartitionWithStatistics
     public PartitionStatistics getStatistics()
     {
         return statistics;
+    }
+
+    public List<String> getFileNames()
+    {
+        return fileNames;
+    }
+
+    public List<String> getFileStats()
+    {
+        return fileStats;
     }
 }

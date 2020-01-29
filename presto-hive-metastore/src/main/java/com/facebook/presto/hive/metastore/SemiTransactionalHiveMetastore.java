@@ -1266,8 +1266,8 @@ public class SemiTransactionalHiveMetastore
             // Partition alter must happen regardless of whether original and current location is the same
             // because metadata might change: e.g. storage format, column types, etc
             alterPartitionOperations.add(new AlterPartitionOperation(
-                    new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()),
-                    new PartitionWithStatistics(oldPartition.get(), partitionName, oldPartitionStatistics)));
+                    new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate(), partitionAndMore.getFileNames(), partitionAndMore.getFileStats()),
+                    new PartitionWithStatistics(oldPartition.get(), partitionName, oldPartitionStatistics, partitionAndMore.getFileNames(), partitionAndMore.getFileStats())));
         }
 
         private PartitionStatistics getExistingPartitionStatistics(Partition partition, String partitionName)
@@ -1308,7 +1308,7 @@ public class SemiTransactionalHiveMetastore
             SchemaTableName schemaTableName = new SchemaTableName(partition.getDatabaseName(), partition.getTableName());
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
                     schemaTableName,
-                    ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, partitionAndMore.getFileNames(), partitionAndMore.getFileStats(), PARTITION_COMMIT_BATCH_SIZE));
+                    ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
             if (pathExists(context, hdfsEnvironment, currentPath)) {
                 if (!targetPath.equals(currentPath)) {
@@ -1325,7 +1325,7 @@ public class SemiTransactionalHiveMetastore
                 createDirectory(context, hdfsEnvironment, targetPath);
             }
             String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
-            partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()));
+            partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate(), partitionAndMore.getFileNames(), partitionAndMore.getFileStats()));
         }
 
         private void prepareInsertExistingPartition(HdfsContext context, PartitionAndMore partitionAndMore)
@@ -2626,19 +2626,15 @@ public class SemiTransactionalHiveMetastore
         private final ExtendedHiveMetastore metastore;
         private final int batchSize;
         private final List<PartitionWithStatistics> partitions;
-        private final List<String> fileNames;
-        private final List<String> fileStats;
         private List<List<String>> createdPartitionValues = new ArrayList<>();
 
-        public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, List<String> fileNames, List<String> fileStats, int batchSize)
+        public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
         {
             this.schemaName = schemaName;
             this.tableName = tableName;
             this.metastore = metastore;
             this.batchSize = batchSize;
             this.partitions = new ArrayList<>(batchSize);
-            this.fileNames = fileNames;
-            this.fileStats = fileStats;
         }
 
         public String getSchemaName()
@@ -2662,7 +2658,7 @@ public class SemiTransactionalHiveMetastore
             List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, batchSize);
             for (List<PartitionWithStatistics> batch : batchedPartitions) {
                 try {
-                    metastore.addPartitions(schemaName, tableName, batch, fileNames, fileStats);
+                    metastore.addPartitions(schemaName, tableName, batch);
                     for (PartitionWithStatistics partition : batch) {
                         createdPartitionValues.add(partition.getPartition().getValues());
                     }

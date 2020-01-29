@@ -86,8 +86,6 @@ public interface ExtendedHiveMetastore
 
     void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
-    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions, List<String> fileNames, List<String> fileStats);
-
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
     void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
