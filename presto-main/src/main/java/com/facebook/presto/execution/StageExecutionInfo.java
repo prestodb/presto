@@ -70,4 +70,13 @@ public class StageExecutionInfo
     {
         return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
     }
+
+    public static StageExecutionInfo unscheduledExecutionInfo(int stageId, boolean isQueryDone)
+    {
+        return new StageExecutionInfo(
+                isQueryDone ? StageExecutionState.ABORTED : StageExecutionState.PLANNED,
+                StageExecutionStats.zero(stageId),
+                ImmutableList.of(),
+                Optional.empty());
+    }
 }
