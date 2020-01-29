@@ -295,11 +295,11 @@ public class SqlQueryScheduler
 
                     // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
                     boolean stageFinishedExecution = false;
-                    for (StageExecutionAndScheduler stageExecutionInfo : scheduledStageExecutions) {
-                        SqlStageExecution stageExecution = stageExecutionInfo.getStageExecution();
+                    for (StageExecutionAndScheduler stageExecutionAndScheduler : scheduledStageExecutions) {
+                        SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
                         StageId stageId = stageExecution.getStageExecutionId().getStageId();
                         if (!completedStages.contains(stageId) && stageExecution.getState().isDone()) {
-                            stageExecutionInfo.getStageLinkage()
+                            stageExecutionAndScheduler.getStageLinkage()
                                     .processScheduleResults(stageExecution.getState(), ImmutableSet.of());
                             completedStages.add(stageId);
                             stageFinishedExecution = true;
@@ -323,10 +323,10 @@ public class SqlQueryScheduler
                 }
             }
 
-            for (StageExecutionAndScheduler stageExecutionInfo : scheduledStageExecutions) {
-                StageExecutionState state = stageExecutionInfo.getStageExecution().getState();
+            for (StageExecutionAndScheduler stageExecutionAndScheduler : scheduledStageExecutions) {
+                StageExecutionState state = stageExecutionAndScheduler.getStageExecution().getState();
                 if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionInfo.getStageExecution().getStageExecutionId(), state));
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionAndScheduler.getStageExecution().getStageExecutionId(), state));
                 }
             }
 
@@ -343,9 +343,9 @@ public class SqlQueryScheduler
         }
         finally {
             RuntimeException closeError = new RuntimeException();
-            for (StageExecutionAndScheduler stageExecutionInfo : scheduledStageExecutions) {
+            for (StageExecutionAndScheduler stageExecutionAndScheduler : scheduledStageExecutions) {
                 try {
-                    stageExecutionInfo.getStageScheduler().close();
+                    stageExecutionAndScheduler.getStageScheduler().close();
                 }
                 catch (Throwable t) {
                     queryStateMachine.transitionToFailed(t);
