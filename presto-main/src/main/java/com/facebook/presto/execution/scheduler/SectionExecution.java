@@ -47,19 +47,19 @@ public class SectionExecution
         return allStages;
     }
 
-    public synchronized boolean isFinished()
+    public boolean isFinished()
     {
         StageExecutionState rootStageState = rootStage.getStageExecution().getState();
         return rootStageState.isDone() && !rootStageState.isFailure();
     }
 
-    public synchronized boolean isFailed()
+    public boolean isFailed()
     {
         StageExecutionState rootStageState = rootStage.getStageExecution().getState();
         return rootStageState.isFailure();
     }
 
-    public synchronized boolean isRunning()
+    public boolean isRunning()
     {
         StageExecutionState rootStageState = rootStage.getStageExecution().getState();
         return !rootStageState.isDone() && rootStageState != PLANNED;
