@@ -39,7 +39,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -47,6 +49,7 @@ import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
@@ -405,9 +408,8 @@ public class SqlQueryScheduler
                 tableWriteInfo);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
-        Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
-        Optional<int[]> bucketToPartition = getBucketToPartition(partitioningHandle, partitioningCache, splitSources, remoteSourceNodes);
+        Optional<int[]> bucketToPartition = getBucketToPartition(partitioningHandle, partitioningCache, plan.getFragment().getRoot(), remoteSourceNodes);
 
         // create child stages
         ImmutableSet.Builder<SqlStageExecution> childStagesBuilder = ImmutableSet.builder();
@@ -450,7 +452,8 @@ public class SqlQueryScheduler
                 stageId,
                 stageExecution,
                 partitioningHandle,
-                splitSources,
+                splitSourceFactory,
+                tableWriteInfo,
                 childStageExecutions);
         StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
         stageExecutionInfos.add(new StageExecutionAndScheduler(stageExecution, stageLinkage, stageScheduler));
@@ -469,9 +472,11 @@ public class SqlQueryScheduler
             Optional<SqlStageExecution> parentStageExecution,
             StageId stageId, SqlStageExecution stageExecution,
             PartitioningHandle partitioningHandle,
-            Map<PlanNodeId, SplitSource> splitSources,
+            SplitSourceFactory splitSourceFactory,
+            TableWriteInfo tableWriteInfo,
             Set<SqlStageExecution> childStageExecutions)
     {
+        Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
         int maxTasksPerStage = getMaxTasksPerStage(session);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // TODO: defer opening split sources when stage scheduling starts
@@ -598,13 +603,13 @@ public class SqlQueryScheduler
     private Optional<int[]> getBucketToPartition(
             PartitioningHandle partitioningHandle,
             Function<PartitioningHandle, NodePartitionMap> partitioningCache,
-            Map<PlanNodeId, SplitSource> splitSources,
+            PlanNode fragmentRoot,
             List<RemoteSourceNode> remoteSourceNodes)
     {
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             return Optional.of(new int[1]);
         }
-        else if (!splitSources.isEmpty()) {
+        else if (PlanNodeSearcher.searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
             if (remoteSourceNodes.stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 return Optional.empty();
             }
