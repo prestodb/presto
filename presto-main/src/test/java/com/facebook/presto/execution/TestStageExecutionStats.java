@@ -55,6 +55,7 @@ public class TestStageExecutionStats
 
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
+            new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
@@ -120,6 +121,7 @@ public class TestStageExecutionStats
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getRetriedCpuTime(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));

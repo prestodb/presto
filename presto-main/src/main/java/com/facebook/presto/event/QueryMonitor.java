@@ -151,6 +151,7 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(0),
                         ofMillis(0),
+                        ofMillis(0),
                         Optional.empty(),
                         0,
                         0,
@@ -256,6 +257,7 @@ public class QueryMonitor
 
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
+                ofMillis(queryStats.getRetriedCpuTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
