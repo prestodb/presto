@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,8 +55,10 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -85,6 +88,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
@@ -326,6 +330,16 @@ public class BackgroundHiveSplitLoader
             return lastResult;
         }
 
+        Map<String, String> parameters = partition.getPartition().map(Partition::getParameters).orElse(ImmutableMap.of());
+        String fileList = parameters.get("FILE_LIST");
+        Optional<Set<String>> files;
+        if (fileList == null) {
+            files = Optional.empty();
+        }
+        else {
+            files = Optional.of(Arrays.stream(fileList.split(",")).collect(toImmutableSet()));
+        }
+
         Optional<BucketConversion> bucketConversion = Optional.empty();
         boolean bucketConversionRequiresWorkerParticipation = false;
         if (partition.getPartition().isPresent()) {
@@ -385,12 +399,14 @@ public class BackgroundHiveSplitLoader
                 checkState(
                         tableBucketInfo.get().getTableBucketCount() == tableBucketInfo.get().getReadBucketCount(),
                         "Table and read bucket count should be the same for virtual bucket");
-                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable));
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable, files));
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable, files));
         }
 
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
+
+
+        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, files));
         return COMPLETED_FUTURE;
     }
 
@@ -418,11 +434,24 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<Set<String>> files)
     {
         return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
+                .filter(x -> {
+                    if (!files.isPresent()) {
+                        return true;
+                    }
+                    String cur = x.get().getPath();
+                    Set<String> tars = files.get();
+                    for (String tar : tars) {
+                        if (cur.contains(tar)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
                 .map(Optional::get)
                 .iterator();
     }
@@ -434,7 +463,8 @@ public class BackgroundHiveSplitLoader
             BucketSplitInfo bucketSplitInfo,
             Optional<BucketConversion> bucketConversion,
             String partitionName,
-            boolean splittable)
+            boolean splittable,
+            Optional<Set<String>> files)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -445,7 +475,23 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
+            Iterators.addAll(
+                    fileInfos,
+                    stream(directoryLister.list(fileSystem, path, namenodeStats, FAIL))
+                            .filter(x -> {
+                                if (!files.isPresent()) {
+                                    return true;
+                                }
+                                String cur = x.getPath().toString();
+                                Set<String> tars = files.get();
+                                for (String tar : tars) {
+                                    if (cur.contains(tar)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            })
+                            .iterator());
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -510,7 +556,7 @@ public class BackgroundHiveSplitLoader
         return splitList;
     }
 
-    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, Optional<Set<String>> files)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
         return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
@@ -519,6 +565,19 @@ public class BackgroundHiveSplitLoader
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);
                 })
                 .filter(Optional::isPresent)
+                .filter(x -> {
+                    if (!files.isPresent()) {
+                        return true;
+                    }
+                    String cur = x.get().getPath();
+                    Set<String> tars = files.get();
+                    for (String tar : tars) {
+                        if (cur.contains(tar)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
                 .map(Optional::get)
                 .collect(toImmutableList());
     }
