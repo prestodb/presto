@@ -18,7 +18,6 @@ import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -357,7 +356,7 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, Map<Subfield, Domain> domains)
+    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, String domains)
     {
         return loadValue(
                 partitionsByNamesCache,

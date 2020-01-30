@@ -214,4 +214,24 @@ public final class Range
         }
         return buffer.toString();
     }
+
+    public String toString(ConnectorSession session, String column)
+    {
+        StringBuilder buffer = new StringBuilder();
+        if (isSingleValue()) {
+            buffer.append(column).append(" = ").append(low.getPrintableValue(session));
+        }
+        else {
+            if (!low.isLowerUnbounded()) {
+                buffer.append(column).append(low.getBound() == Marker.Bound.EXACTLY ? " >= " : " > ").append(low.getPrintableValue(session));
+            }
+            if (!low.isLowerUnbounded() && !high.isUpperUnbounded()) {
+                buffer.append(" AND ");
+            }
+            if (!high.isUpperUnbounded()) {
+                buffer.append(column).append(high.getBound() == Marker.Bound.EXACTLY ? " <= " : " < ").append(high.getPrintableValue(session));
+            }
+        }
+        return buffer.toString();
+    }
 }

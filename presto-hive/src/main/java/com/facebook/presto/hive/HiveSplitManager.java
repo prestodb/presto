@@ -31,7 +31,11 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.EquatableValueSet;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,6 +48,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -217,11 +222,45 @@ public class HiveSplitManager
         }
 
         Map<Subfield, Domain> domains = layout.getDomainPredicate().getDomains().orElse(ImmutableMap.of());
+
+        String filter = "";
+        Map<Subfield, Domain> cleanedUp = new HashMap<>();
         for (Map.Entry<Subfield, Domain> domain : domains.entrySet()) {
-            System.out.println(domain.getKey() + " -> " + domain.getValue().toString(session));
+            if (domain.getValue().isAll()) {
+                continue;
+            }
+            cleanedUp.put(domain.getKey(), domain.getValue());
         }
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session, domains);
+        int predicates = 0;
+        for (Map.Entry<Subfield, Domain> domain : cleanedUp.entrySet()) {
+
+            String column = domain.getKey().toString();
+            ValueSet values = domain.getValue().getValues();
+
+            if (values instanceof SortedRangeSet) {
+                List<Range> ranges = values.getRanges().getOrderedRanges();
+
+                for (int i = 0; i < ranges.size(); i++) {
+                    Range range = ranges.get(i);
+                    String curr = range.toString(session, column);
+                    if (i < ranges.size() - 1) {
+                        curr += " AND ";
+                    }
+                    filter += curr;
+                }
+            }
+            else if (values instanceof EquatableValueSet) {
+                filter += ((EquatableValueSet) values).toString(session, column);
+            }
+            predicates++;
+
+            if (predicates < cleanedUp.size()) {
+                filter += " AND ";
+            }
+        }
+
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session, filter);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -306,7 +345,7 @@ public class HiveSplitManager
             List<HivePartition> hivePartitions,
             Optional<HiveBucketProperty> bucketProperty,
             ConnectorSession session,
-            Map<Subfield, Domain> domains)
+            String domains)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();

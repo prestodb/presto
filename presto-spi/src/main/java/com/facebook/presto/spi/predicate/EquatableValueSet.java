@@ -245,6 +245,14 @@ public class EquatableValueSet
                 .collect(Collectors.joining(", ")) + " ]";
     }
 
+    public String toString(ConnectorSession session, String column)
+    {
+        String list = "(" +  entries.stream()
+                .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
+                .collect(Collectors.joining(", ")) + " )";
+        return column + (whiteList ? " IN " : " NOT IN ") + list;
+    }
+
     private static <T> Set<T> intersect(Set<T> set1, Set<T> set2)
     {
         return set1.stream()

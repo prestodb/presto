@@ -15,7 +15,10 @@ package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -128,12 +131,17 @@ public final class Marker
         return Utils.blockToNativeValue(type, valueBlock.get());
     }
 
-    public Object getPrintableValue(ConnectorSession session)
+    public String getPrintableValue(ConnectorSession session)
     {
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return type.getObjectValue(session, valueBlock.get(), 0);
+        String value = type.getObjectValue(session, valueBlock.get(), 0).toString();
+
+        if (type instanceof VarcharType || type instanceof VarbinaryType || type instanceof CharType) {
+            return "'" + value + "'";
+        }
+        return value;
     }
 
     @JsonProperty

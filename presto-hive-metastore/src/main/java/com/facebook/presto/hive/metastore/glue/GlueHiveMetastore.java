@@ -75,7 +75,6 @@ import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -283,7 +282,7 @@ public class GlueHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(databaseName, tableName, ImmutableList.copyOf(partitionNames), ImmutableMap.of()).forEach((partitionName, optionalPartition) -> {
+        getPartitionsByNames(databaseName, tableName, ImmutableList.copyOf(partitionNames), "").forEach((partitionName, optionalPartition) -> {
             Partition partition = optionalPartition.orElseThrow(() ->
                     new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
@@ -747,10 +746,11 @@ public class GlueHiveMetastore
      * </pre>
      *
      * @param partitionNames List of full partition names
+     * @param domains
      * @return Mapping of partition name to partition object
      */
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, Map<Subfield, Domain> domains)
+    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, String domains)
     {
         requireNonNull(partitionNames, "partitionNames is null");
         if (partitionNames.isEmpty()) {

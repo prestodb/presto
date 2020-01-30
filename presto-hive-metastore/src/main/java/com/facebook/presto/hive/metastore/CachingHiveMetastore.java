@@ -17,7 +17,6 @@ import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -544,7 +543,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, Map<Subfield, Domain> domains)
+    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames, String domains)
     {
         return delegate.getPartitionsByNames(databaseName, tableName, partitionNames, domains);
     }
@@ -575,7 +574,7 @@ public class CachingHiveMetastore
         }
 
         ImmutableMap.Builder<HivePartitionName, Optional<Partition>> partitions = ImmutableMap.builder();
-        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(databaseName, tableName, partitionsToFetch, ImmutableMap.of());
+        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(databaseName, tableName, partitionsToFetch, "");
         for (Entry<String, Optional<Partition>> entry : partitionsByNames.entrySet()) {
             partitions.put(HivePartitionName.hivePartitionName(hiveTableName, entry.getKey()), entry.getValue());
         }

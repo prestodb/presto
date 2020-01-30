@@ -201,7 +201,7 @@ public class TestCachingHiveMetastore
 
     public void testInvalidGetPartitionsByNames()
     {
-        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1), ImmutableMap.of());
+        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1), "");
         assertEquals(partitionsByNames.size(), 1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
         assertFalse(onlyElement.isPresent());
