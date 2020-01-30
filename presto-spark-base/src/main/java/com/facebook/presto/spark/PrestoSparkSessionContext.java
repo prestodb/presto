@@ -151,7 +151,7 @@ public class PrestoSparkSessionContext
     public ResourceEstimates getResourceEstimates()
     {
         // presto on spark does not use resource groups
-        return new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+        return new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Nullable

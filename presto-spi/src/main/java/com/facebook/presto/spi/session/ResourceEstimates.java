@@ -32,20 +32,24 @@ public final class ResourceEstimates
     public static final String EXECUTION_TIME = "EXECUTION_TIME";
     public static final String CPU_TIME = "CPU_TIME";
     public static final String PEAK_MEMORY = "PEAK_MEMORY";
+    public static final String PEAK_TASK_MEMORY = "PEAK_TASK_MEMORY";
 
     private final Optional<Duration> executionTime;
     private final Optional<Duration> cpuTime;
     private final Optional<DataSize> peakMemory;
+    private final Optional<DataSize> peakTaskMemory;
 
     @JsonCreator
     public ResourceEstimates(
             @JsonProperty("executionTime") Optional<Duration> executionTime,
             @JsonProperty("cpuTime") Optional<Duration> cpuTime,
-            @JsonProperty("peakMemory") Optional<DataSize> peakMemory)
+            @JsonProperty("peakMemory") Optional<DataSize> peakMemory,
+            @JsonProperty("peakTaskMemory") Optional<DataSize> peakTaskMemory)
     {
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.peakMemory = requireNonNull(peakMemory, "peakMemory is null");
+        this.peakTaskMemory = requireNonNull(peakTaskMemory, "peakTaskMemory is null");
     }
 
     @JsonProperty
@@ -66,6 +70,12 @@ public final class ResourceEstimates
         return peakMemory;
     }
 
+    @JsonProperty
+    public Optional<DataSize> getPeakTaskMemory()
+    {
+        return peakTaskMemory;
+    }
+
     @Override
     public String toString()
     {
@@ -73,6 +83,7 @@ public final class ResourceEstimates
         sb.append("executionTime=").append(executionTime);
         sb.append(", cpuTime=").append(cpuTime);
         sb.append(", peakMemory=").append(peakMemory);
+        sb.append(", peakTaskMemory=").append(peakTaskMemory);
         sb.append('}');
         return sb.toString();
     }

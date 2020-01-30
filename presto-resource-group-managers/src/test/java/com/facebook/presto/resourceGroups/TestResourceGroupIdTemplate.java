@@ -29,7 +29,7 @@ import static org.testng.Assert.assertFalse;
 
 public class TestResourceGroupIdTemplate
 {
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Test
     public void testExpansion()

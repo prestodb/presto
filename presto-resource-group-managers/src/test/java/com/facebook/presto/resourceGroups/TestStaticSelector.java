@@ -32,7 +32,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestStaticSelector
 {
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Test
     public void testUserRegex()
@@ -112,7 +112,8 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("400MB")))))
+                                        Optional.of(DataSize.valueOf("400MB")),
+                                        Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -125,7 +126,8 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("600MB")))))
+                                        Optional.of(DataSize.valueOf("600MB")),
+                                        Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -137,6 +139,7 @@ public class TestStaticSelector
                                 ImmutableSet.of(),
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("4m")),
+                                        Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
@@ -164,7 +167,8 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("100h")),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("4TB")))))
+                                        Optional.of(DataSize.valueOf("4TB")),
+                                        Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -177,7 +181,8 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.of(DataSize.valueOf("6TB")))))
+                                        Optional.of(DataSize.valueOf("6TB")),
+                                        Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -190,7 +195,8 @@ public class TestStaticSelector
                                 new ResourceEstimates(
                                         Optional.of(Duration.valueOf("1s")),
                                         Optional.of(Duration.valueOf("1s")),
-                                        Optional.of(DataSize.valueOf("6TB")))))
+                                        Optional.of(DataSize.valueOf("6TB")),
+                                        Optional.empty())))
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
     }
