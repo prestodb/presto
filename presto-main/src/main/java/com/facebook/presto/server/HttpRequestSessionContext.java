@@ -419,6 +419,9 @@ public final class HttpRequestSessionContext
                     case ResourceEstimates.PEAK_MEMORY:
                         builder.setPeakMemory(DataSize.valueOf(value));
                         break;
+                    case ResourceEstimates.PEAK_TASK_MEMORY:
+                        builder.setPeakTaskMemory(DataSize.valueOf(value));
+                        break;
                     default:
                         throw badRequest(format("Unsupported resource name %s", name));
                 }

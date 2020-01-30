@@ -709,6 +709,7 @@ public final class Session
         private Optional<Duration> executionTime = Optional.empty();
         private Optional<Duration> cpuTime = Optional.empty();
         private Optional<DataSize> peakMemory = Optional.empty();
+        private Optional<DataSize> peakTaskMemory = Optional.empty();
 
         public ResourceEstimateBuilder setExecutionTime(Duration executionTime)
         {
@@ -728,9 +729,15 @@ public final class Session
             return this;
         }
 
+        public ResourceEstimateBuilder setPeakTaskMemory(DataSize peakTaskMemory)
+        {
+            this.peakTaskMemory = Optional.of(peakTaskMemory);
+            return this;
+        }
+
         public ResourceEstimates build()
         {
-            return new ResourceEstimates(executionTime, cpuTime, peakMemory);
+            return new ResourceEstimates(executionTime, cpuTime, peakMemory, peakTaskMemory);
         }
     }
 }

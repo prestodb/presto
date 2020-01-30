@@ -227,7 +227,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("400MB")))),
+                            Optional.of(DataSize.valueOf("400MB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "small"));
 
@@ -236,7 +237,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("600MB")))),
+                            Optional.of(DataSize.valueOf("600MB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
 
@@ -244,6 +246,7 @@ public class TestQueues
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty())),
                     LONG_LASTING_QUERY,
@@ -254,7 +257,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("1s")),
                             Optional.of(Duration.valueOf("1s")),
-                            Optional.of(DataSize.valueOf("6TB")))),
+                            Optional.of(DataSize.valueOf("6TB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "huge_memory"));
 
@@ -263,7 +267,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("100h")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("4TB")))),
+                            Optional.of(DataSize.valueOf("4TB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
         }
