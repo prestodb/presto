@@ -32,11 +32,13 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.davidmoten.hilbert.HilbertCurve;
+import org.davidmoten.hilbert.SmallHilbertCurve;
 
 import java.util.List;
 import java.util.Map;
@@ -79,9 +81,19 @@ public final class HiveBucketing
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        // TODO: fix this
-        HilbertCurve curve = HilbertCurve.bits(5).dimensions(2);
-        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+        // 2 ^ 11 = 2048
+        // 11 = 7 bits + 4 dims
+        checkArgument(bucketCount < 4096, "bucketCount too large " + bucketCount);
+        checkArgument(page.getChannelCount() < 5, "too many columns " + types.size());
+
+        SmallHilbertCurve curve = HilbertCurve.small().bits(7).dimensions(types.size());
+
+        long[] points = new long[page.getChannelCount()];
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            points[i] = hilbertPoint(types.get(i), page.getBlock(i), position);
+        }
+
+        return (int) curve.index(points);
     }
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
@@ -110,6 +122,33 @@ public final class HiveBucketing
         }
         return result;
     }
+
+    private static byte hilbertPoint(TypeInfo type, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return 0;
+        }
+
+        if (type.getCategory() != ObjectInspector.Category.PRIMITIVE) {
+            throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+        }
+
+        PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
+        PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+        Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
+        switch (primitiveCategory) {
+            case BOOLEAN:
+                return prestoType.getBoolean(block, position) ? (byte) 1 : 0;
+            case BYTE:
+                return SignedBytes.checkedCast(prestoType.getLong(block, position));
+            case SHORT:
+                return (byte) (Shorts.checkedCast(prestoType.getLong(block, position)) >> 8);
+            default:
+                // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+        }
+    }
+
 
     private static int hash(TypeInfo type, Block block, int position)
     {
