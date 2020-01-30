@@ -81,15 +81,16 @@ public final class HiveBucketing
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        // 2 ^ 11 = 2048
-        // 11 = 7 bits + 4 dims
-        checkArgument(bucketCount < 4096, "bucketCount too large " + bucketCount);
+        // 2 ^ 12 = 4096
+        // 12 = 4 bits * 3 dims
+        checkArgument(bucketCount < (2 << 12 + 1), "bucketCount too large " + bucketCount);
         checkArgument(page.getChannelCount() < 5, "too many columns " + types.size());
 
-        SmallHilbertCurve curve = HilbertCurve.small().bits(7).dimensions(types.size());
+        SmallHilbertCurve curve = HilbertCurve.small().bits(4).dimensions(page.getChannelCount());
 
         long[] points = new long[page.getChannelCount()];
         for (int i = 0; i < page.getChannelCount(); i++) {
+            // each hilbert points is a 4-bit representation
             points[i] = hilbertPoint(types.get(i), page.getBlock(i), position);
         }
 
@@ -140,9 +141,9 @@ public final class HiveBucketing
             case BOOLEAN:
                 return prestoType.getBoolean(block, position) ? (byte) 1 : 0;
             case BYTE:
-                return SignedBytes.checkedCast(prestoType.getLong(block, position));
+                return (byte) (SignedBytes.checkedCast(prestoType.getLong(block, position)) >> 4);
             case SHORT:
-                return (byte) (Shorts.checkedCast(prestoType.getLong(block, position)) >> 8);
+                return (byte) (Shorts.checkedCast(prestoType.getLong(block, position)) >> 12);
             default:
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");

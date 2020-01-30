@@ -34,6 +34,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspecto
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
+import org.davidmoten.hilbert.HilbertCurve;
+import org.davidmoten.hilbert.SmallHilbertCurve;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -44,6 +46,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
@@ -52,9 +55,27 @@ import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveBucketing
 {
+    @Test
+    public void testHilberCurve()
+    {
+        int dimension = 2;
+        SmallHilbertCurve curve = HilbertCurve.small().bits(6).dimensions(dimension);
+
+        Random random = new Random();
+        long[] points = new long[dimension];
+        for (int i = 0; i < 1000; i++) {
+            for (int j = 0; j < dimension; j++) {
+                points[j] = (byte) random.nextInt(256);
+                int index = (int) curve.index(points);
+                assertTrue(index < 4096);
+            }
+        }
+    }
+
     @Test
     public void testHashingCompare()
             throws Exception
