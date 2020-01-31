@@ -141,15 +141,32 @@ public final class HiveBucketing
             case BOOLEAN:
                 return prestoType.getBoolean(block, position) ? (byte) 1 : 0;
             case BYTE:
-                return (byte) (SignedBytes.checkedCast(prestoType.getLong(block, position)) >> 4);
+                return fourBitMapping(SignedBytes.checkedCast(prestoType.getLong(block, position)), Byte.MAX_VALUE);
             case SHORT:
-                return (byte) (Shorts.checkedCast(prestoType.getLong(block, position)) >> 12);
+                return fourBitMapping(Shorts.checkedCast(prestoType.getLong(block, position)), Short.MAX_VALUE);
+            case INT:
+                return fourBitMapping(toIntExact(prestoType.getLong(block, position)), Integer.MAX_VALUE);
+            case LONG:
+                return fourBitMapping(prestoType.getLong(block, position), Long.MAX_VALUE);
             default:
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
         }
     }
 
+    private static byte fourBitMapping(long value, long max)
+    {
+        byte i = 0;
+
+        while (i < 16) {
+            value /= 1.2;
+            if (value == 0) {
+                return i;
+            }
+            i++;
+        }
+        return i;
+    }
 
     private static int hash(TypeInfo type, Block block, int position)
     {
