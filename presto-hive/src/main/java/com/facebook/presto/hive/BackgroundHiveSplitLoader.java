@@ -475,23 +475,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(
-                    fileInfos,
-                    stream(directoryLister.list(fileSystem, path, namenodeStats, FAIL))
-                            .filter(x -> {
-                                if (!files.isPresent()) {
-                                    return true;
-                                }
-                                String cur = x.getPath().toString();
-                                Set<String> tars = files.get();
-                                for (String tar : tars) {
-                                    if (cur.contains(tar)) {
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            })
-                            .iterator());
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -532,7 +516,7 @@ public class BackgroundHiveSplitLoader
                     eligibleTableBucketNumbers.add(tableBucketNumber);
                 }
                 else {
-                    containsIneligibleTableBucket = true;
+                    // containsIneligibleTableBucket = true;
                 }
             }
 
@@ -548,6 +532,22 @@ public class BackgroundHiveSplitLoader
             }
             if (!eligibleTableBucketNumbers.isEmpty()) {
                 HiveFileInfo fileInfo = fileInfos.get(partitionBucketNumber);
+
+                if (files.isPresent()) {
+                    boolean skip = true;
+                    String cur = fileInfo.getPath().toString();
+                    Set<String> tars = files.get();
+                    for (String tar : tars) {
+                        if (cur.contains(tar)) {
+                            skip = false;
+                            break;
+                        }
+                    }
+                    if (skip) {
+                        continue;
+                    }
+                }
+
                 eligibleTableBucketNumbers.stream()
                         .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(fileInfo, readBucketNumber, tableBucketNumber, splittable))
                         .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
