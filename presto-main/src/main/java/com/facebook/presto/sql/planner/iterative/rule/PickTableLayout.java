@@ -20,8 +20,6 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.PushdownFilterResult;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -52,11 +50,9 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,9 +65,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
-import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
@@ -89,7 +83,6 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -138,7 +131,10 @@ public class PickTableLayout
         private final SqlParser parser;
         private final ExpressionDomainTranslator domainTranslator;
 
-        private PickTableLayoutForPredicate(Metadata metadata, SqlParser parser, ExpressionDomainTranslator domainTranslator)
+        private PickTableLayoutForPredicate(
+                Metadata metadata,
+                SqlParser parser,
+                ExpressionDomainTranslator domainTranslator)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.parser = requireNonNull(parser, "parser is null");
@@ -166,6 +162,9 @@ public class PickTableLayout
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
+            if (!metadata.isLegacyGetLayoutSupported(context.getSession(), tableScan.getTable())) {
+                return Result.empty();
+            }
 
             PlanNode rewritten = pushPredicateIntoTableScan(
                     tableScan,
@@ -239,24 +238,9 @@ public class PickTableLayout
         public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
             TableHandle tableHandle = tableScanNode.getTable();
-            if (tableHandle.getLayout().isPresent()) {
-                return Result.empty();
-            }
-
             Session session = context.getSession();
-            if (metadata.isPushdownFilterSupported(session, tableHandle)) {
-                PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE_CONSTANT);
-                if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
-                }
-
-                return Result.ofPlanNode(new TableScanNode(
-                        tableScanNode.getId(),
-                        pushdownFilterResult.getLayout().getNewTableHandle(),
-                        tableScanNode.getOutputVariables(),
-                        tableScanNode.getAssignments(),
-                        pushdownFilterResult.getLayout().getPredicate(),
-                        TupleDomain.all()));
+            if (tableHandle.getLayout().isPresent() || !metadata.isLegacyGetLayoutSupported(session, tableHandle)) {
+                return Result.empty();
             }
 
             TableLayoutResult layout = metadata.getLayout(
@@ -296,65 +280,15 @@ public class PickTableLayout
             SqlParser parser,
             ExpressionDomainTranslator domainTranslator)
     {
+        if (!metadata.isLegacyGetLayoutSupported(session, node.getTable())) {
+            return node;
+        }
+
         DomainTranslator translator = new RowExpressionDomainTranslator(metadata);
-
-        if (!metadata.isPushdownFilterSupported(session, node.getTable())) {
-            if (isExpression(predicate)) {
-                return pushPredicateIntoTableScan(node, castToExpression(predicate), pruneWithPredicateExpression, session, types, idAllocator, metadata, parser, domainTranslator);
-            }
-            return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, translator);
-        }
-
-        // filter pushdown; to be replaced by ConnectorPlanOptimizer
-        RowExpression expression;
         if (isExpression(predicate)) {
-            Map<NodeRef<Expression>, Type> predicateTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    parser,
-                    types,
-                    castToExpression(predicate),
-                    emptyList(),
-                    WarningCollector.NOOP,
-                    false);
-
-            expression = SqlToRowExpressionTranslator.translate(castToExpression(predicate), predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session);
+            return pushPredicateIntoTableScan(node, castToExpression(predicate), pruneWithPredicateExpression, session, types, idAllocator, metadata, parser, domainTranslator);
         }
-        else {
-            expression = predicate;
-        }
-
-        BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = node.getAssignments().entrySet().stream()
-                .collect(toImmutableBiMap(
-                        Map.Entry::getKey,
-                        entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), entry.getKey().getType())));
-
-        RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
-        // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
-        if (FALSE_CONSTANT.equals(replacedExpression)) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
-        }
-        PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), replacedExpression);
-
-        TableLayout layout = pushdownFilterResult.getLayout();
-        if (layout.getPredicate().isNone()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
-        }
-
-        TableScanNode tableScan = new TableScanNode(
-                node.getId(),
-                layout.getNewTableHandle(),
-                node.getOutputVariables(),
-                node.getAssignments(),
-                layout.getPredicate(),
-                TupleDomain.all());
-
-        RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedFilter();
-        if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
-            return new FilterNode(idAllocator.getNextId(), tableScan, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
-        }
-
-        return tableScan;
+        return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, translator);
     }
 
     /**

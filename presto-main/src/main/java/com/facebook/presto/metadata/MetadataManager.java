@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -49,7 +48,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -94,7 +92,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
-import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -424,28 +421,13 @@ public class MetadataManager
     }
 
     @Override
-    public boolean isPushdownFilterSupported(Session session, TableHandle tableHandle)
+    public boolean isLegacyGetLayoutSupported(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
 
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        return metadata.isPushdownFilterSupported(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-    }
-
-    @Override
-    public PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter)
-    {
-        checkArgument(!FALSE_CONSTANT.equals(filter), "Cannot pushdown filter that is always false");
-
-        ConnectorId connectorId = tableHandle.getConnectorId();
-
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        ConnectorPushdownFilterResult connectorResult = metadata.pushdownFilter(connectorSession, tableHandle.getConnectorHandle(), filter, tableHandle.getLayout());
-
-        return new PushdownFilterResult(fromConnectorLayout(connectorId, tableHandle.getConnectorHandle(), tableHandle.getTransaction(), connectorResult.getLayout()), connectorResult.getUnenforcedConstraint());
+        return metadata.isLegacyGetLayoutSupported(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
     }
 
     @Override
