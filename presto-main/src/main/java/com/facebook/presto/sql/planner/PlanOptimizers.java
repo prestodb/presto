@@ -415,9 +415,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()),
-                projectionPushDown,
-                new PruneUnreferencedOutputs());
+                        new PickTableLayout(metadata, sqlParser).rules()));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -429,7 +427,10 @@ public class PlanOptimizers
         // After this point, all planNodes should not contain OriginalExpression
 
         // Pass a supplier so that we pickup connector optimizers that are installed later
-        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+        builder.add(
+                new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
+                projectionPushDown,
+                new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(
                         ruleStats,
@@ -437,6 +438,9 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new PushdownSubfields(metadata));
+
+        builder.add(rowExpressionPredicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
 
         builder.add(new IterativeOptimizer(
                 // Because ReorderJoins runs only once,

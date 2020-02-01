@@ -13,24 +13,51 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.hive.HivePartitionManager;
+import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 
 import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class HivePlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider
 {
+    private final Set<ConnectorPlanOptimizer> planOptimizers;
+
+    @Inject
+    public HivePlanOptimizerProvider(
+            HiveTransactionManager transactionManager,
+            RowExpressionService rowExpressionService,
+            StandardFunctionResolution functionResolution,
+            HivePartitionManager partitionManager,
+            FunctionMetadataManager functionMetadataManager)
+    {
+        requireNonNull(transactionManager, "transactionManager is null");
+        requireNonNull(rowExpressionService, "rowExpressionService is null");
+        requireNonNull(functionResolution, "functionResolution is null");
+        requireNonNull(partitionManager, "partitionManager is null");
+        requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        this.planOptimizers = ImmutableSet.of(new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, functionMetadataManager));
+    }
+
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of();
+        return planOptimizers;
     }
 
     @Override
     public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
     {
-        return ImmutableSet.of();
+        // New filters may be created in between logical optimization and physical optimization. Push those newly created filters as well.
+        return planOptimizers;
     }
 }
