@@ -194,80 +194,87 @@ public class BenchmarkPartitionedOutputOperator
 
         private void createPages(String inputType)
         {
+            float primitiveNullRate = 0.0f;
+            float nestedNullRate = 0.0f;
+
+            if (hasNull) {
+                primitiveNullRate = 0.2f;
+                nestedNullRate = 0.2f;
+            }
             switch (inputType) {
                 case "BIGINT":
                     types = nCopies(channelCount, BIGINT);
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "DICTIONARY(BIGINT)":
                     types = nCopies(channelCount, BIGINT);
-                    dataPage = createDictionaryPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = createDictionaryPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 3000;
                     break;
                 case "RLE(BIGINT)":
                     types = nCopies(channelCount, BIGINT);
-                    dataPage = createRlePageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = createRlePageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 3000;
                     break;
                 case "LONG_DECIMAL":
                     types = nCopies(channelCount, createDecimalType(MAX_SHORT_PRECISION + 1));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "INTEGER":
                     types = nCopies(channelCount, INTEGER);
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "SMALLINT":
                     types = nCopies(channelCount, SMALLINT);
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "BOOLEAN":
                     types = nCopies(channelCount, BOOLEAN);
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "VARCHAR":
                     types = nCopies(channelCount, VARCHAR);
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 5000;
                     break;
                 case "ARRAY(BIGINT)":
                     types = nCopies(channelCount, new ArrayType(BIGINT));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "ARRAY(VARCHAR)":
                     types = nCopies(channelCount, new ArrayType(VARCHAR));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "ARRAY(ARRAY(BIGINT))":
                     types = nCopies(channelCount, new ArrayType(new ArrayType(BIGINT)));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "MAP(BIGINT,BIGINT)":
                     types = nCopies(channelCount, createMapType(BIGINT, BIGINT));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "MAP(BIGINT,MAP(BIGINT,BIGINT))":
                     types = nCopies(channelCount, createMapType(BIGINT, createMapType(BIGINT, BIGINT)));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "ROW(BIGINT,BIGINT)":
                     types = nCopies(channelCount, withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT)));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
                 case "ROW(ARRAY(BIGINT),ARRAY(BIGINT))":
                     types = nCopies(channelCount, withDefaultFieldNames(ImmutableList.of(new ArrayType(BIGINT), new ArrayType(BIGINT))));
-                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, hasNull);
+                    dataPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, primitiveNullRate, nestedNullRate);
                     pageCount = 1000;
                     break;
 

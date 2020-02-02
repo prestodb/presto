@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -75,7 +76,7 @@ import static org.testng.Assert.assertEquals;
 public final class BlockAssertions
 {
     private static final int ENTRY_SIZE = 4;
-    private static final int MAX_STRING_SIZE = 10;
+    private static final int MAX_STRING_SIZE = 50;
 
     private BlockAssertions()
     {
@@ -147,11 +148,13 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createRandomStringBlock(int positionCount, boolean allowNulls, int maxStringLength)
+    public static Block createRandomStringBlock(int positionCount, float nullRate, int maxStringLength)
     {
+        ValuesWithNullsGenerator<String> generator = new ValuesWithNullsGenerator(nullRate, () -> generateRandomStringWithLength(maxStringLength));
+
         return createStringsBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : generateRandomStringWithLength(maxStringLength))
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -261,11 +264,13 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createRandomBooleansBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomBooleansBlock(int positionCount, float nullRate)
     {
+        ValuesWithNullsGenerator<Boolean> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextBoolean());
+
         return createBooleansBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextBoolean())
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -293,11 +298,13 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createRandomShortDecimalsBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomShortDecimalsBlock(int positionCount, float nullRate)
     {
+        ValuesWithNullsGenerator<String> generator = new ValuesWithNullsGenerator(nullRate, () -> Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()));
+
         return createShortDecimalsBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()))
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -325,12 +332,15 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createRandomLongDecimalsBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomLongDecimalsBlock(int positionCount, float nullRate)
     {
         checkArgument(positionCount >= 10, "positionCount is less than 10");
+
+        ValuesWithNullsGenerator<String> generator = new ValuesWithNullsGenerator(nullRate, () -> Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()));
+
         return createLongDecimalsBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()))
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -403,11 +413,13 @@ public final class BlockAssertions
         return rowBlockBuilder.build();
     }
 
-    public static Block createRandomIntsBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomIntsBlock(int positionCount, float nullRate)
     {
+        ValuesWithNullsGenerator<Integer> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextInt());
+
         return createIntsBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextInt())
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -440,11 +452,13 @@ public final class BlockAssertions
         return createTypedLongsBlock(BIGINT, values);
     }
 
-    public static Block createRandomLongsBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomLongsBlock(int positionCount, float nullRate)
     {
+        ValuesWithNullsGenerator<Long> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextLong());
+
         return createLongsBlock(
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextLong())
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -464,12 +478,14 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createRandomSmallintsBlock(int positionCount, boolean allowNulls)
+    public static Block createRandomSmallintsBlock(int positionCount, float nullRate)
     {
+        ValuesWithNullsGenerator<Long> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextLong() % Short.MIN_VALUE);
+
         return createTypedLongsBlock(
                 SMALLINT,
                 IntStream.range(0, positionCount)
-                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextLong() % Short.MIN_VALUE)
+                        .mapToObj(i -> generator.next())
                         .collect(Collectors.toList()));
     }
 
@@ -701,8 +717,17 @@ public final class BlockAssertions
         return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
     }
 
-    public static Block createRandomBlockForType(Type type, int positionCount, boolean allowNulls, boolean createView, List<Encoding> wrappings)
+    public static Block createRandomBlockForType(
+            Type type,
+            int positionCount,
+            float primitiveNullRate,
+            float nestedNullRate,
+            boolean createView,
+            List<Encoding> wrappings)
     {
+        verifyNullRate(primitiveNullRate);
+        verifyNullRate(nestedNullRate);
+
         Block block = null;
 
         if (createView) {
@@ -710,36 +735,40 @@ public final class BlockAssertions
         }
 
         if (type == BOOLEAN) {
-            block = createRandomBooleansBlock(positionCount, allowNulls);
+            block = createRandomBooleansBlock(positionCount, primitiveNullRate);
         }
         else if (type == BIGINT) {
-            block = createRandomLongsBlock(positionCount, allowNulls);
+            block = createRandomLongsBlock(positionCount, primitiveNullRate);
         }
         else if (type == INTEGER || type == REAL) {
-            block = createRandomIntsBlock(positionCount, allowNulls);
+            block = createRandomIntsBlock(positionCount, primitiveNullRate);
         }
         else if (type == SMALLINT) {
-            block = createRandomSmallintsBlock(positionCount, allowNulls);
+            block = createRandomSmallintsBlock(positionCount, primitiveNullRate);
         }
         else if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             if (decimalType.isShort()) {
-                block = createRandomLongsBlock(positionCount, allowNulls);
+                block = createRandomLongsBlock(positionCount, primitiveNullRate);
             }
             else {
-                block = createRandomLongDecimalsBlock(positionCount, allowNulls);
+                block = createRandomLongDecimalsBlock(positionCount, primitiveNullRate);
             }
         }
         else if (type == VARCHAR) {
-            block = createRandomStringBlock(positionCount, allowNulls, MAX_STRING_SIZE);
+            block = createRandomStringBlock(positionCount, primitiveNullRate, MAX_STRING_SIZE);
         }
         else {
             // Nested types
             // Build isNull and offsets of size positionCount
-            boolean[] isNull = new boolean[positionCount];
+            boolean[] isNull = null;
+            if (nestedNullRate > 0) {
+                isNull = new boolean[positionCount];
+            }
             int[] offsets = new int[positionCount + 1];
+
             for (int position = 0; position < positionCount; position++) {
-                if (allowNulls && position % 7 == 1) {
+                if (nestedNullRate > 0 && ThreadLocalRandom.current().nextDouble(1) < nestedNullRate) {
                     isNull[position] = true;
                     offsets[position + 1] = offsets[position];
                 }
@@ -750,25 +779,25 @@ public final class BlockAssertions
 
             // Build the nested block of size offsets[positionCount].
             if (type instanceof ArrayType) {
-                Block valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], allowNulls, createView, wrappings);
-                block = fromElementBlock(positionCount, Optional.of(isNull), offsets, valuesBlock);
+                Block valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], primitiveNullRate, nestedNullRate, createView, wrappings);
+                block = fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
             }
             else if (type instanceof MapType) {
                 MapType mapType = (MapType) type;
-                Block keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], false, createView, wrappings);
-                Block valueBlock = createRandomBlockForType(mapType.getValueType(), offsets[positionCount], allowNulls, createView, wrappings);
+                Block keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], 0.0f, 0.0f, createView, wrappings);
+                Block valueBlock = createRandomBlockForType(mapType.getValueType(), offsets[positionCount], primitiveNullRate, nestedNullRate, createView, wrappings);
 
-                block = mapType.createBlockFromKeyValue(positionCount, Optional.of(isNull), offsets, keyBlock, valueBlock);
+                block = mapType.createBlockFromKeyValue(positionCount, Optional.ofNullable(isNull), offsets, keyBlock, valueBlock);
             }
             else if (type instanceof RowType) {
                 List<Type> fieldTypes = type.getTypeParameters();
                 Block[] fieldBlocks = new Block[fieldTypes.size()];
 
                 for (int i = 0; i < fieldBlocks.length; i++) {
-                    fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, allowNulls, createView, wrappings);
+                    fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, primitiveNullRate, nestedNullRate, createView, wrappings);
                 }
 
-                block = fromFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks);
+                block = fromFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
             }
             else {
                 throw new IllegalArgumentException(format("type %s is not supported.", type));
@@ -836,5 +865,31 @@ public final class BlockAssertions
         byte[] array = new byte[length];
         ThreadLocalRandom.current().nextBytes(array);
         return new String(array, UTF_8);
+    }
+
+    private static final class ValuesWithNullsGenerator<T>
+    {
+        private final float nullRate;
+        private final Supplier<T> supplier;
+
+        private ValuesWithNullsGenerator(float nullRate, Supplier<T> supplier)
+        {
+            verifyNullRate(nullRate);
+
+            this.nullRate = nullRate;
+            this.supplier = requireNonNull(supplier, "supplier is null");
+        }
+
+        public T next()
+        {
+            return nullRate > 0 && ThreadLocalRandom.current().nextDouble(1) < nullRate ? null : supplier.get();
+        }
+    }
+
+    private static void verifyNullRate(float nullRate)
+    {
+        if (nullRate < 0 || nullRate > 1) {
+            throw new IllegalArgumentException(format("nullRate %f is not valid.", nullRate));
+        }
     }
 }

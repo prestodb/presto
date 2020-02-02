@@ -546,7 +546,7 @@ public class TestOptimizedPartitionedOutputOperator
     public void testEmptyPage()
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(ImmutableList.of(BIGINT), true, false);
-        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(BIGINT), 0, true, false, true, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(BIGINT), 0, true, false, 0.0f, 0.0f, false, ImmutableList.of());
 
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
     }
@@ -555,7 +555,7 @@ public class TestOptimizedPartitionedOutputOperator
     public void testPageWithNoBlocks()
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(ImmutableList.of(), false, false);
-        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(), 1, false, false, true, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(ImmutableList.of(), 1, false, false, 0.0f, 0.0f, false, ImmutableList.of());
 
         testPartitionedForZeroBlocks(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
     }
@@ -569,12 +569,12 @@ public class TestOptimizedPartitionedOutputOperator
         Block[] blocks = new Block[4];
 
         // PreComputed Hash Block
-        blocks[0] = createRandomLongsBlock(POSITION_COUNT, false);
+        blocks[0] = createRandomLongsBlock(POSITION_COUNT, 0.0f);
 
         // Create blocks whose base blocks are with increasing number of positions
-        blocks[1] = wrapBlock(createRandomStringBlock(10, true, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
-        blocks[2] = wrapBlock(createRandomStringBlock(100, true, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
-        blocks[3] = wrapBlock(createRandomStringBlock(1000, true, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
+        blocks[1] = wrapBlock(createRandomStringBlock(10, 0.2f, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
+        blocks[2] = wrapBlock(createRandomStringBlock(100, 0.2f, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
+        blocks[3] = wrapBlock(createRandomStringBlock(1000, 0.2f, 10), POSITION_COUNT, ImmutableList.of(DICTIONARY, DICTIONARY));
 
         Page page = new Page(blocks);
 
@@ -589,7 +589,7 @@ public class TestOptimizedPartitionedOutputOperator
         Block[] blocks = new Block[2];
 
         // PreComputed Hash Block
-        blocks[0] = createRandomLongsBlock(POSITION_COUNT, false);
+        blocks[0] = createRandomLongsBlock(POSITION_COUNT, 0.0f);
 
         // Create blocks whose base blocks are with increasing number of positions
         blocks[1] = createVariableWidthBlockOverSliceView(POSITION_COUNT);
@@ -607,18 +607,18 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
 
         // Test plain blocks: no block views, no Dicrtionary/RLE blocks
-        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, true, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, false, ImmutableList.of());
 
         // First test for the cases where the buffer can hold the whole page, then force flushing for every a few rows.
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
 
         // Test block views and Dicrtionary/RLE blocks
-        page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, true, true, ImmutableList.of(DICTIONARY, RUN_LENGTH, DICTIONARY, RUN_LENGTH));
+        page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, RUN_LENGTH, DICTIONARY, RUN_LENGTH));
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
 
-        page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, true, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, RUN_LENGTH, DICTIONARY));
+        page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, false, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, RUN_LENGTH, DICTIONARY));
         testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
     }
@@ -628,9 +628,9 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
         List<Page> pages = new ArrayList<>();
         for (int i = 0; i < PAGE_COUNT; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, false, ImmutableList.of()));
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
         }
 
         testPartitioned(types, pages, new DataSize(128, MEGABYTE));
@@ -638,9 +638,9 @@ public class TestOptimizedPartitionedOutputOperator
 
         pages.clear();
         for (int i = 0; i < PAGE_COUNT / 3; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, false, ImmutableList.of()));
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, true, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY, RUN_LENGTH)));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, false, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY, DICTIONARY)));
         }
 
         testPartitioned(types, pages, new DataSize(128, MEGABYTE));
@@ -651,7 +651,7 @@ public class TestOptimizedPartitionedOutputOperator
     {
         // Add a block that only contain null as the last block to force replicating all rows.
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, true);
-        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, true, true, false, ImmutableList.of());
+        Page page = PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT, true, true, 0.2f, 0.2f, false, ImmutableList.of());
         testReplicated(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
         testReplicated(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
     }
@@ -661,7 +661,7 @@ public class TestOptimizedPartitionedOutputOperator
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, true);
         List<Page> pages = new ArrayList<>();
         for (int i = 0; i < PAGE_COUNT; i++) {
-            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, true, true, false, ImmutableList.of()));
+            pages.add(PageAssertions.createPageWithRandomData(targetTypes, POSITION_COUNT + RANDOM.nextInt(POSITION_COUNT), true, true, 0.2f, 0.2f, false, ImmutableList.of()));
         }
 
         testReplicated(types, pages, new DataSize(128, MEGABYTE));
