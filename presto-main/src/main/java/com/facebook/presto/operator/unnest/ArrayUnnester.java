@@ -15,10 +15,12 @@ package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Unnester for a nested column with array type, only when array elements are NOT of type {@code RowType}.
@@ -27,13 +29,17 @@ import static com.google.common.base.Preconditions.checkState;
  * All protected methods implemented here assume that they are being invoked when {@code columnarArray} is non-null.
  */
 class ArrayUnnester
-        extends Unnester
+        implements Unnester
 {
+    private final UnnestBlockBuilder unnestBlockBuilder;
+
     private ColumnarArray columnarArray;
+    private int currentPosition;
 
     public ArrayUnnester(Type elementType)
     {
-        super(elementType);
+        unnestBlockBuilder = new UnnestBlockBuilder(elementType);
+        currentPosition = 0;
     }
 
     @Override
@@ -43,44 +49,50 @@ class ArrayUnnester
     }
 
     @Override
-    protected int getInputEntryCount()
+    public void resetInput(Block block)
     {
-        if (columnarArray == null) {
-            return 0;
-        }
-        return columnarArray.getPositionCount();
+        requireNonNull(block, "block is null");
+
+        columnarArray = toColumnarArray(block);
+        currentPosition = 0;
+        unnestBlockBuilder.resetInputBlock(columnarArray.getElementsBlock());
     }
 
     @Override
-    protected void resetColumnarStructure(Block block)
+    public void startNewOutput(PageBuilderStatus status, int expectedEntries)
     {
-        this.columnarArray = toColumnarArray(block);
+        unnestBlockBuilder.startNewOutput(status, expectedEntries);
     }
 
     @Override
-    protected Block getElementsBlock(int channel)
+    public int getCurrentUnnestedLength()
     {
-        checkState(channel == 0, "index is not 0");
-        return columnarArray.getElementsBlock();
+        return columnarArray.getLength(currentPosition);
     }
 
     @Override
-    protected void processCurrentPosition(int requiredOutputCount)
+    public void processCurrentAndAdvance(int requiredOutputCount)
     {
+        checkState(currentPosition >= 0 && columnarArray != null && currentPosition < columnarArray.getPositionCount(), "position out of bounds");
+
         // Translate indices
-        int startElementIndex = columnarArray.getOffset(getCurrentPosition());
-        int length = columnarArray.getLength(getCurrentPosition());
+        int startElementIndex = columnarArray.getOffset(currentPosition);
+        int length = columnarArray.getLength(currentPosition);
 
         // Append elements and nulls
-        getBlockBuilder(0).appendRange(startElementIndex, length);
+        unnestBlockBuilder.appendRange(startElementIndex, length);
         for (int i = 0; i < requiredOutputCount - length; i++) {
-            getBlockBuilder(0).appendNull();
+            unnestBlockBuilder.appendNull();
         }
+
+        currentPosition++;
     }
 
     @Override
-    protected int getElementsLength(int index)
+    public Block[] buildOutputBlocksAndFlush()
     {
-        return columnarArray.getLength(index);
+        Block[] outputBlocks = new Block[1];
+        outputBlocks[0] = unnestBlockBuilder.buildOutputAndFlush();
+        return outputBlocks;
     }
 }

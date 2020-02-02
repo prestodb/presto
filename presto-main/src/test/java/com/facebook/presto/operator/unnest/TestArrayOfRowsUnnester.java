@@ -155,7 +155,6 @@ public class TestArrayOfRowsUnnester
             // Reset input and prepare for new output
             PageBuilderStatus status = new PageBuilderStatus();
             arrayofRowsUnnester.resetInput(arrayBlockOfRows);
-            assertEquals(arrayofRowsUnnester.getInputEntryCount(), elements.length);
 
             arrayofRowsUnnester.startNewOutput(status, 10);
             boolean misAligned = false;
