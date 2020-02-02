@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet;
 
 import io.airlift.compress.Decompressor;
+import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.slice.DynamicSliceOutput;
@@ -56,6 +57,8 @@ public final class ParquetCompressionUtils
                 return input;
             case LZO:
                 return decompressLZO(input, uncompressedSize);
+            case LZ4:
+                return decompressLz4(input, uncompressedSize);
             default:
                 throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
         }
@@ -104,6 +107,32 @@ public final class ParquetCompressionUtils
             int compressedChunkLength = Integer.reverseBytes(input.getInt(inputOffset));
             inputOffset += SIZE_OF_INT;
             int decompressionSize = decompress(lzoDecompressor, input, inputOffset, compressedChunkLength, output, outputOffset);
+            totalDecompressedCount += decompressionSize;
+            outputOffset += decompressionSize;
+            inputOffset += compressedChunkLength;
+        }
+        checkArgument(outputOffset == uncompressedSize);
+        return wrappedBuffer(output, 0, uncompressedSize);
+    }
+
+    private static Slice decompressLz4(Slice input, int uncompressedSize)
+    {
+        Lz4Decompressor decompressor = new Lz4Decompressor();
+        long totalDecompressedCount = 0;
+        // over allocate buffer which makes decompression easier
+        byte[] output = new byte[uncompressedSize + SIZE_OF_LONG];
+        int outputOffset = 0;
+        int inputOffset = 0;
+        int cumulativeUncompressedBlockLength = 0;
+
+        while (totalDecompressedCount < uncompressedSize) {
+            if (totalDecompressedCount == cumulativeUncompressedBlockLength) {
+                cumulativeUncompressedBlockLength += Integer.reverseBytes(input.getInt(inputOffset));
+                inputOffset += SIZE_OF_INT;
+            }
+            int compressedChunkLength = Integer.reverseBytes(input.getInt(inputOffset));
+            inputOffset += SIZE_OF_INT;
+            int decompressionSize = decompress(decompressor, input, inputOffset, compressedChunkLength, output, outputOffset);
             totalDecompressedCount += decompressionSize;
             outputOffset += decompressionSize;
             inputOffset += compressedChunkLength;
