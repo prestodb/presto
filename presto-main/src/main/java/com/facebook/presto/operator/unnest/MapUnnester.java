@@ -15,33 +15,34 @@ package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
-import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Unnester for a nested column with map type.
  * Maintains a {@link ColumnarMap} object to get underlying keys and values block from the map block.
- *
+ * <p>
  * All protected methods implemented here assume that they are being invoked when {@code columnarMap} is non-null.
  */
 class MapUnnester
         implements Unnester
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapUnnester.class).instanceSize();
+
     private final UnnestBlockBuilder keyUnnestBlockBuilder;
     private final UnnestBlockBuilder valueUnnestBlockBuilder;
 
+    private int[] lengths = new int[0];
     private ColumnarMap columnarMap;
-    private int currentPosition;
 
-    public MapUnnester(Type keyType, Type valueType)
+    public MapUnnester()
     {
-        keyUnnestBlockBuilder = new UnnestBlockBuilder(keyType);
-        valueUnnestBlockBuilder = new UnnestBlockBuilder(valueType);
-        currentPosition = 0;
+        keyUnnestBlockBuilder = new UnnestBlockBuilder();
+        valueUnnestBlockBuilder = new UnnestBlockBuilder();
     }
 
     @Override
@@ -50,60 +51,56 @@ class MapUnnester
         return 2;
     }
 
-    @Override
     public void resetInput(Block block)
     {
         requireNonNull(block, "block is null");
 
         columnarMap = toColumnarMap(block);
-        currentPosition = 0;
         keyUnnestBlockBuilder.resetInputBlock(columnarMap.getKeysBlock());
         valueUnnestBlockBuilder.resetInputBlock(columnarMap.getValuesBlock());
-    }
 
-    @Override
-    public void startNewOutput(PageBuilderStatus status, int expectedEntries)
-    {
-        keyUnnestBlockBuilder.startNewOutput(status, expectedEntries);
-        valueUnnestBlockBuilder.startNewOutput(status, expectedEntries);
-    }
+        int positionCount = block.getPositionCount();
+        lengths = ensureCapacity(lengths, positionCount);
 
-    @Override
-    public int getCurrentUnnestedLength()
-    {
-        return columnarMap.getEntryCount(currentPosition);
-    }
-
-    @Override
-    public void processCurrentAndAdvance(int requiredOutputCount)
-    {
-        checkState(currentPosition >= 0 && columnarMap != null && currentPosition < columnarMap.getPositionCount(), "position out of bounds");
-
-        // Translate indices
-        int mapLength = columnarMap.getEntryCount(currentPosition);
-        int startingOffset = columnarMap.getOffset(currentPosition);
-
-        // Append elements and nulls for keys Block
-        keyUnnestBlockBuilder.appendRange(startingOffset, mapLength);
-        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
-            keyUnnestBlockBuilder.appendNull();
+        for (int i = 0; i < positionCount; i++) {
+            lengths[i] = columnarMap.getEntryCount(i);
         }
-
-        // Append elements and nulls for values Block
-        valueUnnestBlockBuilder.appendRange(startingOffset, mapLength);
-        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
-            valueUnnestBlockBuilder.appendNull();
-        }
-
-        currentPosition++;
     }
 
     @Override
-    public Block[] buildOutputBlocksAndFlush()
+    public int[] getLengths()
     {
+        return lengths;
+    }
+
+    @Override
+    public Block[] buildOutputBlocks(int[] maxLengths, int startPosition, int batchSize, int currentBatchTotalLength)
+    {
+        boolean nullRequired = needToInsertNulls(startPosition, batchSize, currentBatchTotalLength);
+
         Block[] outputBlocks = new Block[2];
-        outputBlocks[0] = keyUnnestBlockBuilder.buildOutputAndFlush();
-        outputBlocks[1] = valueUnnestBlockBuilder.buildOutputAndFlush();
+        if (nullRequired) {
+            outputBlocks[0] = keyUnnestBlockBuilder.buildOutputBlockWithNulls(maxLengths, startPosition, batchSize, currentBatchTotalLength, this.lengths);
+            outputBlocks[1] = valueUnnestBlockBuilder.buildOutputBlockWithNulls(maxLengths, startPosition, batchSize, currentBatchTotalLength, this.lengths);
+        }
+        else {
+            outputBlocks[0] = keyUnnestBlockBuilder.buildOutputBlockWithoutNulls(currentBatchTotalLength);
+            outputBlocks[1] = valueUnnestBlockBuilder.buildOutputBlockWithoutNulls(currentBatchTotalLength);
+        }
+
         return outputBlocks;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // The lengths array in unnestBlockBuilders is the same object as in the unnester and doesn't need to be counted again.
+        return INSTANCE_SIZE + sizeOf(lengths);
+    }
+
+    private boolean needToInsertNulls(int offset, int length, int maxTotalEntriesForBatch)
+    {
+        int totalEntriesForBatch = columnarMap.getOffset(offset + length) - columnarMap.getOffset(offset);
+        return totalEntriesForBatch < maxTotalEntriesForBatch;
     }
 }
