@@ -99,39 +99,39 @@ public class TestBlockEncodingBuffers
     @Test
     public void testBigint()
     {
-        testBlock(BIGINT, createRandomLongsBlock(POSITIONS_PER_BLOCK, true));
+        testBlock(BIGINT, createRandomLongsBlock(POSITIONS_PER_BLOCK, 0.2f));
     }
 
     @Test
     public void testLongDecimal()
     {
-        testBlock(createDecimalType(MAX_SHORT_PRECISION + 1), createRandomLongDecimalsBlock(POSITIONS_PER_BLOCK, true));
+        testBlock(createDecimalType(MAX_SHORT_PRECISION + 1), createRandomLongDecimalsBlock(POSITIONS_PER_BLOCK, 0.2f));
     }
 
     @Test
     public void testInteger()
     {
-        testBlock(INTEGER, createRandomIntsBlock(POSITIONS_PER_BLOCK, true));
+        testBlock(INTEGER, createRandomIntsBlock(POSITIONS_PER_BLOCK, 0.2f));
     }
 
     @Test
     public void testSmallint()
     {
-        testBlock(SMALLINT, createRandomSmallintsBlock(POSITIONS_PER_BLOCK, true));
+        testBlock(SMALLINT, createRandomSmallintsBlock(POSITIONS_PER_BLOCK, 0.2f));
     }
 
     @Test
     public void testBoolean()
     {
-        testBlock(BOOLEAN, createRandomBooleansBlock(POSITIONS_PER_BLOCK, true));
+        testBlock(BOOLEAN, createRandomBooleansBlock(POSITIONS_PER_BLOCK, 0.2f));
     }
 
     @Test
     public void testVarchar()
     {
-        testBlock(VARCHAR, createRandomStringBlock(POSITIONS_PER_BLOCK, true, 10));
-        testBlock(VARCHAR, createRandomStringBlock(POSITIONS_PER_BLOCK, true, 0));
-        testBlock(VARCHAR, createRleBlockWithRandomValue(createRandomStringBlock(POSITIONS_PER_BLOCK, true, 0), POSITIONS_PER_BLOCK));
+        testBlock(VARCHAR, createRandomStringBlock(POSITIONS_PER_BLOCK, 0.2f, 10));
+        testBlock(VARCHAR, createRandomStringBlock(POSITIONS_PER_BLOCK, 0.2f, 0));
+        testBlock(VARCHAR, createRleBlockWithRandomValue(createRandomStringBlock(POSITIONS_PER_BLOCK, 0.2f, 0), POSITIONS_PER_BLOCK));
     }
 
     @Test
@@ -382,10 +382,10 @@ public class TestBlockEncodingBuffers
 
     private BlockStatus buildBlockStatusWithType(Type type, int positionCount, boolean isView, List<Encoding> wrappings)
     {
-        return buildBlockStatusWithType(type, positionCount, isView, true, wrappings);
+        return buildBlockStatusWithType(type, positionCount, isView, 0.2f, 0.2f, wrappings);
     }
 
-    private BlockStatus buildBlockStatusWithType(Type type, int positionCount, boolean isView, boolean allowNulls, List<Encoding> wrappings)
+    private BlockStatus buildBlockStatusWithType(Type type, int positionCount, boolean isView, float primitiveNullRate, float nestedNullRate, List<Encoding> wrappings)
     {
         BlockStatus blockStatus = null;
 
@@ -394,35 +394,39 @@ public class TestBlockEncodingBuffers
         }
 
         if (type == BIGINT) {
-            blockStatus = buildBigintBlockStatus(positionCount, allowNulls);
+            blockStatus = buildBigintBlockStatus(positionCount, primitiveNullRate);
         }
         else if (type instanceof DecimalType) {
             if (!((DecimalType) type).isShort()) {
-                blockStatus = buildLongDecimalBlockStatus(positionCount, allowNulls);
+                blockStatus = buildLongDecimalBlockStatus(positionCount, primitiveNullRate);
             }
             else {
-                blockStatus = buildShortDecimalBlockStatus(positionCount, allowNulls);
+                blockStatus = buildShortDecimalBlockStatus(positionCount, primitiveNullRate);
             }
         }
         else if (type == INTEGER) {
-            blockStatus = buildIntegerBlockStatus(positionCount, allowNulls);
+            blockStatus = buildIntegerBlockStatus(positionCount, primitiveNullRate);
         }
         else if (type == SMALLINT) {
-            blockStatus = buildSmallintBlockStatus(positionCount, allowNulls);
+            blockStatus = buildSmallintBlockStatus(positionCount, primitiveNullRate);
         }
         else if (type == BOOLEAN) {
-            blockStatus = buildBooleanBlockStatus(positionCount, allowNulls);
+            blockStatus = buildBooleanBlockStatus(positionCount, primitiveNullRate);
         }
         else if (type == VARCHAR) {
-            blockStatus = buildVarcharBlockStatus(positionCount, allowNulls, 10);
+            blockStatus = buildVarcharBlockStatus(positionCount, primitiveNullRate, 10);
         }
         else {
             // Nested types
             // Build isNull and offsets of size positionCount
-            boolean[] isNull = new boolean[positionCount];
+            boolean[] isNull = null;
+            if (nestedNullRate > 0) {
+                isNull = new boolean[positionCount];
+            }
             int[] offsets = new int[positionCount + 1];
+
             for (int position = 0; position < positionCount; position++) {
-                if (allowNulls && position % 7 == 0) {
+                if (nestedNullRate > 0 && ThreadLocalRandom.current().nextDouble(1) < nestedNullRate) {
                     isNull[position] = true;
                     offsets[position + 1] = offsets[position];
                 }
@@ -433,13 +437,13 @@ public class TestBlockEncodingBuffers
 
             // Build the nested block of size offsets[positionCount].
             if (type instanceof ArrayType) {
-                blockStatus = buildArrayBlockStatus((ArrayType) type, positionCount, isView, isNull, offsets, allowNulls, wrappings);
+                blockStatus = buildArrayBlockStatus((ArrayType) type, positionCount, isView, Optional.ofNullable(isNull), offsets, primitiveNullRate, nestedNullRate, wrappings);
             }
             else if (type instanceof MapType) {
-                blockStatus = buildMapBlockStatus((MapType) type, positionCount, isView, isNull, offsets, allowNulls, wrappings);
+                blockStatus = buildMapBlockStatus((MapType) type, positionCount, isView, Optional.ofNullable(isNull), offsets, primitiveNullRate, nestedNullRate, wrappings);
             }
             else if (type instanceof RowType) {
-                blockStatus = buildRowBlockStatus((RowType) type, positionCount, isView, isNull, offsets, allowNulls, wrappings);
+                blockStatus = buildRowBlockStatus((RowType) type, positionCount, isView, Optional.ofNullable(isNull), offsets, primitiveNullRate, nestedNullRate, wrappings);
             }
             else {
                 throw new UnsupportedOperationException(format("type %s is not supported.", type));
@@ -459,57 +463,57 @@ public class TestBlockEncodingBuffers
         return blockStatus;
     }
 
-    private static BlockStatus buildBigintBlockStatus(int positionCount, boolean allowNulls)
+    private static BlockStatus buildBigintBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomLongsBlock(positionCount, allowNulls);
+        Block block = createRandomLongsBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> LongArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private static BlockStatus buildShortDecimalBlockStatus(int positionCount, boolean allowNulls)
+    private static BlockStatus buildShortDecimalBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomShortDecimalsBlock(positionCount, allowNulls);
+        Block block = createRandomShortDecimalsBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> LongArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private static BlockStatus buildLongDecimalBlockStatus(int positionCount, boolean allowNulls)
+    private static BlockStatus buildLongDecimalBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomLongDecimalsBlock(positionCount, allowNulls);
+        Block block = createRandomLongDecimalsBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> Int128ArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private BlockStatus buildIntegerBlockStatus(int positionCount, boolean allowNulls)
+    private BlockStatus buildIntegerBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomIntsBlock(positionCount, allowNulls);
+        Block block = createRandomIntsBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> IntArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private BlockStatus buildSmallintBlockStatus(int positionCount, boolean allowNulls)
+    private BlockStatus buildSmallintBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomSmallintsBlock(positionCount, allowNulls);
+        Block block = createRandomSmallintsBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> ShortArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private BlockStatus buildBooleanBlockStatus(int positionCount, boolean allowNulls)
+    private BlockStatus buildBooleanBlockStatus(int positionCount, float nullRate)
     {
-        Block block = createRandomBooleansBlock(positionCount, allowNulls);
+        Block block = createRandomBooleansBlock(positionCount, nullRate);
         int[] expectedRowSizes = IntStream.generate(() -> ByteArrayBlockEncodingBuffer.POSITION_SIZE).limit(positionCount).toArray();
 
         return new BlockStatus(block, expectedRowSizes);
     }
 
-    private BlockStatus buildVarcharBlockStatus(int positionCount, boolean allowNulls, int maxStringLength)
+    private BlockStatus buildVarcharBlockStatus(int positionCount, float nullRate, int maxStringLength)
     {
-        Block block = createRandomStringBlock(positionCount, allowNulls, maxStringLength);
+        Block block = createRandomStringBlock(positionCount, nullRate, maxStringLength);
 
         int[] expectedRowSizes = IntStream
                 .range(0, positionCount)
@@ -564,9 +568,10 @@ public class TestBlockEncodingBuffers
             ArrayType arrayType,
             int positionCount,
             boolean isView,
-            boolean[] isNull,
+            Optional<boolean[]> isNull,
             int[] offsets,
-            boolean allowNulls,
+            float primitiveNullRate,
+            float nestedNullRate,
             List<Encoding> wrappings)
     {
         requireNonNull(isNull);
@@ -578,7 +583,8 @@ public class TestBlockEncodingBuffers
                 arrayType.getElementType(),
                 offsets[positionCount],
                 isView,
-                allowNulls,
+                primitiveNullRate,
+                nestedNullRate,
                 wrappings);
 
         int[] expectedRowSizes = IntStream.range(0, positionCount)
@@ -586,7 +592,7 @@ public class TestBlockEncodingBuffers
                 .toArray();
 
         blockStatus = new BlockStatus(
-                fromElementBlock(positionCount, Optional.of(isNull), offsets, valuesBlockStatus.block),
+                fromElementBlock(positionCount, isNull, offsets, valuesBlockStatus.block),
                 expectedRowSizes);
         return blockStatus;
     }
@@ -595,26 +601,27 @@ public class TestBlockEncodingBuffers
             MapType mapType,
             int positionCount,
             boolean isView,
-            boolean[] isNull,
+            Optional<boolean[]> isNull,
             int[] offsets,
-            boolean allowNulls,
+            float primitiveNullRate,
+            float nestedNullRate,
             List<Encoding> wrappings)
     {
-        requireNonNull(isNull);
-
         BlockStatus blockStatus;
 
         BlockStatus keyBlockStatus = buildBlockStatusWithType(
                 mapType.getKeyType(),
                 offsets[positionCount],
                 isView,
-                false,
+                0.0f,
+                0.0f,
                 wrappings);
         BlockStatus valueBlockStatus = buildBlockStatusWithType(
                 mapType.getValueType(),
                 offsets[positionCount],
                 isView,
-                allowNulls,
+                primitiveNullRate,
+                nestedNullRate,
                 wrappings);
 
         int[] expectedKeySizes = keyBlockStatus.expectedRowSizes;
@@ -634,7 +641,7 @@ public class TestBlockEncodingBuffers
         blockStatus = new BlockStatus(
                 fromKeyValueBlock(
                         positionCount,
-                        Optional.of(isNull),
+                        isNull,
                         offsets,
                         keyBlockStatus.block,
                         valueBlockStatus.block,
@@ -650,9 +657,10 @@ public class TestBlockEncodingBuffers
             RowType rowType,
             int positionCount,
             boolean isView,
-            boolean[] isNull,
+            Optional<boolean[]> isNull,
             int[] offsets,
-            boolean allowNulls,
+            float primitiveNullRate,
+            float nestedNullRate,
             List<Encoding> wrappings)
     {
         requireNonNull(isNull);
@@ -668,7 +676,8 @@ public class TestBlockEncodingBuffers
                     fieldTypes.get(i),
                     positionCount,
                     isView,
-                    allowNulls,
+                    primitiveNullRate,
+                    nestedNullRate,
                     wrappings);
             fieldBlocks[i] = fieldBlockStatus.block;
             Arrays.setAll(expectedTotalFieldSizes, j -> expectedTotalFieldSizes[j] + fieldBlockStatus.expectedRowSizes[j]);
@@ -678,7 +687,7 @@ public class TestBlockEncodingBuffers
                 .map(i -> RowBlockEncodingBuffer.POSITION_SIZE + Arrays.stream(expectedTotalFieldSizes, offsets[i], offsets[i + 1]).sum())
                 .toArray();
 
-        blockStatus = new BlockStatus(fromFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks), expectedRowSizes);
+        blockStatus = new BlockStatus(fromFieldBlocks(positionCount, isNull, fieldBlocks), expectedRowSizes);
         return blockStatus;
     }
 
