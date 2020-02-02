@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -52,7 +53,14 @@ public class UnnestOperator
         private final boolean withOrdinality;
         private boolean closed;
 
-        public UnnestOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
+        public UnnestOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<Integer> replicateChannels,
+                List<Type> replicateTypes,
+                List<Integer> unnestChannels,
+                List<Type> unnestTypes,
+                boolean withOrdinality)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -98,22 +106,19 @@ public class UnnestOperator
     private final OperatorContext operatorContext;
     private final List<Integer> replicateChannels;
     private final List<Type> replicateTypes;
+    private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
+    private final List<Unnester> unnesters;
+    private final int unnestOutputChannelCount;
     private final boolean withOrdinality;
+    private final int outputChannelCount;
 
     private boolean finishing;
     private Page currentPage;
     private int currentPosition;
-
-    private final List<Unnester> unnesters;
-    private final int unnestOutputChannelCount;
-
-    private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
-
     private BlockBuilder ordinalityBlockBuilder;
 
-    private int outputChannelCount;
 
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean isLegacyUnnest)
     {
@@ -173,20 +178,6 @@ public class UnnestOperator
         currentPage = page;
         currentPosition = 0;
         resetBlockBuilders();
-    }
-
-    private void resetBlockBuilders()
-    {
-        for (int i = 0; i < replicateTypes.size(); i++) {
-            Block newInputBlock = currentPage.getBlock(replicateChannels.get(i));
-            replicatedBlockBuilders.get(i).resetInputBlock(newInputBlock);
-        }
-
-        for (int i = 0; i < unnestTypes.size(); i++) {
-            int inputChannel = unnestChannels.get(i);
-            Block unnestChannelInputBlock = currentPage.getBlock(inputChannel);
-            unnesters.get(i).resetInput(unnestChannelInputBlock);
-        }
     }
 
     @Override
@@ -258,6 +249,42 @@ public class UnnestOperator
         }
     }
 
+    private static Unnester createUnnester(Type nestedType, boolean isLegacyUnnest)
+    {
+        if (nestedType instanceof ArrayType) {
+            Type elementType = ((ArrayType) nestedType).getElementType();
+
+            if (!isLegacyUnnest && elementType instanceof RowType) {
+                return new ArrayOfRowsUnnester(((RowType) elementType));
+            }
+            else {
+                return new ArrayUnnester(elementType);
+            }
+        }
+        else if (nestedType instanceof MapType) {
+            Type keyType = ((MapType) nestedType).getKeyType();
+            Type valueType = ((MapType) nestedType).getValueType();
+            return new MapUnnester(keyType, valueType);
+        }
+        else {
+            throw new IllegalArgumentException("Cannot unnest type: " + nestedType);
+        }
+    }
+
+    private void resetBlockBuilders()
+    {
+        for (int i = 0; i < replicateTypes.size(); i++) {
+            Block newInputBlock = currentPage.getBlock(replicateChannels.get(i));
+            replicatedBlockBuilders.get(i).resetInputBlock(newInputBlock);
+        }
+
+        for (int i = 0; i < unnestTypes.size(); i++) {
+            int inputChannel = unnestChannels.get(i);
+            Block unnestChannelInputBlock = currentPage.getBlock(inputChannel);
+            unnesters.get(i).resetInput(unnestChannelInputBlock);
+        }
+    }
+
     private Block[] buildOutputBlocks()
     {
         Block[] outputBlocks = new Block[outputChannelCount];
@@ -280,27 +307,5 @@ public class UnnestOperator
         }
 
         return outputBlocks;
-    }
-
-    private static Unnester createUnnester(Type nestedType, boolean isLegacyUnnest)
-    {
-        if (nestedType instanceof ArrayType) {
-            Type elementType = ((ArrayType) nestedType).getElementType();
-
-            if (!isLegacyUnnest && elementType instanceof RowType) {
-                return new ArrayOfRowsUnnester(((RowType) elementType));
-            }
-            else {
-                return new ArrayUnnester(elementType);
-            }
-        }
-        else if (nestedType instanceof MapType) {
-            Type keyType = ((MapType) nestedType).getKeyType();
-            Type valueType = ((MapType) nestedType).getValueType();
-            return new MapUnnester(keyType, valueType);
-        }
-        else {
-            throw new IllegalArgumentException("Cannot unnest type: " + nestedType);
-        }
     }
 }
