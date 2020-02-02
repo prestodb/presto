@@ -245,13 +245,21 @@ public class TestRowBasedSerialization
     private static void testRandomBlocks(Type type, List<Encoding> wrappings)
     {
         List<Type> types = ImmutableList.of(type);
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 10, false, false, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 11, false, false, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 20, true, false, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 33, false, false, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 27, true, false, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 22, false, true, wrappings)));
-        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 28, true, true, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 10, 0, 0, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 11, 0, 0, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 20, 0.5f, 0, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 33, 0, 0, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 27, 0.5f, 0, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 22, 0, 0.5f, false, wrappings)));
+        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 28, 0.5f, 0.5f, false, wrappings)));
+
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 10, false, false, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 11, false, false, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 20, true, false, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 33, false, false, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 27, true, false, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 22, false, true, wrappings)));
+//        assertRoundTrip(types, ImmutableList.of(createRandomBlockForType(type, 28, true, true, wrappings)));
     }
 
     private static void assertRoundTrip(List<Type> types, List<Block> blocks)
