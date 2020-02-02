@@ -109,7 +109,6 @@ public class TestMapUnnester
             // Reset input and prepare for new output
             PageBuilderStatus status = new PageBuilderStatus();
             mapUnnester.resetInput(mapBlock);
-            assertEquals(mapUnnester.getInputEntryCount(), elements.length);
 
             mapUnnester.startNewOutput(status, 10);
             boolean misAligned = false;
