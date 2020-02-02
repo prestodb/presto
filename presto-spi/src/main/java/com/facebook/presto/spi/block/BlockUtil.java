@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 
 import static java.lang.Math.ceil;
@@ -35,6 +37,14 @@ final class BlockUtil
     }
 
     static void checkArrayRange(int[] array, int offset, int length)
+    {
+        requireNonNull(array, "array is null");
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(format("Invalid offset %s and length %s in array with %s elements", offset, length, array.length));
+        }
+    }
+
+    static void checkArrayRange(boolean[] array, int offset, int length)
     {
         requireNonNull(array, "array is null");
         if (offset < 0 || length < 0 || offset + length > array.length) {
@@ -215,5 +225,91 @@ final class BlockUtil
         boolean withinRange = internalPosition >= offset && internalPosition < positionCount + offset;
         assert withinRange : format("internalPosition %s is not within range [%s, %s)", internalPosition, offset, positionCount + offset);
         return withinRange;
+    }
+
+    static boolean[] appendNullToIsNullArray(@Nullable boolean[] isNull, int offsetBase, int positionCount)
+    {
+        int desiredLength = offsetBase + positionCount + 1;
+        boolean[] newIsNull = new boolean[desiredLength];
+        if (isNull != null) {
+            checkArrayRange(isNull, offsetBase, positionCount);
+            System.arraycopy(isNull, 0, newIsNull, 0, desiredLength - 1);
+        }
+        newIsNull[desiredLength - 1] = true;
+        return newIsNull;
+    }
+
+    static int[] appendNullToOffsetsArray(int[] offsets, int offsetBase, int positionCount)
+    {
+        checkArrayRange(offsets, offsetBase, positionCount + 1);
+
+        int desiredLength = offsetBase + positionCount + 2;
+        int[] newOffsets = Arrays.copyOf(offsets, desiredLength);
+        newOffsets[desiredLength - 1] = newOffsets[desiredLength - 2];
+        return newOffsets;
+    }
+
+    /**
+     * Returns a byte array of size capacity if the input buffer is null or smaller than the capacity.
+     * If the input buffer is not null, the original values in buffer will be preserved.
+     */
+    public static byte[] ensureCapacity(byte[] buffer, int capacity)
+    {
+        if (buffer == null) {
+            buffer = new byte[capacity];
+        }
+        else if (buffer.length < capacity) {
+            buffer = Arrays.copyOf(buffer, capacity);
+        }
+
+        return buffer;
+    }
+
+    /**
+     * Returns a short array of size capacity if the input buffer is null or smaller than the capacity.
+     * If the input buffer is not null, the original values in buffer will be preserved.
+     */
+    public static short[] ensureCapacity(short[] buffer, int capacity)
+    {
+        if (buffer == null) {
+            buffer = new short[capacity];
+        }
+        else if (buffer.length < capacity) {
+            buffer = Arrays.copyOf(buffer, capacity);
+        }
+
+        return buffer;
+    }
+
+    /**
+     * Returns an int array of size capacity if the input buffer is null or smaller than the capacity.
+     * If the input buffer is not null, the original values in buffer will be preserved.
+     */
+    public static int[] ensureCapacity(int[] buffer, int capacity)
+    {
+        if (buffer == null) {
+            buffer = new int[capacity];
+        }
+        else if (buffer.length < capacity) {
+            buffer = Arrays.copyOf(buffer, capacity);
+        }
+
+        return buffer;
+    }
+
+    /**
+     * Returns a long array of size capacity if the input buffer is null or smaller than the capacity.
+     * If the input buffer is not null, the original values in buffer will be preserved.
+     */
+    public static long[] ensureCapacity(long[] buffer, int capacity)
+    {
+        if (buffer == null) {
+            buffer = new long[capacity];
+        }
+        else if (buffer.length < capacity) {
+            buffer = Arrays.copyOf(buffer, capacity);
+        }
+
+        return buffer;
     }
 }

@@ -21,10 +21,12 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.spi.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -254,5 +256,13 @@ public class ShortArrayBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         return valueIsNull[internalPosition];
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        boolean[] newValueIsNull = appendNullToIsNullArray(valueIsNull, arrayOffset, positionCount);
+        short[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
+        return new ShortArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
     }
 }

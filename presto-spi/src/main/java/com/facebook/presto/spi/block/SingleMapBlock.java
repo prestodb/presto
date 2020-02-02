@@ -126,6 +126,12 @@ public class SingleMapBlock
                 mapBlock);
     }
 
+    @Override
+    public Block appendNull()
+    {
+        throw new UnsupportedOperationException("SingleMapBlock does not support appendNull()");
+    }
+
     @Nullable
     int[] getHashTable()
     {

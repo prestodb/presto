@@ -366,4 +366,10 @@ public class LazyBlock
         assert block != null : "block is not loaded";
         return block.isNull(internalPosition);
     }
+
+    @Override
+    public Block appendNull()
+    {
+        throw new UnsupportedOperationException("LazyBlock does not support appendNull()");
+    }
 }

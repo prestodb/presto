@@ -383,4 +383,18 @@ public class RunLengthEncodedBlock
         assert internalPositionInRange(internalPosition, 0, getPositionCount());
         return value.isNull(0);
     }
+
+    @Override
+    public Block appendNull()
+    {
+        if (value.isNull(0)) {
+            return new RunLengthEncodedBlock(value, positionCount + 1);
+        }
+        else {
+            Block dictionary = value.appendNull();
+            int[] ids = new int[positionCount + 1];
+            ids[positionCount] = 1;
+            return new DictionaryBlock(dictionary, ids);
+        }
+    }
 }

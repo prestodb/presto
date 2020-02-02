@@ -114,4 +114,10 @@ public class SingleRowBlock
         }
         return new SingleRowBlock(rowIndex, loadedFieldBlocks);
     }
+
+    @Override
+    public Block appendNull()
+    {
+        throw new UnsupportedOperationException("SingleRowBlock does not support appendNull()");
+    }
 }

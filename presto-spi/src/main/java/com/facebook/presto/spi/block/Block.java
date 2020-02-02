@@ -311,4 +311,10 @@ public interface Block
     {
         return this;
     }
+
+    /**
+     * Returns a block that has an appended null at the end, no matter if the original block has null or not.
+     * The original block won't be modified.
+     */
+    Block appendNull();
 }

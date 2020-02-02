@@ -299,4 +299,10 @@ public class GroupByIdBlock
     {
         return block.isNull(internalPosition);
     }
+
+    @Override
+    public Block appendNull()
+    {
+        throw new UnsupportedOperationException("GroupByIdBlock does not support appendNull()");
+    }
 }
