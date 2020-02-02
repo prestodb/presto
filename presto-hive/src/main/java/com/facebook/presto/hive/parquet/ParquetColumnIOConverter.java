@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.io;
+package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
@@ -22,6 +22,9 @@ import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
+import org.apache.parquet.io.PrimitiveColumnIO;
 
 import java.util.List;
 import java.util.Locale;
@@ -33,14 +36,13 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
+import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-/**
- * Placed in org.apache.parquet.io package to have access to ColumnIO getRepetitionLevel() and getDefinitionLevel() methods.
- */
-public class ColumnIOConverter
+public class ParquetColumnIOConverter
 {
-    private ColumnIOConverter()
+    private ParquetColumnIOConverter()
     {
     }
 
@@ -50,8 +52,8 @@ public class ColumnIOConverter
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnIO.getRepetitionLevel();
-        int definitionLevel = columnIO.getDefinitionLevel();
+        int repetitionLevel = columnRepetitionLevel(columnIO);
+        int definitionLevel = columnDefinitionLevel(columnIO);
         if (ROW.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();

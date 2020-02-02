@@ -89,7 +89,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final K key;
     private final V value;
 
-    @SuppressWarnings("deprecation")
     private final Deserializer deserializer;
 
     private final Type[] types;

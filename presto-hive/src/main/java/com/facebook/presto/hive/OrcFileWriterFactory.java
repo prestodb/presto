@@ -32,9 +32,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.OrcConf;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -226,10 +226,7 @@ public class OrcFileWriterFactory
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
     {
-        String compressionName = schema.getProperty(OrcTableProperties.COMPRESSION.getPropName());
-        if (compressionName == null) {
-            compressionName = configuration.get("hive.exec.orc.default.compress");
-        }
+        String compressionName = OrcConf.COMPRESS.getString(schema, configuration);
         if (compressionName == null) {
             return CompressionKind.ZLIB;
         }
