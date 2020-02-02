@@ -18,6 +18,8 @@ import io.airlift.slice.SliceOutput;
 import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToIsNullArray;
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToOffsetsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
@@ -269,5 +271,19 @@ public abstract class AbstractArrayBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         return getValueIsNull()[internalPosition];
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        boolean[] valueIsNull = appendNullToIsNullArray(getValueIsNull(), getOffsetBase(), getPositionCount());
+        int[] offsets = appendNullToOffsetsArray(getOffsets(), getOffsetBase(), getPositionCount());
+
+        return createArrayBlockInternal(
+                getOffsetBase(),
+                getPositionCount() + 1,
+                valueIsNull,
+                offsets,
+                getRawElementBlock());
     }
 }

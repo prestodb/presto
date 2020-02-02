@@ -38,6 +38,7 @@ public class DictionaryBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBlock.class).instanceSize() + ClassLayout.parseClass(DictionaryId.class).instanceSize();
+    private static final int NULL_NOT_FOUND = -1;
 
     private final int positionCount;
     private final Block dictionary;
@@ -547,5 +548,36 @@ public class DictionaryBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, idsOffset, positionCount);
         return dictionary.isNull(ids[internalPosition]);
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        int desiredLength = idsOffset + positionCount + 1;
+        int[] newIds = Arrays.copyOf(ids, desiredLength);
+
+        Block newDictionary = dictionary;
+
+        int nullIndex = NULL_NOT_FOUND;
+
+        if (dictionary.mayHaveNull()) {
+            int dictionaryPositionCount = dictionary.getPositionCount();
+            for (int i = 0; i < dictionaryPositionCount; i++) {
+                if (dictionary.isNull(i)) {
+                    nullIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (nullIndex == NULL_NOT_FOUND) {
+            newIds[idsOffset + positionCount] = dictionary.getPositionCount();
+            newDictionary = dictionary.appendNull();
+        }
+        else {
+            newIds[idsOffset + positionCount] = nullIndex;
+        }
+
+        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId());
     }
 }
