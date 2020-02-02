@@ -24,6 +24,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToIsNullArray;
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToOffsetsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
@@ -454,5 +456,25 @@ public abstract class AbstractMapBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, this.getOffsetBase(), getPositionCount());
         return getMapIsNull()[internalPosition];
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        boolean[] mapIsNull = appendNullToIsNullArray(getMapIsNull(), getOffsetBase(), getPositionCount());
+        int[] offsets = appendNullToOffsetsArray(getOffsets(), getOffsetBase(), getPositionCount());
+
+        return createMapBlockInternal(
+                getOffsetBase(),
+                getPositionCount() + 1,
+                Optional.of(mapIsNull),
+                offsets,
+                getRawKeyBlock(),
+                getRawValueBlock(),
+                getHashTables(),
+                keyType,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 }

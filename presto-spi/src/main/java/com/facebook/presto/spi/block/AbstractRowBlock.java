@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToIsNullArray;
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToOffsetsArray;
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -259,5 +261,14 @@ public abstract class AbstractRowBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         return getRowIsNull()[internalPosition];
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        boolean[] rowIsNull = appendNullToIsNullArray(getRowIsNull(), getOffsetBase(), getPositionCount());
+        int[] offsets = appendNullToOffsetsArray(getFieldBlockOffsets(), getOffsetBase(), getPositionCount());
+
+        return createRowBlockInternal(getOffsetBase(), getPositionCount() + 1, rowIsNull, offsets, getRawFieldBlocks());
     }
 }

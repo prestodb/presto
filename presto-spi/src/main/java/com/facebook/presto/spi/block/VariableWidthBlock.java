@@ -24,6 +24,8 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToIsNullArray;
+import static com.facebook.presto.spi.block.BlockUtil.appendNullToOffsetsArray;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
@@ -286,5 +288,14 @@ public class VariableWidthBlock
         assert mayHaveNull() : "no nulls present";
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         return valueIsNull[internalPosition];
+    }
+
+    @Override
+    public Block appendNull()
+    {
+        boolean[] newValueIsNull = appendNullToIsNullArray(valueIsNull, arrayOffset, positionCount);
+        int[] newOffsets = appendNullToOffsetsArray(offsets, arrayOffset, positionCount);
+
+        return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
     }
 }
