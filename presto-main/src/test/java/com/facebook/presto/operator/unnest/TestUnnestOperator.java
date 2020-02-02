@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.operator.unnest;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockAssertions.Encoding;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.ArrayType;
@@ -28,21 +32,40 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.block.BlockAssertions.Encoding.DICTIONARY;
+import static com.facebook.presto.block.BlockAssertions.Encoding.RUN_LENGTH;
+import static com.facebook.presto.block.BlockAssertions.createMapType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.unnest.TestUnnesterUtil.buildExpectedPage;
+import static com.facebook.presto.operator.unnest.TestUnnesterUtil.buildOutputTypes;
+import static com.facebook.presto.operator.unnest.TestUnnesterUtil.calculateMaxCardinalities;
+import static com.facebook.presto.operator.unnest.TestUnnesterUtil.mergePages;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RowType.withDefaultFieldNames;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -50,10 +73,17 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestUnnestOperator
 {
+    private static final int PAGE_COUNT = 10;
+    private static final int POSITION_COUNT = 500;
+
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
+    private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
@@ -221,5 +251,296 @@ public class TestUnnestOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testUnnestSingleArrayUnnester()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(new ArrayType(BIGINT));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(new ArrayType(VARCHAR));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(new ArrayType(new ArrayType(BIGINT)));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestSingleMapUnnester()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(createMapType(BIGINT, BIGINT));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(createMapType(VARCHAR, VARCHAR));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(createMapType(VARCHAR, new ArrayType(BIGINT)));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestSingleArrayOfRowUnnester()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(new ArrayType(withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT, BIGINT))));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(new ArrayType(withDefaultFieldNames(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR))));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(
+                new ArrayType(withDefaultFieldNames(ImmutableList.of(VARCHAR, new ArrayType(BIGINT), createMapType(VARCHAR, VARCHAR)))));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestTwoArrayUnnesters()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BOOLEAN);
+        List<Type> unnestTypes = ImmutableList.of(new ArrayType(BOOLEAN), new ArrayType(BOOLEAN));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(SMALLINT);
+        unnestTypes = ImmutableList.of(new ArrayType(SMALLINT), new ArrayType(SMALLINT));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(INTEGER);
+        unnestTypes = ImmutableList.of(new ArrayType(INTEGER), new ArrayType(INTEGER));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(BIGINT);
+        unnestTypes = ImmutableList.of(new ArrayType(BIGINT), new ArrayType(BIGINT));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(createDecimalType(MAX_SHORT_PRECISION + 1));
+        unnestTypes = ImmutableList.of(
+                new ArrayType(createDecimalType(MAX_SHORT_PRECISION + 1)),
+                new ArrayType(createDecimalType(MAX_SHORT_PRECISION + 1)));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(VARCHAR);
+        unnestTypes = ImmutableList.of(new ArrayType(VARCHAR), new ArrayType(VARCHAR));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(BIGINT);
+        unnestTypes = ImmutableList.of(new ArrayType(new ArrayType(BIGINT)), new ArrayType(new ArrayType(VARCHAR)));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+
+        replicatedTypes = ImmutableList.of(BIGINT);
+        unnestTypes = ImmutableList.of(new ArrayType(createMapType(BIGINT, BIGINT)), new ArrayType(createMapType(BIGINT, BIGINT)));
+        types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestTwoMapUnnesters()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(createMapType(BIGINT, BIGINT), createMapType(VARCHAR, VARCHAR));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestTwoArrayOfRowUnnesters()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(
+                new ArrayType(withDefaultFieldNames(ImmutableList.of(INTEGER, INTEGER))),
+                new ArrayType(withDefaultFieldNames(ImmutableList.of(INTEGER, INTEGER))));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    @Test
+    public void testUnnestMultipleUnnesters()
+    {
+        List<Type> replicatedTypes = ImmutableList.of(BIGINT);
+        List<Type> unnestTypes = ImmutableList.of(
+                new ArrayType(BIGINT),
+                createMapType(VARCHAR, VARCHAR),
+                new ArrayType(withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT, BIGINT))),
+                new ArrayType(withDefaultFieldNames(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR))));
+        List<Type> types = new ArrayList<>(replicatedTypes);
+        types.addAll(unnestTypes);
+
+        testUnnest(replicatedTypes, unnestTypes, types);
+    }
+
+    protected void testUnnest(List<Type> replicatedTypes, List<Type> unnestTypes, List<Type> types)
+    {
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of());
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, false, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, false, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, false, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.0f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.0f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, types, 0.2f, 0.2f, true, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+    }
+
+    protected void testUnnest(
+            List<Type> replicatedTypes,
+            List<Type> unnestTypes,
+            List<Type> types,
+            float primitiveNullRate,
+            float nestedNullRate,
+            boolean useBlockView,
+            List<Encoding> wrappings)
+    {
+        List<Page> inputPages = new ArrayList<>();
+        for (int i = 0; i < PAGE_COUNT; i++) {
+            Page inputPage = PageAssertions.createPageWithRandomData(types, POSITION_COUNT, false, false, primitiveNullRate, nestedNullRate, useBlockView, wrappings);
+            inputPages.add(inputPage);
+        }
+
+        testUnnest(inputPages, replicatedTypes, unnestTypes, false, false);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, true, false);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, false, true);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, true, true);
+    }
+
+    private void testUnnest(List<Page> inputPages, List<Type> replicatedTypes, List<Type> unnestTypes, boolean withOrdinality, boolean legacyUnnest)
+    {
+        List<Integer> replicatedChannels = IntStream.range(0, replicatedTypes.size()).boxed().collect(Collectors.toList());
+        List<Integer> unnestChannels = IntStream.range(replicatedTypes.size(), replicatedTypes.size() + unnestTypes.size()).boxed().collect(Collectors.toList());
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                replicatedChannels,
+                replicatedTypes,
+                unnestChannels,
+                unnestTypes,
+                withOrdinality);
+        Operator unnestOperator = ((UnnestOperator.UnnestOperatorFactory) operatorFactory).createOperator(createDriverContext(), legacyUnnest);
+
+        for (Page inputPage : inputPages) {
+            int[] maxCardinalities = calculateMaxCardinalities(inputPage, replicatedTypes, unnestTypes);
+            List<Type> outputTypes = buildOutputTypes(replicatedTypes, unnestTypes, withOrdinality, legacyUnnest);
+
+            Page expectedPage = buildExpectedPage(inputPage, replicatedTypes, unnestTypes, outputTypes, maxCardinalities, withOrdinality, legacyUnnest);
+
+            unnestOperator.addInput(inputPage);
+
+            List<Page> outputPages = new ArrayList<>();
+            while (true) {
+                Page outputPage = unnestOperator.getOutput();
+
+                if (outputPage == null) {
+                    break;
+                }
+
+                assertTrue(outputPage.getPositionCount() <= 1000);
+
+                outputPages.add(outputPage);
+            }
+
+            Page mergedOutputPage = mergePages(outputTypes, outputPages);
+            assertPageEquals(outputTypes, mergedOutputPage, expectedPage);
+        }
+    }
+
+    private DriverContext createDriverContext()
+    {
+        Session testSession = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        return createTaskContext(EXECUTOR, SCHEDULER, testSession)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
     }
 }

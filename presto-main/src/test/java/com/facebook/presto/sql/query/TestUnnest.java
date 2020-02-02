@@ -35,11 +35,36 @@ public class TestUnnest
     }
 
     @Test
+    public void testUnnestArrays()
+    {
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[2, 5])",
+                "VALUES (2), (5)");
+
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[2, 5], ARRAY['dog', 'cat', 'bird'])",
+                "VALUES (2, 'dog'), (5, 'cat'), (null, 'bird')");
+
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[2, 5, null], ARRAY['dog', 'cat', 'bird'])",
+                "VALUES (2, 'dog'), (5, 'cat'), (null, 'bird')");
+    }
+
+    @Test
     public void testUnnestArrayRows()
     {
         assertions.assertQuery(
                 "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[ROW('a', true), ROW('b', false)])",
                 "VALUES (1, 1.1, 'a', true), (3, 3.3, 'b', false)");
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[ROW('a', true), null])",
+                "VALUES (1, 1.1, 'a', true), (3, 3.3, null, null)");
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[null, ROW('a', true), null])",
+                "VALUES (1, 1.1, null, null), (3, 3.3,  'a', true), (null, null, null, null)");
+        assertions.assertQuery(
+                "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[null, ROW(null, true), null])",
+                "VALUES (1, 1.1, null, null), (3, 3.3,  null, true), (null, null, null, null)");
         assertions.assertQuery(
                 "SELECT x, y FROM (VALUES (ARRAY[ROW(1.0, 2), ROW(3, 4.123)])) AS t(a) CROSS JOIN UNNEST(a) t(x, y)",
                 "VALUES (1.0, 2), (3, 4.123)");
