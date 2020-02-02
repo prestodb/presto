@@ -15,32 +15,28 @@ package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
-import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Unnester for a nested column with array type, only when array elements are NOT of type {@code RowType}.
  * Maintains a {@link ColumnarArray} object to get underlying elements block from the array block.
- *
+ * <p>
  * All protected methods implemented here assume that they are being invoked when {@code columnarArray} is non-null.
  */
 class ArrayUnnester
         implements Unnester
 {
-    private final UnnestBlockBuilder unnestBlockBuilder;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayUnnester.class).instanceSize();
 
+    private final UnnestBlockBuilder unnestBlockBuilder = new UnnestBlockBuilder();
+
+    private int[] lengths = new int[0];
     private ColumnarArray columnarArray;
-    private int currentPosition;
-
-    public ArrayUnnester(Type elementType)
-    {
-        unnestBlockBuilder = new UnnestBlockBuilder(elementType);
-        currentPosition = 0;
-    }
 
     @Override
     public int getChannelCount()
@@ -54,45 +50,41 @@ class ArrayUnnester
         requireNonNull(block, "block is null");
 
         columnarArray = toColumnarArray(block);
-        currentPosition = 0;
         unnestBlockBuilder.resetInputBlock(columnarArray.getElementsBlock());
+
+        int positionCount = block.getPositionCount();
+        lengths = ensureCapacity(lengths, positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            lengths[i] = columnarArray.getLength(i);
+        }
     }
 
     @Override
-    public void startNewOutput(PageBuilderStatus status, int expectedEntries)
+    public int[] getLengths()
     {
-        unnestBlockBuilder.startNewOutput(status, expectedEntries);
+        return lengths;
     }
 
     @Override
-    public int getCurrentUnnestedLength()
+    public Block[] buildOutputBlocks(int[] maxLengths, int startPosition, int batchSize, int currentBatchTotalLength)
     {
-        return columnarArray.getLength(currentPosition);
-    }
+        boolean nullRequired = (columnarArray.getOffset(startPosition + batchSize) - columnarArray.getOffset(startPosition)) < currentBatchTotalLength;
 
-    @Override
-    public void processCurrentAndAdvance(int requiredOutputCount)
-    {
-        checkState(currentPosition >= 0 && columnarArray != null && currentPosition < columnarArray.getPositionCount(), "position out of bounds");
-
-        // Translate indices
-        int startElementIndex = columnarArray.getOffset(currentPosition);
-        int length = columnarArray.getLength(currentPosition);
-
-        // Append elements and nulls
-        unnestBlockBuilder.appendRange(startElementIndex, length);
-        for (int i = 0; i < requiredOutputCount - length; i++) {
-            unnestBlockBuilder.appendNull();
+        Block[] outputBlocks = new Block[1];
+        if (nullRequired) {
+            outputBlocks[0] = unnestBlockBuilder.buildOutputBlockWithNulls(maxLengths, startPosition, batchSize, currentBatchTotalLength, this.lengths);
+        }
+        else {
+            outputBlocks[0] = unnestBlockBuilder.buildOutputBlockWithoutNulls(currentBatchTotalLength);
         }
 
-        currentPosition++;
+        return outputBlocks;
     }
 
     @Override
-    public Block[] buildOutputBlocksAndFlush()
+    public long getRetainedSizeInBytes()
     {
-        Block[] outputBlocks = new Block[1];
-        outputBlocks[0] = unnestBlockBuilder.buildOutputAndFlush();
-        return outputBlocks;
+        // The lengths array in unnestBlockBuilders is the same object as in the unnester and doesn't need to be counted again.
+        return INSTANCE_SIZE + sizeOf(lengths);
     }
 }

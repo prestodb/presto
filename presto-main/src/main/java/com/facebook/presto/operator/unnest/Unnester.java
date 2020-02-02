@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 
 /**
  * Unnester is a layer of abstraction between {@link UnnestOperator} and {@link UnnestBlockBuilder} to enable
@@ -26,11 +25,21 @@ public interface Unnester
 
     void resetInput(Block block);
 
-    void startNewOutput(PageBuilderStatus status, int expectedEntries);
+    /**
+     * Return a vector with the number of entries for each position of the block to be unnested.
+     */
+    int[] getLengths();
 
-    int getCurrentUnnestedLength();
+    /**
+     * Build the output blocks for the current batch for this unnester.
+     *
+     * @param maxLengths A vector that holds the max unnested row count for each position of all blocks to be unnested.
+     * @param startPosition The start position of this batch.
+     * @param batchSize The number of rows to be processed in this batch.
+     * @param currentBatchTotalLength The total row count for this batch after the unnest is done.
+     * @return
+     */
+    Block[] buildOutputBlocks(int[] maxLengths, int startPosition, int batchSize, int currentBatchTotalLength);
 
-    void processCurrentAndAdvance(int requiredOutputCount);
-
-    Block[] buildOutputBlocksAndFlush();
+    long getRetainedSizeInBytes();
 }

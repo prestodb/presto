@@ -19,23 +19,30 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.repartition.PartitionedOutputOperator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Integer.max;
 import static java.util.Objects.requireNonNull;
 
 public class UnnestOperator
@@ -77,8 +84,14 @@ public class UnnestOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            return createOperator(driverContext, SystemSessionProperties.isLegacyUnnest(driverContext.getSession()));
+        }
+
+        @VisibleForTesting
+        public Operator createOperator(DriverContext driverContext, boolean legacyUnnest)
+        {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, UnnestOperator.class.getSimpleName());
-            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, SystemSessionProperties.isLegacyUnnest(driverContext.getSession()));
+            return new UnnestOperator(operatorContext, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality, legacyUnnest);
         }
 
         @Override
@@ -94,35 +107,30 @@ public class UnnestOperator
         }
     }
 
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnnestOperator.class).instanceSize();
     private static final int MAX_ROWS_PER_BLOCK = 1000;
-    private static final int MAX_BYTES_PER_PAGE = 1024 * 1024;
-
-    // Output row count is checked *after* processing every input row. For this reason, estimated rows per
-    // block are always going to be slightly greater than {@code maxRowsPerBlock}. Accounting for this skew
-    // helps avoid array copies in blocks.
-    private static final double OVERFLOW_SKEW = 1.25;
-    private static final int estimatedMaxRowsPerBlock = (int) Math.ceil(MAX_ROWS_PER_BLOCK * OVERFLOW_SKEW);
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext systemMemoryContext;
     private final List<Integer> replicateChannels;
     private final List<Type> replicateTypes;
     private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
     private final List<Integer> unnestChannels;
     private final List<Type> unnestTypes;
     private final List<Unnester> unnesters;
-    private final int unnestOutputChannelCount;
     private final boolean withOrdinality;
     private final int outputChannelCount;
 
     private boolean finishing;
     private Page currentPage;
     private int currentPosition;
-    private BlockBuilder ordinalityBlockBuilder;
-
+    private int[] maxLengths = new int[0];
+    private int currentBatchTotalLength;
 
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean isLegacyUnnest)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
 
         this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
@@ -135,13 +143,11 @@ public class UnnestOperator
         this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
         checkArgument(unnestChannels.size() == unnestTypes.size(), "unnest channels or types has wrong size");
         this.unnesters = unnestTypes.stream()
-                .map((Type nestedType) -> createUnnester(nestedType, isLegacyUnnest))
+                .map(nestedType -> createUnnester(nestedType, isLegacyUnnest))
                 .collect(toImmutableList());
-        this.unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
 
         this.withOrdinality = withOrdinality;
-
-        this.outputChannelCount = unnestOutputChannelCount + replicateTypes.size() + (withOrdinality ? 1 : 0);
+        this.outputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum() + replicateTypes.size() + (withOrdinality ? 1 : 0);
     }
 
     @Override
@@ -177,7 +183,10 @@ public class UnnestOperator
 
         currentPage = page;
         currentPosition = 0;
+
         resetBlockBuilders();
+
+        systemMemoryContext.setBytes(getRetainedSizeInBytes());
     }
 
     @Override
@@ -187,66 +196,16 @@ public class UnnestOperator
             return null;
         }
 
-        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus(MAX_BYTES_PER_PAGE);
-        prepareForNewOutput(pageBuilderStatus);
+        int positionCount = currentPage.getPositionCount();
+        int batchSize = calculateNextBatchSize();
+        Block[] outputBlocks = buildOutputBlocks(batchSize);
 
-        int outputRowCount = 0;
-
-        while (currentPosition < currentPage.getPositionCount()) {
-            outputRowCount += processCurrentPosition();
-            currentPosition++;
-
-            if (outputRowCount >= MAX_ROWS_PER_BLOCK || pageBuilderStatus.isFull()) {
-                break;
-            }
-        }
-
-        Block[] outputBlocks = buildOutputBlocks();
-
-        if (currentPosition == currentPage.getPositionCount()) {
+        if (currentPosition == positionCount) {
             currentPage = null;
             currentPosition = 0;
         }
 
         return new Page(outputBlocks);
-    }
-
-    private int processCurrentPosition()
-    {
-        // Determine number of output rows for this input position
-        int maxEntries = getCurrentMaxEntries();
-
-        // Append elements repeatedly to replicate output columns
-        replicatedBlockBuilders.forEach(blockBuilder -> blockBuilder.appendRepeated(currentPosition, maxEntries));
-
-        // Process this position in unnesters
-        unnesters.forEach(unnester -> unnester.processCurrentAndAdvance(maxEntries));
-
-        if (withOrdinality) {
-            for (long ordinalityCount = 1; ordinalityCount <= maxEntries; ordinalityCount++) {
-                BIGINT.writeLong(ordinalityBlockBuilder, ordinalityCount);
-            }
-        }
-
-        return maxEntries;
-    }
-
-    private int getCurrentMaxEntries()
-    {
-        return unnesters.stream()
-                .mapToInt(Unnester::getCurrentUnnestedLength)
-                .max()
-                .orElse(0);
-    }
-
-    private void prepareForNewOutput(PageBuilderStatus pageBuilderStatus)
-    {
-        unnesters.forEach(unnester -> unnester.startNewOutput(pageBuilderStatus, estimatedMaxRowsPerBlock));
-        replicatedBlockBuilders.forEach(replicatedBlockBuilder -> replicatedBlockBuilder.startNewOutput(estimatedMaxRowsPerBlock));
-
-        if (withOrdinality) {
-            ordinalityBlockBuilder = BIGINT.createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), estimatedMaxRowsPerBlock);
-        }
     }
 
     private static Unnester createUnnester(Type nestedType, boolean isLegacyUnnest)
@@ -255,16 +214,14 @@ public class UnnestOperator
             Type elementType = ((ArrayType) nestedType).getElementType();
 
             if (!isLegacyUnnest && elementType instanceof RowType) {
-                return new ArrayOfRowsUnnester(((RowType) elementType));
+                return new ArrayOfRowsUnnester(elementType.getTypeParameters().size());
             }
             else {
-                return new ArrayUnnester(elementType);
+                return new ArrayUnnester();
             }
         }
         else if (nestedType instanceof MapType) {
-            Type keyType = ((MapType) nestedType).getKeyType();
-            Type valueType = ((MapType) nestedType).getValueType();
-            return new MapUnnester(keyType, valueType);
+            return new MapUnnester();
         }
         else {
             throw new IllegalArgumentException("Cannot unnest type: " + nestedType);
@@ -278,34 +235,94 @@ public class UnnestOperator
             replicatedBlockBuilders.get(i).resetInputBlock(newInputBlock);
         }
 
+        int positionCount = currentPage.getPositionCount();
+        maxLengths = ensureCapacity(maxLengths, positionCount, SMALL, INITIALIZE);
+
         for (int i = 0; i < unnestTypes.size(); i++) {
             int inputChannel = unnestChannels.get(i);
             Block unnestChannelInputBlock = currentPage.getBlock(inputChannel);
-            unnesters.get(i).resetInput(unnestChannelInputBlock);
+            Unnester unnester = unnesters.get(i);
+
+            unnester.resetInput(unnestChannelInputBlock);
+
+            int[] lengths = unnester.getLengths();
+            for (int j = 0; j < positionCount; j++) {
+                maxLengths[j] = max(maxLengths[j], lengths[j]);
+            }
         }
     }
 
-    private Block[] buildOutputBlocks()
+    private int calculateNextBatchSize()
+    {
+        int positionCount = currentPage.getPositionCount();
+
+        int totalLengths = 0;
+        int position = currentPosition;
+        while (position < positionCount) {
+            int length = maxLengths[position];
+            if (totalLengths + length >= MAX_ROWS_PER_BLOCK) {
+                break;
+            }
+            totalLengths += length;
+            position++;
+        }
+
+        // grab at least a single position
+        if (position == currentPosition) {
+            currentBatchTotalLength = maxLengths[currentPosition];
+            return 1;
+        }
+
+        currentBatchTotalLength = totalLengths;
+        return position - currentPosition;
+    }
+
+    private Block[] buildOutputBlocks(int batchSize)
     {
         Block[] outputBlocks = new Block[outputChannelCount];
-        int offset = 0;
+        int channel = 0;
 
         for (int replicateIndex = 0; replicateIndex < replicateTypes.size(); replicateIndex++) {
-            outputBlocks[offset++] = replicatedBlockBuilders.get(replicateIndex).buildOutputAndFlush();
+            outputBlocks[channel++] = replicatedBlockBuilders.get(replicateIndex).buildOutputBlock(maxLengths, currentPosition, batchSize, currentBatchTotalLength);
         }
 
         for (int unnestIndex = 0; unnestIndex < unnesters.size(); unnestIndex++) {
             Unnester unnester = unnesters.get(unnestIndex);
-            Block[] block = unnester.buildOutputBlocksAndFlush();
+            Block[] block = unnester.buildOutputBlocks(maxLengths, currentPosition, batchSize, currentBatchTotalLength);
             for (int j = 0; j < unnester.getChannelCount(); j++) {
-                outputBlocks[offset++] = block[j];
+                outputBlocks[channel++] = block[j];
             }
         }
 
         if (withOrdinality) {
-            outputBlocks[offset] = ordinalityBlockBuilder.build();
+            outputBlocks[channel] = buildOrdinalityOutputBlock(maxLengths, currentPosition, batchSize, currentBatchTotalLength);
         }
 
+        currentPosition += batchSize;
+
         return outputBlocks;
+    }
+
+    private static Block buildOrdinalityOutputBlock(int[] maxEntries, int offset, int length, int totalEntriesForBatch)
+    {
+        long[] values = new long[totalEntriesForBatch];
+        int index = 0;
+        for (int i = 0; i < length; i++) {
+            int curEntries = maxEntries[offset + i];
+            for (int j = 1; j <= curEntries; j++) {
+                values[index++] = j;
+            }
+        }
+
+        return new LongArrayBlock(totalEntriesForBatch, Optional.empty(), values);
+    }
+
+    private long getRetainedSizeInBytes()
+    {
+        long size = INSTANCE_SIZE + sizeOf(maxLengths) + currentPage.getRetainedSizeInBytes();
+        for (Unnester unnester : unnesters) {
+            size += unnester.getRetainedSizeInBytes();
+        }
+        return size;
     }
 }
