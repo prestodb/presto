@@ -91,7 +91,6 @@ public class TestArrayUnnester
         for (int inputTestCount = 1; inputTestCount <= elements.length; inputTestCount++) {
             // Reset input
             arrayUnnester.resetInput(arrayBlock);
-            assertEquals(arrayUnnester.getInputEntryCount(), elements.length);
 
             // Prepare for new output
             PageBuilderStatus status = new PageBuilderStatus();
