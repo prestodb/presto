@@ -2038,10 +2038,10 @@ public class OrcTester
         String columnTypes = types.stream()
                 .map(OrcTester::getJavaObjectInspector)
                 .map(ObjectInspector::getTypeName)
-                .collect(Collectors.joining(", "));
+                .collect(Collectors.joining(":"));
 
         Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", String.join(", ", makeColumnNames(types.size())));
+        orderTableProperties.setProperty("columns", String.join(",", makeColumnNames(types.size())));
         orderTableProperties.setProperty("columns.types", columnTypes);
         orderTableProperties.setProperty("orc.bloom.filter.columns", String.join(", ", makeColumnNames(types.size())));
         orderTableProperties.setProperty("orc.bloom.filter.fpp", "0.50");
