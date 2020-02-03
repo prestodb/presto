@@ -159,7 +159,7 @@ public final class HiveBucketing
         byte i = 0;
 
         while (i < 16) {
-            value /= 1.2;
+            value /= 1.5;
             if (value == 0) {
                 return i;
             }
