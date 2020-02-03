@@ -22,10 +22,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -54,7 +55,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class CassandraPageSink
         implements ConnectorPageSink
 {
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.of("UTC"));
 
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
@@ -129,7 +130,7 @@ public class CassandraPageSink
             values.add(intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (DATE.equals(type)) {
-            values.add(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(type.getLong(block, position))));
+            values.add(DATE_FORMATTER.format(Instant.ofEpochMilli(TimeUnit.DAYS.toMillis(type.getLong(block, position)))));
         }
         else if (TIMESTAMP.equals(type)) {
             values.add(new Timestamp(type.getLong(block, position)));
