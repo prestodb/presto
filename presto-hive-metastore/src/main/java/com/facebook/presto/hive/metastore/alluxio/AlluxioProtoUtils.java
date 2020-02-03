@@ -38,7 +38,6 @@ import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -63,6 +62,8 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStri
 import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -70,13 +71,15 @@ public class AlluxioProtoUtils
 {
     private AlluxioProtoUtils() {}
 
-    public static com.facebook.presto.hive.metastore.Database fromProto(alluxio.grpc.table.Database database)
+    public static Database fromProto(alluxio.grpc.table.Database database)
     {
         return Database.builder()
                 .setDatabaseName(database.getDbName())
                 .setLocation(database.hasLocation() ? Optional.of(database.getLocation()) : Optional.empty())
-                .setOwnerName("") // owner name not yet supported by alluxio
-                .setOwnerType(PrincipalType.USER) // owner type not yet supported by alluxio
+                .setOwnerName(database.getOwnerName())
+                .setOwnerType(database.getOwnerType() == alluxio.grpc.table.PrincipalType.USER ? USER : ROLE)
+                .setComment(database.hasComment() ? Optional.of(database.getComment()) : Optional.empty())
+                .setParameters(database.getParameterMap())
                 .build();
     }
 
