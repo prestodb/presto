@@ -35,9 +35,11 @@ import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.checksum.ColumnValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.framework.Column.Category;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
 import com.facebook.presto.verifier.resolver.FailureResolverFactory;
@@ -54,6 +56,7 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 
 import javax.inject.Provider;
 import javax.inject.Singleton;
@@ -65,6 +68,10 @@ import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
+import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
+import static com.facebook.presto.verifier.framework.Column.Category.ROW;
+import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
@@ -141,10 +148,11 @@ public class VerifierModule
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
-        binder.bind(SimpleColumnValidator.class).in(SINGLETON);
-        binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
-        binder.bind(ArrayColumnValidator.class).in(SINGLETON);
-        binder.bind(RowColumnValidator.class).in(SINGLETON);
+        MapBinder<Category, ColumnValidator> columnValidatorBinder = MapBinder.newMapBinder(binder, Category.class, ColumnValidator.class);
+        columnValidatorBinder.addBinding(SIMPLE).to(SimpleColumnValidator.class).in(SINGLETON);
+        columnValidatorBinder.addBinding(FLOATING_POINT).to(FloatingPointColumnValidator.class).in(SINGLETON);
+        columnValidatorBinder.addBinding(ARRAY).to(ArrayColumnValidator.class).in(SINGLETON);
+        columnValidatorBinder.addBinding(ROW).to(RowColumnValidator.class).in(SINGLETON);
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
         binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }
