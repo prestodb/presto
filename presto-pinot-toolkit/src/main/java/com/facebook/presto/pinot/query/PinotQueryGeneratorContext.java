@@ -16,6 +16,8 @@ package com.facebook.presto.pinot.query;
 import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotException;
+import com.facebook.presto.pinot.PinotSessionProperties;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.Joiner;
@@ -59,11 +61,6 @@ public class PinotQueryGeneratorContext
     private final Optional<String> filter;
     private final OptionalInt limit;
     private final int aggregations;
-
-    public boolean isQueryShort(int nonAggregateRowLimit)
-    {
-        return hasAggregation() || limit.orElse(Integer.MAX_VALUE) < nonAggregateRowLimit;
-    }
 
     @Override
     public String toString()
@@ -261,9 +258,11 @@ public class PinotQueryGeneratorContext
     /**
      * Convert the current context to a PQL
      */
-    public PinotQueryGenerator.GeneratedPql toQuery(PinotConfig pinotConfig, boolean preferBrokerQueries, boolean isQueryShort)
+    public PinotQueryGenerator.GeneratedPql toQuery(PinotConfig pinotConfig, ConnectorSession session)
     {
-        boolean forBroker = preferBrokerQueries && isQueryShort;
+        int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
+        boolean isQueryShort = hasAggregation() || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
+        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
         if (!pinotConfig.isAllowMultipleAggregations() && aggregations > 1 && !groupByColumns.isEmpty()) {
             throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Multiple aggregates in the presence of group by is forbidden");
         }

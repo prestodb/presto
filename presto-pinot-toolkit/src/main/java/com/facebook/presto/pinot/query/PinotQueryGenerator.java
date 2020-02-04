@@ -130,10 +130,11 @@ public class PinotQueryGenerator
     public Optional<PinotQueryGeneratorResult> generate(PlanNode plan, ConnectorSession session)
     {
         try {
-            boolean preferBrokerQueries = PinotSessionProperties.isPreferBrokerQueries(session);
-            PinotQueryGeneratorContext context = requireNonNull(plan.accept(new PinotQueryPlanVisitor(session, preferBrokerQueries), new PinotQueryGeneratorContext()), "Resulting context is null");
-            boolean isQueryShort = context.isQueryShort(PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session));
-            return Optional.of(new PinotQueryGeneratorResult(context.toQuery(pinotConfig, preferBrokerQueries, isQueryShort), context));
+            PinotQueryGeneratorContext context = requireNonNull(plan.accept(
+                    new PinotQueryPlanVisitor(session),
+                    new PinotQueryGeneratorContext()),
+                    "Resulting context is null");
+            return Optional.of(new PinotQueryGeneratorResult(context.toQuery(pinotConfig, session), context));
         }
         catch (PinotException e) {
             log.debug(e, "Possibly benign error when pushing plan into scan node %s", plan);
@@ -221,12 +222,12 @@ public class PinotQueryGenerator
             extends PlanVisitor<PinotQueryGeneratorContext, PinotQueryGeneratorContext>
     {
         private final ConnectorSession session;
-        private final boolean preferBrokerQueries;
+        private final boolean forbidBrokerQueries;
 
-        protected PinotQueryPlanVisitor(ConnectorSession session, boolean preferBrokerQueries)
+        protected PinotQueryPlanVisitor(ConnectorSession session)
         {
             this.session = session;
-            this.preferBrokerQueries = preferBrokerQueries;
+            this.forbidBrokerQueries = PinotSessionProperties.isForbidBrokerQueries(session);
         }
 
         @Override
@@ -400,7 +401,7 @@ public class PinotQueryGenerator
             PinotQueryGeneratorContext context = node.getSource().accept(this, contextIn.withVariablesInAggregation(variablesInAggregation));
             requireNonNull(context, "context is null");
             checkSupported(!node.getStep().isOutputPartial(), "partial aggregations are not supported in Pinot pushdown framework");
-            checkSupported(preferBrokerQueries, "Cannot push aggregation in segment mode");
+            checkSupported(!forbidBrokerQueries, "Cannot push aggregation in segment mode");
 
             // 2nd pass
             LinkedHashMap<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
@@ -448,7 +449,7 @@ public class PinotQueryGenerator
         public PinotQueryGeneratorContext visitLimit(LimitNode node, PinotQueryGeneratorContext context)
         {
             checkSupported(!node.isPartial(), String.format("pinot query generator cannot handle partial limit"));
-            checkSupported(preferBrokerQueries, "Cannot push limit in segment mode");
+            checkSupported(!forbidBrokerQueries, "Cannot push limit in segment mode");
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
             return context.withLimit(node.getCount()).withOutputColumns(node.getOutputVariables());
@@ -459,7 +460,7 @@ public class PinotQueryGenerator
         {
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
-            checkSupported(preferBrokerQueries, "Cannot push topn in segment mode");
+            checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
             return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
         }
