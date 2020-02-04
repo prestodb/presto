@@ -36,6 +36,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import javafx.util.Pair;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,11 +59,14 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -80,9 +84,10 @@ import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AG
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnsHive;
 import static com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -120,7 +125,9 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             if (page.getPositionCount() > 0) {
-                blocks.add(page.getBlock(0).getLoadedBlock());
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    blocks.add(page.getBlock(i).getLoadedBlock());
+                }
             }
         }
 
@@ -144,12 +151,13 @@ public class BenchmarkSelectiveStreamReaders
 
         private final Random random = new Random(0);
 
-        private Type type;
         private File temporaryDirectory;
         private File orcFile;
-        private Optional<TupleDomainFilter> filter;
-        private boolean filterAllowNull;
-        private float selectionRateForNonNull;
+        private Type type;
+        private int channelCount;
+        private int nonEmptyFilterCount;
+        private List<Optional<TupleDomainFilter>> filters = new ArrayList<>();
+        private List<Float> filterRates = new ArrayList<>();
 
         @Param({
                 "boolean",
@@ -177,13 +185,37 @@ public class BenchmarkSelectiveStreamReaders
                 "NONE",
                 "ALL"
         })
-        private Nulls withNulls = Nulls.NONE;
+        private Nulls withNulls = Nulls.PARTIAL;
 
         // 0 means no rows will be filtered out, 1 means all rows will be filtered out, -1 means no filter.
         // When withNulls is ALL, only -1, 0, 1 are meaningful. Other values are regarded as 1.
-        @SuppressWarnings("unused")
-        @Param({"-1", "0", "0.1", "0.5", "0.9", "1"})
-        private float filterRate = 0.1f;
+        // "|" is the column delimiter.
+        @Param({
+                "-1",
+                "0",
+                "0.1",
+                "0.2",
+                "0.3",
+                "0.4",
+                "0.5",
+                "0.6",
+                "0.7",
+                "0.8",
+                "0.9",
+                "1",
+                "0.0|-1",
+                "0.1|-1",
+                "0.2|-1",
+                "0.3|-1",
+                "0.4|-1",
+                "0.5|-1",
+                "0.6|-1",
+                "0.7|-1",
+                "0.8|-1",
+                "0.9|-1",
+                "1|-1",
+        })
+        private String filterRateSignature = "0.1|-1";
 
         @Setup
         public void setup()
@@ -198,9 +230,23 @@ public class BenchmarkSelectiveStreamReaders
 
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
 
-            filter = getFilter();
+            filterRates = Arrays.stream(filterRateSignature.split("\\|")).map(r -> Float.parseFloat(r)).collect(toImmutableList());
+            channelCount = filterRates.size();
+
+            List<List<?>> values = new ArrayList<>();
+            for (int i = 0; i < channelCount; i++) {
+                float filterRate = filterRates.get(i);
+                Pair<Boolean, Float> filterInfoForNonNull = getFilterInfoForNonNull(filterRate);
+                values.add(createValues(type, filterRate));
+                Optional<TupleDomainFilter> filter = getFilter(type, filterRate, filterInfoForNonNull.getKey(), filterInfoForNonNull.getValue());
+                filters.add(filter);
+                if (filter.isPresent()) {
+                    nonEmptyFilterCount++;
+                }
+            }
+
+            writeOrcColumnsHive(orcFile, ORC_12, NONE, Collections.nCopies(channelCount, type), values);
         }
 
         @TearDown
@@ -225,9 +271,11 @@ public class BenchmarkSelectiveStreamReaders
                     NO_ENCRYPTION);
 
             return orcReader.createSelectiveRecordReader(
-                    ImmutableMap.of(0, type),
-                    ImmutableList.of(0),
-                    filter.isPresent() ? ImmutableMap.of(0, ImmutableMap.of(new Subfield("c"), filter.get())) : ImmutableMap.of(),
+                    IntStream.range(0, channelCount).boxed().collect(Collectors.toMap(Function.identity(), i -> type)),
+                    IntStream.range(0, channelCount).boxed().collect(Collectors.toList()),
+                    nonEmptyFilterCount > 0 ?
+                            IntStream.range(0, channelCount).filter(i -> filters.get(i).isPresent()).boxed().collect(Collectors.toMap(Function.identity(), i -> ImmutableMap.of(new Subfield("c"), filters.get(i).orElse(null))))
+                            : ImmutableMap.of(),
                     ImmutableList.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
@@ -244,13 +292,11 @@ public class BenchmarkSelectiveStreamReaders
                     ImmutableMap.of());
         }
 
-        private Optional<TupleDomainFilter> getFilter()
+        private Optional<TupleDomainFilter> getFilter(Type type, float filterRate, boolean filterAllowNull, float selectionRateForNonNull)
         {
             if (filterRate == NO_FILTER) {
                 return Optional.empty();
             }
-
-            setupFilterRateForNonNull();
 
             if (type == BOOLEAN) {
                 return Optional.of(BooleanValue.of(true, filterAllowNull));
@@ -311,20 +357,20 @@ public class BenchmarkSelectiveStreamReaders
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        private final List<?> createValues()
+        private List<?> createValues(Type type, float filterRate)
         {
             switch (withNulls) {
                 case ALL:
                     return NULL_VALUES;
                 case PARTIAL:
                     // Let the null rate be 0.5 * (1 - filterRate)
-                    return IntStream.range(0, ROWS).mapToObj(i -> random.nextFloat() > 0.5 * (filterRate == -1 ? 1 : 1 - filterRate) ? createValue() : null).collect(toList());
+                    return IntStream.range(0, ROWS).mapToObj(j -> random.nextFloat() > 0.5 * (filterRate == -1 ? 1 : 1 - filterRate) ? createValue(type, filterRate) : null).collect(toList());
                 default:
-                    return IntStream.range(0, ROWS).mapToObj(i -> createValue()).collect(toList());
+                    return IntStream.range(0, ROWS).mapToObj(j -> createValue(type, filterRate)).collect(toList());
             }
         }
 
-        private final Object createValue()
+        private final Object createValue(Type type, float filterRate)
         {
             if (type == BOOLEAN) {
                 // We need to specialize BOOLEAN case because we can't specify filterRate by manipulating the filter value in getFilter.
@@ -387,21 +433,15 @@ public class BenchmarkSelectiveStreamReaders
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        private void setupFilterRateForNonNull()
+        private Pair<Boolean, Float> getFilterInfoForNonNull(float filterRate)
         {
             switch (withNulls) {
                 case NONE:
-                    filterAllowNull = false;  // doesn't matter
-                    selectionRateForNonNull = 1 - filterRate;
-                    break;
+                    return new Pair<>(false, 1 - filterRate);
                 case PARTIAL:
-                    filterAllowNull = true;  // doesn't matter
-                    selectionRateForNonNull = (1 - filterRate) / (1 + filterRate);  // This is because we assumed the null rate is 0.5
-                    break;
+                    return new Pair<>(true, (1 - filterRate) / (1 + filterRate));
                 case ALL:
-                    filterAllowNull = filterRate == 0 ? true : false;  // filterRate belonging to (0, 1] is regarded as 1
-                    selectionRateForNonNull = 1;  // This value doesn't matter
-                    break;
+                    return new Pair<>((filterRate == 0 ? true : false), 1f);
                 default:
                     throw new UnsupportedOperationException("Unsupported withNulls: " + withNulls);
             }
