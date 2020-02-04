@@ -108,29 +108,11 @@ public class BenchmarkSelectiveStreamReaders
     private static final int MAX_STRING_LENGTH = 10;
 
     @Benchmark
-    public Object readAllNull(AllNullBenchmarkData data)
-            throws Throwable
-    {
-        return readAllBlocks(data.createRecordReader(Optional.empty()));
-    }
-
-    @Benchmark
-    public Object read(BenchmarkData data)
+    public List<Block> readAllBlocks(BenchmarkData data)
             throws IOException
     {
-        return readAllBlocks(data.createRecordReader(Optional.empty()));
-    }
+        OrcSelectiveRecordReader recordReader = data.createRecordReader();
 
-    @Benchmark
-    public Object readWithFilter(BenchmarkData data)
-            throws IOException
-    {
-        return readAllBlocks(data.createRecordReader(data.getFilter()));
-    }
-
-    private static List<Block> readAllBlocks(OrcSelectiveRecordReader recordReader)
-            throws IOException
-    {
         List<Block> blocks = new ArrayList<>();
         while (true) {
             Page page = recordReader.getNextPage();
@@ -142,18 +124,51 @@ public class BenchmarkSelectiveStreamReaders
                 blocks.add(page.getBlock(0).getLoadedBlock());
             }
         }
+
         return blocks;
     }
 
-    private abstract static class AbstractBenchmarkData
+    @State(Scope.Thread)
+    public static class BenchmarkData
     {
-        protected final Random random = new Random(0);
+        private final Random random = new Random(0);
+
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
-        private String typeSignature;
+        private Optional<TupleDomainFilter> filter;
+        
+        @Param({
+                "boolean",
 
-        public void setup(String typeSignature)
+                "integer",
+                "bigint",
+                "smallint",
+                "tinyint",
+
+                "date",
+                "timestamp",
+
+                "real",
+                "double",
+                "decimal(10,5)",
+                "decimal(30,10)",
+
+                "varchar_direct",
+                "varchar_dictionary"
+        })
+        private String typeSignature = "boolean";
+
+        @SuppressWarnings("unused")
+        @Param({
+                "PARTIAL",
+                "NONE",
+                "ALL"
+        })
+        private Nulls withNulls = Nulls.PARTIAL;
+
+        @Setup
+        public void setup()
                 throws Exception
         {
             if (typeSignature.startsWith("varchar")) {
@@ -162,10 +177,12 @@ public class BenchmarkSelectiveStreamReaders
             else {
                 type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
             }
-            this.typeSignature = typeSignature;
+
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
+
+            filter = getFilter();
         }
 
         @TearDown
@@ -175,19 +192,7 @@ public class BenchmarkSelectiveStreamReaders
             deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
         }
 
-        public Type getType()
-        {
-            return type;
-        }
-
-        public String getTypeSignature()
-        {
-            return typeSignature;
-        }
-
-        protected abstract List<?> createValues();
-
-        public OrcSelectiveRecordReader createRecordReader(Optional<TupleDomainFilter> filter)
+        public OrcSelectiveRecordReader createRecordReader()
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -220,95 +225,8 @@ public class BenchmarkSelectiveStreamReaders
                     INITIAL_BATCH_SIZE,
                     ImmutableMap.of());
         }
-    }
 
-    @State(Scope.Thread)
-    public static class AllNullBenchmarkData
-            extends AbstractBenchmarkData
-    {
-        @SuppressWarnings("unused")
-        @Param({
-                "boolean",
-
-                "integer",
-                "bigint",
-                "smallint",
-                "tinyint",
-
-                "date",
-                "timestamp",
-
-                "real",
-                "double",
-                "decimal(10,5)",
-                "decimal(30,10)",
-
-                "varchar_direct",
-                "varchar_dictionary"
-        })
-        private String typeSignature;
-
-        @Setup
-        public void setup()
-                throws Exception
-        {
-            setup(typeSignature);
-        }
-
-        @Override
-        protected final List<?> createValues()
-        {
-            return NULL_VALUES;
-        }
-    }
-
-    @State(Scope.Thread)
-    public static class BenchmarkData
-            extends AbstractBenchmarkData
-    {
-        @SuppressWarnings("unused")
-        @Param({
-                "boolean",
-
-                "integer",
-                "bigint",
-                "smallint",
-                "tinyint",
-
-                "date",
-                "timestamp",
-
-                "real",
-                "double",
-                "decimal(10,5)",
-                "decimal(30,10)",
-
-                "varchar_direct",
-                "varchar_dictionary"
-        })
-        private String typeSignature;
-
-        @SuppressWarnings("unused")
-        @Param({"true", "false"})
-        private boolean withNulls;
-
-        private Optional<TupleDomainFilter> filter;
-
-        @Setup
-        public void setup()
-                throws Exception
-        {
-            setup(typeSignature);
-
-            this.filter = getFilter(getType());
-        }
-
-        public Optional<TupleDomainFilter> getFilter()
-        {
-            return filter;
-        }
-
-        private static Optional<TupleDomainFilter> getFilter(Type type)
+        private Optional<TupleDomainFilter> getFilter()
         {
             if (type == BOOLEAN) {
                 return Optional.of(BooleanValue.of(true, true));
@@ -340,55 +258,59 @@ public class BenchmarkSelectiveStreamReaders
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        @Override
-        protected final List<?> createValues()
+        private List<?> createValues()
         {
-            if (withNulls) {
-                return IntStream.range(0, ROWS).mapToObj(i -> i % 2 == 0 ? createValue() : null).collect(toList());
+            switch (withNulls) {
+                case ALL:
+                    return NULL_VALUES;
+                case PARTIAL:
+                    // Let the null rate be 0.5
+                    return IntStream.range(0, ROWS).mapToObj(i -> random.nextFloat() > 0.5 ? createValue() : null).collect(toList());
+                default:
+                    return IntStream.range(0, ROWS).mapToObj(i -> createValue()).collect(toList());
             }
-            return IntStream.range(0, ROWS).mapToObj(i -> createValue()).collect(toList());
         }
 
-        private final Object createValue()
+        private Object createValue()
         {
-            if (getType() == BOOLEAN) {
+            if (type == BOOLEAN) {
                 return random.nextBoolean();
             }
 
-            if (getType() == BIGINT) {
+            if (type == BIGINT) {
                 return random.nextLong();
             }
 
-            if (getType() == INTEGER) {
+            if (type == INTEGER) {
                 return random.nextInt();
             }
 
-            if (getType() == SMALLINT) {
+            if (type == SMALLINT) {
                 return (short) random.nextInt();
             }
 
-            if (getType() == TINYINT) {
+            if (type == TINYINT) {
                 return (byte) random.nextInt();
             }
 
-            if (getType() == DATE) {
+            if (type == DATE) {
                 return new SqlDate(random.nextInt());
             }
 
-            if (getType() == TIMESTAMP) {
+            if (type == TIMESTAMP) {
                 return new SqlTimestamp(random.nextLong(), TimeZoneKey.UTC_KEY);
             }
 
-            if (getType() == REAL) {
+            if (type == REAL) {
                 return random.nextFloat();
             }
 
-            if (getType() == DOUBLE) {
+            if (type == DOUBLE) {
                 return random.nextDouble();
             }
 
-            if (getType() instanceof DecimalType) {
-                if (Decimals.isShortDecimal(getType())) {
+            if (type instanceof DecimalType) {
+                if (Decimals.isShortDecimal(type)) {
                     return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), SHORT_DECIMAL_TYPE.getPrecision(), SHORT_DECIMAL_TYPE.getScale());
                 }
                 else {
@@ -396,14 +318,19 @@ public class BenchmarkSelectiveStreamReaders
                 }
             }
 
-            if (getType() == VARCHAR) {
+            if (type == VARCHAR) {
                 if (typeSignature.equals("varchar_dictionary")) {
                     return Strings.repeat("0", MAX_STRING_LENGTH);
                 }
                 return randomAsciiString(random, MAX_STRING_LENGTH);
             }
 
-            throw new UnsupportedOperationException("Unsupported type: " + getType());
+            throw new UnsupportedOperationException("Unsupported type: " + type);
+        }
+
+        public enum Nulls
+        {
+            PARTIAL, NONE, ALL;
         }
     }
 
@@ -419,6 +346,11 @@ public class BenchmarkSelectiveStreamReaders
     public static void main(String[] args)
             throws Throwable
     {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkSelectiveStreamReaders benchmarkSelectiveStreamReaders = new BenchmarkSelectiveStreamReaders();
+        benchmarkSelectiveStreamReaders.readAllBlocks(data);
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkSelectiveStreamReaders.class.getSimpleName() + ".*")
