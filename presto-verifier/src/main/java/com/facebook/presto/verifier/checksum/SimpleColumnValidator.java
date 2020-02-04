@@ -41,19 +41,20 @@ public class SimpleColumnValidator
     {
         return ImmutableList.of(
                 new SingleColumn(
-                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier())),
+                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getExpression())),
                         Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))));
     }
 
     @Override
-    public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
         String checksumColumnAlias = getChecksumColumnAlias(column);
         Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
         Object testChecksum = testResult.getChecksum(checksumColumnAlias);
-        return new ColumnMatchResult(
+        return ImmutableList.of(new ColumnMatchResult(
                 Objects.equals(controlChecksum, testChecksum),
-                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum));
+                column,
+                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum)));
     }
 
     private static String getChecksumColumnAlias(Column column)

@@ -23,38 +23,26 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.Column.Category;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
-import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
-import static com.facebook.presto.verifier.framework.Column.Category.ROW;
-import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.function.Function.identity;
 
 public class ChecksumValidator
 {
-    private final Map<Category, ColumnValidator> columnValidators;
+    private final Map<Category, Provider<ColumnValidator>> columnValidators;
 
     @Inject
-    public ChecksumValidator(
-            SimpleColumnValidator simpleColumnValidator,
-            FloatingPointColumnValidator floatingPointColumnValidator,
-            ArrayColumnValidator arrayColumnValidator,
-            RowColumnValidator rowColumnValidator)
+    public ChecksumValidator(Map<Category, Provider<ColumnValidator>> columnValidators)
     {
-        this.columnValidators = ImmutableMap.of(
-                SIMPLE, simpleColumnValidator,
-                FLOATING_POINT, floatingPointColumnValidator,
-                ARRAY, arrayColumnValidator,
-                ROW, rowColumnValidator);
+        this.columnValidators = columnValidators;
     }
 
     public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns)
@@ -62,7 +50,7 @@ public class ChecksumValidator
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
         for (Column column : columns) {
-            selectItems.addAll(columnValidators.get(column.getCategory()).generateChecksumColumns(column));
+            selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }
         return simpleQuery(new Select(false, selectItems.build()), new Table(tableName));
     }
@@ -70,7 +58,8 @@ public class ChecksumValidator
     public Map<Column, ColumnMatchResult> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
     {
         return columns.stream()
-                .collect(toImmutableMap(identity(), column -> columnValidators.get(column.getCategory()).validate(column, controlChecksum, testChecksum)))
+                .flatMap(column -> columnValidators.get(column.getCategory()).get().validate(column, controlChecksum, testChecksum).stream())
+                .collect(toImmutableMap(ColumnMatchResult::getColumn, identity()))
                 .entrySet()
                 .stream()
                 .filter(entry -> !entry.getValue().isMatched())
