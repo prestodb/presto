@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class PinotSessionProperties
 {
     private static final String CONNECTION_TIMEOUT = "connection_timeout";
-    private static final String PREFER_BROKER_QUERIES = "prefer_broker_queries";
+    private static final String FORBID_BROKER_QUERIES = "forbid_broker_queries";
     private static final String IGNORE_EMPTY_RESPONSES = "ignore_empty_responses";
     private static final String RETRY_COUNT = "retry_count";
     private static final String USE_DATE_TRUNC = "use_date_trunc";
@@ -53,9 +53,9 @@ public class PinotSessionProperties
         return segmentsPerSplit <= 0 ? Integer.MAX_VALUE : segmentsPerSplit;
     }
 
-    public static boolean isPreferBrokerQueries(ConnectorSession session)
+    public static boolean isForbidBrokerQueries(ConnectorSession session)
     {
-        return session.getProperty(PREFER_BROKER_QUERIES, Boolean.class);
+        return session.getProperty(FORBID_BROKER_QUERIES, Boolean.class);
     }
 
     public static boolean isForbidSegmentQueries(ConnectorSession session)
@@ -93,9 +93,9 @@ public class PinotSessionProperties
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
-                        PREFER_BROKER_QUERIES,
-                        "Prefer queries to broker even when parallel scan is enabled for aggregation queries",
-                        pinotConfig.isPreferBrokerQueries(),
+                        FORBID_BROKER_QUERIES,
+                        "Forbid queries to the broker",
+                        pinotConfig.isForbidBrokerQueries(),
                         false),
                 booleanProperty(
                         FORBID_SEGMENT_QUERIES,
