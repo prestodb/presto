@@ -35,7 +35,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Longs;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -106,7 +105,6 @@ public class BenchmarkSelectiveStreamReaders
     private static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
     private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(30, 10);
-    private static final int MAX_STRING_LENGTH = 10;
 
     @Benchmark
     public List<Block> readAllBlocks(BenchmarkData data)
@@ -142,13 +140,17 @@ public class BenchmarkSelectiveStreamReaders
     @State(Scope.Thread)
     public static class BenchmarkData
     {
+        private static final int NO_FILTER = -1;
+
         private final Random random = new Random(0);
 
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
         private Optional<TupleDomainFilter> filter;
-        
+        private boolean filterAllowNull;
+        private float selectionRateForNonNull;
+
         @Param({
                 "boolean",
 
@@ -170,13 +172,18 @@ public class BenchmarkSelectiveStreamReaders
         })
         private String typeSignature = "boolean";
 
-        @SuppressWarnings("unused")
         @Param({
                 "PARTIAL",
                 "NONE",
                 "ALL"
         })
-        private Nulls withNulls = Nulls.PARTIAL;
+        private Nulls withNulls = Nulls.NONE;
+
+        // 0 means no rows will be filtered out, 1 means all rows will be filtered out, -1 means no filter.
+        // When withNulls is ALL, only -1, 0, 1 are meaningful. Other values are regarded as 1.
+        @SuppressWarnings("unused")
+        @Param({"-1", "0", "0.1", "0.5", "0.9", "1"})
+        private float filterRate = 0.1f;
 
         @Setup
         public void setup()
@@ -239,53 +246,91 @@ public class BenchmarkSelectiveStreamReaders
 
         private Optional<TupleDomainFilter> getFilter()
         {
-            if (type == BOOLEAN) {
-                return Optional.of(BooleanValue.of(true, true));
+            if (filterRate == NO_FILTER) {
+                return Optional.empty();
             }
 
-            if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE || type == TIMESTAMP) {
-                return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+            setupFilterRateForNonNull();
+
+            if (type == BOOLEAN) {
+                return Optional.of(BooleanValue.of(true, filterAllowNull));
+            }
+
+            if (type == BIGINT) {
+                return Optional.of(BigintRange.of((long) (Long.MIN_VALUE * selectionRateForNonNull), (long) (Long.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
+            }
+
+            if (type == INTEGER || type == DATE || type == TIMESTAMP) {
+                return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
+            }
+
+            if (type == INTEGER) {
+                return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
+            }
+
+            if (type == SMALLINT) {
+                return Optional.of(BigintRange.of((long) (Short.MIN_VALUE * selectionRateForNonNull), (long) (Short.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
+            }
+
+            if (type == TINYINT) {
+                return Optional.of(BigintRange.of((long) (Byte.MIN_VALUE * selectionRateForNonNull), (long) (Byte.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
 
             if (type == REAL) {
-                return Optional.of(FloatRange.of(0, true, true, Integer.MAX_VALUE, true, true, true));
+                return Optional.of(FloatRange.of(0, false, false, selectionRateForNonNull, false, true, filterAllowNull));
             }
 
             if (type == DOUBLE) {
-                return Optional.of(DoubleRange.of(.5, false, false, 2, false, false, false));
+                return Optional.of(DoubleRange.of(0, false, false, selectionRateForNonNull, false, true, filterAllowNull));
             }
 
             if (type instanceof DecimalType) {
                 if (((DecimalType) type).isShort()) {
-                    return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+                    return Optional.of(BigintRange.of((long) (-10_000_000_000L * selectionRateForNonNull), (long) (10_000_000_000L * selectionRateForNonNull), filterAllowNull));
                 }
-                return Optional.of(LongDecimalRange.of(0, 0, false, true, Long.MAX_VALUE, Long.MAX_VALUE, false, true, true));
+                return Optional.of(LongDecimalRange.of(
+                        (long) (-10_000_000_000L * selectionRateForNonNull),
+                        (long) (-10_000_000_000L * selectionRateForNonNull),
+                        false,
+                        true,
+                        (long) (10_000_000_000L * selectionRateForNonNull),
+                        (long) (10_000_000_000L * selectionRateForNonNull),
+                        false,
+                        true,
+                        filterAllowNull));
             }
 
             if (type instanceof VarcharType) {
-                return Optional.of(BytesRange.of("0".getBytes(), false, Longs.toByteArray(Long.MAX_VALUE), false, true));
+                if (typeSignature.equals("varchar_dictionary")) {
+                    return Optional.of(BytesRange.of("000000000".getBytes(), false, "000000000".getBytes(), filterRate == 1 ? true : false, filterAllowNull));
+                }
+
+                return Optional.of(BytesRange.of("000000000".getBytes(), false, String.format("%09d", (int) (999_999_999 * selectionRateForNonNull) - 1).getBytes(), filterRate == 1 ? true : false, filterAllowNull));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
-        private List<?> createValues()
+        private final List<?> createValues()
         {
             switch (withNulls) {
                 case ALL:
                     return NULL_VALUES;
                 case PARTIAL:
-                    // Let the null rate be 0.5
-                    return IntStream.range(0, ROWS).mapToObj(i -> random.nextFloat() > 0.5 ? createValue() : null).collect(toList());
+                    // Let the null rate be 0.5 * (1 - filterRate)
+                    return IntStream.range(0, ROWS).mapToObj(i -> random.nextFloat() > 0.5 * (filterRate == -1 ? 1 : 1 - filterRate) ? createValue() : null).collect(toList());
                 default:
                     return IntStream.range(0, ROWS).mapToObj(i -> createValue()).collect(toList());
             }
         }
 
-        private Object createValue()
+        private final Object createValue()
         {
             if (type == BOOLEAN) {
-                return random.nextBoolean();
+                // We need to specialize BOOLEAN case because we can't specify filterRate by manipulating the filter value in getFilter.
+                // Since the filters allows null, so all nulls would all be selected. To make the total selected positions equal to ( 1- filterRate) * positionCount,
+                // we need to adapt the filterRate for non null values as follows:
+                return random.nextFloat() <= (1 - filterRate) / (1 + filterRate);
             }
 
             if (type == BIGINT) {
@@ -309,7 +354,9 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             if (type == TIMESTAMP) {
-                return new SqlTimestamp(random.nextLong(), TimeZoneKey.UTC_KEY);
+                // We use int because longs will be converted to int when being written.
+                long value = random.nextInt();
+                return new SqlTimestamp(value, TimeZoneKey.UTC_KEY);
             }
 
             if (type == REAL) {
@@ -331,12 +378,33 @@ public class BenchmarkSelectiveStreamReaders
 
             if (type == VARCHAR) {
                 if (typeSignature.equals("varchar_dictionary")) {
-                    return Strings.repeat("0", MAX_STRING_LENGTH);
+                    return Strings.repeat("0", 9);
                 }
-                return randomAsciiString(random, MAX_STRING_LENGTH);
+
+                return randomAsciiString(random);
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
+        }
+
+        private void setupFilterRateForNonNull()
+        {
+            switch (withNulls) {
+                case NONE:
+                    filterAllowNull = false;  // doesn't matter
+                    selectionRateForNonNull = 1 - filterRate;
+                    break;
+                case PARTIAL:
+                    filterAllowNull = true;  // doesn't matter
+                    selectionRateForNonNull = (1 - filterRate) / (1 + filterRate);  // This is because we assumed the null rate is 0.5
+                    break;
+                case ALL:
+                    filterAllowNull = filterRate == 0 ? true : false;  // filterRate belonging to (0, 1] is regarded as 1
+                    selectionRateForNonNull = 1;  // This value doesn't matter
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported withNulls: " + withNulls);
+            }
         }
 
         public enum Nulls
@@ -345,13 +413,9 @@ public class BenchmarkSelectiveStreamReaders
         }
     }
 
-    private static String randomAsciiString(Random random, int maxLength)
+    private static String randomAsciiString(Random random)
     {
-        char[] value = new char[random.nextInt(maxLength)];
-        for (int i = 0; i < value.length; i++) {
-            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
-        }
-        return new String(value);
+        return String.format("%09d", random.nextInt(999_999_999));
     }
 
     public static void main(String[] args)
