@@ -78,7 +78,7 @@ public class StaticCatalogStore
         catalogsLoaded.set(true);
     }
 
-    private void loadCatalog(File file)
+    void loadCatalog(File file)
             throws Exception
     {
         String catalogName = Files.getNameWithoutExtension(file.getName());
@@ -106,5 +106,15 @@ public class StaticCatalogStore
             }
         }
         return ImmutableList.of();
+    }
+
+    ConnectorManager getConnectorManager()
+    {
+        return connectorManager;
+    }
+
+    File getCatalogConfigurationDir()
+    {
+        return catalogConfigurationDir;
     }
 }
