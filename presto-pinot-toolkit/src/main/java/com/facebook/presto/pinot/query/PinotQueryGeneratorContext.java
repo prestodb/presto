@@ -68,7 +68,9 @@ public class PinotQueryGeneratorContext
         return toStringHelper(this)
                 .add("selections", selections)
                 .add("groupByColumns", groupByColumns)
+                .add("topNColumnOrderingMap", topNColumnOrderingMap)
                 .add("hiddenColumnSet", hiddenColumnSet)
+                .add("variablesInAggregation", variablesInAggregation)
                 .add("from", from)
                 .add("filter", filter)
                 .add("limit", limit)
@@ -275,6 +277,9 @@ public class PinotQueryGeneratorContext
                 .filter(s -> !groupByColumns.contains(s.getKey())) // remove the group by columns from the query as Pinot barfs if the group by column is an expression
                 .map(s -> s.getValue().getDefinition())
                 .collect(Collectors.joining(", "));
+        if (expressions.isEmpty()) {
+            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Empty PQL expressions: " + toString());
+        }
 
         String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
         String query = "SELECT " + expressions + " FROM " + tableName + (forBroker ? "" : TABLE_NAME_SUFFIX_TEMPLATE);
