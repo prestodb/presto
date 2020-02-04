@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,7 +39,6 @@ import static com.facebook.presto.pinot.PinotPushdownUtils.checkSupported;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -338,11 +338,11 @@ public class PinotQueryGeneratorContext
             query += " " + limitKeyWord + " " + queryLimit;
         }
 
-        List<PinotColumnHandle> columnHandles = ImmutableList.copyOf(getAssignments().values());
-        return new PinotQueryGenerator.GeneratedPql(tableName, query, getIndicesMappingFromPinotSchemaToPrestoSchema(query, columnHandles), groupByColumns.size(), filter.isPresent(), isQueryShort);
+        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, getAssignments());
+        return new PinotQueryGenerator.GeneratedPql(tableName, query, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
     }
 
-    private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, List<PinotColumnHandle> handles)
+    private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, Map<VariableReferenceExpression, PinotColumnHandle> assignments)
     {
         LinkedHashMap<VariableReferenceExpression, Selection> expressionsInPinotOrder = new LinkedHashMap<>();
         for (VariableReferenceExpression groupByColumn : groupByColumns) {
@@ -358,25 +358,29 @@ public class PinotQueryGeneratorContext
         expressionsInPinotOrder.putAll(selections);
 
         checkSupported(
-                handles.size() == expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
+                assignments.size() == expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
                 "Expected returned expressions %s to match selections %s",
-                Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder), Joiner.on(",").join(handles));
+                Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                Joiner.on(",").withKeyValueSeparator("=").join(assignments));
 
-        Map<VariableReferenceExpression, Integer> nameToIndex = new HashMap<>();
-        for (int i = 0; i < handles.size(); i++) {
-            PinotColumnHandle columnHandle = handles.get(i);
-            VariableReferenceExpression columnName = new VariableReferenceExpression(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle.getDataType());
-            Integer previous = nameToIndex.put(columnName, i);
+        Map<VariableReferenceExpression, Integer> assignmentToIndex = new HashMap<>();
+        Iterator<Map.Entry<VariableReferenceExpression, PinotColumnHandle>> assignmentsIterator = assignments.entrySet().iterator();
+        for (int i = 0; i < assignments.size(); i++) {
+            VariableReferenceExpression key = assignmentsIterator.next().getKey();
+            Integer previous = assignmentToIndex.put(key, i);
             if (previous != null) {
-                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query), format("Expected Pinot column handle %s to occur only once, but we have: %s", columnName, Joiner.on(",").join(handles)));
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query), format("Expected Pinot column handle %s to occur only once, but we have: %s", key, Joiner.on(",").withKeyValueSeparator("=").join(assignments)));
             }
         }
 
         ImmutableList.Builder<Integer> outputIndices = ImmutableList.builder();
         for (Map.Entry<VariableReferenceExpression, Selection> expression : expressionsInPinotOrder.entrySet()) {
-            Integer index = nameToIndex.get(expression.getKey());
+            Integer index;
             if (hiddenColumnSet.contains(expression.getKey())) {
                 index = -1; // negative output index means to skip this value returned by pinot at query time
+            }
+            else {
+                index = assignmentToIndex.get(expression.getKey());
             }
             if (index == null) {
                 throw new PinotException(
@@ -384,7 +388,7 @@ public class PinotQueryGeneratorContext
                         format(
                                 "Expected to find a Pinot column handle for the expression %s, but we have %s",
                                 expression,
-                                Joiner.on(",").withKeyValueSeparator(":").join(nameToIndex)));
+                                Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
             }
             outputIndices.add(index);
         }
