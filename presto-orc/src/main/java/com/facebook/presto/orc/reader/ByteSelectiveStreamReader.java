@@ -37,6 +37,8 @@ import java.util.Optional;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.packBooleansForPositions;
+import static com.facebook.presto.orc.reader.ReaderUtils.packBytesForPositions;
 import static com.facebook.presto.orc.reader.ReaderUtils.unpackByteNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -45,6 +47,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.ceil;
 import static java.util.Objects.requireNonNull;
 
 public class ByteSelectiveStreamReader
@@ -52,6 +55,7 @@ public class ByteSelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteSelectiveStreamReader.class).instanceSize();
     private static final Block NULL_BLOCK = TINYINT.createBlockBuilder(null, 1).appendNull().build();
+    private static final float BATCH_EXECUTION_FILTERRATE_THRESHOLD = 0.5f;
 
     private final StreamDescriptor streamDescriptor;
     private final TupleDomainFilter filter;
@@ -258,18 +262,29 @@ public class ByteSelectiveStreamReader
             throws IOException
     {
         // filter == null implies outputRequired == true
-        if (positions[positionCount - 1] == positionCount - 1) {
+        int totalPositionCount = positions[positionCount - 1] + 1;
+
+        if (totalPositionCount * (1 - BATCH_EXECUTION_FILTERRATE_THRESHOLD) <= positionCount) {
             if (presentStream != null) {
-                int nonNullCount = positionCount - presentStream.getUnsetBits(positionCount, nulls);
+                int nonNullCount = totalPositionCount - presentStream.getUnsetBits(totalPositionCount, nulls);
                 dataStream.next(values, nonNullCount);
-                unpackByteNulls(values, nulls, positionCount, nonNullCount);
+
+                unpackByteNulls(values, nulls, totalPositionCount, nonNullCount);
+                if (totalPositionCount > positionCount) {
+                    packBytesForPositions(values, positions, positionCount);
+                    packBooleansForPositions(nulls, positions, positionCount);
+                }
             }
             else {
-                // contiguous chunk of rows, no nulls
-                dataStream.next(values, positionCount);
+                // There are no nulls
+                dataStream.next(values, totalPositionCount);
+                if (totalPositionCount > positionCount) {
+                    packBytesForPositions(values, positions, positionCount);
+                }
             }
+
             outputPositionCount = positionCount;
-            return positionCount;
+            return totalPositionCount;
         }
 
         int streamPosition = 0;
@@ -312,10 +327,10 @@ public class ByteSelectiveStreamReader
 
     private void ensureValuesCapacity(int capacity, boolean recordNulls)
     {
-        values = ensureCapacity(values, capacity);
+        values = ensureCapacity(values, (int) ceil(capacity / (1 - BATCH_EXECUTION_FILTERRATE_THRESHOLD)));
 
         if (recordNulls) {
-            nulls = ensureCapacity(nulls, capacity);
+            nulls = ensureCapacity(nulls, (int) ceil(capacity / (1 - BATCH_EXECUTION_FILTERRATE_THRESHOLD)));
         }
     }
 

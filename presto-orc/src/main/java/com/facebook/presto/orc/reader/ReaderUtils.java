@@ -17,6 +17,8 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.function.Predicate;
 
 import static java.lang.Math.max;
@@ -69,6 +71,24 @@ final class ReaderUtils
             else {
                 values[i] = 0;
             }
+        }
+    }
+
+    public static void packBytesForPositions(byte[] values, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
+        }
+    }
+
+    public static void packBooleansForPositions(@Nullable boolean[] values, int[] positions, int positionCount)
+    {
+        if (values == null) {
+            return;
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
         }
     }
 
