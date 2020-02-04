@@ -1918,7 +1918,7 @@ public class OrcTester
         return writeOrcColumnsHive(outputFile, format, compression, ImmutableList.of(type), ImmutableList.of(values));
     }
 
-    private static DataSize writeOrcColumnsHive(File outputFile, Format format, CompressionKind compression, List<Type> types, List<List<?>> values)
+    public static DataSize writeOrcColumnsHive(File outputFile, Format format, CompressionKind compression, List<Type> types, List<List<?>> values)
             throws Exception
     {
         RecordWriter recordWriter;
