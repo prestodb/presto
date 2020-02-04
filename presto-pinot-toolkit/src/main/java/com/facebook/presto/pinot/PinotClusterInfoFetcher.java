@@ -124,8 +124,10 @@ public class PinotClusterInfoFetcher
             Optional<String> rpcService)
     {
         requestBuilder = requestBuilder
-                .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
                 .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON);
+        if (requestBody.isPresent()) {
+            requestBuilder.setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON);
+        }
         if (rpcService.isPresent()) {
             requestBuilder
                     .setHeader(pinotConfig.getCallerHeaderParam(), pinotConfig.getCallerHeaderValue())
