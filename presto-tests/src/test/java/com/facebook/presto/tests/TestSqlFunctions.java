@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestSqlFunctions
@@ -135,5 +137,28 @@ public class TestSqlFunctions
                 "RETURNS array<int>\n" +
                 "RETURN concat(a, array[x])");
         assertQuery("SELECT testing.common.array_append(ARRAY[1, 2, 4], 8)", "SELECT ARRAY[1, 2, 4, 8]");
+    }
+
+    @Test
+    public void testShowFunctions()
+    {
+        MaterializedResult initial = computeActual("SHOW FUNCTIONS");
+
+        assertQuerySucceeds("CREATE FUNCTION testing.common.d() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.c() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION example.example.b() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.common.a() RETURNS int RETURN 1");
+        MaterializedResult expanded = computeActual("SHOW FUNCTIONS");
+        int rowCount = expanded.getRowCount();
+
+        assertEquals(rowCount, initial.getRowCount() + 4);
+        assertEquals(expanded.getMaterializedRows().subList(0, rowCount - 4), initial.getMaterializedRows());
+
+        List<String> functionNames = expanded.getMaterializedRows().subList(rowCount - 4, rowCount).stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNames, ImmutableList.of("example.example.b", "testing.common.a", "testing.common.d", "testing.test.c"));
     }
 }

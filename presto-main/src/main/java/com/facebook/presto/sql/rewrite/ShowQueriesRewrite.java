@@ -105,6 +105,7 @@ import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
 import static com.facebook.presto.sql.QueryUtil.ascending;
+import static com.facebook.presto.sql.QueryUtil.descending;
 import static com.facebook.presto.sql.QueryUtil.equal;
 import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.sql.QueryUtil.identifier;
@@ -562,6 +563,7 @@ final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
                     ordering(
+                            descending("built_in"),
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),
                                     SortItem.Ordering.ASCENDING,
