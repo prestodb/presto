@@ -112,6 +112,11 @@ public final class QueryUtil
         return new SortItem(identifier(name), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
     }
 
+    public static SortItem descending(String name)
+    {
+        return new SortItem(identifier(name), SortItem.Ordering.DESCENDING, SortItem.NullOrdering.UNDEFINED);
+    }
+
     public static Expression logicalAnd(Expression left, Expression right)
     {
         return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
