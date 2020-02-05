@@ -40,7 +40,7 @@ public class HdfsDataInputSource
     {
         this.id = requireNonNull(id, "id is null");
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
-        this.size = requireNonNull(size, "size is null");
+        this.size = size;
     }
 
     @Override

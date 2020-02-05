@@ -37,7 +37,6 @@ public class SmooshedColumnSource
     private static final String SMOOSH_METADATA_FILE_NAME = makeMetaFileName();
     private static final String VERSION_FILE_NAME = "version.bin";
     private static final String INDEX_METADATA_FILE_NAME = "index.drd";
-    private static final String SEGMENT_METADATA_FILE_NAME = "metadata.drd";
 
     private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
     private static final SerializerUtils SERIALIZER_UTILS = new SerializerUtils();

@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
 
-import java.io.IOException;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -36,12 +34,11 @@ public class LongColumnReader
 
     @Override
     public Block readBlock(Type type, int batchSize)
-            throws IOException
     {
         // TODO: use batch value selector
         checkArgument(type == BIGINT);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
-        for (int i = 0; i < batchSize; ++i) {
+        for (int i = 0; i < batchSize; i++) {
             type.writeLong(builder, valueSelector.getLong());
         }
 

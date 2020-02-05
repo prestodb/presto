@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
 
-import java.io.IOException;
-
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_UNSUPPORTED_TYPE_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -28,11 +26,9 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
-// TODO: refactor duplicate code in column readers
 public interface ColumnReader
 {
-    Block readBlock(Type type, int batchSize)
-            throws IOException;
+    Block readBlock(Type type, int batchSize);
 
     static ColumnReader createColumnReader(Type type, ColumnValueSelector valueSelector)
     {

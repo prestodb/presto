@@ -18,16 +18,13 @@ import com.facebook.presto.druid.segment.DruidSegmentReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.type.Type;
 
-import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -80,26 +77,21 @@ public class DruidSegmentPageSource
     @Override
     public Page getNextPage()
     {
-        try {
-            batchId++;
-            int batchSize = segmentReader.nextBatch();
-            if (batchSize <= 0) {
-                close();
-                return null;
-            }
-            Block[] blocks = new Block[columns.size()];
-            for (int i = 0; i < blocks.length; ++i) {
-                DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
-                blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
-            }
-            Page page = new Page(batchSize, blocks);
-            completedBytes += page.getSizeInBytes();
-            completedPositions += page.getPositionCount();
-            return page;
+        batchId++;
+        int batchSize = segmentReader.nextBatch();
+        if (batchSize <= 0) {
+            close();
+            return null;
         }
-        catch (IOException e) {
-            throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, e);
+        Block[] blocks = new Block[columns.size()];
+        for (int i = 0; i < blocks.length; ++i) {
+            DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
+            blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
         }
+        Page page = new Page(batchSize, blocks);
+        completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
+        return page;
     }
 
     @Override
@@ -138,14 +130,8 @@ public class DruidSegmentPageSource
 
             checkState(batchId == expectedBatchId);
 
-            try {
-                Block block = segmentReader.readBlock(type, name);
-                lazyBlock.setBlock(block);
-            }
-            catch (IOException e) {
-                throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, e);
-            }
-
+            Block block = segmentReader.readBlock(type, name);
+            lazyBlock.setBlock(block);
             loaded = true;
         }
     }
