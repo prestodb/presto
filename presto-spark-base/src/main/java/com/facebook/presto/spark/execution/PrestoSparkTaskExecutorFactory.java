@@ -173,6 +173,12 @@ public class PrestoSparkTaskExecutorFactory
         // TODO: include attemptId in taskId
         TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
 
+        log.info("Task [%s] received %d splits.",
+                taskId,
+                taskDescriptor.getSources().stream()
+                        .mapToInt(taskSource -> taskSource.getSplits().size())
+                        .sum());
+
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
 
