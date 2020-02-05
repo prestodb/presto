@@ -729,6 +729,10 @@ public class TestHivePushdownFilterQueries
         // filter function on numeric and boolean columns
         assertFilterProject("if(is_returned, linenumber, orderkey) % 5 = 0", "linenumber");
 
+        // filter functions with join predicate pushdown
+        assertQueryReturnsEmptyResult("SELECT * FROM orders o, lineitem_ex l " +
+                "WHERE o.orderkey <> 100 AND cardinality(l.keys) >= 5 AND l.keys[5] <> 1 AND l.keys[5] = o.orderkey");
+
         // filter functions on array columns
         assertFilterProject("keys[1] % 5 = 0", "orderkey");
         assertFilterProject("nested_keys[1][1] % 5 = 0", "orderkey");

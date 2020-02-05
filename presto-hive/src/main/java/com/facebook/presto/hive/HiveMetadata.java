@@ -1893,7 +1893,7 @@ public class HiveMetadata
                 .fromPredicate(session, filter, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session).toColumnExtractor());
         if (currentLayoutHandle.isPresent()) {
             HiveTableLayoutHandle currentHiveLayout = (HiveTableLayoutHandle) currentLayoutHandle.get();
-            decomposedFilter = intersectExtractionResult(decomposedFilter, new ExtractionResult(currentHiveLayout.getDomainPredicate(), currentHiveLayout.getRemainingPredicate()));
+            decomposedFilter = intersectExtractionResult(new ExtractionResult(currentHiveLayout.getDomainPredicate(), currentHiveLayout.getRemainingPredicate()), decomposedFilter);
         }
 
         if (decomposedFilter.getTupleDomain().isNone()) {
