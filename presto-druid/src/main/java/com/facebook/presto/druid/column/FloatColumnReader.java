@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
 
-import java.io.IOException;
-
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
@@ -37,11 +35,10 @@ public class FloatColumnReader
 
     @Override
     public Block readBlock(Type type, int batchSize)
-            throws IOException
     {
         checkArgument(type == REAL);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
-        for (int i = 0; i < batchSize; ++i) {
+        for (int i = 0; i < batchSize; i++) {
             type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));
         }
 

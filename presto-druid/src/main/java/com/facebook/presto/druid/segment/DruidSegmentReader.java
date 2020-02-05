@@ -20,12 +20,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.column.BaseColumn;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,26 +39,28 @@ public class DruidSegmentReader
 {
     private static final int BATCH_SIZE = 1024;
 
-    private final QueryableIndex queryableIndex;
-    private final Map<String, ColumnReader> columnValueSelectors = new HashMap<>();
+    private final Map<String, ColumnReader> columnValueSelectors;
     private final long totalRowCount;
 
+    private QueryableIndex queryableIndex;
     private long currentPosition;
     private int currentBatchSize;
 
     public DruidSegmentReader(SegmentIndexSource segmentIndexSource, List<ColumnHandle> columns)
     {
         try {
-            this.queryableIndex = segmentIndexSource.loadIndex(columns);
+            queryableIndex = segmentIndexSource.loadIndex(columns);
             totalRowCount = queryableIndex.getNumRows();
+            ImmutableMap.Builder<String, ColumnReader> selectorsBuilder = ImmutableMap.builder();
             for (ColumnHandle column : columns) {
                 DruidColumnHandle druidColumn = (DruidColumnHandle) column;
                 String columnName = druidColumn.getColumnName();
                 Type type = druidColumn.getColumnType();
                 BaseColumn baseColumn = queryableIndex.getColumnHolder(columnName).getColumn();
                 ColumnValueSelector<?> valueSelector = baseColumn.makeColumnValueSelector(new SimpleReadableOffset());
-                columnValueSelectors.put(columnName, createColumnReader(type, valueSelector));
+                selectorsBuilder.put(columnName, createColumnReader(type, valueSelector));
             }
+            columnValueSelectors = selectorsBuilder.build();
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, "failed to load druid segment");
@@ -67,7 +69,6 @@ public class DruidSegmentReader
 
     @Override
     public int nextBatch()
-            throws IOException
     {
         // TODO: dynamic batch sizing
         currentBatchSize = toIntExact(min(BATCH_SIZE, totalRowCount - currentPosition));
@@ -77,7 +78,6 @@ public class DruidSegmentReader
 
     @Override
     public Block readBlock(Type type, String columnName)
-            throws IOException
     {
         return columnValueSelectors.get(columnName).readBlock(type, currentBatchSize);
     }

@@ -26,8 +26,8 @@ public class DruidColumnInfo
 
     @JsonCreator
     public DruidColumnInfo(
-            @JsonProperty("COLUMN_NAME") String columnName,
-            @JsonProperty("DATA_TYPE") String dataType)
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("dataType") String dataType)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");

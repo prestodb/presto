@@ -24,14 +24,14 @@ public class SimpleReadableOffset
     @Override
     public int getOffset()
     {
+        // have to update row in getOffset, as BaseColumn requires ReadableOffset in makeColumnValuesSelector
         int offset = row;
-        ++row;
+        row++;
         return offset;
     }
 
     @Override
     public void inspectRuntimeShape(RuntimeShapeInspector inspector)
     {
-        // no-op
     }
 }

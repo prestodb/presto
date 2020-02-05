@@ -37,8 +37,8 @@ public class DruidSegmentInfo
     private final String dataSource;
     private final Interval interval;
     private final String version;
-    private final Optional<Map<String, String>> loadSpec;
-    private final Optional<Map<String, String>> shardSpec;
+    private final Optional<Map<String, String>> loadSpecification;
+    private final Optional<Map<String, String>> shardSpecification;
     private final Integer binaryVersion;
     private final long size;
 
@@ -59,18 +59,18 @@ public class DruidSegmentInfo
             @JsonProperty("dataSource") String dataSource,
             @JsonProperty("interval") Interval interval,
             @JsonProperty("version") String version,
-            @JsonProperty("loadSpec") Optional<Map<String, String>> loadSpec,
-            @JsonProperty("shardSpec") @Nullable Optional<Map<String, String>> shardSpec,
+            @JsonProperty("loadSpecification") Optional<Map<String, String>> loadSpecification,
+            @JsonProperty("shardSpecification") @Nullable Optional<Map<String, String>> shardSpecification,
             @JsonProperty("binaryVersion") Integer binaryVersion,
             @JsonProperty("size") long size)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.interval = requireNonNull(interval, "interval is null");
         this.version = requireNonNull(version, "version is null");
-        this.loadSpec = requireNonNull(loadSpec, "loadSpec is null");
-        this.shardSpec = requireNonNull(shardSpec, "shardSpec is null");
+        this.loadSpecification = requireNonNull(loadSpecification, "loadSpecification is null");
+        this.shardSpecification = requireNonNull(shardSpecification, "shardSpecification is null");
         this.binaryVersion = requireNonNull(binaryVersion, "binaryVersion is null");
-        this.size = requireNonNull(size, "size is null");
+        this.size = size;
     }
 
     @JsonProperty
@@ -92,15 +92,15 @@ public class DruidSegmentInfo
     }
 
     @JsonProperty
-    public Optional<Map<String, String>> getLoadSpec()
+    public Optional<Map<String, String>> getLoadSpecification()
     {
-        return loadSpec;
+        return loadSpecification;
     }
 
     @JsonProperty
-    public Optional<Map<String, String>> getShardSpec()
+    public Optional<Map<String, String>> getShardSpecification()
     {
-        return shardSpec;
+        return shardSpecification;
     }
 
     @JsonProperty
@@ -117,22 +117,22 @@ public class DruidSegmentInfo
 
     public DeepStorageType getDeepStorageType()
     {
-        Map<String, String> loadSpec = getLoadSpec()
-                .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpec: %s", getLoadSpec())));
-        return DeepStorageType.valueOf(loadSpec.get(DEEP_STORAGE_TYPE_KEY).toUpperCase());
+        Map<String, String> loadSpecification = getLoadSpecification()
+                .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpecification: %s", getLoadSpecification())));
+        return DeepStorageType.valueOf(loadSpecification.get(DEEP_STORAGE_TYPE_KEY).toUpperCase());
     }
 
     public String getDeepStoragePath()
     {
-        Map<String, String> loadSpec = getLoadSpec()
-                .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpec: %s", getLoadSpec())));
-        return loadSpec.get(SEGMENT_PATH_KEY);
+        Map<String, String> loadSpecification = getLoadSpecification()
+                .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpecification: %s", getLoadSpecification())));
+        return loadSpecification.get(SEGMENT_PATH_KEY);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(dataSource, interval, version, loadSpec, shardSpec, binaryVersion, size);
+        return Objects.hash(dataSource, interval, version, loadSpecification, shardSpecification, binaryVersion, size);
     }
 
     @Override
@@ -149,8 +149,8 @@ public class DruidSegmentInfo
         return Objects.equals(this.dataSource, that.dataSource) &&
                 Objects.equals(this.interval, that.interval) &&
                 Objects.equals(this.version, that.version) &&
-                Objects.equals(this.loadSpec, that.loadSpec) &&
-                Objects.equals(this.shardSpec, that.shardSpec) &&
+                Objects.equals(this.loadSpecification, that.loadSpecification) &&
+                Objects.equals(this.shardSpecification, that.shardSpecification) &&
                 Objects.equals(this.binaryVersion, that.binaryVersion) &&
                 Objects.equals(this.size, that.size);
     }
@@ -162,8 +162,8 @@ public class DruidSegmentInfo
                 .add("dataSource", dataSource)
                 .add("interval", interval)
                 .add("version", version)
-                .add("loadSpec", loadSpec)
-                .add("shardSpec", shardSpec)
+                .add("loadSpecification", loadSpecification)
+                .add("shardSpecification", shardSpecification)
                 .add("binaryVersion", binaryVersion)
                 .add("size", size)
                 .toString();

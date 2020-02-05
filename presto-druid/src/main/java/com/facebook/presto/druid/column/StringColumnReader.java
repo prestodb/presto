@@ -19,8 +19,6 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slices;
 import org.apache.druid.segment.ColumnValueSelector;
 
-import java.io.IOException;
-
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,11 +35,10 @@ public class StringColumnReader
 
     @Override
     public Block readBlock(Type type, int batchSize)
-            throws IOException
     {
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
-        for (int i = 0; i < batchSize; ++i) {
+        for (int i = 0; i < batchSize; i++) {
             String value = valueSelector.getObject();
             if (value != null) {
                 type.writeSlice(builder, Slices.utf8Slice(value));
