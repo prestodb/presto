@@ -23,52 +23,26 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
-public class DruidQueryRunnerBuilder
-        extends DistributedQueryRunner.Builder
+public class DruidQueryRunner
 {
-    private static final Logger log = Logger.get(DruidQueryRunnerBuilder.class);
+    private DruidQueryRunner() {}
 
-    private static final Session DEFAULT_SESSION = testSessionBuilder()
-            .setSource("test")
-            .setCatalog("druid")
-            .setSchema("druid")
-            .build();
+    private static final Logger log = Logger.get(DruidQueryRunner.class);
+    private static final String DEFAULT_SOURCE = "test";
+    private static final String DEFAULT_CATALOG = "druid";
+    private static final String DEFAULT_SCHEMA = "druid";
 
-    private String broker = "http://localhost:8082";
-    private String coordinator = "http://localhost:8081";
+    private static String broker = "http://localhost:8082";
+    private static String coordinator = "http://localhost:8081";
 
-    private DruidQueryRunnerBuilder()
-    {
-        super(DEFAULT_SESSION);
-    }
-
-    public static DruidQueryRunnerBuilder builder()
-    {
-        return new DruidQueryRunnerBuilder();
-    }
-
-    public DruidQueryRunnerBuilder withBroker(String broker)
-    {
-        this.broker = broker;
-        return this;
-    }
-
-    public DruidQueryRunnerBuilder withCoordinator(String coordinator)
-    {
-        this.coordinator = coordinator;
-        return this;
-    }
-
-    @Override
-    public DistributedQueryRunner build()
+    public static DistributedQueryRunner createDruidQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = super.build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
         try {
             queryRunner.installPlugin(new DruidPlugin());
             Map<String, String> properties = ImmutableMap.of("druid-broker-url", broker, "druid-coordinator-url", coordinator);
-            queryRunner.createCatalog("druid", "druid", properties);
-
+            queryRunner.createCatalog(DEFAULT_CATALOG, "druid", properties);
             return queryRunner;
         }
         catch (Exception e) {
@@ -77,10 +51,19 @@ public class DruidQueryRunnerBuilder
         }
     }
 
+    public static Session createSession()
+    {
+        return testSessionBuilder()
+                .setSource(DEFAULT_SOURCE)
+                .setCatalog(DEFAULT_CATALOG)
+                .setSchema(DEFAULT_SCHEMA)
+                .build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DruidQueryRunnerBuilder().build();
+        DistributedQueryRunner queryRunner = createDruidQueryRunner();
         log.info(format("Presto server started: %s", queryRunner.getCoordinator().getBaseUrl()));
     }
 }
