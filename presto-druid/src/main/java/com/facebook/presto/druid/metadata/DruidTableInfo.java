@@ -24,7 +24,7 @@ public class DruidTableInfo
     private final String tableName;
 
     @JsonCreator
-    public DruidTableInfo(@JsonProperty("tableName") String tableName)
+    public DruidTableInfo(@JsonProperty("TABLE_NAME") String tableName)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
     }
