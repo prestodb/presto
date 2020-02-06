@@ -30,6 +30,7 @@ import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTe
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -75,6 +76,7 @@ public class TestSqlInvokedFunctionNamespaceManager
     public void testTransactionalGetFunction()
     {
         InMemoryFunctionNamespaceManager functionNamespaceManager = new InMemoryFunctionNamespaceManager(
+                TEST_CATALOG,
                 new SqlInvokedFunctionNamespaceManagerConfig()
                         .setFunctionCacheExpiration(new Duration(0, MILLISECONDS))
                         .setFunctionInstanceCacheExpiration(new Duration(0, MILLISECONDS)));
@@ -145,7 +147,7 @@ public class TestSqlInvokedFunctionNamespaceManager
 
     private static InMemoryFunctionNamespaceManager createFunctionNamespaceManager()
     {
-        return new InMemoryFunctionNamespaceManager(new SqlInvokedFunctionNamespaceManagerConfig());
+        return new InMemoryFunctionNamespaceManager(TEST_CATALOG, new SqlInvokedFunctionNamespaceManagerConfig());
     }
 
     private static void assertPrestoException(Runnable runnable, ErrorCodeSupplier expectedErrorCode, String expectedMessageRegex)

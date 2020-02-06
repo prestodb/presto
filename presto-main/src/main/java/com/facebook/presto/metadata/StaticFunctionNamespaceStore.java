@@ -62,19 +62,15 @@ public class StaticFunctionNamespaceStore
     private void loadFunctionNamespaceManager(File file)
             throws Exception
     {
-        String functionNamespaceManagerId = getNameWithoutExtension(file.getName());
-
+        String catalogName = getNameWithoutExtension(file.getName());
         log.info("-- Loading function namespace manager from %s --", file);
         Map<String, String> properties = new HashMap<>(loadProperties(file));
 
         String functionNamespaceManagerName = properties.remove("function-namespace-manager.name");
         checkState(functionNamespaceManagerName != null, "Function namespace configuration %s does not contain function-namespace-manager.name", file.getAbsoluteFile());
 
-        String functionNamespaces = properties.remove("serving-namespaces");
-        checkState(functionNamespaces != null, "Function namespace configuration %s does not contain serving-namespaces", file.getAbsoluteFile());
-
-        functionManager.loadFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManagerId, SPLITTER.splitToList(functionNamespaces), properties);
-        log.info("-- Added function namespaces [%s] using function namespace manager [%s] --", functionNamespaces, functionNamespaceManagerId);
+        functionManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 
     private static List<File> listFiles(File dir)

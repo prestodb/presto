@@ -45,9 +45,9 @@ public class InMemoryFunctionNamespaceManager
 {
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
 
-    public InMemoryFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
+    public InMemoryFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
     {
-        super(config);
+        super(catalogName, config);
     }
 
     @Override

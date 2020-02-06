@@ -22,7 +22,6 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
-import com.facebook.presto.spi.function.CatalogSchemaPrefix;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -110,7 +109,6 @@ public class FunctionManager
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
-    private final Map<CatalogSchemaPrefix, String> functionNamespaces = new ConcurrentHashMap<>();
     private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new ConcurrentHashMap<>();
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
@@ -126,15 +124,14 @@ public class FunctionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
-        this.functionNamespaces.put(DEFAULT_NAMESPACE.asCatalogSchemaPrefix(), BuiltInFunctionNamespaceManager.ID);
-        this.functionNamespaceManagers.put(BuiltInFunctionNamespaceManager.ID, builtInFunctionNamespaceManager);
+        this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = handleResolver;
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
         }
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
-        transactionManager.registerFunctionNamespaceManager(BuiltInFunctionNamespaceManager.ID, builtInFunctionNamespaceManager);
+        transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
@@ -158,23 +155,17 @@ public class FunctionManager
 
     public void loadFunctionNamespaceManager(
             String functionNamespaceManagerName,
-            String functionNamespaceManagerId,
-            List<String> catalogSchemaPrefixes,
+            String catalogName,
             Map<String, String> properties)
     {
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(properties);
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties);
 
-        transactionManager.registerFunctionNamespaceManager(functionNamespaceManagerId, functionNamespaceManager);
-        if (functionNamespaceManagers.putIfAbsent(functionNamespaceManagerId, functionNamespaceManager) != null) {
-            throw new IllegalArgumentException(format("Function namespace manager [%s] is already registered", functionNamespaceManagerId));
-        }
-        for (String catalogSchemaPrefix : catalogSchemaPrefixes) {
-            if (functionNamespaces.putIfAbsent(CatalogSchemaPrefix.of(catalogSchemaPrefix), functionNamespaceManagerId) != null) {
-                throw new IllegalArgumentException(format("Function namespace [%s] is already registered to function namespace manager [%s]", catalogSchemaPrefix, functionNamespaceManagerId));
-            }
+        transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
+        if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
+            throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
         }
     }
 
@@ -272,14 +263,13 @@ public class FunctionManager
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        Optional<String> functionNamespaceManagerId = getServingFunctionNamespaceManagerId(functionName.getFunctionNamespace());
-        if (!functionNamespaceManagerId.isPresent()) {
+        FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace()).orElse(null);
+        if (functionNamespaceManager == null) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
         }
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
-                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionNamespaceManagerId.get()));
-        FunctionNamespaceManager<?> functionNamespaceManager = functionNamespaceManagers.get(functionNamespaceManagerId.get());
+                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         try {
@@ -455,26 +445,7 @@ public class FunctionManager
 
     private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
-        return getServingFunctionNamespaceManagerId(functionNamespace).map(functionNamespaceManagers::get);
-    }
-
-    private Optional<String> getServingFunctionNamespaceManagerId(CatalogSchemaName functionNamespace)
-    {
-        if (functionNamespace.equals(DEFAULT_NAMESPACE)) {
-            return Optional.of(BuiltInFunctionNamespaceManager.ID);
-        }
-
-        CatalogSchemaPrefix bestMatch = null;
-        String servingFunctionNamespaceManagerId = null;
-
-        for (Map.Entry<CatalogSchemaPrefix, String> entry : functionNamespaces.entrySet()) {
-            CatalogSchemaPrefix prefix = entry.getKey();
-            if (prefix.includes(functionNamespace) && (bestMatch == null || bestMatch.includes(prefix))) {
-                bestMatch = prefix;
-                servingFunctionNamespaceManagerId = entry.getValue();
-            }
-        }
-        return Optional.ofNullable(servingFunctionNamespaceManagerId);
+        return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
     }
 
     private String constructFunctionNotFoundErrorMessage(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes, Collection<? extends SqlFunction> candidates)
