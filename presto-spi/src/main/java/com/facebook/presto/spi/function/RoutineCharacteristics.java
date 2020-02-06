@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
@@ -45,26 +49,30 @@ public class RoutineCharacteristics
     private final Determinism determinism;
     private final NullCallClause nullCallClause;
 
-    private RoutineCharacteristics(
-            Language language,
-            Determinism determinism,
-            NullCallClause nullCallClause)
+    @JsonCreator
+    public RoutineCharacteristics(
+            @JsonProperty("language") Optional<Language> language,
+            @JsonProperty("determinism") Optional<Determinism> determinism,
+            @JsonProperty("nullCallClause") Optional<NullCallClause> nullCallClause)
     {
-        this.language = requireNonNull(language, "language is null");
-        this.determinism = requireNonNull(determinism, "determinism is null");
-        this.nullCallClause = requireNonNull(nullCallClause, "nullCallClause is null");
+        this.language = language.orElse(SQL);
+        this.determinism = determinism.orElse(NOT_DETERMINISTIC);
+        this.nullCallClause = nullCallClause.orElse(CALLED_ON_NULL_INPUT);
     }
 
+    @JsonProperty
     public Language getLanguage()
     {
         return language;
     }
 
+    @JsonProperty
     public Determinism getDeterminism()
     {
         return determinism;
     }
 
+    @JsonProperty
     public NullCallClause getNullCallClause()
     {
         return nullCallClause;
@@ -119,9 +127,9 @@ public class RoutineCharacteristics
 
     public static class Builder
     {
-        private Language language = SQL;
-        private Determinism determinism = NOT_DETERMINISTIC;
-        private NullCallClause nullCallClause = CALLED_ON_NULL_INPUT;
+        private Language language;
+        private Determinism determinism;
+        private NullCallClause nullCallClause;
 
         private Builder() {}
 
@@ -152,7 +160,10 @@ public class RoutineCharacteristics
 
         public RoutineCharacteristics build()
         {
-            return new RoutineCharacteristics(language, determinism, nullCallClause);
+            return new RoutineCharacteristics(
+                    Optional.ofNullable(language),
+                    Optional.ofNullable(determinism),
+                    Optional.ofNullable(nullCallClause));
         }
     }
 }
