@@ -60,7 +60,7 @@ public class DruidSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(address);
     }
 
     @Override

@@ -17,15 +17,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 class ExtraDataList
 {
-    public static final short ZIP64 = 0x0001;
-    public static final short EXTENDED_TIMESTAMP = 0x5455;
-    // Some documentation says that this is actually 0x7855, but zip files do not seem to corroborate
-    // this
-    public static final short INFOZIP_UNIX_NEW = 0x7875;
-    private final LinkedHashMap<Short, ExtraData> entries;
+    private final Map<Short, ExtraData> entries;
 
     /**
      * Create a new empty extra data list.
@@ -39,8 +35,12 @@ class ExtraDataList
 
     public ExtraDataList(ExtraDataList other)
     {
-        this.entries = new LinkedHashMap<>();
-        this.entries.putAll(other.entries);
+        entries = new LinkedHashMap<>(other.getEntries());
+    }
+
+    public Map<Short, ExtraData> getEntries()
+    {
+        return entries;
     }
 
     /**

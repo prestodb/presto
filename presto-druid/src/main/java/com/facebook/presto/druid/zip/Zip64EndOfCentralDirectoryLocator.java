@@ -22,10 +22,7 @@ public class Zip64EndOfCentralDirectoryLocator
 {
     public static final int SIGNATURE = 0x07064b50;
     public static final int FIXED_DATA_SIZE = 20;
-    public static final int SIGNATURE_OFFSET = 0;
-    public static final int ZIP64_EOCD_DISK_OFFSET = 4;
     public static final int ZIP64_EOCD_OFFSET_OFFSET = 8;
-    public static final int DISK_NUMBER_OFFSET = 16;
 
     private Zip64EndOfCentralDirectoryLocator()
     {

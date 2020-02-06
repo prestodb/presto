@@ -28,7 +28,6 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.Collection;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipException;
@@ -43,12 +42,13 @@ public class ZipIndexFileSource
         implements IndexFileSource, Closeable, AutoCloseable
 {
     private final DataInputSource dataInputSource;
-    private final ZipFileData zipData;
+
+    private ZipFileData zipData;
 
     public ZipIndexFileSource(DataInputSource dataInputSource)
     {
         this.dataInputSource = requireNonNull(dataInputSource, "dataInputSource is null");
-        this.zipData = readCentralDirectory();
+        zipData = readCentralDirectory();
     }
 
     /**
@@ -87,8 +87,9 @@ public class ZipIndexFileSource
         offset += fileHeader.length;
 
         if (!ZipUtil.arrayStartsWith(fileHeader, ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
-            throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR,
-                    format("The file '%s' is not a correctly formatted zip file: Expected a File Header at file offset %d, but was not present.", entry.getName()));
+            throw new PrestoException(
+                    DRUID_SEGMENT_LOAD_ERROR,
+                    format("The file '%s' is not a correctly formatted zip file: Expected a File Header at offset %d, but not present.", entry.getName(), offset));
         }
 
         // skip name and extra field
@@ -119,7 +120,7 @@ public class ZipIndexFileSource
         int position = offset;
         int bytesRead = 0;
 
-        while (((position - offset) < length) && bytesRead != -1) {
+        while (position - offset < length && bytesRead != -1) {
             bytesRead = inflaterInputStream.read(buffer, position, offset + length - position);
             if (bytesRead > 0) {
                 position += bytesRead;
@@ -129,29 +130,19 @@ public class ZipIndexFileSource
         return position - offset;
     }
 
-    public final ZipFileEntry getFileEntry(String fileName)
-    {
-        return zipData.getEntry(fileName);
-    }
-
-    public Collection<ZipFileEntry> getFileEntry()
-    {
-        return zipData.getEntries();
-    }
-
     /**
      * Finds, reads and parses ZIP file entries from the central directory.
      */
     private ZipFileData readCentralDirectory()
     {
         try {
-            long eocdLocation = findEndOfCentralDirectoryRecord();
+            long centralDirectoryEndOffset = getCentralDirectoryEndOffset();
             ZipFileData fileData = new ZipFileData(UTF_8);
-            EndOfCentralDirectoryRecord.read(fileData, dataInputSource, eocdLocation);
+            EndOfCentralDirectoryRecord.read(fileData, dataInputSource, centralDirectoryEndOffset);
 
             if (fileData.isMaybeZip64()) {
                 try {
-                    Zip64EndOfCentralDirectoryLocator.read(fileData, dataInputSource, eocdLocation - Zip64EndOfCentralDirectoryLocator.FIXED_DATA_SIZE);
+                    Zip64EndOfCentralDirectoryLocator.read(fileData, dataInputSource, centralDirectoryEndOffset - Zip64EndOfCentralDirectoryLocator.FIXED_DATA_SIZE);
                     Zip64EndOfCentralDirectory.read(fileData, dataInputSource, fileData.getZip64EndOfCentralDirectoryOffset());
                 }
                 catch (ZipException e) {
@@ -167,7 +158,7 @@ public class ZipIndexFileSource
             else {
                 // If not in Zip64 format, compute central directory offset by end of central directory record
                 // offset and central directory size to allow reading large non-compliant Zip32 directories.
-                long centralDirectoryOffset = eocdLocation - fileData.getCentralDirectorySize();
+                long centralDirectoryOffset = centralDirectoryEndOffset - fileData.getCentralDirectorySize();
                 // If the lower 4 bytes match, the above calculation is correct; otherwise fallback to
                 // reported offset.
                 if ((int) centralDirectoryOffset == (int) fileData.getCentralDirectoryOffset()) {
@@ -187,7 +178,7 @@ public class ZipIndexFileSource
     /**
      * Finds the file offset of the end of central directory record.
      */
-    private long findEndOfCentralDirectoryRecord()
+    private long getCentralDirectoryEndOffset()
             throws IOException
     {
         long fileSize = dataInputSource.getSize();
@@ -231,7 +222,7 @@ public class ZipIndexFileSource
     {
         try {
             long position = fileOffset;
-            for (long i = 0; i < count; ++i) {
+            for (long i = 0; i < count; i++) {
                 position += CentralDirectoryFileHeader.read(fileData, dataInputSource, position, charset);
             }
         }

@@ -274,8 +274,9 @@ public class ZipFileData
             while (signatureLocation != -1) {
                 long eocdSize = fileSize - offset - signatureLocation;
                 if (eocdSize >= EndOfCentralDirectoryRecord.FIXED_DATA_SIZE) {
-                    int commentLength = ZipUtil.getUnsignedShort(buffer, signatureLocation
-                            + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET);
+                    int commentLength = ZipUtil.getUnsignedShort(
+                            buffer,
+                            signatureLocation + EndOfCentralDirectoryRecord.COMMENT_LENGTH_OFFSET);
                     long readCommentLength = eocdSize - EndOfCentralDirectoryRecord.FIXED_DATA_SIZE;
                     if (commentLength == readCommentLength) {
                         return offset + signatureLocation;
@@ -300,7 +301,7 @@ public class ZipFileData
     {
         try {
             long position = fileOffset;
-            for (long i = 0; i < count; ++i) {
+            for (long i = 0; i < count; i++) {
                 position += CentralDirectoryFileHeader.read(fileData, dataInputSource, position, charset);
             }
         }

@@ -54,7 +54,6 @@ public class DruidSplitManager
         DruidTableHandle table = layoutHandle.getTable();
         List<String> segmentIds = getSegmentId(table);
 
-        // TODO: add scheduling
         List<DruidSplit> splits = segmentIds.stream()
                 .map(id -> druidClient.getSingleSegmentInfo(table.getTableName(), id))
                 .map(info -> new DruidSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
