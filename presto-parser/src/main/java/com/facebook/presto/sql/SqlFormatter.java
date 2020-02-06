@@ -74,6 +74,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
@@ -570,8 +571,9 @@ public final class SqlFormatter
             }
             builder.append("\n")
                     .append(formatRoutineCharacteristics(node.getCharacteristics()))
-                    .append("\nRETURN ")
-                    .append(formatExpression(node.getBody(), parameters));
+                    .append("\n");
+
+            process(node.getBody(), 0);
 
             return null;
         }
@@ -597,6 +599,15 @@ public final class SqlFormatter
             }
             builder.append(formatName(node.getFunctionName()));
             node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitReturn(Return node, Integer indent)
+        {
+            append(indent, "RETURN ");
+            builder.append(formatExpression(node.getExpression(), parameters));
 
             return null;
         }

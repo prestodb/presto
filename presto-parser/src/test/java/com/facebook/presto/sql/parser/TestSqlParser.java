@@ -102,6 +102,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
@@ -1460,10 +1461,10 @@ public class TestSqlParser
                         "double",
                         Optional.of("tangent trigonometric function"),
                         new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
-                        new ArithmeticBinaryExpression(
+                        new Return(new ArithmeticBinaryExpression(
                                 DIVIDE,
                                 new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(identifier("x"))),
-                                new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(identifier("x"))))));
+                                new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(identifier("x")))))));
 
         CreateFunction createFunctionRand = new CreateFunction(
                 QualifiedName.of("dev", "testing", "rand"),
@@ -1472,7 +1473,7 @@ public class TestSqlParser
                 "double",
                 Optional.empty(),
                 new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
-                new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()));
+                new Return(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())));
         assertStatement(
                 "CREATE OR REPLACE FUNCTION dev.testing.rand ()\n" +
                         "RETURNS double\n" +

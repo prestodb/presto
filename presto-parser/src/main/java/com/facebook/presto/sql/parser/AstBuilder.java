@@ -118,6 +118,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
@@ -216,6 +217,12 @@ class AstBuilder
     public Node visitStandaloneExpression(SqlBaseParser.StandaloneExpressionContext context)
     {
         return visit(context.expression());
+    }
+
+    @Override
+    public Node visitStandaloneRoutineBody(SqlBaseParser.StandaloneRoutineBodyContext context)
+    {
+        return visit(context.routineBody());
     }
 
     // ******************* statements **********************
@@ -421,7 +428,7 @@ class AstBuilder
                 getType(context.returnType),
                 comment,
                 getRoutineCharacteristics(context.routineCharacteristics()),
-                (Expression) visit(context.routineBody()));
+                (Return) visit(context.routineBody()));
     }
 
     @Override
@@ -445,7 +452,13 @@ class AstBuilder
     @Override
     public Node visitRoutineBody(SqlBaseParser.RoutineBodyContext context)
     {
-        return visit(context.expression());
+        return visit(context.returnStatement());
+    }
+
+    @Override
+    public Node visitReturnStatement(SqlBaseParser.ReturnStatementContext context)
+    {
+        return new Return((Expression) visit(context.expression()));
     }
 
     @Override
