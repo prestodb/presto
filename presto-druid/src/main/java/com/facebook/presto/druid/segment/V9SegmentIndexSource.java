@@ -16,9 +16,11 @@ package com.facebook.presto.druid.segment;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.druid.DruidColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Streams;
 import org.apache.druid.common.utils.SerializerUtils;
 import org.apache.druid.jackson.DefaultObjectMapper;
@@ -39,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.druid.segment.column.ColumnHolder.TIME_COLUMN_NAME;
@@ -97,17 +100,17 @@ public class V9SegmentIndexSource
             log.warn(e, "Failed to load metadata for segment ");
         }
 
-        Map<String, ColumnHolder> columns = new HashMap<>();
+        Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();
         for (ColumnHandle columnHandle : columnHandles) {
             String columnName = ((DruidColumnHandle) columnHandle).getColumnName();
-            columns.put(columnName, createColumnHolder(columnName));
+            columns.put(columnName, () -> createColumnHolder(columnName));
         }
 
         List<String> availableDimensions = Streams.stream(allDimensions.iterator())
                 .filter(dimension -> columns.containsKey(dimension))
                 .collect(toImmutableList());
 
-        columns.put(TIME_COLUMN_NAME, createColumnHolder(TIME_COLUMN_NAME));
+        columns.put(TIME_COLUMN_NAME, () -> createColumnHolder(TIME_COLUMN_NAME));
 
         // TODO: get rid of the time column by creating Presto's SimpleQueryableIndex impl
         return new SimpleQueryableIndex(
@@ -116,7 +119,8 @@ public class V9SegmentIndexSource
                 segmentBitmapSerdeFactory.getBitmapFactory(),
                 columns,
                 null,
-                metadata);
+                metadata,
+                false);
     }
 
     private ColumnDescriptor readColumnDescriptor(ByteBuffer byteBuffer)
@@ -126,10 +130,14 @@ public class V9SegmentIndexSource
     }
 
     private ColumnHolder createColumnHolder(String columnName)
-            throws IOException
     {
-        ByteBuffer columnData = ByteBuffer.wrap(segmentColumnSource.getColumnData(columnName));
-        ColumnDescriptor columnDescriptor = readColumnDescriptor(columnData);
-        return columnDescriptor.read(columnData, () -> 0, null);
+        try {
+            ByteBuffer columnData = ByteBuffer.wrap(segmentColumnSource.getColumnData(columnName));
+            ColumnDescriptor columnDescriptor = readColumnDescriptor(columnData);
+            return columnDescriptor.read(columnData, () -> 0, null);
+        }
+        catch (IOException e) {
+            throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, e);
+        }
     }
 }
