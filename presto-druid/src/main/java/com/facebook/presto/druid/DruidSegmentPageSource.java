@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.druid.segment.DruidSegmentReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -31,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class DruidSegmentPageSource
         implements ConnectorPageSource
 {
-    private final DruidSegmentInfo segmentInfo;
     private final List<ColumnHandle> columns;
     private final DruidSegmentReader segmentReader;
 
@@ -41,11 +39,9 @@ public class DruidSegmentPageSource
     private long completedPositions;
 
     public DruidSegmentPageSource(
-            DruidSegmentInfo segmentInfo,
             List<ColumnHandle> columns,
             DruidSegmentReader segmentReader)
     {
-        this.segmentInfo = requireNonNull(segmentInfo, "segment info is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.segmentReader = requireNonNull(segmentReader, "segmentReader is null");
     }
@@ -84,7 +80,7 @@ public class DruidSegmentPageSource
             return null;
         }
         Block[] blocks = new Block[columns.size()];
-        for (int i = 0; i < blocks.length; ++i) {
+        for (int i = 0; i < blocks.length; i++) {
             DruidColumnHandle columnHandle = (DruidColumnHandle) columns.get(i);
             blocks[i] = new LazyBlock(batchSize, new SegmentBlockLoader(columnHandle.getColumnType(), columnHandle.getColumnName()));
         }

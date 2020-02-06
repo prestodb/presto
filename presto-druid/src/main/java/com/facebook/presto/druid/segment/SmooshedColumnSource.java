@@ -44,8 +44,6 @@ public class SmooshedColumnSource
     private final IndexFileSource indexFileSource;
     private final Map<String, SmooshFileMetadata> columnSmoosh = new TreeMap<>();
 
-    private int numFiles;
-
     public SmooshedColumnSource(IndexFileSource indexFileSource)
     {
         this.indexFileSource = requireNonNull(indexFileSource, "indexFileSource is null");
@@ -102,9 +100,12 @@ public class SmooshedColumnSource
                 throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Malformed metadata file: wrong number of splits[%d] in line[%s]", splits.length,
                         line));
             }
-            numFiles = Integer.valueOf(splits[2]);
 
-            while ((line = in.readLine()) != null) {
+            while (true) {
+                line = in.readLine();
+                if (line == null) {
+                    break;
+                }
                 splits = line.split(",");
 
                 if (splits.length != 4) {

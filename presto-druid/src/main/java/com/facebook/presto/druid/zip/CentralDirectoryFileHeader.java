@@ -25,7 +25,6 @@ public class CentralDirectoryFileHeader
 {
     static final int SIGNATURE = 0x02014b50;
     static final int FIXED_DATA_SIZE = 46;
-    static final int SIGNATURE_OFFSET = 0;
     static final int VERSION_OFFSET = 4;
     static final int VERSION_NEEDED_OFFSET = 6;
     static final int FLAGS_OFFSET = 8;
@@ -37,7 +36,6 @@ public class CentralDirectoryFileHeader
     static final int FILENAME_LENGTH_OFFSET = 28;
     static final int EXTRA_FIELD_LENGTH_OFFSET = 30;
     static final int COMMENT_LENGTH_OFFSET = 32;
-    static final int DISK_START_OFFSET = 34;
     static final int INTERNAL_ATTRIBUTES_OFFSET = 36;
     static final int EXTERNAL_ATTRIBUTES_OFFSET = 38;
     static final int LOCAL_HEADER_OFFSET_OFFSET = 42;

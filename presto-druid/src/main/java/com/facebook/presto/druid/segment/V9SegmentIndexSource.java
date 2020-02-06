@@ -71,9 +71,7 @@ public class V9SegmentIndexSource
             throws IOException
     {
         ByteBuffer indexBuffer = ByteBuffer.wrap(segmentColumnSource.getColumnData(INDEX_METADATA_FILE_NAME));
-        final GenericIndexed<String> allColumns = GenericIndexed.read(
-                indexBuffer,
-                STRING_STRATEGY);
+        GenericIndexed.read(indexBuffer, STRING_STRATEGY);
         GenericIndexed<String> allDimensions = GenericIndexed.read(
                 indexBuffer,
                 STRING_STRATEGY);
@@ -90,9 +88,9 @@ public class V9SegmentIndexSource
         }
 
         Metadata metadata = null;
-        ByteBuffer metadataBB = ByteBuffer.wrap(segmentColumnSource.getColumnData(SEGMENT_METADATA_FILE_NAME));
+        ByteBuffer metadataBuffer = ByteBuffer.wrap(segmentColumnSource.getColumnData(SEGMENT_METADATA_FILE_NAME));
         try {
-            metadata = JSON_MAPPER.readValue(SERIALIZER_UTILS.readBytes(metadataBB, metadataBB.remaining()), Metadata.class);
+            metadata = JSON_MAPPER.readValue(SERIALIZER_UTILS.readBytes(metadataBuffer, metadataBuffer.remaining()), Metadata.class);
         }
         catch (JsonParseException | JsonMappingException e) {
             // Any jackson deserialization errors are ignored e.g. if metadata contains some aggregator which
@@ -107,7 +105,7 @@ public class V9SegmentIndexSource
         }
 
         List<String> availableDimensions = Streams.stream(allDimensions.iterator())
-                .filter(dimension -> columns.containsKey(dimension))
+                .filter(columns::containsKey)
                 .collect(toImmutableList());
 
         columns.put(TIME_COLUMN_NAME, () -> createColumnHolder(TIME_COLUMN_NAME));

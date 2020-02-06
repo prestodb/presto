@@ -25,7 +25,6 @@ public class EndOfCentralDirectoryRecord
 {
     public static final int SIGNATURE = 0x06054b50;
     public static final int FIXED_DATA_SIZE = 22;
-    public static final int SIGNATURE_OFFSET = 0;
     public static final int DISK_NUMBER_OFFSET = 4;
     public static final int CD_DISK_OFFSET = 6;
     public static final int DISK_ENTRIES_OFFSET = 8;
@@ -72,10 +71,5 @@ public class EndOfCentralDirectoryRecord
         zipFileData.setCentralDirectorySize(ZipUtil.getUnsignedInt(fixedSizeData, CD_SIZE_OFFSET));
         zipFileData.setCentralDirectoryOffset(ZipUtil.getUnsignedInt(fixedSizeData, CD_OFFSET_OFFSET));
         zipFileData.setExpectedEntries(ZipUtil.getUnsignedShort(fixedSizeData, TOTAL_ENTRIES_OFFSET));
-    }
-
-    static byte[] create(ZipFileData file, boolean allowZip64)
-    {
-        throw new UnsupportedOperationException();
     }
 }

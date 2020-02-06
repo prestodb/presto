@@ -25,15 +25,7 @@ public class Zip64EndOfCentralDirectory
 {
     static final int SIGNATURE = 0x06064b50;
     static final int FIXED_DATA_SIZE = 56;
-    static final int SIGNATURE_OFFSET = 0;
-    static final int SIZE_OFFSET = 4;
-    static final int VERSION_OFFSET = 12;
-    static final int VERSION_NEEDED_OFFSET = 14;
-    static final int DISK_NUMBER_OFFSET = 16;
-    static final int CD_DISK_OFFSET = 20;
-    static final int DISK_ENTRIES_OFFSET = 24;
     static final int TOTAL_ENTRIES_OFFSET = 32;
-    static final int CD_SIZE_OFFSET = 40;
     static final int CD_OFFSET_OFFSET = 48;
 
     private Zip64EndOfCentralDirectory()

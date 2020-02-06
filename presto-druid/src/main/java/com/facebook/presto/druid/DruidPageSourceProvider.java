@@ -53,8 +53,6 @@ public class DruidPageSourceProvider
 
         // parse Druid segment locations
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo();
-
-        DruidSegmentInfo.DeepStorageType type = segmentInfo.getDeepStorageType();
         try {
             Path hdfsPath = new Path(segmentInfo.getDeepStoragePath());
             FileSystem fileSystem = hdfsPath.getFileSystem(new Configuration());
@@ -67,7 +65,6 @@ public class DruidPageSourceProvider
             SegmentIndexSource segmentIndexSource = new V9SegmentIndexSource(segmentColumnSource);
 
             return new DruidSegmentPageSource(
-                    druidSplit.getSegmentInfo(),
                     columns,
                     new DruidSegmentReader(segmentIndexSource, columns));
         }

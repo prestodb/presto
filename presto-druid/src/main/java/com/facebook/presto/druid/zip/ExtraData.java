@@ -27,18 +27,6 @@ final class ExtraData
     private final int index;
     private final byte[] buffer;
 
-    public ExtraData(short id, byte[] data)
-    {
-        if (data.length > 0xffff) {
-            throw new IllegalArgumentException(String.format("Data is too long. Is %d; max %d", data.length, 0xffff));
-        }
-        index = 0;
-        buffer = new byte[FIXED_DATA_SIZE + data.length];
-        ZipUtil.shortToLittleEndian(buffer, ID_OFFSET, id);
-        ZipUtil.shortToLittleEndian(buffer, LENGTH_OFFSET, (short) data.length);
-        System.arraycopy(data, 0, buffer, FIXED_DATA_SIZE, data.length);
-    }
-
     public ExtraData(byte[] buffer, int index)
     {
         if (index >= buffer.length) {
