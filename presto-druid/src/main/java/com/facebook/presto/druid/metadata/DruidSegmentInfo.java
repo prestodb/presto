@@ -59,8 +59,8 @@ public class DruidSegmentInfo
             @JsonProperty("dataSource") String dataSource,
             @JsonProperty("interval") Interval interval,
             @JsonProperty("version") String version,
-            @JsonProperty("loadSpecification") Optional<Map<String, String>> loadSpecification,
-            @JsonProperty("shardSpecification") @Nullable Optional<Map<String, String>> shardSpecification,
+            @JsonProperty("loadSpec") Optional<Map<String, String>> loadSpecification,
+            @JsonProperty("shardSpec") @Nullable Optional<Map<String, String>> shardSpecification,
             @JsonProperty("binaryVersion") Integer binaryVersion,
             @JsonProperty("size") long size)
     {

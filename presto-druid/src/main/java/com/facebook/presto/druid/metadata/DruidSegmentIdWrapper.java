@@ -24,7 +24,7 @@ public class DruidSegmentIdWrapper
     private final String segmentId;
 
     @JsonCreator
-    public DruidSegmentIdWrapper(@JsonProperty("segmentId") String segmentId)
+    public DruidSegmentIdWrapper(@JsonProperty("segment_id") String segmentId)
     {
         this.segmentId = requireNonNull(segmentId, "segmentId is null");
     }
