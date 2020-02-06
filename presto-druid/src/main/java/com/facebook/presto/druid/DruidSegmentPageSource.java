@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class DruidSegmentPageSource
         implements ConnectorPageSource
 {
+    private final DataInputSource dataInputSource;
     private final List<ColumnHandle> columns;
     private final DruidSegmentReader segmentReader;
 
@@ -39,9 +40,11 @@ public class DruidSegmentPageSource
     private long completedPositions;
 
     public DruidSegmentPageSource(
+            DataInputSource dataInputSource,
             List<ColumnHandle> columns,
             DruidSegmentReader segmentReader)
     {
+        this.dataInputSource = requireNonNull(dataInputSource, "dataInputSource is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.segmentReader = requireNonNull(segmentReader, "segmentReader is null");
     }
@@ -61,7 +64,7 @@ public class DruidSegmentPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return dataInputSource.getReadTimeNanos();
     }
 
     @Override

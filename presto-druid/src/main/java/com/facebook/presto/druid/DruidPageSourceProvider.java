@@ -65,6 +65,7 @@ public class DruidPageSourceProvider
             SegmentIndexSource segmentIndexSource = new V9SegmentIndexSource(segmentColumnSource);
 
             return new DruidSegmentPageSource(
+                    dataInputSource,
                     columns,
                     new DruidSegmentReader(segmentIndexSource, columns));
         }
