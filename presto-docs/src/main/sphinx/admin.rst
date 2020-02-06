@@ -11,4 +11,5 @@ Administration
     admin/spill
     admin/resource-groups
     admin/session-property-managers
+    admin/function-namespace-managers
     admin/dist-sort
