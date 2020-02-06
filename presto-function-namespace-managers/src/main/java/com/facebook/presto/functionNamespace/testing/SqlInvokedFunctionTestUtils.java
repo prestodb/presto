@@ -35,8 +35,10 @@ public class SqlInvokedFunctionTestUtils
     }
 
     public static final String TEST_CATALOG = "unittest";
+    public static final String TEST_SCHEMA = "memory";
 
-    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "memory"), "power_tower");
+    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), "power_tower");
+    public static final QualifiedFunctionName TANGENT = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), "tangent");
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedFunction(
             POWER_TOWER,
@@ -63,5 +65,17 @@ public class SqlInvokedFunctionTestUtils
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "RETURN pow(x, x)",
+            Optional.empty());
+
+    public static final SqlInvokedFunction FUNCTION_TANGENT = new SqlInvokedFunction(
+            TANGENT,
+            ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+            parseTypeSignature(DOUBLE),
+            "tangent",
+            RoutineCharacteristics.builder()
+                    .setDeterminism(DETERMINISTIC)
+                    .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                    .build(),
+            "RETURN sin(x) / cos(x)",
             Optional.empty());
 }

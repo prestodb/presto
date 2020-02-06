@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -158,6 +159,16 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
         return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+    }
+
+    protected String getCatalogName()
+    {
+        return catalogName;
+    }
+
+    protected void checkCatalog(SqlFunction function)
+    {
+        checkCatalog(function.getSignature().getName());
     }
 
     protected void checkCatalog(QualifiedFunctionName functionName)
