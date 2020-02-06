@@ -65,6 +65,10 @@
             <outputDirectory>plugin/session-property-managers</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-function-namespace-managers-${project.version}</directory>
+            <outputDirectory>plugin/function-namespace-managers</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-jmx-${project.version}</directory>
             <outputDirectory>plugin/jmx</outputDirectory>
         </fileSet>
