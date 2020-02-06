@@ -33,6 +33,8 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.BitmapSerde;
 import org.apache.druid.segment.data.BitmapSerdeFactory;
 import org.apache.druid.segment.data.GenericIndexed;
+import org.apache.druid.segment.data.Indexed;
+import org.apache.druid.segment.data.ListIndexed;
 import org.joda.time.Interval;
 
 import java.io.IOException;
@@ -110,10 +112,11 @@ public class V9SegmentIndexSource
 
         columns.put(TIME_COLUMN_NAME, () -> createColumnHolder(TIME_COLUMN_NAME));
 
+        Indexed<String> indexed = new ListIndexed<>(availableDimensions);
         // TODO: get rid of the time column by creating Presto's SimpleQueryableIndex impl
         return new SimpleQueryableIndex(
                 dataInterval,
-                GenericIndexed.fromIterable(availableDimensions, STRING_STRATEGY),
+                indexed,
                 segmentBitmapSerdeFactory.getBitmapFactory(),
                 columns,
                 null,
