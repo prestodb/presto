@@ -98,7 +98,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
+    public void registerFunctionNamespaceManager(String catalogName, FunctionNamespaceManager<?> functionNamespaceManager)
     {
     }
 

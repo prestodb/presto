@@ -34,7 +34,9 @@ public class SqlInvokedFunctionTestUtils
     {
     }
 
-    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "power_tower");
+    public static final String TEST_CATALOG = "unittest";
+
+    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "memory"), "power_tower");
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedFunction(
             POWER_TOWER,

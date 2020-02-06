@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public abstract class AbstractSqlInvokedFunctionNamespaceManager
@@ -50,12 +52,14 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 {
     private final ConcurrentMap<FunctionNamespaceTransactionHandle, FunctionCollection> transactions = new ConcurrentHashMap<>();
 
+    private final String catalogName;
     private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
-    public AbstractSqlInvokedFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
+    public AbstractSqlInvokedFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
                 .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
@@ -125,6 +129,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     @Override
     public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
+        checkCatalog(functionName);
         checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
     }
@@ -132,6 +137,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     @Override
     public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
+        checkCatalog(signature.getName());
         checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
         SqlFunctionId functionId = new SqlFunctionId(signature.getName(), signature.getArgumentTypes());
@@ -141,6 +147,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     @Override
     public final FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
+        checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
         return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
     }
@@ -148,8 +155,28 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     @Override
     public final ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
+        checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
         return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+    }
+
+    protected void checkCatalog(QualifiedFunctionName functionName)
+    {
+        checkCatalog(functionName.getFunctionNamespace());
+    }
+
+    protected void checkCatalog(FunctionHandle functionHandle)
+    {
+        checkCatalog(functionHandle.getFunctionNamespace());
+    }
+
+    protected void checkCatalog(CatalogSchemaName functionNamespace)
+    {
+        checkArgument(
+                catalogName.equals(functionNamespace.getCatalogName()),
+                "Catalog [%s] is not served by this FunctionNamespaceManager, expected: %s",
+                functionNamespace.getCatalogName(),
+                catalogName);
     }
 
     protected void refreshFunctionsCache(QualifiedFunctionName functionName)

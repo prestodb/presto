@@ -153,14 +153,14 @@ public class DelegatingTransactionManager
     }
 
     @Override
-    public void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
+    public void registerFunctionNamespaceManager(String catalogName, FunctionNamespaceManager<?> functionNamespaceManager)
     {
-        delegate.registerFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManager);
+        delegate.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
     }
 
     @Override
-    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String catalogName)
     {
-        return delegate.getFunctionNamespaceTransaction(transactionId, functionNamespaceManagerName);
+        return delegate.getFunctionNamespaceTransaction(transactionId, catalogName);
     }
 }

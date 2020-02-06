@@ -335,10 +335,10 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
     }
 
-    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String functionNamespaceManagerId, List<String> catalogSchemaPrefix, Map<String, String> properties)
+    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManagerId, catalogSchemaPrefix, properties);
+            server.getMetadata().getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         }
     }
 

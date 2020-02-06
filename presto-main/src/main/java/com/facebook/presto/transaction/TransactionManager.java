@@ -54,9 +54,9 @@ public interface TransactionManager
 
     ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId);
 
-    void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager);
+    void registerFunctionNamespaceManager(String catalogNames, FunctionNamespaceManager<?> functionNamespaceManager);
 
-    FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName);
+    FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String catalogName);
 
     void checkAndSetActive(TransactionId transactionId);
 
