@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.functionNamespace;
 
 import com.facebook.airlift.configuration.Config;
 import io.airlift.units.Duration;

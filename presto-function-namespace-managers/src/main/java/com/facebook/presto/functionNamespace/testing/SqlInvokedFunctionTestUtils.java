@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction.testing;
+package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.QualifiedFunctionName;

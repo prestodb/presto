@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.testing;
+package com.facebook.presto.functionNamespace.testing;
 
+import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -22,8 +24,6 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
-import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
 
 import javax.annotation.concurrent.ThreadSafe;
 

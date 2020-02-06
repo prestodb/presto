@@ -11,15 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.functionNamespace;
 
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
-import com.facebook.presto.testing.InMemoryFunctionNamespaceManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -27,21 +26,21 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.Optional;
 
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
-import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
-import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
-import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestFunctionNamespaceManager
+public class TestSqlInvokedFunctionNamespaceManager
 {
     @Test
     public void testCreateFunction()
@@ -123,7 +122,7 @@ public class TestFunctionNamespaceManager
         assertEquals(function1, function2);
         assertNotSame(function1, function2);
 
-        // fetchFunctionMetadataDirect does not produce the same metdata reference
+        // fetchFunctionMetadataDirect does not produce the same metadata reference
         FunctionMetadata metadata1 = functionNamespaceManager.fetchFunctionMetadataDirect(function1.getRequiredFunctionHandle());
         FunctionMetadata metadata2 = functionNamespaceManager.fetchFunctionMetadataDirect(function2.getRequiredFunctionHandle());
         assertEquals(metadata1, metadata2);

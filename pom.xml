@@ -145,7 +145,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
-        <module>presto-sql-function</module>
+        <module>presto-function-namespace-managers</module>
         <module>presto-expressions</module>
         <module>presto-benchmark-runner</module>
         <module>presto-spark-classloader-interface</module>
@@ -474,12 +474,6 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-sqlserver</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-sql-function</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
