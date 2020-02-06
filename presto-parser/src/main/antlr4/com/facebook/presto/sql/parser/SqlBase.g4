@@ -26,6 +26,10 @@ standaloneExpression
     : expression EOF
     ;
 
+standaloneRoutineBody
+    : routineBody EOF
+    ;
+
 statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
@@ -170,6 +174,10 @@ alterRoutineCharacteristic
     ;
 
 routineBody
+    : returnStatement
+    ;
+
+returnStatement
     : RETURN expression
     ;
 

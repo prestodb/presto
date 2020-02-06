@@ -44,7 +44,7 @@ public class SqlInvokedFunctionTestUtils
             parseTypeSignature(DOUBLE),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
-            "pow(x, x)",
+            "RETURN pow(x, x)",
             Optional.empty());
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE_UPDATED = new SqlInvokedFunction(
@@ -53,7 +53,7 @@ public class SqlInvokedFunctionTestUtils
             parseTypeSignature(DOUBLE),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
-            "pow(x, x)",
+            "RETURN pow(x, x)",
             Optional.empty());
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_INT = new SqlInvokedFunction(
@@ -62,6 +62,6 @@ public class SqlInvokedFunctionTestUtils
             parseTypeSignature(INTEGER),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
-            "pow(x, x)",
+            "RETURN pow(x, x)",
             Optional.empty());
 }

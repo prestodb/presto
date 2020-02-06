@@ -31,19 +31,19 @@ public class CreateFunction
     private final String returnType;
     private final Optional<String> comment;
     private final RoutineCharacteristics characteristics;
-    private final Expression body;
+    private final Return body;
 
-    public CreateFunction(QualifiedName functionName, boolean replace, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
+    public CreateFunction(QualifiedName functionName, boolean replace, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Return body)
     {
         this(Optional.empty(), replace, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    public CreateFunction(NodeLocation location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
+    public CreateFunction(NodeLocation location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Return body)
     {
         this(Optional.of(location), replace, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    private CreateFunction(Optional<NodeLocation> location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
+    private CreateFunction(Optional<NodeLocation> location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Return body)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");
@@ -85,7 +85,7 @@ public class CreateFunction
         return characteristics;
     }
 
-    public Expression getBody()
+    public Return getBody()
     {
         return body;
     }

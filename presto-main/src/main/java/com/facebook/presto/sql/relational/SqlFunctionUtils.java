@@ -104,7 +104,8 @@ public final class SqlFunctionUtils
         ParsingOptions parsingOptions = ParsingOptions.builder()
                 .setDecimalLiteralTreatment(sqlFunctionProperties.isParseDecimalLiteralAsDouble() ? AS_DOUBLE : AS_DECIMAL)
                 .build();
-        return new SqlParser().createExpression(functionImplementation.getImplementation(), parsingOptions);
+        // TODO: Use injector-created SqlParser, which could potentially be different from the adhoc SqlParser.
+        return new SqlParser().createRoutineBody(functionImplementation.getImplementation(), parsingOptions).getExpression();
     }
 
     private static Map<String, Type> getFunctionArgumentTypes(FunctionMetadata functionMetadata, Metadata metadata)
