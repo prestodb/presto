@@ -34,8 +34,8 @@ public class TestDruidConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("druid-broker-url", "http://druid.broker:1234")
-                .put("druid-coordinator-url", "http://druid.coordinator:4321")
+                .put("druid.broker-url", "http://druid.broker:1234")
+                .put("druid.coordinator-url", "http://druid.coordinator:4321")
                 .build();
 
         DruidConfig expected = new DruidConfig()

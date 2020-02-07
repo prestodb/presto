@@ -11,6 +11,7 @@ from different data sources.
     connector/accumulo
     connector/blackhole
     connector/cassandra
+    connector/druid
     connector/elasticsearch
     connector/hive
     connector/hive-security
