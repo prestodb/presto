@@ -41,7 +41,10 @@ public class DruidQueryRunner
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
         try {
             queryRunner.installPlugin(new DruidPlugin());
-            Map<String, String> properties = ImmutableMap.of("druid-broker-url", broker, "druid-coordinator-url", coordinator);
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("druid.coordinator-url", coordinator)
+                    .put("druid.broker-url", broker)
+                    .build();
             queryRunner.createCatalog(DEFAULT_CATALOG, "druid", properties);
             return queryRunner;
         }

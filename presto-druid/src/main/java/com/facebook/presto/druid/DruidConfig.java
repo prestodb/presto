@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
@@ -28,7 +29,8 @@ public class DruidConfig
         return coordinatorUrl;
     }
 
-    @Config("druid-coordinator-url")
+    @Config("druid.coordinator-url")
+    @ConfigDescription("druid coordinator Url")
     public DruidConfig setDruidCoordinatorUrl(String coordinatorUrl)
     {
         this.coordinatorUrl = coordinatorUrl;
@@ -41,7 +43,8 @@ public class DruidConfig
         return brokerUrl;
     }
 
-    @Config("druid-broker-url")
+    @Config("druid.broker-url")
+    @ConfigDescription("druid broker Url")
     public DruidConfig setDruidBrokerUrl(String brokerUrl)
     {
         this.brokerUrl = brokerUrl;
