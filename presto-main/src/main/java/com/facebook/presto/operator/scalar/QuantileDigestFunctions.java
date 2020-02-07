@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -99,6 +100,38 @@ public final class QuantileDigestFunctions
             BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
         }
         return output.build();
+    }
+
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(double)")
+    public static Slice scaleQuantileDigestDouble(@SqlType("qdigest(double)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(real)")
+    public static Slice scaleQuantileDigestReal(@SqlType("qdigest(real)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(bigint)")
+    public static Slice scaleQuantileDigestBigint(@SqlType("qdigest(bigint)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    private static Slice scaleQuantileDigest(Slice input, double scale)
+    {
+        if (scale <= 0) throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Scale factor should be positive.");
+        QuantileDigest digest = new QuantileDigest(input);
+        digest.scale(scale);
+        return digest.serialize();
     }
 
     public static double verifyAccuracy(double accuracy)

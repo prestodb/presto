@@ -290,6 +290,13 @@ public final class FunctionAssertions
         MaterializedResult result = runner.execute("SELECT " + projection);
     }
 
+    protected <T> T selectSingleValue(String projection, Type expectedType, Class<T> clazz)
+    {
+        Object object = selectSingleValue(projection, expectedType, compiler);
+        assertEquals(object.getClass(), clazz);
+        return (T) object;
+    }
+
     private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
     {
         return selectUniqueValue(projection, expectedType, session, compiler);
