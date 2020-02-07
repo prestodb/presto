@@ -31,7 +31,7 @@ public enum DruidErrorCode
 
     DruidErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0100_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0506_0000, name(), type);
     }
 
     @Override
