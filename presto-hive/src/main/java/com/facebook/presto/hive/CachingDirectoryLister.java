@@ -21,6 +21,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -50,25 +51,28 @@ public class CachingDirectoryLister
         implements DirectoryLister
 {
     private final Cache<Path, List<LocatedFileStatus>> cache;
-    private final Set<SchemaTableName> tableNames;
+    private final Set<SchemaTableName> cachedTableNames;
 
     @Inject
     public CachingDirectoryLister(HiveClientConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxSize(), hiveClientConfig.getFileStatusCacheTables());
+        this(
+                hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
+                hiveClientConfig.getFileStatusCacheMaxSize(),
+                hiveClientConfig.getFileStatusCacheTables().stream()
+                        .map(CachingDirectoryLister::parseTableName)
+                        .collect(Collectors.toSet()));
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)
+    public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, Set<SchemaTableName> tables)
     {
-        this.cache = CacheBuilder.newBuilder()
+        cache = CacheBuilder.newBuilder()
                 .maximumWeight(maxSize)
                 .weigher((Weigher<Path, List<LocatedFileStatus>>) (key, value) -> value.size())
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .build();
-        this.tableNames = tables.stream()
-                .map(CachingDirectoryLister::parseTableName)
-                .collect(Collectors.toSet());
+        cachedTableNames = ImmutableSet.copyOf(requireNonNull(tables, "cachedTableNames is null"));
     }
 
     private static SchemaTableName parseTableName(String tableName)
@@ -95,11 +99,11 @@ public class CachingDirectoryLister
             throw new PrestoException(HIVE_FILE_NOT_FOUND, "Hive file location does not exist: " + path);
         }
 
-        if (!tableNames.contains(schemaTableName)) {
-            final HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(iterator);
+        if (!cachedTableNames.contains(schemaTableName)) {
+            HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(iterator);
             return new HiveFileIterator(path, p -> fileIterator, namenodeStats, nestedDirectoryPolicy, pathFilter);
         }
-        final HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(cachingRemoteIterator(iterator, path));
+        HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(cachingRemoteIterator(iterator, path));
         return new HiveFileIterator(path, p -> fileIterator, namenodeStats, nestedDirectoryPolicy, pathFilter);
     }
 

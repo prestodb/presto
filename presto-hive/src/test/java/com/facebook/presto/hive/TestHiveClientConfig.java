@@ -124,8 +124,8 @@ public class TestHiveClientConfig
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
-                .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
-                .setFileStatusCacheMaxSize(1000 * 1000)
+                .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
+                .setFileStatusCacheMaxSize(0)
                 .setFileStatusCacheTables(""));
     }
 
