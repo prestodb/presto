@@ -50,8 +50,6 @@ import static java.util.Objects.requireNonNull;
 public class DruidMetadata
         implements ConnectorMetadata
 {
-    private static final String DRUID_SCHEMA = "druid";
-
     private final DruidClient druidClient;
 
     @Inject
@@ -63,7 +61,7 @@ public class DruidMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(DRUID_SCHEMA);
+        return druidClient.getSchemas();
     }
 
     @Override
@@ -105,7 +103,7 @@ public class DruidMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return druidClient.getTables().stream()
-                .map(tableName -> new SchemaTableName(DRUID_SCHEMA, tableName))
+                .map(tableName -> new SchemaTableName(druidClient.getSchema(), tableName))
                 .collect(toImmutableList());
     }
 

@@ -50,8 +50,6 @@ public class DruidPageSourceProvider
             List<ColumnHandle> columns)
     {
         DruidSplit druidSplit = (DruidSplit) split;
-
-        // parse Druid segment locations
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo();
         try {
             Path hdfsPath = new Path(segmentInfo.getDeepStoragePath());

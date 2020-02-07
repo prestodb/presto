@@ -22,6 +22,7 @@ public class DruidConfig
 {
     private String coordinatorUrl;
     private String brokerUrl;
+    private String schema = "druid";
 
     @NotNull
     public String getDruidCoordinatorUrl()
@@ -48,6 +49,20 @@ public class DruidConfig
     public DruidConfig setDruidBrokerUrl(String brokerUrl)
     {
         this.brokerUrl = brokerUrl;
+        return this;
+    }
+
+    @NotNull
+    public String getDruidSchema()
+    {
+        return schema;
+    }
+
+    @Config("druid.schema-name")
+    @ConfigDescription("druid schema name")
+    public DruidConfig setDruidSchema(String schema)
+    {
+        this.schema = schema;
         return this;
     }
 }
