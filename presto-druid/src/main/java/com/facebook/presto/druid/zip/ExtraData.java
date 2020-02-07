@@ -50,12 +50,7 @@ final class ExtraData
 
     public int getLength()
     {
-        return getDataLength() + FIXED_DATA_SIZE;
-    }
-
-    public int getDataLength()
-    {
-        return ZipUtil.getUnsignedShort(buffer, index + LENGTH_OFFSET);
+        return ZipUtil.getUnsignedShort(buffer, index + LENGTH_OFFSET) + FIXED_DATA_SIZE;
     }
 
     public byte[] getData()
@@ -63,12 +58,7 @@ final class ExtraData
         return Arrays.copyOfRange(buffer, index + FIXED_DATA_SIZE, index + getLength());
     }
 
-    public byte[] getBytes()
-    {
-        return Arrays.copyOfRange(buffer, index, index + getLength());
-    }
-
-    byte getByte(int index)
+    public byte getByte(int index)
     {
         return buffer[this.index + index];
     }

@@ -18,6 +18,8 @@ import com.facebook.presto.druid.DataInputSource;
 import java.io.IOException;
 import java.util.zip.ZipException;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class Zip64EndOfCentralDirectoryLocator
 {
     public static final int SIGNATURE = 0x07064b50;
@@ -35,15 +37,12 @@ public class Zip64EndOfCentralDirectoryLocator
     public static ZipFileData read(ZipFileData file, DataInputSource dataInputSource, long position)
             throws IOException
     {
-        if (file == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(file != null, "Zip file data for source:%s is null", dataInputSource.getId());
 
         byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
         dataInputSource.readFully(position, fixedSizeData, 0, FIXED_DATA_SIZE);
         if (!ZipUtil.arrayStartsWith(fixedSizeData, ZipUtil.intToLittleEndian(SIGNATURE))) {
-            throw new ZipException(String.format(
-                    "Malformed Zip64 Central Directory Locator; does not start with %08x", SIGNATURE));
+            throw new ZipException(String.format("Malformed Zip64 Central Directory Locator; does not start with %08x", SIGNATURE));
         }
         file.setZip64(true);
         file.setZip64EndOfCentralDirectoryOffset(ZipUtil.getUnsignedLong(fixedSizeData, ZIP64_EOCD_OFFSET_OFFSET));

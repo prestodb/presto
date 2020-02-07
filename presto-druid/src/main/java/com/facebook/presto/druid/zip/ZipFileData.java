@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.zip.ZipException;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -49,23 +50,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class ZipFileData
 {
     private final Charset charset;
-    private String comment;
+    private final Map<String, ZipFileEntry> entries;
 
+    private String comment;
     private long centralDirectorySize;
     private long centralDirectoryOffset;
     private long expectedEntries;
     private long numEntries;
-    private final Map<String, ZipFileEntry> entries;
-
     private boolean maybeZip64;
     private boolean isZip64;
     private long zip64EndOfCentralDirectoryOffset;
 
     public ZipFileData(Charset charset)
     {
-        if (charset == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(charset != null, "Zip file charset could not be null");
         this.charset = charset;
         comment = "";
         entries = new LinkedHashMap<>();
@@ -83,9 +81,7 @@ public class ZipFileData
 
     public void setComment(byte[] comment)
     {
-        if (comment == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(comment != null, "Zip file comment could not be null");
         if (comment.length > 0xffff) {
             throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("File comment too long. Is %d; max %d.", comment.length, 0xffff));
         }
