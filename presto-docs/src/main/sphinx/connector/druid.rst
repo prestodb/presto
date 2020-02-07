@@ -24,6 +24,7 @@ replacing the properties as appropriate:
     connector.name=druid
     druid.coordinator-url=hostname:port
     druid.broker-url=hostname:port
+    druid.schema-name=schema
 
 Configuration Properties
 ------------------------
@@ -34,7 +35,8 @@ The following configuration properties are available:
 Property Name               Description
 ========================== =======================
 ``druid.coordinator-url``   Druid coordinator url.
-``druid.broker-url``        Druid broker url. 
+``druid.broker-url``        Druid broker url.
+``druid.schema-name``       Druid schema name.
 ========================== =======================
 
 ``druid.coordinator-url``
@@ -46,6 +48,13 @@ Druid coordinator url, e.g. localhost:8081.
 ^^^^^^^^^^^^^^^^^^^^
 
 Druid broker url, e.g. localhost:8082.
+
+``druid.schema-name``
+^^^^^^^^^^^^^^^^^^^^^
+
+Druid schema name.
+
+This property is optional; the default is ``druid``.
 
 Data Types
 ----------

@@ -27,7 +27,10 @@ public class TestDruidConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(DruidConfig.class).setDruidBrokerUrl(null).setDruidCoordinatorUrl(null));
+        assertRecordedDefaults(recordDefaults(DruidConfig.class)
+                    .setDruidBrokerUrl(null)
+                    .setDruidCoordinatorUrl(null)
+                    .setDruidSchema("druid"));
     }
 
     @Test
@@ -36,11 +39,13 @@ public class TestDruidConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("druid.broker-url", "http://druid.broker:1234")
                 .put("druid.coordinator-url", "http://druid.coordinator:4321")
+                .put("druid.schema-name", "test")
                 .build();
 
         DruidConfig expected = new DruidConfig()
                 .setDruidBrokerUrl("http://druid.broker:1234")
-                .setDruidCoordinatorUrl("http://druid.coordinator:4321");
+                .setDruidCoordinatorUrl("http://druid.coordinator:4321")
+                .setDruidSchema("test");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

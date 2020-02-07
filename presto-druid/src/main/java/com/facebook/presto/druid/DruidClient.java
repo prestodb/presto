@@ -24,6 +24,7 @@ import com.facebook.presto.druid.metadata.DruidTableInfo;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import org.joda.time.Instant;
 
 import javax.inject.Inject;
@@ -68,6 +69,7 @@ public class DruidClient
     private final HttpClient httpClient;
     private final URI druidCoordinator;
     private final URI druidBroker;
+    private final String druidSchema;
 
     @Inject
     public DruidClient(DruidConfig config, @ForDruidClient HttpClient httpClient)
@@ -76,11 +78,22 @@ public class DruidClient
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.druidCoordinator = URI.create(config.getDruidCoordinatorUrl());
         this.druidBroker = URI.create(config.getDruidBrokerUrl());
+        this.druidSchema = config.getDruidSchema();
     }
 
     public URI getDruidBroker()
     {
         return druidBroker;
+    }
+
+    public String getSchema()
+    {
+        return druidSchema;
+    }
+
+    public List<String> getSchemas()
+    {
+        return ImmutableList.of(druidSchema);
     }
 
     public List<String> getTables()
