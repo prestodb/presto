@@ -31,7 +31,6 @@ public class HdfsDataInputSource
     private final FSDataInputStream inputStream;
     private final long size;
     private long readTimeNanos;
-    private long readBytes;
 
     public HdfsDataInputSource(
             DataInputSourceId id,
@@ -47,12 +46,6 @@ public class HdfsDataInputSource
     public DataInputSourceId getId()
     {
         return id;
-    }
-
-    @Override
-    public long getReadBytes()
-    {
-        return readBytes;
     }
 
     @Override
@@ -80,7 +73,6 @@ public class HdfsDataInputSource
         readInternal(position, buffer, bufferOffset, bufferLength);
 
         readTimeNanos += System.nanoTime() - start;
-        readBytes += bufferLength;
     }
 
     private void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)

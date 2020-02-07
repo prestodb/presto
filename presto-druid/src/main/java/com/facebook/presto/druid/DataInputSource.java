@@ -21,8 +21,6 @@ public interface DataInputSource
 {
     DataInputSourceId getId();
 
-    long getReadBytes();
-
     long getReadTimeNanos();
 
     long getSize();
