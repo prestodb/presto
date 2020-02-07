@@ -101,6 +101,38 @@ public final class QuantileDigestFunctions
         return output.build();
     }
 
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(double)")
+    public static Slice scaleQuantileDigestDouble(@SqlType("qdigest(double)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(real)")
+    public static Slice scaleQuantileDigestReal(@SqlType("qdigest(real)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    @ScalarFunction("scale_qdigest")
+    @Description("Scale a quantile digest according to a new weight")
+    @SqlType("qdigest(bigint)")
+    public static Slice scaleQuantileDigestBigint(@SqlType("qdigest(bigint)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        return scaleQuantileDigest(input, scale);
+    }
+
+    private static Slice scaleQuantileDigest(Slice input, double scale)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "Scale factor should be positive.");
+        QuantileDigest digest = new QuantileDigest(input);
+        digest.scale(scale);
+        return digest.serialize();
+    }
+
     public static double verifyAccuracy(double accuracy)
     {
         checkCondition(accuracy > 0 && accuracy < 1, INVALID_FUNCTION_ARGUMENT, "Percentile accuracy must be exclusively between 0 and 1, was %s", accuracy);
