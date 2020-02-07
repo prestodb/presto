@@ -157,8 +157,8 @@ public class HiveClientConfig
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
 
-    private Duration fileStatusCacheExpireAfterWrite = new Duration(1, TimeUnit.MINUTES);
-    private long fileStatusCacheMaxSize = 1000 * 1000;
+    private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
+    private long fileStatusCacheMaxSize;
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
     public int getMaxInitialSplits()
