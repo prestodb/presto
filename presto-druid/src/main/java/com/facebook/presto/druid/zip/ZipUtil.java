@@ -26,10 +26,7 @@
 // limitations under the License.
 package com.facebook.presto.druid.zip;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.zip.ZipException;
 
@@ -46,14 +43,12 @@ public class ZipUtil
      * Midnight Jan 1st 1980. Uses the current time zone as the DOS format does not support time zones
      * and will always assume the current zone.
      */
-    public static final long DOS_EPOCH =
-            new GregorianCalendar(1980, Calendar.JANUARY, 1, 0, 0, 0).getTimeInMillis();
+    public static final long DOS_EPOCH = new GregorianCalendar(1980, Calendar.JANUARY, 1, 0, 0, 0).getTimeInMillis();
 
     /**
      * 23:59:59 Dec 31st 2107. The maximum date representable in DOS format.
      */
-    public static final long MAX_DOS_DATE =
-            new GregorianCalendar(2107, Calendar.DECEMBER, 31, 23, 59, 59).getTimeInMillis();
+    public static final long MAX_DOS_DATE = new GregorianCalendar(2107, Calendar.DECEMBER, 31, 23, 59, 59).getTimeInMillis();
 
     /* DOS format timestamp field offsets. */
     private static final int DOS_MINUTE_OFFSET = 5;
@@ -62,9 +57,6 @@ public class ZipUtil
     private static final int DOS_MONTH_OFFSET = 21;
     private static final int DOS_YEAR_OFFSET = 25;
 
-    /**
-     * Converts a integral value to the corresponding little endian array.
-     */
     private static byte[] integerToLittleEndian(byte[] buf, int offset, long value, int numBytes)
     {
         for (int i = 0; i < numBytes; i++) {
@@ -73,57 +65,36 @@ public class ZipUtil
         return buf;
     }
 
-    /**
-     * Converts a short to the corresponding 2-byte little endian array.
-     */
     public static byte[] shortToLittleEndian(short value)
     {
         return integerToLittleEndian(new byte[2], 0, value, 2);
     }
 
-    /**
-     * Writes a short to the buffer as a 2-byte little endian array starting at offset.
-     */
     public static byte[] shortToLittleEndian(byte[] buf, int offset, short value)
     {
         return integerToLittleEndian(buf, offset, value, 2);
     }
 
-    /**
-     * Converts an int to the corresponding 4-byte little endian array.
-     */
     public static byte[] intToLittleEndian(int value)
     {
         return integerToLittleEndian(new byte[4], 0, value, 4);
     }
 
-    /**
-     * Writes an int to the buffer as a 4-byte little endian array starting at offset.
-     */
     public static byte[] intToLittleEndian(byte[] buf, int offset, int value)
     {
         return integerToLittleEndian(buf, offset, value, 4);
     }
 
-    /**
-     * Converts a long to the corresponding 8-byte little endian array.
-     */
     public static byte[] longToLittleEndian(long value)
     {
         return integerToLittleEndian(new byte[8], 0, value, 8);
     }
 
-    /**
-     * Writes a long to the buffer as a 8-byte little endian array starting at offset.
-     */
     public static byte[] longToLittleEndian(byte[] buf, int offset, long value)
     {
         return integerToLittleEndian(buf, offset, value, 8);
     }
 
-    /**
-     * Reads 16 bits in little-endian byte order from the buffer at the given offset.
-     */
     public static short get16(byte[] source, int offset)
     {
         int a = source[offset + 0] & 0xff;
@@ -131,9 +102,6 @@ public class ZipUtil
         return (short) ((b << 8) | a);
     }
 
-    /**
-     * Reads 32 bits in little-endian byte order from the buffer at the given offset.
-     */
     public static int get32(byte[] source, int offset)
     {
         int a = source[offset + 0] & 0xff;
@@ -143,9 +111,6 @@ public class ZipUtil
         return (d << 24) | (c << 16) | (b << 8) | a;
     }
 
-    /**
-     * Reads 64 bits in little-endian byte order from the buffer at the given offset.
-     */
     public static long get64(byte[] source, int offset)
     {
         long a = source[offset + 0] & 0xffL;
@@ -159,29 +124,16 @@ public class ZipUtil
         return (h << 56) | (g << 48) | (f << 40) | (e << 32) | (d << 24) | (c << 16) | (b << 8) | a;
     }
 
-    /**
-     * Reads an unsigned short in little-endian byte order from the buffer at the given offset.
-     * Casts to an int to allow proper numerical comparison.
-     */
     public static int getUnsignedShort(byte[] source, int offset)
     {
         return get16(source, offset) & 0xffff;
     }
 
-    /**
-     * Reads an unsigned int in little-endian byte order from the buffer at the given offset.
-     * Casts to a long to allow proper numerical comparison.
-     */
     public static long getUnsignedInt(byte[] source, int offset)
     {
         return get32(source, offset) & 0xffffffffL;
     }
 
-    /**
-     * Reads an unsigned long in little-endian byte order from the buffer at the given offset.
-     * Performs bounds checking to see if the unsigned long will be properly represented in Java's
-     * signed value.
-     */
     public static long getUnsignedLong(byte[] source, int offset)
             throws ZipException
     {
@@ -213,30 +165,6 @@ public class ZipUtil
     }
 
     /**
-     * Converts a unix timestamp into a 32-bit DOS timestamp.
-     */
-    public static int unixToDosTime(long timeMillis)
-    {
-        Calendar time = Calendar.getInstance();
-        time.setTimeInMillis(timeMillis);
-
-        if (!isValidInDos(timeMillis)) {
-            DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            throw new IllegalArgumentException(String.format("%s is not representable in the DOS time"
-                            + " format. It must be in the range %s to %s", df.format(time.getTime()),
-                    df.format(new Date(DOS_EPOCH)), df.format(new Date(MAX_DOS_DATE))));
-        }
-
-        int dos = time.get(Calendar.SECOND) / 2;
-        dos |= time.get(Calendar.MINUTE) << DOS_MINUTE_OFFSET;
-        dos |= time.get(Calendar.HOUR_OF_DAY) << DOS_HOUR_OFFSET;
-        dos |= time.get(Calendar.DAY_OF_MONTH) << DOS_DAY_OFFSET;
-        dos |= (time.get(Calendar.MONTH) + 1) << DOS_MONTH_OFFSET;
-        dos |= (time.get(Calendar.YEAR) - 1980) << DOS_YEAR_OFFSET;
-        return dos;
-    }
-
-    /**
      * Converts a 32-bit DOS timestamp into a unix timestamp.
      */
     public static long dosToUnixTime(int timestamp)
@@ -252,9 +180,6 @@ public class ZipUtil
         return time.getTimeInMillis();
     }
 
-    /**
-     * Checks if array starts with target.
-     */
     public static boolean arrayStartsWith(byte[] array, byte[] target)
     {
         if (array == null) {

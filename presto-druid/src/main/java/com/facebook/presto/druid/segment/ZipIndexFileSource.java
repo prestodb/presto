@@ -16,7 +16,6 @@ package com.facebook.presto.druid.segment;
 import com.facebook.presto.druid.DataInputSource;
 import com.facebook.presto.druid.zip.CentralDirectoryFileHeader;
 import com.facebook.presto.druid.zip.EndOfCentralDirectoryRecord;
-import com.facebook.presto.druid.zip.LocalFileHeader;
 import com.facebook.presto.druid.zip.Zip64EndOfCentralDirectory;
 import com.facebook.presto.druid.zip.Zip64EndOfCentralDirectoryLocator;
 import com.facebook.presto.druid.zip.ZipFileData;
@@ -41,6 +40,11 @@ import static java.util.Objects.requireNonNull;
 public class ZipIndexFileSource
         implements IndexFileSource, Closeable, AutoCloseable
 {
+    public static final int LOCAL_HEADER_SIGNATURE = 0x04034b50;
+    public static final int LOCAL_HEADER_FIXED_DATA_SIZE = 30;
+    public static final int LOCAL_HEADER_FILENAME_LENGTH_OFFSET = 26;
+    public static final int LOCAL_HEADER_EXTRA_FIELD_LENGTH_OFFSET = 28;
+
     private final DataInputSource dataInputSource;
 
     private ZipFileData zipData;
@@ -82,19 +86,19 @@ public class ZipIndexFileSource
             throws IOException
     {
         long offset = entry.getLocalHeaderOffset();
-        byte[] fileHeader = new byte[LocalFileHeader.FIXED_DATA_SIZE];
+        byte[] fileHeader = new byte[LOCAL_HEADER_FIXED_DATA_SIZE];
         dataInputSource.readFully(offset, fileHeader);
         offset += fileHeader.length;
 
-        if (!ZipUtil.arrayStartsWith(fileHeader, ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
+        if (!ZipUtil.arrayStartsWith(fileHeader, ZipUtil.intToLittleEndian(LOCAL_HEADER_SIGNATURE))) {
             throw new PrestoException(
                     DRUID_SEGMENT_LOAD_ERROR,
                     format("The file '%s' is not a correctly formatted zip file: Expected a File Header at offset %d, but not present.", entry.getName(), offset));
         }
 
         // skip name and extra field
-        int nameLength = ZipUtil.getUnsignedShort(fileHeader, LocalFileHeader.FILENAME_LENGTH_OFFSET);
-        int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader, LocalFileHeader.EXTRA_FIELD_LENGTH_OFFSET);
+        int nameLength = ZipUtil.getUnsignedShort(fileHeader, LOCAL_HEADER_FILENAME_LENGTH_OFFSET);
+        int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader, LOCAL_HEADER_EXTRA_FIELD_LENGTH_OFFSET);
         offset += (nameLength + extraFieldLength);
 
         // deflate

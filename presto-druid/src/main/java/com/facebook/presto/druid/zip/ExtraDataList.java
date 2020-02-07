@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.druid.zip;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -23,11 +20,6 @@ class ExtraDataList
 {
     private final Map<Short, ExtraData> entries;
 
-    /**
-     * Create a new empty extra data list.
-     *
-     * <p><em>NOTE:</em> entries in a list created this way will be backed by their own storage.
-     */
     public ExtraDataList()
     {
         entries = new LinkedHashMap<>();
@@ -43,13 +35,6 @@ class ExtraDataList
         return entries;
     }
 
-    /**
-     * Creates an extra data list from the given extra data records.
-     *
-     * <p><em>NOTE:</em> entries in a list created this way will be backed by their own storage.
-     *
-     * @param extra the extra data records
-     */
     public ExtraDataList(ExtraData... extra)
     {
         this();
@@ -58,14 +43,14 @@ class ExtraDataList
         }
     }
 
-    /**
-     * Creates an extra data list from the entries contained in the given array.
-     *
-     * <p><em>NOTE:</em> entries in a list created this way will be backed by the buffer. No defensive
-     * copying is performed.
-     *
-     * @param buffer the array containing sequential extra data entries
-     */
+    public void add(ExtraData entry)
+    {
+        if (getLength() + entry.getLength() > 0xffff) {
+            throw new IllegalArgumentException("adding entry will make the extra field be too long");
+        }
+        entries.put(entry.getId(), entry);
+    }
+
     public ExtraDataList(byte[] buffer)
     {
         if (buffer.length > 0xffff) {
@@ -80,49 +65,11 @@ class ExtraDataList
         }
     }
 
-    /**
-     * Returns the extra data record with the specified id, or null if it does not exist.
-     */
     public ExtraData get(short id)
     {
         return entries.get(id);
     }
 
-    /**
-     * Removes and returns the extra data record with the specified id if it exists.
-     *
-     * <p><em>NOTE:</em> does not modify the underlying storage, only marks the record as removed.
-     */
-    public ExtraData remove(short id)
-    {
-        return entries.remove(id);
-    }
-
-    /**
-     * Returns if the list contains an extra data record with the specified id.
-     */
-    public boolean contains(short id)
-    {
-        return entries.containsKey(id);
-    }
-
-    /**
-     * Adds a new entry to the end of the list.
-     *
-     * @throws IllegalArgumentException if adding the entry will make the list too long for the ZIP
-     * format
-     */
-    public void add(ExtraData entry)
-    {
-        if (getLength() + entry.getLength() > 0xffff) {
-            throw new IllegalArgumentException("adding entry will make the extra field be too long");
-        }
-        entries.put(entry.getId(), entry);
-    }
-
-    /**
-     * Returns the overall length of the list in bytes.
-     */
     public int getLength()
     {
         int length = 0;
@@ -130,52 +77,5 @@ class ExtraDataList
             length += e.getLength();
         }
         return length;
-    }
-
-    /**
-     * Creates and returns a byte array of the extra data list.
-     */
-    public byte[] getBytes()
-    {
-        byte[] extra = new byte[getLength()];
-        try {
-            getByteStream().read(extra);
-        }
-        catch (IOException impossible) {
-            throw new AssertionError(impossible);
-        }
-        return extra;
-    }
-
-    /**
-     * Returns an input stream for reading the extra data list entries.
-     */
-    public InputStream getByteStream()
-    {
-        return new InputStream()
-        {
-            private final Iterator<ExtraData> itr = entries.values().iterator();
-            private ExtraData entry;
-            private int index;
-
-            @Override
-            public int read()
-            {
-                if (entry == null) {
-                    if (itr.hasNext()) {
-                        entry = itr.next();
-                        index = 0;
-                    }
-                    else {
-                        return -1;
-                    }
-                }
-                byte val = entry.getByte(index++);
-                if (index >= entry.getLength()) {
-                    entry = null;
-                }
-                return val & 0xff;
-            }
-        };
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import java.io.IOException;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public class Zip64EndOfCentralDirectory
@@ -39,9 +40,7 @@ public class Zip64EndOfCentralDirectory
     public static void read(ZipFileData file, DataInputSource dataInputSource, long offset)
             throws IOException
     {
-        if (file == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(file != null, "Zip file data for source:%s is null", dataInputSource.getId());
 
         byte[] fixedSizeData = new byte[FIXED_DATA_SIZE];
         dataInputSource.readFully(offset, fixedSizeData);

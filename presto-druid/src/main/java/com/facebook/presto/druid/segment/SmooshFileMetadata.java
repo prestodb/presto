@@ -15,23 +15,23 @@ package com.facebook.presto.druid.segment;
 
 class SmooshFileMetadata
 {
-    private final int fileNum;
+    private final int fileCount;
     private final int startOffset;
     private final int endOffset;
 
     SmooshFileMetadata(
-            int fileNum,
+            int fileCount,
             int startOffset,
             int endOffset)
     {
-        this.fileNum = fileNum;
+        this.fileCount = fileCount;
         this.startOffset = startOffset;
         this.endOffset = endOffset;
     }
 
-    public int getFileNum()
+    public int getFileCount()
     {
-        return fileNum;
+        return fileCount;
     }
 
     public int getStartOffset()

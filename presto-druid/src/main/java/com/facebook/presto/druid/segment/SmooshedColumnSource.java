@@ -14,17 +14,14 @@
 package com.facebook.presto.druid.segment;
 
 import com.facebook.presto.spi.PrestoException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.common.utils.SerializerUtils;
-import org.apache.druid.jackson.DefaultObjectMapper;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_SEGMENT_LOAD_ERROR;
 import static java.lang.String.format;
@@ -36,13 +33,9 @@ public class SmooshedColumnSource
     private static final String FILE_EXTENSION = "smoosh";
     private static final String SMOOSH_METADATA_FILE_NAME = makeMetaFileName();
     private static final String VERSION_FILE_NAME = "version.bin";
-    private static final String INDEX_METADATA_FILE_NAME = "index.drd";
-
-    private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
-    private static final SerializerUtils SERIALIZER_UTILS = new SerializerUtils();
 
     private final IndexFileSource indexFileSource;
-    private final Map<String, SmooshFileMetadata> columnSmoosh = new TreeMap<>();
+    private final Map<String, SmooshFileMetadata> columnSmoosh = new HashMap<>();
 
     public SmooshedColumnSource(IndexFileSource indexFileSource)
     {
@@ -68,7 +61,7 @@ public class SmooshedColumnSource
         if (metadata == null) {
             throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Internal file %s doesn't exist", name));
         }
-        String fileName = makeChunkFileName(metadata.getFileNum());
+        String fileName = makeChunkFileName(metadata.getFileCount());
         int fileStart = metadata.getStartOffset();
         int fileSize = metadata.getEndOffset() - fileStart;
 
@@ -97,8 +90,7 @@ public class SmooshedColumnSource
                 throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Malformed metadata file: unknown version[%s], v1 is all I know.", splits[0]));
             }
             if (splits.length != 3) {
-                throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Malformed metadata file: wrong number of splits[%d] in line[%s]", splits.length,
-                        line));
+                throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Malformed metadata file: wrong number of splits[%d] in line[%s]", splits.length, line));
             }
 
             while (true) {

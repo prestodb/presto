@@ -49,7 +49,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.druid.segment.column.ColumnHolder.TIME_COLUMN_NAME;
 import static org.apache.druid.segment.data.GenericIndexed.STRING_STRATEGY;
 
-// V9 index with version 1 index.drd
 public class V9SegmentIndexSource
         implements SegmentIndexSource
 {
@@ -57,7 +56,6 @@ public class V9SegmentIndexSource
 
     private static final String INDEX_METADATA_FILE_NAME = "index.drd";
     private static final String SEGMENT_METADATA_FILE_NAME = "metadata.drd";
-
     private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
     private static final SerializerUtils SERIALIZER_UTILS = new SerializerUtils();
 
@@ -97,7 +95,7 @@ public class V9SegmentIndexSource
         catch (JsonParseException | JsonMappingException e) {
             // Any jackson deserialization errors are ignored e.g. if metadata contains some aggregator which
             // is no longer supported then it is OK to not use the metadata instead of failing segment loading
-            log.warn(e, "Failed to load metadata for segment ");
+            log.warn(e, "Failed to load metadata for segment");
         }
 
         Map<String, Supplier<ColumnHolder>> columns = new HashMap<>();

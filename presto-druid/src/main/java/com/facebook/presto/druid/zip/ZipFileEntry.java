@@ -17,6 +17,8 @@ import javax.annotation.Nullable;
 
 import java.util.EnumSet;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 /**
  * A full representation of a ZIP file entry.
  *
@@ -139,11 +141,6 @@ public class ZipFileEntry
 
     private EnumSet<Feature> featureSet;
 
-    /**
-     * Creates a new ZIP entry with the specified name.
-     *
-     * @throws NullPointerException if the entry name is null
-     */
     public ZipFileEntry(String name)
     {
         this.featureSet = EnumSet.of(Feature.DEFAULT);
@@ -152,9 +149,6 @@ public class ZipFileEntry
         setExtra(new ExtraDataList());
     }
 
-    /**
-     * Creates a new ZIP entry with fields taken from the specified ZIP entry.
-     */
     public ZipFileEntry(ZipFileEntry e)
     {
         this.name = e.getName();
@@ -174,49 +168,27 @@ public class ZipFileEntry
         this.featureSet = EnumSet.copyOf(e.getFeatureSet());
     }
 
-    /**
-     * Sets the name of the entry.
-     */
     public void setName(String name)
     {
-        if (name == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(name != null, "Zip file name could not be null");
         this.name = name;
     }
 
-    /**
-     * Returns the name of the entry.
-     */
     public String getName()
     {
         return name;
     }
 
-    /**
-     * Sets the modification time of the entry.
-     *
-     * @param time the entry modification time in number of milliseconds since the epoch
-     */
     public void setTime(long time)
     {
         this.time = time;
     }
 
-    /**
-     * Returns the modification time of the entry, or -1 if not specified.
-     */
     public long getTime()
     {
         return time;
     }
 
-    /**
-     * Sets the CRC-32 checksum of the uncompressed entry data.
-     *
-     * @throws IllegalArgumentException if the specified CRC-32 value is less than 0 or greater than
-     * 0xFFFFFFFF
-     */
     public void setCrc(long crc)
     {
         if (crc < 0 || crc > 0xffffffffL) {
@@ -225,19 +197,11 @@ public class ZipFileEntry
         this.crc = crc;
     }
 
-    /**
-     * Returns the CRC-32 checksum of the uncompressed entry data, or -1 if not known.
-     */
     public long getCrc()
     {
         return crc;
     }
 
-    /**
-     * Sets the uncompressed size of the entry data in bytes.
-     *
-     * @throws IllegalArgumentException if the specified size is less than 0
-     */
     public void setSize(long size)
     {
         if (size < 0) {
@@ -252,19 +216,11 @@ public class ZipFileEntry
         this.size = size;
     }
 
-    /**
-     * Returns the uncompressed size of the entry data, or -1 if not known.
-     */
     public long getSize()
     {
         return size;
     }
 
-    /**
-     * Sets the size of the compressed entry data in bytes.
-     *
-     * @throws IllegalArgumentException if the specified size is less than 0
-     */
     public void setCompressedSize(long csize)
     {
         if (csize < 0) {
@@ -279,23 +235,14 @@ public class ZipFileEntry
         this.csize = csize;
     }
 
-    /**
-     * Returns the size of the compressed entry data, or -1 if not known. In the case of a stored
-     * entry, the compressed size will be the same as the uncompressed size of the entry.
-     */
     public long getCompressedSize()
     {
         return csize;
     }
 
-    /**
-     * Sets the compression method for the entry.
-     */
     public void setMethod(Compression method)
     {
-        if (method == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(method != null, "Zip file compression could not be null");
         if (this.method != null) {
             featureSet.remove(this.method.getFeature());
         }
@@ -303,61 +250,36 @@ public class ZipFileEntry
         featureSet.add(this.method.getFeature());
     }
 
-    /**
-     * Returns the compression method of the entry.
-     */
     public Compression getMethod()
     {
         return method;
     }
 
-    /**
-     * Sets the made by version for the entry.
-     */
     public void setVersion(short version)
     {
         this.version = version;
     }
 
-    /**
-     * Returns the made by version of the entry, accounting for assigned version and feature set.
-     */
     public short getVersion()
     {
         return (short) Math.max(version, Feature.getMinRequiredVersion(featureSet));
     }
 
-    /**
-     * Sets the version needed to extract the entry.
-     */
     public void setVersionNeeded(short versionNeeded)
     {
         this.versionNeeded = versionNeeded;
     }
 
-    /**
-     * Returns the version needed to extract the entry, accounting for assigned version and feature
-     * set.
-     */
     public short getVersionNeeded()
     {
         return (short) Math.max(versionNeeded, Feature.getMinRequiredVersion(featureSet));
     }
 
-    /**
-     * Sets the general purpose bit flags for the entry.
-     */
     public void setFlags(short flags)
     {
         this.flags = flags;
     }
 
-    /**
-     * Sets or clears the specified bit of the general purpose bit flags.
-     *
-     * @param flag the flag to set or clear
-     * @param set whether the flag is to be set or cleared
-     */
     public void setFlag(Flag flag, boolean set)
     {
         short mask = 0x0000;
@@ -370,28 +292,16 @@ public class ZipFileEntry
         }
     }
 
-    /**
-     * Returns the general purpose bit flags of the entry.
-     *
-     * <p>See <a href="http://www.pkware.com/documents/casestudies/APPNOTE.TXT">ZIP Format</a>
-     * section 4.4.4.
-     */
     public short getFlags()
     {
         return flags;
     }
 
-    /**
-     * Sets the internal file attributes of the entry.
-     */
     public void setInternalAttributes(short internalAttributes)
     {
         this.internalAttributes = internalAttributes;
     }
 
-    /**
-     * Returns the internal file attributes of the entry.
-     */
     public short getInternalAttributes()
     {
         return internalAttributes;
@@ -405,22 +315,11 @@ public class ZipFileEntry
         this.externalAttributes = externalAttributes;
     }
 
-    /**
-     * Returns the external file attributes of the entry.
-     */
     public int getExternalAttributes()
     {
         return externalAttributes;
     }
 
-    /**
-     * Sets the file offset, in bytes, of the location of the local file header for the entry.
-     *
-     * <p>See <a href="http://www.pkware.com/documents/casestudies/APPNOTE.TXT">ZIP Format</a>
-     * section 4.4.16
-     *
-     * @throws IllegalArgumentException if the specified local header offset is less than 0
-     */
     void setLocalHeaderOffset(long localHeaderOffset)
     {
         if (localHeaderOffset < 0) {
@@ -435,58 +334,35 @@ public class ZipFileEntry
         this.localHeaderOffset = localHeaderOffset;
     }
 
-    /**
-     * Returns the file offset of the local header of the entry.
-     */
     public long getLocalHeaderOffset()
     {
         return localHeaderOffset;
     }
 
-    /**
-     * Sets the optional extra field data for the entry.
-     *
-     * @throws IllegalArgumentException if the length of the specified extra field data is greater
-     * than 0xFFFF bytes
-     */
     public void setExtra(ExtraDataList extra)
     {
-        if (extra == null) {
-            throw new NullPointerException();
-        }
+        checkArgument(extra != null, "Zip file data could not be null");
         if (extra.getLength() > 0xffff) {
             throw new IllegalArgumentException("invalid extra field length");
         }
         this.extra = extra;
     }
 
-    /**
-     * Returns the extra field data for the entry.
-     */
     public ExtraDataList getExtra()
     {
         return extra;
     }
 
-    /**
-     * Sets the optional comment string for the entry.
-     */
     public void setComment(@Nullable String comment)
     {
         this.comment = comment;
     }
 
-    /**
-     * Returns the comment string for the entry, or null if none.
-     */
     public String getComment()
     {
         return comment;
     }
 
-    /**
-     * Returns the feature set that this entry uses.
-     */
     EnumSet<Feature> getFeatureSet()
     {
         return featureSet;
