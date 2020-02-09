@@ -18,6 +18,8 @@ import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.common.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.common.block.EncoderUtil.encodeNullsAsBits;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.Slices.wrappedIntArray;
 
 public class IntArrayBlockEncoding
         implements BlockEncoding
@@ -49,16 +51,27 @@ public class IntArrayBlockEncoding
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
-
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
         int[] values = new int[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readInt();
-            }
+
+        // Fast track if no nulls present
+        if (!sliceInput.readBoolean()) {
+            sliceInput.readBytes(wrappedIntArray(values));
+            return new IntArrayBlock(0, positionCount, null, values);
         }
 
+        boolean[] valueIsNull = new boolean[positionCount];
+        int nullPositions = decodeNullBits(sliceInput, valueIsNull);
+        int nonNullPositions = positionCount - nullPositions;
+
+        // Read compact values array and redistribute to non-null positions
+        sliceInput.readBytes(wrappedIntArray(values), nonNullPositions * SIZE_OF_INT);
+        int writePosition = values.length - 1;
+        int readPosition = nonNullPositions - 1;
+        while (readPosition >= 0) {
+            values[writePosition] = values[readPosition];
+            readPosition -= valueIsNull[writePosition] ? 0 : 1;
+            writePosition--;
+        }
         return new IntArrayBlock(0, positionCount, valueIsNull, values);
     }
 }

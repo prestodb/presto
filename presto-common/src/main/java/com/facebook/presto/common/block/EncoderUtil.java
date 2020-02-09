@@ -18,6 +18,9 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Optional;
 
+import static java.lang.Byte.toUnsignedInt;
+import static java.lang.Integer.bitCount;
+
 final class EncoderUtil
 {
     private EncoderUtil()
@@ -96,5 +99,42 @@ final class EncoderUtil
         }
 
         return Optional.of(valueIsNull);
+    }
+
+    /**
+     * Decode the bit stream created by encodeNullsAsBits.  The valueIsNull buffer must be exactly sized to the position
+     * count.  Returns the number of nulls seen during deserialization.
+     */
+    public static int decodeNullBits(SliceInput sliceInput, boolean[] valueIsNull)
+    {
+        int positionCount = valueIsNull.length;
+        int nullPositions = 0;
+
+        // read null bits 8 at a time
+        for (int position = 0; position < (positionCount & ~0b111); position += 8) {
+            byte value = sliceInput.readByte();
+            valueIsNull[position] = ((value & 0b1000_0000) != 0);
+            valueIsNull[position + 1] = ((value & 0b0100_0000) != 0);
+            valueIsNull[position + 2] = ((value & 0b0010_0000) != 0);
+            valueIsNull[position + 3] = ((value & 0b0001_0000) != 0);
+            valueIsNull[position + 4] = ((value & 0b0000_1000) != 0);
+            valueIsNull[position + 5] = ((value & 0b0000_0100) != 0);
+            valueIsNull[position + 6] = ((value & 0b0000_0010) != 0);
+            valueIsNull[position + 7] = ((value & 0b0000_0001) != 0);
+            nullPositions += bitCount(toUnsignedInt(value));
+        }
+
+        // read last null bits
+        if ((positionCount & 0b111) > 0) {
+            byte value = sliceInput.readByte();
+            int mask = 0b1000_0000;
+            for (int position = positionCount & ~0b111; position < positionCount; position++) {
+                valueIsNull[position] = ((value & mask) != 0);
+                mask >>>= 1;
+            }
+            nullPositions += bitCount(toUnsignedInt(value));
+        }
+
+        return nullPositions;
     }
 }

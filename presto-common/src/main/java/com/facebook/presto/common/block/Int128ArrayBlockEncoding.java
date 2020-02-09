@@ -18,6 +18,8 @@ import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.common.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.common.block.EncoderUtil.encodeNullsAsBits;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedLongArray;
 
 public class Int128ArrayBlockEncoding
         implements BlockEncoding
@@ -50,17 +52,29 @@ public class Int128ArrayBlockEncoding
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
+        int valuesSize = positionCount * 2;
+        long[] values = new long[valuesSize];
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
-        long[] values = new long[positionCount * 2];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position * 2] = sliceInput.readLong();
-                values[(position * 2) + 1] = sliceInput.readLong();
-            }
+        // Fast track if no nulls present
+        if (!sliceInput.readBoolean()) {
+            sliceInput.readBytes(wrappedLongArray(values));
+            return new Int128ArrayBlock(0, positionCount, null, values);
         }
 
+        boolean[] valueIsNull = new boolean[positionCount];
+        int nullPositions = decodeNullBits(sliceInput, valueIsNull);
+        int nonNullPositions = (positionCount - nullPositions) * 2;
+
+        // Read compact values array and redistribute to non-null positions
+        sliceInput.readBytes(wrappedLongArray(values), nonNullPositions * SIZE_OF_LONG);
+        int writePosition = values.length - 2;
+        int readPosition = nonNullPositions - 2;
+        while (readPosition >= 0) {
+            values[writePosition] = values[readPosition];
+            values[writePosition + 1] = values[readPosition + 1];
+            readPosition -= valueIsNull[writePosition >> 1] ? 0 : 2;
+            writePosition -= 2;
+        }
         return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
     }
 }
