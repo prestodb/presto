@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -30,6 +31,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
+import static com.facebook.presto.verifier.framework.Column.Category.MAP;
 import static com.facebook.presto.verifier.framework.Column.Category.ROW;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
@@ -43,6 +45,7 @@ public class Column
         FLOATING_POINT,
         ARRAY,
         ROW,
+        MAP,
     }
 
     private static final Set<Type> FLOATING_POINT_TYPES = ImmutableSet.of(DOUBLE, REAL);
@@ -96,6 +99,9 @@ public class Column
         }
         else if (type instanceof ArrayType) {
             category = ARRAY;
+        }
+        else if (type instanceof MapType) {
+            category = MAP;
         }
         else if (type instanceof RowType) {
             category = ROW;
