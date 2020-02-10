@@ -37,6 +37,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -427,6 +428,7 @@ public class TestHiveSplitSource
                     bucketNumber,
                     true,
                     false,
+                    NO_PREFERENCE,
                     false,
                     new HiveSplitPartitionInfo(
                             new Storage(
