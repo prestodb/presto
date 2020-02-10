@@ -1289,6 +1289,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'a' LIKE unbound_string ESCAPE null", "null");
 
         assertOptimizedEquals("'%' LIKE 'z%' ESCAPE 'z'", "true");
+
+        assertRowExpressionEquals(SERIALIZABLE, "'%' LIKE 'z%' ESCAPE 'z'", "true");
+        assertRowExpressionEquals(SERIALIZABLE, "'%' LIKE 'z%'", "false");
     }
 
     @Test
@@ -1329,11 +1332,11 @@ public class TestExpressionInterpreter
         assertDoNotOptimize("transform(unbound_array, x -> x + x)", OPTIMIZED);
         assertOptimizedEquals("transform(ARRAY[1, 5], x -> x + x)", "transform(ARRAY[1, 5], x -> x + x)");
         assertOptimizedEquals("transform(sequence(1, 5), x -> x + x)", "transform(sequence(1, 5), x -> x + x)");
-        assertRowExpressionOptimizedEquals(
+        assertRowExpressionEquals(
                 OPTIMIZED,
                 "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + x)",
                 "transform(sequence(1, unbound_long), x -> 1 + x)");
-        assertRowExpressionOptimizedEquals(
+        assertRowExpressionEquals(
                 OPTIMIZED,
                 "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + 1)",
                 "transform(sequence(1, unbound_long), x -> 2)");
@@ -1382,7 +1385,7 @@ public class TestExpressionInterpreter
     @Test
     public void testMassiveArray()
     {
-        assertRowExpressionOptimizedEquals(
+        assertRowExpressionEquals(
                 OPTIMIZED,
                 "SEQUENCE(1, 999)",
                 format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(1, 1000).mapToObj(i -> "(BIGINT '" + i + "')").iterator())));
@@ -1525,7 +1528,7 @@ public class TestExpressionInterpreter
         assertEquals(optimize(actual), optimize(expected));
     }
 
-    private static void assertRowExpressionOptimizedEquals(Level level, @Language("SQL") String actual, @Language("SQL") String expected)
+    private static void assertRowExpressionEquals(Level level, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         Object actualResult = optimize(toRowExpression(expression(actual)), level);
         Object expectedResult = optimize(toRowExpression(expression(expected)), level);

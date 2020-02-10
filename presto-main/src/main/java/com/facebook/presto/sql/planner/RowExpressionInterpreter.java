@@ -883,8 +883,19 @@ public class RowExpressionInterpreter
                 if (possibleCompiledPattern == null) {
                     return changed(null);
                 }
-                checkState((resolution.isCastFunction(((CallExpression) possibleCompiledPattern).getFunctionHandle())));
-                possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern);
+
+                checkState(possibleCompiledPattern instanceof CallExpression);
+                // this corresponds to ExpressionInterpreter::getConstantPattern
+                if (hasEscape) {
+                    // like_pattern(pattern, escape)
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern, escape);
+                }
+                else {
+                    // like_pattern(pattern)
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern);
+                }
+
+                checkState(possibleCompiledPattern instanceof Regex, "unexpected like pattern type " + possibleCompiledPattern.getClass());
                 return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
             }
 
