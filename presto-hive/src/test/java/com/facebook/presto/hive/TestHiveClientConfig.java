@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -34,6 +35,7 @@ import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 
 public class TestHiveClientConfig
 {
@@ -56,6 +58,7 @@ public class TestHiveClientConfig
                 .setDomainCompactionThreshold(100)
                 .setWriterSortBufferSize(new DataSize(64, Unit.MEGABYTE))
                 .setForceLocalScheduling(false)
+                .setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE"))
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentZeroRowFileCreations(20)
                 .setRecursiveDirWalkerEnabled(false)
@@ -163,6 +166,7 @@ public class TestHiveClientConfig
                 .put("hive.max-open-sort-files", "333")
                 .put("hive.write-validation-threads", "11")
                 .put("hive.force-local-scheduling", "true")
+                .put("hive.node-selection-strategy", "HARD_AFFINITY")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-zero-row-file-creations", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
@@ -236,6 +240,7 @@ public class TestHiveClientConfig
                 .setDomainCompactionThreshold(42)
                 .setWriterSortBufferSize(new DataSize(13, Unit.MEGABYTE))
                 .setForceLocalScheduling(true)
+                .setNodeSelectionStrategy(HARD_AFFINITY)
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentZeroRowFileCreations(100)
                 .setRecursiveDirWalkerEnabled(true)
