@@ -37,6 +37,7 @@ import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
+import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column.Category;
@@ -70,6 +71,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
+import static com.facebook.presto.verifier.framework.Column.Category.MAP;
 import static com.facebook.presto.verifier.framework.Column.Category.ROW;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.google.inject.Scopes.SINGLETON;
@@ -153,6 +155,7 @@ public class VerifierModule
         columnValidatorBinder.addBinding(FLOATING_POINT).to(FloatingPointColumnValidator.class).in(SINGLETON);
         columnValidatorBinder.addBinding(ARRAY).to(ArrayColumnValidator.class).in(SINGLETON);
         columnValidatorBinder.addBinding(ROW).to(RowColumnValidator.class).in(SINGLETON);
+        columnValidatorBinder.addBinding(MAP).to(MapColumnValidator.class).in(SINGLETON);
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
         binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }

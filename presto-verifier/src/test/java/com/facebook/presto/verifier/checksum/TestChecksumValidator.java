@@ -68,6 +68,8 @@ public class TestChecksumValidator
     private static final Column INT_ARRAY_COLUMN = createColumn("int_array", new ArrayType(INTEGER));
     private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
+    private static final Column MAP_COLUMN = createColumn("map", typeRegistry.getType(parseTypeSignature("map(int,varchar)")));
+    private static final Column MAP_NON_ORDERABLE_COLUMN = createColumn("map_non_orderable", typeRegistry.getType(parseTypeSignature("map(map(int,varchar),map(int,varchar))")));
     private static final Column ROW_COLUMN = createColumn("row", typeRegistry.getType(parseTypeSignature("row(i int, varchar, d double, a array(int), r row(double, b bigint))")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
@@ -114,6 +116,8 @@ public class TestChecksumValidator
                         INT_ARRAY_COLUMN,
                         ROW_ARRAY_COLUMN,
                         MAP_ARRAY_COLUMN,
+                        MAP_COLUMN,
+                        MAP_NON_ORDERABLE_COLUMN,
                         ROW_COLUMN));
         Statement expectedChecksumQuery = sqlParser.createStatement(
                 "SELECT\n" +
@@ -134,6 +138,14 @@ public class TestChecksumValidator
                         ", COALESCE(\"sum\"(\"cardinality\"(\"row_array\")), 0) \"row_array_cardinality_sum\"" +
                         ", \"checksum\"(\"map_array\") \"map_array_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array_cardinality_sum\"" +
+                        ", \"checksum\"(\"map\") \"map_checksum\"\n" +
+                        ", \"checksum\"(\"array_sort\"(\"map_keys\"(\"map\"))) map_keys_checksum\n" +
+                        ", \"checksum\"(\"array_sort\"(\"map_values\"(\"map\"))) map_values_checksum\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map\")), 0) \"map_cardinality_sum\"" +
+                        ", \"checksum\"(\"map_non_orderable\") \"map_non_orderable_checksum\"\n" +
+                        ", \"checksum\"(\"map_keys\"(\"map_non_orderable\")) map_non_orderable_keys_checksum\n" +
+                        ", \"checksum\"(\"map_values\"(\"map_non_orderable\")) map_non_orderable_values_checksum\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_non_orderable\")), 0) \"map_non_orderable_cardinality_sum\"" +
                         ", \"checksum\"(\"row\".i) \"row$i_checksum\"\n " +
                         ", \"checksum\"(\"row\"[2]) \"row$$col2_checksum\"\n " +
                         ", \"sum\"(\"row\".d) FILTER (WHERE \"is_finite\"(\"row\".d)) \"row$d_sum\"" +
@@ -384,6 +396,42 @@ public class TestChecksumValidator
                 ImmutableMap.builder()
                         .put(aFieldColumn, new ColumnMatchResult(false, aFieldColumn, "control(checksum: 0a) test(checksum: 1a)"))
                         .put(rbFieldColumn, new ColumnMatchResult(false, rbFieldColumn, "control(checksum: 0d) test(checksum: 1d)"))
+                        .build());
+    }
+
+    @Test
+    public void testMap()
+    {
+        List<Column> columns = ImmutableList.of(MAP_COLUMN);
+
+        ChecksumResult controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map_keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map_cardinality_sum", 3L)
+                        .build());
+
+        // Matched
+        assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, controlChecksum).isEmpty());
+
+        // Mismatched map checksum, keys & values checksums, cardinality sum
+        ChecksumResult testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("map_keys_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("map_values_checksum", new SqlVarbinary(new byte[] {0x1c}))
+                        .put("map_cardinality_sum", 4L)
+                        .build());
+
+        String expectedOutput = "control(checksum: 0a, keys_checksum: 0b, values_checksum: 0c, cardinality_sum: 3) " +
+                "test(checksum: 1a, keys_checksum: 1b, values_checksum: 1c, cardinality_sum: 4)";
+        assertEquals(
+                checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
+                ImmutableMap.builder()
+                        .put(MAP_COLUMN, new ColumnMatchResult(false, MAP_COLUMN, expectedOutput))
                         .build());
     }
 

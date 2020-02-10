@@ -22,6 +22,7 @@ import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
+import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column;
@@ -118,7 +119,8 @@ public class VerifierTestUtil
                 Column.Category.SIMPLE, SimpleColumnValidator::new,
                 Column.Category.FLOATING_POINT, () -> new FloatingPointColumnValidator(verifierConfig),
                 Column.Category.ARRAY, ArrayColumnValidator::new,
-                Column.Category.ROW, () -> new RowColumnValidator(lazyValidators));
+                Column.Category.ROW, () -> new RowColumnValidator(lazyValidators),
+                Column.Category.MAP, MapColumnValidator::new);
         lazyValidators.putAll(validators);
         return new ChecksumValidator(validators);
     }
