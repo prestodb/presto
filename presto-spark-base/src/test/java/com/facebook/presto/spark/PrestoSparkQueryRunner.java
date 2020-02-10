@@ -133,7 +133,8 @@ public class PrestoSparkQueryRunner
 
         SparkConf sparkConfiguration = new SparkConf()
                 .setMaster(format("local[%s]", nodeCount))
-                .setAppName("presto");
+                .setAppName("presto")
+                .set("spark.driver.host", "localhost");
         sparkContext = new SparkContext(sparkConfiguration);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
 
