@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
@@ -85,6 +86,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
@@ -180,24 +182,40 @@ public class PlanFragmenter
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
+        sanityCheckFragmentedPlan(
+                subPlan,
+                warningCollector,
+                getExchangeMaterializationStrategy(session),
+                getQueryMaxStageCount(session),
+                config.getStageCountWarningThreshold());
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan, WarningCollector warningCollector, int maxStageCount, int stageCountSoftLimit)
+    private void sanityCheckFragmentedPlan(
+            SubPlan subPlan,
+            WarningCollector warningCollector,
+            ExchangeMaterializationStrategy exchangeMaterializationStrategy,
+            int maxStageCount,
+            int stageCountSoftLimit)
     {
         subPlan.sanityCheck();
+
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
             throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
                     "Number of stages in the query (%s) exceeds the allowed maximum (%s). " + TOO_MANY_STAGES_MESSAGE,
                     fragmentCount, maxStageCount));
         }
-        if (fragmentCount > stageCountSoftLimit) {
-            warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the soft limit (%s). " + TOO_MANY_STAGES_MESSAGE,
-                    fragmentCount, stageCountSoftLimit)));
+
+        // When exchange materialization is enabled, only a limited number of stages will be executed concurrently
+        //  (controlled by session property max_concurrent_materializations)
+        if (exchangeMaterializationStrategy != ExchangeMaterializationStrategy.ALL) {
+            if (fragmentCount > stageCountSoftLimit) {
+                warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
+                        "Number of stages in the query (%s) exceeds the soft limit (%s). " + TOO_MANY_STAGES_MESSAGE,
+                        fragmentCount, stageCountSoftLimit)));
+            }
         }
     }
 
