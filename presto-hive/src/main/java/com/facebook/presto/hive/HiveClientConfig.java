@@ -19,6 +19,7 @@ import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -39,6 +40,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
@@ -64,6 +66,7 @@ public class HiveClientConfig
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
     private boolean forceLocalScheduling;
+    private NodeSelectionStrategy nodeSelectionStrategy = NO_PREFERENCE;
     private boolean recursiveDirWalkerEnabled;
 
     private int maxConcurrentFileRenames = 20;
@@ -232,6 +235,18 @@ public class HiveClientConfig
     public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
     {
         this.forceLocalScheduling = forceLocalScheduling;
+        return this;
+    }
+
+    public NodeSelectionStrategy getNodeSelectionStrategy()
+    {
+        return nodeSelectionStrategy;
+    }
+
+    @Config("hive.node-selection-strategy")
+    public HiveClientConfig setNodeSelectionStrategy(NodeSelectionStrategy nodeSelectionStrategy)
+    {
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         return this;
     }
 
