@@ -80,6 +80,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.LocationHandle.TableType.NEW;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -236,6 +237,7 @@ public class TestHivePageSink
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
+                NO_PREFERENCE,
                 getColumnHandles().size(),
                 ImmutableMap.of(),
                 Optional.empty(),

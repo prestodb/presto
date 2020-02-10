@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
@@ -57,6 +58,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -522,9 +525,9 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return false;
+            return HARD_AFFINITY;
         }
 
         @Override
@@ -556,9 +559,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return true;
+            return NO_PREFERENCE;
         }
 
         @Override

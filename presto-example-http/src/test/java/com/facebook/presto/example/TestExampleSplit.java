@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleSplit
@@ -33,22 +34,22 @@ public class TestExampleSplit
         // http split with default port
         ExampleSplit httpSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("http://example.com/example"));
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
-        assertEquals(httpSplit.isRemotelyAccessible(), true);
+        assertEquals(httpSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with custom port
         httpSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("http://example.com:8080/example"));
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8080)));
-        assertEquals(httpSplit.isRemotelyAccessible(), true);
+        assertEquals(httpSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with default port
         ExampleSplit httpsSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("https://example.com/example"));
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
-        assertEquals(httpsSplit.isRemotelyAccessible(), true);
+        assertEquals(httpsSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         // http split with custom port
         httpsSplit = new ExampleSplit("connectorId", "schemaName", "tableName", URI.create("https://example.com:8443/example"));
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8443)));
-        assertEquals(httpsSplit.isRemotelyAccessible(), true);
+        assertEquals(httpsSplit.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 
     @Test
@@ -63,6 +64,6 @@ public class TestExampleSplit
         assertEquals(copy.getUri(), split.getUri());
 
         assertEquals(copy.getAddresses(), ImmutableList.of(HostAddress.fromString("127.0.0.1")));
-        assertEquals(copy.isRemotelyAccessible(), true);
+        assertEquals(copy.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 }

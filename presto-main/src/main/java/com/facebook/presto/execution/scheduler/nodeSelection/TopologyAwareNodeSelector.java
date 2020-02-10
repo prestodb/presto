@@ -52,6 +52,7 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactN
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -131,7 +132,7 @@ public class TopologyAwareNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
-            if (!split.isRemotelyAccessible()) {
+            if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
                 List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());

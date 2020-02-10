@@ -13,11 +13,19 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+
 import java.util.List;
 
 public interface ConnectorSplit
 {
-    boolean isRemotelyAccessible();
+    /**
+     * Indicate the node affinity of a Split
+     * 1. HARD_AFFINITY: Split is NOT remotely accessible and has to be on specific nodes
+     * 2. SOFT_AFFINITY: Connector split provides a list of preferred nodes for engine to pick from but not mandatory.
+     * 3. NO_PREFERENCE: Split is remotely accessible and can be on any nodes
+     */
+    NodeSelectionStrategy getNodeSelectionStrategy();
 
     List<HostAddress> getAddresses();
 

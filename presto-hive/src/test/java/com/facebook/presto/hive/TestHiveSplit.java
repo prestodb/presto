@@ -49,6 +49,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
@@ -80,6 +81,7 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,
+                NO_PREFERENCE,
                 10,
                 ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty())),
                 Optional.of(new HiveSplit.BucketConversion(
@@ -107,6 +109,7 @@ public class TestHiveSplit
         assertEquals(actual.getPartitionSchemaDifference(), expected.getPartitionSchemaDifference());
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
+        assertEquals(actual.getNodeSelectionStrategy(), expected.getNodeSelectionStrategy());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
     }
 

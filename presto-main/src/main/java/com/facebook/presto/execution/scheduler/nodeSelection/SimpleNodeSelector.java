@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -45,6 +46,7 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactN
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Objects.requireNonNull;
@@ -123,7 +125,7 @@ public class SimpleNodeSelector
             randomCandidates.reset();
 
             List<InternalNode> candidateNodes;
-            if (!split.isRemotelyAccessible()) {
+            if (split.getNodeSelectionStrategy() != NodeSelectionStrategy.NO_PREFERENCE) {
                 candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
             }
             else {
@@ -159,7 +161,7 @@ public class SimpleNodeSelector
                 assignmentStats.addAssignedSplit(chosenNode);
             }
             else {
-                if (split.isRemotelyAccessible()) {
+                if (split.getNodeSelectionStrategy() != HARD_AFFINITY) {
                     splitWaitingForAnyNode = true;
                 }
                 // Exact node set won't matter, if a split is waiting for any node

@@ -17,6 +17,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ public class HiveSplit
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean forceLocalScheduling;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final int partitionDataColumnCount;
     private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
@@ -69,6 +71,7 @@ public class HiveSplit
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
             @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
@@ -87,6 +90,7 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
+        requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(extraFileInfo, "extraFileInfo is null");
@@ -104,6 +108,7 @@ public class HiveSplit
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.partitionDataColumnCount = partitionDataColumnCount;
         this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
@@ -208,10 +213,11 @@ public class HiveSplit
         return bucketConversion;
     }
 
+    @JsonProperty
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return !forceLocalScheduling;
+        return nodeSelectionStrategy;
     }
 
     @JsonProperty

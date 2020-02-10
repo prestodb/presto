@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static org.testng.Assert.assertEquals;
 
 public class TestLocalFileSplit
@@ -39,6 +40,6 @@ public class TestLocalFileSplit
         assertEquals(copy.getEffectivePredicate(), split.getEffectivePredicate());
 
         assertEquals(copy.getAddresses(), ImmutableList.of(address));
-        assertEquals(copy.isRemotelyAccessible(), false);
+        assertEquals(copy.getNodeSelectionStrategy(), HARD_AFFINITY);
     }
 }

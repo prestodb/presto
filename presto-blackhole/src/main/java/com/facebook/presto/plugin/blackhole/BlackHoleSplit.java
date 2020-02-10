@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import io.airlift.units.Duration;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public final class BlackHoleSplit
@@ -71,9 +73,9 @@ public final class BlackHoleSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return true;
+        return NO_PREFERENCE;
     }
 
     @Override
