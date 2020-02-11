@@ -19,7 +19,6 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
-import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -36,7 +35,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,11 +46,8 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Sets.newHashSet;
 import static com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionUtils.sortedNodes;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class SimpleNodeSelector
         implements NodeSelector
@@ -120,19 +115,17 @@ public class SimpleNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        ResettableRandomizedIterator<InternalNode> randomCandidates = getRandomCandidates(maxTasksPerStage, nodeMap, existingTasks);
+        NodeSelection randomNodeSelection = new RandomNodeSelection(nodeMap, includeCoordinator, minCandidates, maxTasksPerStage, existingTasks);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
         for (Split split : splits) {
-            randomCandidates.reset();
-
             List<InternalNode> candidateNodes;
             if (split.getNodeSelectionStrategy() != NodeSelectionStrategy.NO_PREFERENCE) {
                 candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
             }
             else {
-                candidateNodes = selectNodes(minCandidates, randomCandidates);
+                candidateNodes = randomNodeSelection.pickNodes(split);
             }
             if (candidateNodes.isEmpty()) {
                 log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
@@ -182,26 +175,6 @@ public class SimpleNodeSelector
             blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         }
         return new SplitPlacementResult(blocked, assignment);
-    }
-
-    private ResettableRandomizedIterator<InternalNode> getRandomCandidates(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
-    {
-        List<InternalNode> existingNodes = existingTasks.stream()
-                .map(remoteTask -> nodeMap.getNodesByNodeId().get(remoteTask.getNodeId()))
-                // nodes may sporadically disappear from the nodeMap if the announcement is delayed
-                .filter(Objects::nonNull)
-                .collect(toList());
-
-        int alreadySelectedNodeCount = existingNodes.size();
-        int nodeCount = nodeMap.getNodesByNodeId().size();
-
-        if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
-            List<InternalNode> moreNodes =
-                    selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
-            existingNodes.addAll(moreNodes);
-        }
-        verify(existingNodes.stream().allMatch(Objects::nonNull), "existingNodes list must not contain any nulls");
-        return new ResettableRandomizedIterator<>(existingNodes);
     }
 
     @Override
