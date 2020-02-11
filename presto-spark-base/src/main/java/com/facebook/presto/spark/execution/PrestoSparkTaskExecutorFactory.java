@@ -175,7 +175,7 @@ public class PrestoSparkTaskExecutorFactory
 
         log.info("Task [%s] received %d splits.",
                 taskId,
-                taskDescriptor.getSources().stream()
+                taskDescriptor.getTaskSourcesBySchedulingOrder().stream()
                         .mapToInt(taskSource -> taskSource.getSplits().size())
                         .sum());
 
@@ -220,7 +220,7 @@ public class PrestoSparkTaskExecutorFactory
                 localExecutionPlan,
                 taskContext,
                 fragment.getTableScanSchedulingOrder(),
-                taskDescriptor.getSources());
+                taskDescriptor.getTaskSourcesBySchedulingOrder());
 
         return new PrestoSparkTaskExecutor(taskContext, drivers, outputBuffer, taskStatsJsonCodec, taskStatsCollector);
     }

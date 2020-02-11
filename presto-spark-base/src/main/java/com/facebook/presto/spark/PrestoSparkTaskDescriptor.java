@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskDescriptor
@@ -32,7 +34,10 @@ public class PrestoSparkTaskDescriptor
     private final SessionRepresentation session;
     private final Map<String, String> extraCredentials;
     private final PlanFragment fragment;
-    private final List<TaskSource> sources;
+
+    // Exactly one TaskSource per table scan node
+    private final List<TaskSource> taskSourcesBySchedulingOrder;
+
     private final TableWriteInfo tableWriteInfo;
 
     @JsonCreator
@@ -40,14 +45,26 @@ public class PrestoSparkTaskDescriptor
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("sources") List<TaskSource> sources,
+            @JsonProperty("taskSourcesBySchedulingOrder") List<TaskSource> taskSourcesBySchedulingOrder,
             @JsonProperty("tableWriteInfo") TableWriteInfo tableWriteInfo)
     {
         this.session = requireNonNull(session, "session is null");
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.fragment = requireNonNull(fragment);
-        this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
+        this.taskSourcesBySchedulingOrder = ImmutableList.copyOf(requireNonNull(taskSourcesBySchedulingOrder, "taskSourcesBySchedulingOrder is null"));
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+
+        checkArgument(
+                taskSourcesBySchedulingOrder.size() == fragment.getTableScanSchedulingOrder().size(),
+                format("taskSourcesBySchedulingOrder has %s elements while tableScanSchedulingOrder has %s elements", taskSourcesBySchedulingOrder.size(), fragment.getTableScanSchedulingOrder().size()));
+        for (int i = 0; i < taskSourcesBySchedulingOrder.size(); i++) {
+            checkArgument(
+                    taskSourcesBySchedulingOrder.get(i).getPlanNodeId().equals(fragment.getTableScanSchedulingOrder().get(i)),
+                    format(
+                            "Mismatched PlanNodeId between taskSourcesBySchedulingOrder (%s) and tableScanSchedulingOrder (%s)",
+                            taskSourcesBySchedulingOrder.get(i).getPlanNodeId(),
+                            fragment.getTableScanSchedulingOrder().get(i)));
+        }
     }
 
     @JsonProperty
@@ -69,9 +86,9 @@ public class PrestoSparkTaskDescriptor
     }
 
     @JsonProperty
-    public List<TaskSource> getSources()
+    public List<TaskSource> getTaskSourcesBySchedulingOrder()
     {
-        return sources;
+        return taskSourcesBySchedulingOrder;
     }
 
     @JsonProperty

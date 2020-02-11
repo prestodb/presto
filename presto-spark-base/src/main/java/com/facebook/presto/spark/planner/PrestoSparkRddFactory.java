@@ -278,19 +278,22 @@ public class PrestoSparkRddFactory
                             ScheduledSplit::getPlanNodeId,
                             mapping(identity(), toSet())));
 
-            List<TaskSource> taskSourceByPlanNode = splitsByPlanNode.entrySet().stream()
-                    .map(entry -> new TaskSource(
-                            entry.getKey(),
-                            entry.getValue(),
-                            ImmutableSet.of(),
-                            true))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<TaskSource> taskSourcesBySchedulingOrder = ImmutableList.builderWithExpectedSize(fragment.getTableScanSchedulingOrder().size());
+            for (PlanNodeId tableScanNodeId : fragment.getTableScanSchedulingOrder()) {
+                Set<ScheduledSplit> tableScanSplits = splitsByPlanNode.getOrDefault(tableScanNodeId, ImmutableSet.of());
+
+                taskSourcesBySchedulingOrder.add(new TaskSource(
+                        tableScanNodeId,
+                        tableScanSplits,
+                        ImmutableSet.of(),
+                        true));
+            }
 
             return new PrestoSparkTaskDescriptor(
                     session.toSessionRepresentation(),
                     session.getIdentity().getExtraCredentials(),
                     fragment,
-                    taskSourceByPlanNode,
+                    taskSourcesBySchedulingOrder.build(),
                     tableWriteInfo);
         }
     }
