@@ -58,7 +58,6 @@ import javax.ws.rs.core.UriInfo;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
@@ -71,6 +70,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
+import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +86,6 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
-    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -98,8 +98,8 @@ public class TaskResource
     public TaskResource(
             TaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
-            @ForAsyncHttp BoundedExecutor responseExecutor,
-            @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
+            @ForAsyncRpc BoundedExecutor responseExecutor,
+            @ForAsyncRpc ScheduledExecutorService timeoutExecutor)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -351,12 +351,5 @@ public class TaskResource
     private static boolean shouldSummarize(UriInfo uriInfo)
     {
         return uriInfo.getQueryParameters().containsKey("summarize");
-    }
-
-    private static Duration randomizeWaitTime(Duration waitTime)
-    {
-        // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
-        long halfWaitMillis = waitTime.toMillis() / 2;
-        return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
     }
 }

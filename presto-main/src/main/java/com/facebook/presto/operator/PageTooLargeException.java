@@ -20,8 +20,8 @@ import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 public class PageTooLargeException
         extends PrestoException
 {
-    public PageTooLargeException()
+    public PageTooLargeException(Throwable e)
     {
-        super(PAGE_TOO_LARGE, "Remote page is too large");
+        super(PAGE_TOO_LARGE, "Remote page is too large", e);
     }
 }

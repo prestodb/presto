@@ -11,7 +11,7 @@
             <source>NOTICE</source>
         </file>
     </files>
-    
+
     <dependencySets>
         <!-- lib -->
         <dependencySet>
@@ -63,6 +63,10 @@
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-session-property-managers-${project.version}</directory>
             <outputDirectory>plugin/session-property-managers</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-function-namespace-managers-${project.version}</directory>
+            <outputDirectory>plugin/function-namespace-managers</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-jmx-${project.version}</directory>
@@ -167,6 +171,10 @@
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-elasticsearch-${project.version}</directory>
             <outputDirectory>plugin/presto-elasticsearch</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-druid-${project.version}</directory>
+            <outputDirectory>plugin/presto-druid</outputDirectory>
         </fileSet>
     </fileSets>
 </assembly>

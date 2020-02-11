@@ -16,6 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
@@ -72,6 +74,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
@@ -568,8 +571,21 @@ public final class SqlFormatter
             }
             builder.append("\n")
                     .append(formatRoutineCharacteristics(node.getCharacteristics()))
-                    .append("\nRETURN ")
-                    .append(formatExpression(node.getBody(), parameters));
+                    .append("\n");
+
+            process(node.getBody(), 0);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitAlterFunction(AlterFunction node, Integer indent)
+        {
+            builder.append("ALTER FUNCTION ")
+                    .append(formatName(node.getFunctionName()));
+            node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
+            builder.append("\n")
+                    .append(formatAlterRoutineCharacteristics(node.getCharacteristics()));
 
             return null;
         }
@@ -582,14 +598,16 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(formatName(node.getFunctionName()));
-            if (node.getParameterTypes().isPresent()) {
-                String elementIndent = indentString(indent + 1);
-                builder.append("(\n")
-                        .append(node.getParameterTypes().get().stream()
-                                .map(type -> elementIndent + type)
-                                .collect(joining(",\n")))
-                        .append(")\n");
-            }
+            node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitReturn(Return node, Integer indent)
+        {
+            append(indent, "RETURN ");
+            builder.append(formatExpression(node.getExpression(), parameters));
 
             return null;
         }
@@ -912,12 +930,26 @@ public final class SqlFormatter
                     .collect(joining(",\n", "(\n", "\n)"));
         }
 
+        public static String formatTypeList(List<String> types)
+        {
+            return format("(%s)", Joiner.on(", ").join(types));
+        }
+
         private String formatRoutineCharacteristics(RoutineCharacteristics characteristics)
         {
             return Joiner.on("\n").join(ImmutableList.of(
                     "LANGUAGE " + formatRoutineCharacteristicName(characteristics.getLanguage()),
                     formatRoutineCharacteristicName(characteristics.getDeterminism()),
                     formatRoutineCharacteristicName(characteristics.getNullCallClause())));
+        }
+
+        private String formatAlterRoutineCharacteristics(AlterRoutineCharacteristics characteristics)
+        {
+            StringBuilder formatted = new StringBuilder();
+            if (characteristics.getNullCallClause().isPresent()) {
+                formatted.append(formatRoutineCharacteristicName(characteristics.getNullCallClause().get()));
+            }
+            return formatted.toString();
         }
 
         private String formatRoutineCharacteristicName(Enum characteristic)

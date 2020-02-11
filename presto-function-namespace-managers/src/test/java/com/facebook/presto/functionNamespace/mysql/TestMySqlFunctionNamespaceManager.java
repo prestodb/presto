@@ -1,0 +1,488 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.functionNamespace.mysql;
+
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.SqlParameter;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Injector;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import java.sql.DriverManager;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_TANGENT;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TANGENT;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
+import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_SCHEMA;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.String.format;
+import static java.util.Collections.nCopies;
+import static java.util.Comparator.comparing;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
+
+@Test(singleThreaded = true)
+public class TestMySqlFunctionNamespaceManager
+{
+    private static final String DB = "presto";
+
+    private TestingMySqlServer mySqlServer;
+    private Jdbi jdbi;
+    private Injector injector;
+    private MySqlFunctionNamespaceManager functionNamespaceManager;
+
+    public Jdbi getJdbi()
+    {
+        return jdbi;
+    }
+
+    @BeforeClass
+    public void setup()
+            throws Exception
+    {
+        this.mySqlServer = new TestingMySqlServer("testuser", "testpass", DB);
+        this.jdbi = Jdbi.create(() -> DriverManager.getConnection(mySqlServer.getJdbcUrl(DB))).installPlugin(new SqlObjectPlugin());
+
+        Bootstrap app = new Bootstrap(
+                new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
+                binder -> binder.bind(Jdbi.class).toInstance(getJdbi()));
+
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("function-cache-expiration", "0s")
+                .put("function-instance-cache-expiration", "0s")
+                .build();
+
+        try {
+            this.injector = app.strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
+            this.functionNamespaceManager = injector.getInstance(MySqlFunctionNamespaceManager.class);
+        }
+        catch (Exception e) {
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @BeforeMethod
+    public void setupFunctionNamespace()
+    {
+        createFunctionNamespace(TEST_CATALOG, TEST_SCHEMA);
+    }
+
+    @AfterMethod
+    public void cleanup()
+    {
+        try (Handle handle = jdbi.open()) {
+            handle.execute("DELETE FROM sql_functions");
+            handle.execute("DELETE FROM function_namespaces");
+        }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        closeQuietly(mySqlServer);
+        if (injector != null) {
+            injector.getInstance(LifeCycleManager.class).stop();
+        }
+    }
+
+    @Test
+    public void testListFunction()
+    {
+        createFunctionNamespace(TEST_CATALOG, "schema1");
+        createFunctionNamespace(TEST_CATALOG, "schema2");
+        SqlInvokedFunction function1 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema1"), "power_tower"));
+        SqlInvokedFunction function2 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema2"), "power_tower"));
+
+        createFunction(function1, false);
+        createFunction(function2, false);
+        assertListFunctions(function1.withVersion(1), function2.withVersion(1));
+    }
+
+    private static SqlInvokedFunction constructTestFunction(QualifiedFunctionName functionName)
+    {
+        return new SqlInvokedFunction(
+                functionName,
+                ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+                parseTypeSignature(DOUBLE),
+                "power tower",
+                RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
+                "pow(x, x)",
+                Optional.empty());
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        assertListFunctions();
+
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
+
+        createFunction(FUNCTION_POWER_TOWER_INT, true);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
+
+        createFunction(FUNCTION_TANGENT, true);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1), FUNCTION_TANGENT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(TANGENT, FUNCTION_TANGENT.withVersion(1));
+    }
+
+    @Test
+    public void testCreateFunctionFailedDuplicate()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
+        assertPrestoException(() -> createFunction(FUNCTION_POWER_TOWER_DOUBLE, false), ALREADY_EXISTS, ".*Function already exists: unittest\\.memory\\.power_tower\\(double\\)");
+        assertPrestoException(() -> createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, false), ALREADY_EXISTS, ".*Function already exists: unittest\\.memory\\.power_tower\\(double\\)");
+    }
+
+    public void testCreateFunctionRepeatedly()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
+    public void testCreateFunctionFailedVersioned()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1), true);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Schema name exceeds max length of 128.*")
+    public void testCreateFunctionSchemaNameTooLong()
+    {
+        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, dummyString(129)), "tangent");
+        createFunction(getFunctionTangent(functionName), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function name exceeds max length of 256.*")
+    public void testCreateFunctionFunctionNameTooLong()
+    {
+        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), dummyString(257));
+        createFunction(getFunctionTangent(functionName), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter types exceeds max length of 500.*")
+    public void testCreateFunctionFunctionIdTooLong()
+    {
+        List<SqlParameter> parameters = nCopies(72, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        createFunction(
+                new SqlInvokedFunction(
+                        FUNCTION_TANGENT.getFunctionId().getFunctionName(),
+                        parameters,
+                        FUNCTION_TANGENT.getSignature().getReturnType(),
+                        FUNCTION_TANGENT.getDescription(),
+                        FUNCTION_TANGENT.getRoutineCharacteristics(),
+                        FUNCTION_TANGENT.getBody(),
+                        Optional.empty()),
+                false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Return type exceeds max length of 256.*")
+    public void testCreateFunctionTypeNameTooLong()
+    {
+        TypeSignature returnType = parseTypeSignature(dummyString(257));
+        createFunction(
+                new SqlInvokedFunction(
+                        TANGENT,
+                        FUNCTION_TANGENT.getParameters(),
+                        returnType,
+                        FUNCTION_TANGENT.getDescription(),
+                        FUNCTION_TANGENT.getRoutineCharacteristics(),
+                        FUNCTION_TANGENT.getBody(),
+                        Optional.empty()),
+                false);
+    }
+
+    @Test
+    public void testAlterFunction()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        createFunction(FUNCTION_TANGENT, false);
+
+        // Alter a specific function by name and parameter types
+        alterFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
+        assertGetFunctions(
+                POWER_TOWER,
+                FUNCTION_POWER_TOWER_INT.withVersion(1L),
+                new SqlInvokedFunction(
+                        POWER_TOWER,
+                        ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+                        parseTypeSignature(DOUBLE),
+                        "power tower",
+                        RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+                        "RETURN pow(x, x)",
+                        Optional.of(2L)));
+
+        // Drop function and alter function by name
+        dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
+        alterFunction(POWER_TOWER, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(CALLED_ON_NULL_INPUT)));
+
+        // Alter function by name
+        alterFunction(TANGENT, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(CALLED_ON_NULL_INPUT)));
+        SqlInvokedFunction tangentV2 = new SqlInvokedFunction(
+                TANGENT,
+                FUNCTION_TANGENT.getParameters(),
+                FUNCTION_TANGENT.getSignature().getReturnType(),
+                FUNCTION_TANGENT.getDescription(),
+                RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
+                FUNCTION_TANGENT.getBody(),
+                Optional.of(2L));
+        assertGetFunctions(TANGENT, tangentV2);
+
+        // Alter function with no change
+        alterFunction(TANGENT, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(CALLED_ON_NULL_INPUT)));
+        assertGetFunctions(TANGENT, tangentV2);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    public void testAlterFunctionAmbiguous()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        alterFunction(POWER_TOWER, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.power_tower\\(\\)")
+    public void testAlterFunctionNotFound()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        alterFunction(POWER_TOWER, Optional.of(ImmutableList.of()), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
+    }
+
+    @Test
+    public void testDropFunction()
+    {
+        // Create functions
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        createFunction(FUNCTION_TANGENT, false);
+
+        // Drop function by name
+        dropFunction(TANGENT, Optional.empty(), false);
+        assertGetFunctions(TANGENT);
+
+        // Recreate functions
+        createFunction(FUNCTION_TANGENT, false);
+
+        // Drop a specific function by name and parameter types
+        dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+
+        dropFunction(TANGENT, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(TANGENT);
+
+        // Recreate functions, power_double(double) is created with a different definition
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, false);
+        createFunction(FUNCTION_TANGENT, false);
+
+        // Drop functions consecutively
+        dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
+        dropFunction(POWER_TOWER, Optional.empty(), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    public void testDropFunctionAmbiguous()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        dropFunction(POWER_TOWER, Optional.empty(), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.power_tower\\(\\)")
+    public void testDropFunctionNotFound()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+        createFunction(FUNCTION_POWER_TOWER_INT, false);
+        dropFunction(POWER_TOWER, Optional.of(ImmutableList.of()), true);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.tangent\\(double\\)")
+    public void testDropFunctionFailed()
+    {
+        dropFunction(TANGENT, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.invalid")
+    public void testDropFunctionsFailed()
+    {
+        dropFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), "invalid"), Optional.empty(), false);
+    }
+
+    @Test
+    public void testGetFunctionMetadata()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
+        FunctionHandle handle1 = getLatestFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId());
+        assertGetFunctionMetadata(handle1, FUNCTION_POWER_TOWER_DOUBLE);
+
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
+        FunctionHandle handle2 = getLatestFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.getFunctionId());
+        assertGetFunctionMetadata(handle1, FUNCTION_POWER_TOWER_DOUBLE);
+        assertGetFunctionMetadata(handle2, FUNCTION_POWER_TOWER_DOUBLE_UPDATED);
+    }
+
+    @Test(expectedExceptions = UncheckedExecutionException.class, expectedExceptionsMessageRegExp = ".*Invalid FunctionHandle: unittest\\.memory\\.power_tower\\(double\\):2")
+    public void testInvalidFunctionHandle()
+    {
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
+        SqlFunctionHandle functionHandle = new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), 2);
+        functionNamespaceManager.getFunctionMetadata(functionHandle);
+    }
+
+    private void createFunctionNamespace(String catalog, String schema)
+    {
+        try (Handle handle = jdbi.open()) {
+            handle.execute("INSERT INTO function_namespaces VALUES (?, ?)", catalog, schema);
+        }
+    }
+
+    private void createFunction(SqlInvokedFunction function, boolean replace)
+    {
+        functionNamespaceManager.createFunction(function, replace);
+    }
+
+    private void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics characteristics)
+    {
+        functionNamespaceManager.alterFunction(functionName, parameterTypes, characteristics);
+    }
+
+    private void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    {
+        functionNamespaceManager.dropFunction(functionName, parameterTypes, exists);
+    }
+
+    private FunctionHandle getLatestFunctionHandle(SqlFunctionId functionId)
+    {
+        FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
+        Optional<SqlInvokedFunction> function = functionNamespaceManager.getFunctions(Optional.of(transactionHandle), functionId.getFunctionName()).stream()
+                .filter(candidate -> candidate.getFunctionId().equals(functionId))
+                .max(comparing(SqlInvokedFunction::getRequiredVersion));
+        assertTrue(function.isPresent());
+        functionNamespaceManager.commit(transactionHandle);
+        return function.get().getRequiredFunctionHandle();
+    }
+
+    private void assertListFunctions(SqlInvokedFunction... functions)
+    {
+        assertEquals(ImmutableSet.copyOf(functionNamespaceManager.listFunctions()), ImmutableSet.copyOf(Arrays.asList(functions)));
+    }
+
+    private void assertGetFunctions(QualifiedFunctionName functionName, SqlInvokedFunction... functions)
+    {
+        FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
+        assertEquals(ImmutableSet.copyOf(functionNamespaceManager.getFunctions(Optional.of(transactionHandle), functionName)), ImmutableSet.copyOf(Arrays.asList(functions)));
+        functionNamespaceManager.commit(transactionHandle);
+    }
+
+    private void assertGetFunctionMetadata(FunctionHandle functionHandle, SqlInvokedFunction expectFunction)
+    {
+        FunctionMetadata functionMetadata = functionNamespaceManager.getFunctionMetadata(functionHandle);
+
+        assertEquals(functionMetadata.getName(), expectFunction.getSignature().getName());
+        assertFalse(functionMetadata.getOperatorType().isPresent());
+        assertEquals(functionMetadata.getArgumentTypes(), expectFunction.getSignature().getArgumentTypes());
+        assertEquals(functionMetadata.getReturnType(), expectFunction.getSignature().getReturnType());
+        assertEquals(functionMetadata.getFunctionKind(), SCALAR);
+        assertEquals(functionMetadata.isDeterministic(), expectFunction.isDeterministic());
+        assertEquals(functionMetadata.isCalledOnNullInput(), expectFunction.isCalledOnNullInput());
+    }
+
+    private static void assertPrestoException(Runnable runnable, ErrorCodeSupplier errorCode, String expectedMessageRegex)
+    {
+        try {
+            runnable.run();
+            fail("No Exception is thrown, expect PrestoException");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+            assertTrue(e.getMessage().matches(expectedMessageRegex), format("Error message '%s' does not match '%s'", e.getMessage(), expectedMessageRegex));
+        }
+    }
+
+    private static String dummyString(int length)
+    {
+        return Joiner.on("").join(nCopies(length, "x"));
+    }
+
+    private static SqlInvokedFunction getFunctionTangent(QualifiedFunctionName functionName)
+    {
+        return new SqlInvokedFunction(
+                functionName,
+                FUNCTION_TANGENT.getParameters(),
+                FUNCTION_TANGENT.getSignature().getReturnType(),
+                FUNCTION_TANGENT.getDescription(),
+                FUNCTION_TANGENT.getRoutineCharacteristics(),
+                FUNCTION_TANGENT.getBody(),
+                Optional.empty());
+    }
+}

@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 public class StageExecutionInfo
 {
-    private final StageExecutionId stageExecutionId;
     private final StageExecutionState state;
     private final StageExecutionStats stats;
     private final List<TaskInfo> tasks;
@@ -32,23 +31,15 @@ public class StageExecutionInfo
 
     @JsonCreator
     public StageExecutionInfo(
-            @JsonProperty("stageExecutionId") StageExecutionId stageExecutionId,
             @JsonProperty("state") StageExecutionState state,
             @JsonProperty("stats") StageExecutionStats stats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("failureCause") Optional<ExecutionFailureInfo> failureCause)
     {
-        this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId is null");
         this.state = requireNonNull(state, "state is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.tasks = ImmutableList.copyOf(requireNonNull(tasks, "tasks is null"));
         this.failureCause = requireNonNull(failureCause, "failureCause is null");
-    }
-
-    @JsonProperty
-    public StageExecutionId getStageExecutionId()
-    {
-        return stageExecutionId;
     }
 
     @JsonProperty
@@ -78,5 +69,14 @@ public class StageExecutionInfo
     public boolean isFinal()
     {
         return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+    }
+
+    public static StageExecutionInfo unscheduledExecutionInfo(int stageId, boolean isQueryDone)
+    {
+        return new StageExecutionInfo(
+                isQueryDone ? StageExecutionState.ABORTED : StageExecutionState.PLANNED,
+                StageExecutionStats.zero(stageId),
+                ImmutableList.of(),
+                Optional.empty());
     }
 }

@@ -26,6 +26,10 @@ standaloneExpression
     : expression EOF
     ;
 
+standaloneRoutineBody
+    : routineBody EOF
+    ;
+
 statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
@@ -60,6 +64,8 @@ statement
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
+    | ALTER FUNCTION qualifiedName types?
+      alterRoutineCharacteristics                                      #alterFunction
     | DROP FUNCTION (IF EXISTS)? qualifiedName types?                  #dropFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
@@ -159,7 +165,19 @@ routineCharacteristic
     | nullCallClause
     ;
 
+alterRoutineCharacteristics
+    : alterRoutineCharacteristic*
+    ;
+
+alterRoutineCharacteristic
+    : nullCallClause
+    ;
+
 routineBody
+    : returnStatement
+    ;
+
+returnStatement
     : RETURN expression
     ;
 

@@ -53,25 +53,25 @@ public class ArrayColumnValidator
         Expression checksum;
 
         if (elementType.isOrderable()) {
-            FunctionCall arraySort = new FunctionCall(QualifiedName.of("array_sort"), ImmutableList.of(column.getIdentifier()));
+            FunctionCall arraySort = new FunctionCall(QualifiedName.of("array_sort"), ImmutableList.of(column.getExpression()));
 
             if (elementType instanceof ArrayType || elementType instanceof RowType) {
                 checksum = new CoalesceExpression(
                         new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new TryExpression(arraySort))),
-                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier())));
+                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getExpression())));
             }
             else {
                 checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(arraySort));
             }
         }
         else {
-            checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier()));
+            checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getExpression()));
         }
 
         Expression arrayCardinalitySum = new CoalesceExpression(
                 new FunctionCall(
                         QualifiedName.of("sum"),
-                        ImmutableList.of(new FunctionCall(QualifiedName.of("cardinality"), ImmutableList.of(column.getIdentifier())))),
+                        ImmutableList.of(new FunctionCall(QualifiedName.of("cardinality"), ImmutableList.of(column.getExpression())))),
                 new LongLiteral("0"));
 
         return ImmutableList.of(
@@ -80,7 +80,7 @@ public class ArrayColumnValidator
     }
 
     @Override
-    public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
         String checksumColumnAlias = getChecksumColumnAlias(column);
         Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
@@ -90,14 +90,15 @@ public class ArrayColumnValidator
         Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
         Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
 
-        return new ColumnMatchResult(
+        return ImmutableList.of(new ColumnMatchResult(
                 Objects.equals(controlChecksum, testChecksum) && Objects.equals(controlCardinalitySum, testCardinalitySum),
+                column,
                 format(
                         "control(checksum: %s, cardinality_sum: %s) test(checksum: %s, cardinality_sum: %s)",
                         controlChecksum,
                         controlCardinalitySum,
                         testChecksum,
-                        testCardinalitySum));
+                        testCardinalitySum)));
     }
 
     private static String getChecksumColumnAlias(Column column)

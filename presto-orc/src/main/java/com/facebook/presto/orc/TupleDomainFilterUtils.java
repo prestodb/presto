@@ -20,6 +20,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -129,20 +131,33 @@ public class TupleDomainFilterUtils
                                 .toArray(byte[][]::new),
                         nullAllowed);
             }
+
+            if (isNotIn(ranges)) {
+                return BytesValuesExclusive.of(
+                        bytesRanges.stream()
+                                .map(BytesRange::getLower)
+                                .filter(Objects::nonNull)
+                                .toArray(byte[][]::new),
+                        nullAllowed);
+            }
         }
 
-        return MultiRange.of(rangeFilters, nullAllowed, isNanAllowed(ranges));
+        if (firstRangeFilter instanceof DoubleRange || firstRangeFilter instanceof FloatRange) {
+            // != and NOT IN filters should return true when applied to NaN
+            // E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
+            boolean nanAllowed = isNotIn(ranges);
+            return MultiRange.of(rangeFilters, nullAllowed, nanAllowed);
+        }
+
+        return MultiRange.of(rangeFilters, nullAllowed, false);
     }
 
     /**
-     * Returns true is ranges represent != or NOT IN filter. These types of filters should
-     * return true when applied to NaN.
-     *
-     * E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
+     * Returns true is ranges represent != or NOT IN filter for double, float or string column.
      *
      * The logic is to return true if ranges are next to each other, but don't include the touch value.
      */
-    private static boolean isNanAllowed(List<Range> ranges)
+    private static boolean isNotIn(List<Range> ranges)
     {
         if (ranges.size() <= 1) {
             return false;
@@ -152,7 +167,7 @@ public class TupleDomainFilterUtils
         Marker previousHigh = firstRange.getHigh();
 
         Type type = previousHigh.getType();
-        if (type != DOUBLE && type != REAL) {
+        if (type != DOUBLE && type != REAL && !isVarcharType(type) && !(type instanceof CharType)) {
             return false;
         }
 

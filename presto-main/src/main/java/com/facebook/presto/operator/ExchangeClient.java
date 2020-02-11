@@ -14,12 +14,15 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PageCodecMarker;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.operator.PageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.server.thrift.ThriftTaskClient;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -46,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * {@link ExchangeClient} is the client on receiver side, used in operators requiring data exchange from other tasks,
  * such as {@link ExchangeOperator} and {@link MergeOperator}.
- * For each sender that ExchangeClient receives data from, a {@link HttpPageBufferClient} is used in ExchangeClient to communicate with the sender, i.e.
+ * For each sender that ExchangeClient receives data from, a {@link PageBufferClient} is used in ExchangeClient to communicate with the sender, i.e.
  *
  * <pre>
  *                    /   HttpPageBufferClient_1  - - - Remote Source 1
@@ -82,20 +87,21 @@ public class ExchangeClient
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
+    private final DriftClient<ThriftTaskClient> driftClient;
     private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
 
-    private final ConcurrentMap<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<URI, PageBufferClient> allClients = new ConcurrentHashMap<>();
     private final ConcurrentMap<TaskId, URI> taskIdToLocationMap = new ConcurrentHashMap<>();
     private final Set<TaskId> removedRemoteSourceTaskIds = ConcurrentHashMap.newKeySet();
 
     @GuardedBy("this")
-    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
+    private final Deque<PageBufferClient> queuedClients = new LinkedList<>();
 
-    private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
-    private final Set<HttpPageBufferClient> removedClients = newConcurrentHashSet();
+    private final Set<PageBufferClient> completedClients = newConcurrentHashSet();
+    private final Set<PageBufferClient> removedClients = newConcurrentHashSet();
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
 
     @GuardedBy("this")
@@ -126,6 +132,7 @@ public class ExchangeClient
             boolean acknowledgePages,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
+            DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
@@ -137,6 +144,7 @@ public class ExchangeClient
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
+        this.driftClient = driftClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
@@ -150,7 +158,7 @@ public class ExchangeClient
         // It does not guarantee a consistent view between different exchange clients.
         // Guaranteeing a consistent view introduces significant lock contention.
         ImmutableList.Builder<PageBufferClientStatus> pageBufferClientStatusBuilder = ImmutableList.builder();
-        for (HttpPageBufferClient client : allClients.values()) {
+        for (PageBufferClient client : allClients.values()) {
             pageBufferClientStatusBuilder.add(client.getStatus());
         }
         List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
@@ -185,8 +193,21 @@ public class ExchangeClient
 
         checkState(!noMoreLocations, "No more locations already set");
 
-        HttpPageBufferClient client = new HttpPageBufferClient(
-                httpClient,
+        RpcShuffleClient resultClient;
+        switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
+            case "http":
+            case "https":
+                resultClient = new HttpRpcShuffleClient(httpClient, location);
+                break;
+            case "thrift":
+                resultClient = new ThriftRpcShuffleClient(driftClient, location);
+                break;
+            default:
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported task result client scheme " + location.getScheme());
+        }
+
+        PageBufferClient client = new PageBufferClient(
+                resultClient,
                 maxErrorDuration,
                 acknowledgePages,
                 location,
@@ -216,7 +237,7 @@ public class ExchangeClient
             return;
         }
 
-        HttpPageBufferClient client = allClients.get(location);
+        PageBufferClient client = allClients.get(location);
         if (client == null) {
             return;
         }
@@ -318,7 +339,7 @@ public class ExchangeClient
             return;
         }
 
-        for (HttpPageBufferClient client : allClients.values()) {
+        for (PageBufferClient client : allClients.values()) {
             closeQuietly(client);
         }
         pageBuffer.clear();
@@ -360,7 +381,7 @@ public class ExchangeClient
         clientCount -= pendingClients;
 
         for (int i = 0; i < clientCount; ) {
-            HttpPageBufferClient client = queuedClients.poll();
+            PageBufferClient client = queuedClients.poll();
             if (client == null) {
                 // no more clients available
                 return;
@@ -426,7 +447,7 @@ public class ExchangeClient
         }
     }
 
-    private synchronized void requestComplete(HttpPageBufferClient client)
+    private synchronized void requestComplete(PageBufferClient client)
     {
         if (!queuedClients.contains(client)) {
             queuedClients.add(client);
@@ -434,14 +455,14 @@ public class ExchangeClient
         scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFinished(HttpPageBufferClient client)
+    private synchronized void clientFinished(PageBufferClient client)
     {
         requireNonNull(client, "client is null");
         completedClients.add(client);
         scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFailed(HttpPageBufferClient client, Throwable cause)
+    private synchronized void clientFailed(PageBufferClient client, Throwable cause)
     {
         // ignore failure for removed clients
         if (removedClients.contains(client)) {
@@ -474,7 +495,7 @@ public class ExchangeClient
             implements ClientCallback
     {
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+        public boolean addPages(PageBufferClient client, List<SerializedPage> pages)
         {
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");
@@ -482,20 +503,20 @@ public class ExchangeClient
         }
 
         @Override
-        public void requestComplete(HttpPageBufferClient client)
+        public void requestComplete(PageBufferClient client)
         {
             requireNonNull(client, "client is null");
             ExchangeClient.this.requestComplete(client);
         }
 
         @Override
-        public void clientFinished(HttpPageBufferClient client)
+        public void clientFinished(PageBufferClient client)
         {
             ExchangeClient.this.clientFinished(client);
         }
 
         @Override
-        public void clientFailed(HttpPageBufferClient client, Throwable cause)
+        public void clientFailed(PageBufferClient client, Throwable cause)
         {
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
@@ -504,7 +525,7 @@ public class ExchangeClient
         }
     }
 
-    private static void closeQuietly(HttpPageBufferClient client)
+    private static void closeQuietly(PageBufferClient client)
     {
         try {
             client.close();

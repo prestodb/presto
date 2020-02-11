@@ -73,6 +73,7 @@ public class FeaturesConfig
     private boolean dynamicScheduleForGroupedExecution;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
+    private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -146,6 +147,18 @@ public class FeaturesConfig
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
     private boolean listBuiltInFunctionsOnly = true;
+    private boolean experimentalFunctionsEnabled;
+    private boolean useLegacyScheduler;
+
+    private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
+
+    public enum PartitioningPrecisionStrategy
+    {
+        // Let Presto decide when to repartition
+        AUTOMATIC,
+        // Use exact partitioning until Presto becomes smarter WRT to picking when to repartition
+        PREFER_EXACT_PARTITIONING
+    }
 
     public enum JoinReorderingStrategy
     {
@@ -412,6 +425,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
     {
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
+        return this;
+    }
+
+    public int getMaxStageRetries()
+    {
+        return maxStageRetries;
+    }
+
+    @Config("max-stage-retries")
+    @ConfigDescription("Maximum number of times that stages can be retried")
+    public FeaturesConfig setMaxStageRetries(int maxStageRetries)
+    {
+        this.maxStageRetries = maxStageRetries;
         return this;
     }
 
@@ -1144,6 +1170,44 @@ public class FeaturesConfig
     public FeaturesConfig setListBuiltInFunctionsOnly(boolean listBuiltInFunctionsOnly)
     {
         this.listBuiltInFunctionsOnly = listBuiltInFunctionsOnly;
+        return this;
+    }
+
+    public PartitioningPrecisionStrategy getPartitioningPrecisionStrategy()
+    {
+        return partitioningPrecisionStrategy;
+    }
+
+    @Config("partitioning-precision-strategy")
+    @ConfigDescription("Set strategy used to determine whether to repartition (AUTOMATIC, PREFER_EXACT)")
+    public FeaturesConfig setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy partitioningPrecisionStrategy)
+    {
+        this.partitioningPrecisionStrategy = partitioningPrecisionStrategy;
+        return this;
+    }
+
+    public boolean isExperimentalFunctionsEnabled()
+    {
+        return experimentalFunctionsEnabled;
+    }
+
+    @Config("experimental-functions-enabled")
+    public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
+    {
+        this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isUseLegacyScheduler()
+    {
+        return useLegacyScheduler;
+    }
+
+    @Config("use-legacy-scheduler")
+    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
+    public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
+    {
+        this.useLegacyScheduler = useLegacyScheduler;
         return this;
     }
 }

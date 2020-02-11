@@ -24,9 +24,8 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.pinot.common.data.FieldSpec.DataType;
 import org.apache.pinot.common.response.ServerInstance;
-import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 import org.apache.pinot.common.utils.DataTable;
 
 import java.util.ArrayList;
@@ -241,7 +240,7 @@ public class PinotSegmentPageSource
     private void writeBlock(BlockBuilder blockBuilder, Type columnType, int columnIdx)
     {
         Class<?> javaType = columnType.getJavaType();
-        DataSchema.ColumnDataType pinotColumnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIdx);
+        ColumnDataType pinotColumnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIdx);
         if (javaType.equals(boolean.class)) {
             writeBooleanBlock(blockBuilder, columnType, columnIdx);
         }
@@ -296,27 +295,27 @@ public class PinotSegmentPageSource
         }
     }
 
-    Type getType(int columnIndex)
+    private Type getType(int columnIndex)
     {
         checkArgument(columnIndex < columnHandles.size(), "Invalid field index");
         return columnHandles.get(columnIndex).getDataType();
     }
 
-    boolean getBoolean(int rowIdx, int columnIndex)
+    private boolean getBoolean(int rowIdx, int columnIndex)
     {
         return Boolean.getBoolean(currentDataTable.getDataTable().getString(rowIdx, columnIndex));
     }
 
-    long getLong(int rowIndex, int columnIndex)
+    private long getLong(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
-        if (dataType.equals(DataType.DOUBLE)) {
+        if (dataType.equals(ColumnDataType.DOUBLE)) {
             return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
         }
-        if (dataType.equals(DataType.INT)) {
+        if (dataType.equals(ColumnDataType.INT)) {
             return (long) currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
         }
         else {
@@ -324,10 +323,10 @@ public class PinotSegmentPageSource
         }
     }
 
-    double getDouble(int rowIndex, int columnIndex)
+    private double getDouble(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
-        if (dataType.equals(DataType.FLOAT)) {
+        ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        if (dataType.equals(ColumnDataType.FLOAT)) {
             return currentDataTable.getDataTable().getFloat(rowIndex, columnIndex);
         }
         else {
@@ -335,10 +334,10 @@ public class PinotSegmentPageSource
         }
     }
 
-    Slice getSlice(int rowIndex, int columnIndex)
+    private Slice getSlice(int rowIndex, int columnIndex)
     {
         checkColumnType(columnIndex, VARCHAR);
-        DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+        ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
             case INT_ARRAY:
                 int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
@@ -372,7 +371,7 @@ public class PinotSegmentPageSource
      * @param dataType FieldSpec.dataType for Pinot column.
      * @return estimated size in bytes.
      */
-    private int getEstimatedColumnSizeInBytes(DataSchema.ColumnDataType dataType)
+    private int getEstimatedColumnSizeInBytes(ColumnDataType dataType)
     {
         if (dataType.isNumber()) {
             switch (dataType) {
@@ -390,13 +389,13 @@ public class PinotSegmentPageSource
         return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
-    void checkColumnType(int columnIndex, Type expected)
+    private void checkColumnType(int columnIndex, Type expected)
     {
         Type actual = getType(columnIndex);
         checkArgument(actual.equals(expected), "Expected column %s to be type %s but is %s", columnIndex, expected, actual);
     }
 
-    Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
+    private Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
     {
         if (pinotColumnHandle.getDataType().equals(INTEGER)) {
             return BIGINT;

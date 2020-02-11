@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.hive.metastore.alluxio.AlluxioMetastoreModule;
 import com.facebook.presto.hive.metastore.file.FileMetastoreModule;
 import com.facebook.presto.hive.metastore.glue.GlueMetastoreModule;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreModule;
@@ -46,6 +47,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("thrift", new ThriftMetastoreModule(connectorId));
             bindMetastoreModule("file", new FileMetastoreModule(connectorId));
             bindMetastoreModule("glue", new GlueMetastoreModule(connectorId));
+            bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
         }
     }
 

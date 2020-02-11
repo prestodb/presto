@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Statement;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
@@ -110,6 +111,11 @@ public class SqlParser
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+    }
+
+    public Return createRoutineBody(String routineBody, ParsingOptions parsingOptions)
+    {
+        return (Return) invokeParser("routineBody", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions);
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)

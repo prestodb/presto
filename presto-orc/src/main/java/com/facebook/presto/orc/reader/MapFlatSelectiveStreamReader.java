@@ -80,6 +80,7 @@ public class MapFlatSelectiveStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatSelectiveStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
+    private final boolean legacyMapSubscript;
 
     // This is the StreamDescriptor for the value stream with sequence ID 0, it is used to derive StreamDescriptors for the
     // value streams with other sequence IDs
@@ -137,12 +138,14 @@ public class MapFlatSelectiveStreamReader
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryContext)
     {
         checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
+        checkArgument(streamDescriptor.getNestedStreams().size() == 2, "there must be exactly 2 nested stream descriptor");
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        checkArgument(streamDescriptor.getNestedStreams().size() == 2, "there must be exactly 2 nested stream descriptor");
+        this.legacyMapSubscript = legacyMapSubscript;
         this.keyOrcTypeKind = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -640,7 +643,7 @@ public class MapFlatSelectiveStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(valueStreamDescriptor, ImmutableBiMap.of(), Optional.ofNullable(outputType).map(MapType::getValueType), ImmutableList.of(), hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
+            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(valueStreamDescriptor, ImmutableBiMap.of(), Optional.ofNullable(outputType).map(MapType::getValueType), ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

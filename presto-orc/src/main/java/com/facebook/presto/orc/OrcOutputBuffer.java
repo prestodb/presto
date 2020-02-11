@@ -49,6 +49,7 @@ public class OrcOutputBuffer
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
+    private static final int PAGE_HEADER_SIZE = 3; // ORC spec 3 byte header
     private static final int INITIAL_BUFFER_SIZE = 256;
     private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
@@ -77,9 +78,9 @@ public class OrcOutputBuffer
     public OrcOutputBuffer(CompressionKind compression, int maxBufferSize)
     {
         requireNonNull(compression, "compression is null");
-        checkArgument(maxBufferSize > 0, "maximum buffer size should be greater than 0");
+        checkArgument(maxBufferSize > PAGE_HEADER_SIZE, "maximum buffer size should be greater than page header size");
 
-        this.maxBufferSize = maxBufferSize;
+        this.maxBufferSize = compression == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
 
         this.buffer = new byte[INITIAL_BUFFER_SIZE];
         this.slice = wrappedBuffer(buffer);
@@ -386,6 +387,8 @@ public class OrcOutputBuffer
 
     private void ensureWritableBytes(int minWritableBytes)
     {
+        checkArgument(minWritableBytes <= maxBufferSize, "Min writable bytes must not exceed max buffer size");
+
         int neededBufferSize = bufferPosition + minWritableBytes;
         if (neededBufferSize <= slice.length()) {
             return;

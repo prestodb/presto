@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DoubleType;
@@ -22,18 +21,16 @@ import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction
-        extends AbstractTestAggregationFunction
+        extends TestMergeStatisticalDigestFunction
 {
     public static final BiFunction<Object, Object, Boolean> QDIGEST_EQUALITY = (actualBinary, expectedBinary) -> {
         if (actualBinary == null && expectedBinary == null) {
@@ -52,6 +49,12 @@ public class TestMergeQuantileDigestFunction
     };
 
     @Override
+    protected BiFunction<Object, Object, Boolean> getEquality()
+    {
+        return QDIGEST_EQUALITY;
+    }
+
+    @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
         Type type = QDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
@@ -62,12 +65,6 @@ public class TestMergeQuantileDigestFunction
             type.writeSlice(blockBuilder, qdigest.serialize());
         }
         return new Block[] {blockBuilder.build()};
-    }
-
-    @Override
-    protected String getFunctionName()
-    {
-        return "merge";
     }
 
     @Override
@@ -88,30 +85,5 @@ public class TestMergeQuantileDigestFunction
             qdigest.add(i);
         }
         return new SqlVarbinary(qdigest.serialize().getBytes());
-    }
-
-    // The following tests are overridden because by default simple equality checks are done, which often won't work with
-    // qdigests due to the way they are serialized.  I am instead overridding these methods and using the QDIGEST_EQUALITY
-    // function to perform equality checks.
-    @Test
-    @Override
-    public void testMultiplePositions()
-    {
-        assertAggregation(getFunction(),
-                QDIGEST_EQUALITY,
-                "test multiple positions",
-                new Page(getSequenceBlocks(0, 5)),
-                getExpectedValue(0, 5));
-    }
-
-    @Test
-    @Override
-    public void testMixedNullAndNonNullPositions()
-    {
-        assertAggregation(getFunction(),
-                QDIGEST_EQUALITY,
-                "test mixed null and nonnull position",
-                new Page(createAlternatingNullsBlock(getFunction().getParameterTypes(), getSequenceBlocks(0, 10))),
-                getExpectedValueIncludingNulls(0, 10, 20));
     }
 }

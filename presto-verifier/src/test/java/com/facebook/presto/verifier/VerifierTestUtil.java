@@ -18,13 +18,27 @@ import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
+import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
+import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.checksum.ColumnValidator;
+import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
+import com.facebook.presto.verifier.checksum.RowColumnValidator;
+import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.framework.Column;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.source.MySqlSourceQueryConfig;
 import com.facebook.presto.verifier.source.VerifierDao;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+
+import javax.inject.Provider;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -95,5 +109,17 @@ public class VerifierTestUtil
     public static void truncateVerifierQueries(Handle handle)
     {
         handle.execute("DELETE FROM verifier_queries");
+    }
+
+    public static ChecksumValidator createChecksumValidator(VerifierConfig verifierConfig)
+    {
+        Map<Column.Category, Provider<ColumnValidator>> lazyValidators = new HashMap<>();
+        Map<Column.Category, Provider<ColumnValidator>> validators = ImmutableMap.of(
+                Column.Category.SIMPLE, SimpleColumnValidator::new,
+                Column.Category.FLOATING_POINT, () -> new FloatingPointColumnValidator(verifierConfig),
+                Column.Category.ARRAY, ArrayColumnValidator::new,
+                Column.Category.ROW, () -> new RowColumnValidator(lazyValidators));
+        lazyValidators.putAll(validators);
+        return new ChecksumValidator(validators);
     }
 }

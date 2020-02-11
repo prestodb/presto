@@ -122,6 +122,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, scheduler),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -162,6 +163,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -235,6 +237,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -318,6 +321,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -383,6 +387,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor)) {
@@ -459,6 +464,7 @@ public class TestExchangeClient
                 true,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);

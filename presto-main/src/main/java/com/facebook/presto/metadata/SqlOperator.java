@@ -17,10 +17,13 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
+
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 public abstract class SqlOperator
         extends SqlScalarFunction
@@ -42,9 +45,9 @@ public abstract class SqlOperator
     }
 
     @Override
-    public final boolean isHidden()
+    public final SqlFunctionVisibility getVisibility()
     {
-        return true;
+        return HIDDEN;
     }
 
     @Override

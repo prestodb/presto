@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
+
 import java.util.Optional;
 
 public class ScalarHeader
 {
     private final Optional<String> description;
-    private final boolean hidden;
+    private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
 
-    public ScalarHeader(Optional<String> description, boolean hidden, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
     {
         this.description = description;
-        this.hidden = hidden;
+        this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
     }
@@ -35,9 +37,9 @@ public class ScalarHeader
         return description;
     }
 
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return hidden;
+        return visibility;
     }
 
     public boolean isDeterministic()

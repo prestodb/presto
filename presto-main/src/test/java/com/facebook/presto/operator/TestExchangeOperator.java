@@ -92,6 +92,7 @@ public class TestExchangeOperator
                 true,
                 0.2,
                 httpClient,
+                new TestingDriftClient<>(),
                 scheduler,
                 systemMemoryUsageListener,
                 pageBufferClientCallbackExecutor);

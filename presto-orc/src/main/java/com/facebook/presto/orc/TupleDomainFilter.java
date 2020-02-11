@@ -1098,7 +1098,7 @@ public interface TupleDomainFilter
             super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
-            checkArgument(values.length > 1, "values must contain at least 2 entries");
+            checkArgument(values.length > 0, "values must not be empty");
 
             this.values = values;
             lengthExists = new boolean[Arrays.stream(values).mapToInt(value -> value.length).max().getAsInt() + 1];
@@ -1204,6 +1204,69 @@ public interface TupleDomainFilter
         {
             return toStringHelper(this)
                     .add("values", values)
+                    .add("nullAllowed", nullAllowed)
+                    .toString();
+        }
+    }
+
+    class BytesValuesExclusive
+            extends AbstractTupleDomainFilter
+    {
+        private final BytesValues delegate;
+
+        private BytesValuesExclusive(byte[][] values, boolean nullAllowed)
+        {
+            super(true, nullAllowed);
+            delegate = BytesValues.of(values, nullAllowed);
+        }
+
+        public static BytesValuesExclusive of(byte[][] values, boolean nullAllowed)
+        {
+            return new BytesValuesExclusive(values, nullAllowed);
+        }
+
+        @Override
+        public boolean testBytes(byte[] value, int offset, int length)
+        {
+            if (!delegate.testLength(length)) {
+                return true;
+            }
+            return !delegate.testBytes(value, offset, length);
+        }
+
+        @Override
+        public boolean testLength(int length)
+        {
+            return true;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            BytesValuesExclusive that = (BytesValuesExclusive) o;
+            return nullAllowed == that.nullAllowed &&
+                    delegate.equals(that.delegate);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(delegate, nullAllowed);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delegate", delegate)
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }

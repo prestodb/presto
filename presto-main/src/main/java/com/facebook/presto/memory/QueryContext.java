@@ -302,6 +302,13 @@ public class QueryContext
         return queryId;
     }
 
+    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory)
+    {
+        // Don't allow session properties to increase memory beyond configured limits
+        maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
+        maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
+    }
+
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {

@@ -27,6 +27,7 @@ import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
+import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.CommitTask;
@@ -76,6 +77,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
+import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -98,6 +100,7 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
@@ -292,6 +295,7 @@ public class CoordinatorModule
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
         getAllQueryTypes().entrySet().stream()
                 .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
@@ -309,6 +313,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateFunction.class, CreateFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, AlterFunction.class, AlterFunctionTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropFunction.class, DropFunctionTask.class);
         bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);

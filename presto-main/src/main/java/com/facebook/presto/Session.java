@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
@@ -419,6 +420,7 @@ public final class Session
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
+                .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
                 .build();
     }
@@ -707,6 +709,7 @@ public final class Session
         private Optional<Duration> executionTime = Optional.empty();
         private Optional<Duration> cpuTime = Optional.empty();
         private Optional<DataSize> peakMemory = Optional.empty();
+        private Optional<DataSize> peakTaskMemory = Optional.empty();
 
         public ResourceEstimateBuilder setExecutionTime(Duration executionTime)
         {
@@ -726,9 +729,15 @@ public final class Session
             return this;
         }
 
+        public ResourceEstimateBuilder setPeakTaskMemory(DataSize peakTaskMemory)
+        {
+            this.peakTaskMemory = Optional.of(peakTaskMemory);
+            return this;
+        }
+
         public ResourceEstimates build()
         {
-            return new ResourceEstimates(executionTime, cpuTime, peakMemory);
+            return new ResourceEstimates(executionTime, cpuTime, peakMemory, peakTaskMemory);
         }
     }
 }

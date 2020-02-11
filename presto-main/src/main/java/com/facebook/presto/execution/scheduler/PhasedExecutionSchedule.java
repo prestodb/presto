@@ -58,14 +58,17 @@ import static java.util.function.Function.identity;
 public class PhasedExecutionSchedule
         implements ExecutionSchedule
 {
-    private final List<Set<SqlStageExecution>> schedulePhases;
-    private final Set<SqlStageExecution> activeSources = new HashSet<>();
+    private final List<Set<StageExecutionAndScheduler>> schedulePhases;
+    private final Set<StageExecutionAndScheduler> activeSources = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<SqlStageExecution> stages)
+    public PhasedExecutionSchedule(Collection<StageExecutionAndScheduler> stages)
     {
-        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(SqlStageExecution::getFragment).collect(toImmutableList()));
+        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream()
+                .map(StageExecutionAndScheduler::getStageExecution)
+                .map(SqlStageExecution::getFragment)
+                .collect(toImmutableList()));
 
-        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+        Map<PlanFragmentId, StageExecutionAndScheduler> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getStageExecution().getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -77,7 +80,7 @@ public class PhasedExecutionSchedule
     }
 
     @Override
-    public Set<SqlStageExecution> getStagesToSchedule()
+    public Set<StageExecutionAndScheduler> getStagesToSchedule()
     {
         removeCompletedStages();
         addPhasesIfNecessary();
@@ -89,8 +92,8 @@ public class PhasedExecutionSchedule
 
     private void removeCompletedStages()
     {
-        for (Iterator<SqlStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            StageExecutionState state = stageIterator.next().getState();
+        for (Iterator<StageExecutionAndScheduler> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
+            StageExecutionState state = stageIterator.next().getStageExecution().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 stageIterator.remove();
             }
@@ -105,7 +108,7 @@ public class PhasedExecutionSchedule
         }
 
         while (!schedulePhases.isEmpty()) {
-            Set<SqlStageExecution> phase = schedulePhases.remove(0);
+            Set<StageExecutionAndScheduler> phase = schedulePhases.remove(0);
             activeSources.addAll(phase);
             if (hasSourceDistributedStage(phase)) {
                 return;
@@ -113,9 +116,9 @@ public class PhasedExecutionSchedule
         }
     }
 
-    private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
+    private static boolean hasSourceDistributedStage(Set<StageExecutionAndScheduler> phase)
     {
-        return phase.stream().anyMatch(stage -> !stage.getFragment().getTableScanSchedulingOrder().isEmpty());
+        return phase.stream().anyMatch(stage -> !stage.getStageExecution().getFragment().getTableScanSchedulingOrder().isEmpty());
     }
 
     @Override

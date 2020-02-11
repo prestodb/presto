@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -61,6 +62,7 @@ public class TestFeaturesConfig
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
                 .setRecoverableGroupedExecutionEnabled(false)
                 .setMaxFailedTaskPercentage(0.3)
+                .setMaxStageRetries(0)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
@@ -125,7 +127,10 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(true)
                 .setIndexLoaderTimeout(new Duration(20, SECONDS))
                 .setOptimizedRepartitioningEnabled(false)
-                .setListBuiltInFunctionsOnly(true));
+                .setListBuiltInFunctionsOnly(true)
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC)
+                .setExperimentalFunctionsEnabled(false)
+                .setUseLegacyScheduler(false));
     }
 
     @Test
@@ -155,6 +160,7 @@ public class TestFeaturesConfig
                 .put("dynamic-schedule-for-grouped-execution", "true")
                 .put("recoverable-grouped-execution-enabled", "true")
                 .put("max-failed-task-percentage", "0.8")
+                .put("max-stage-retries", "10")
                 .put("concurrent-lifespans-per-task", "1")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
@@ -208,6 +214,9 @@ public class TestFeaturesConfig
                 .put("index-loader-timeout", "10s")
                 .put("experimental.optimized-repartitioning", "true")
                 .put("list-built-in-functions-only", "false")
+                .put("partitioning-precision-strategy", "PREFER_EXACT_PARTITIONING")
+                .put("experimental-functions-enabled", "true")
+                .put("use-legacy-scheduler", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -227,6 +236,7 @@ public class TestFeaturesConfig
                 .setDynamicScheduleForGroupedExecutionEnabled(true)
                 .setRecoverableGroupedExecutionEnabled(true)
                 .setMaxFailedTaskPercentage(0.8)
+                .setMaxStageRetries(10)
                 .setConcurrentLifespansPerTask(1)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
@@ -286,7 +296,10 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(false)
                 .setIndexLoaderTimeout(new Duration(10, SECONDS))
                 .setOptimizedRepartitioningEnabled(true)
-                .setListBuiltInFunctionsOnly(false);
+                .setListBuiltInFunctionsOnly(false)
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING)
+                .setExperimentalFunctionsEnabled(true)
+                .setUseLegacyScheduler(true);
         assertFullMapping(properties, expected);
     }
 

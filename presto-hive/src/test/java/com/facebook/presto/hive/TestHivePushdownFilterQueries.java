@@ -103,6 +103,9 @@ public class TestHivePushdownFilterQueries
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
+                // TODO: enable failure detector.  Currently this test has a ton of major GC activity on travis,
+                //  and the failure detector may make the test run longer
+                ImmutableMap.of("failure-detector.enabled", "false"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
                 Optional.empty());
@@ -173,8 +176,8 @@ public class TestHivePushdownFilterQueries
 
         assertQuery(legacyUnnest, "SELECT orderkey, date.day FROM lineitem_ex CROSS JOIN UNNEST(dates) t(date)",
                 "SELECT orderkey, day(shipdate) FROM lineitem WHERE orderkey % 31 <> 0 UNION ALL " +
-                "SELECT orderkey, day(commitdate) FROM lineitem WHERE orderkey % 31 <> 0 UNION ALL " +
-                "SELECT orderkey, day(receiptdate) FROM lineitem WHERE orderkey % 31 <> 0");
+                        "SELECT orderkey, day(commitdate) FROM lineitem WHERE orderkey % 31 <> 0 UNION ALL " +
+                        "SELECT orderkey, day(receiptdate) FROM lineitem WHERE orderkey % 31 <> 0");
     }
 
     @Test
@@ -644,6 +647,7 @@ public class TestHivePushdownFilterQueries
         // filter-only struct
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL");
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey = 16515", rewriter);
+        assertQueryReturnsEmptyResult("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey = 16515 and info.orderkey = 16516");
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey + 1 = 16514", rewriter);
 
         // filters on subfields
@@ -727,6 +731,10 @@ public class TestHivePushdownFilterQueries
 
         // filter function on numeric and boolean columns
         assertFilterProject("if(is_returned, linenumber, orderkey) % 5 = 0", "linenumber");
+
+        // filter functions with join predicate pushdown
+        assertQueryReturnsEmptyResult("SELECT * FROM orders o, lineitem_ex l " +
+                "WHERE o.orderkey <> 100 AND cardinality(l.keys) >= 5 AND l.keys[5] <> 1 AND l.keys[5] = o.orderkey");
 
         // filter functions on array columns
         assertFilterProject("keys[1] % 5 = 0", "orderkey");
@@ -1031,6 +1039,13 @@ public class TestHivePushdownFilterQueries
         finally {
             assertUpdate("DROP TABLE test_nan");
         }
+    }
+
+    @Test
+    public void testFilterFunctionsWithOptimization()
+    {
+        assertQuery("SELECT partkey FROM lineitem WHERE orderkey > 10 OR if(json_extract(json_parse('{}'), '$.a') IS NOT NULL, quantity * discount) > 0",
+                "SELECT partkey FROM lineitem WHERE orderkey > 10");
     }
 
     private Path getPartitionDirectory(String tableName, String partitionClause)

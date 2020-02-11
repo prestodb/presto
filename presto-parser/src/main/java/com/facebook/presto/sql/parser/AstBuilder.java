@@ -16,6 +16,8 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -116,6 +118,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
@@ -214,6 +217,12 @@ class AstBuilder
     public Node visitStandaloneExpression(SqlBaseParser.StandaloneExpressionContext context)
     {
         return visit(context.expression());
+    }
+
+    @Override
+    public Node visitStandaloneRoutineBody(SqlBaseParser.StandaloneRoutineBodyContext context)
+    {
+        return visit(context.routineBody());
     }
 
     // ******************* statements **********************
@@ -419,7 +428,18 @@ class AstBuilder
                 getType(context.returnType),
                 comment,
                 getRoutineCharacteristics(context.routineCharacteristics()),
-                (Expression) visit(context.routineBody()));
+                (Return) visit(context.routineBody()));
+    }
+
+    @Override
+    public Node visitAlterFunction(SqlBaseParser.AlterFunctionContext context)
+    {
+        Optional<List<String>> parameterTypes = context.types() == null ? Optional.empty() : Optional.of(getTypes(context.types()));
+        return new AlterFunction(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                parameterTypes,
+                getAlterRoutineCharacteristics(context.alterRoutineCharacteristics()));
     }
 
     @Override
@@ -432,7 +452,13 @@ class AstBuilder
     @Override
     public Node visitRoutineBody(SqlBaseParser.RoutineBodyContext context)
     {
-        return visit(context.expression());
+        return visit(context.returnStatement());
+    }
+
+    @Override
+    public Node visitReturnStatement(SqlBaseParser.ReturnStatementContext context)
+    {
+        return new Return((Expression) visit(context.expression()));
     }
 
     @Override
@@ -2256,6 +2282,26 @@ class AstBuilder
                 Optional.ofNullable(language),
                 Optional.ofNullable(determinism),
                 Optional.ofNullable(nullCallClause));
+    }
+
+    private AlterRoutineCharacteristics getAlterRoutineCharacteristics(SqlBaseParser.AlterRoutineCharacteristicsContext context)
+    {
+        if (context.alterRoutineCharacteristic().isEmpty()) {
+            throw new ParsingException("No alter routine characteristics specified");
+        }
+
+        NullCallClause nullCallClause = null;
+
+        for (SqlBaseParser.AlterRoutineCharacteristicContext characteristic : context.alterRoutineCharacteristic()) {
+            if (characteristic.nullCallClause() != null) {
+                if (nullCallClause != null) {
+                    throw new ParsingException(format("Duplicate null-call clause: %s", characteristic.nullCallClause().getText()), getLocation(characteristic.nullCallClause()));
+                }
+                nullCallClause = characteristic.nullCallClause().CALLED() != null ? CALLED_ON_NULL_INPUT : RETURNS_NULL_ON_NULL_INPUT;
+            }
+        }
+
+        return new AlterRoutineCharacteristics(Optional.ofNullable(nullCallClause));
     }
 
     private String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter)

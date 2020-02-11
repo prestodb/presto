@@ -29,6 +29,8 @@ import com.facebook.airlift.jmx.testing.TestingJmxModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
+import com.facebook.drift.server.DriftServer;
+import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -230,11 +232,6 @@ public class TestingPrestoServer
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4");
 
-        if (coordinator) {
-            // TODO: enable failure detector
-            serverProperties.put("failure-detector.enabled", "false");
-        }
-
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
@@ -337,6 +334,11 @@ public class TestingPrestoServer
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
+
+        // Announce Thrift server address
+        DriftServer driftServer = injector.getInstance(DriftServer.class);
+        driftServer.start();
+        updateThriftServerAddressAnnouncement(announcer, driftServerPort(driftServer), nodeManager);
 
         announcer.forceAnnounce();
 
@@ -559,6 +561,22 @@ public class TestingPrestoServer
         nodeManager.refreshNodes();
     }
 
+    // TODO: announcement does not work for coordinator
+    private static void updateThriftServerAddressAnnouncement(Announcer announcer, int thriftPort, InternalNodeManager nodeManager)
+    {
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        // update announcement and thrift port property
+        Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
+        properties.put("thriftServerPort", String.valueOf(thriftPort));
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+        announcer.forceAnnounce();
+
+        nodeManager.refreshNodes();
+    }
+
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
         for (ServiceAnnouncement announcement : announcements) {
@@ -600,7 +618,6 @@ public class TestingPrestoServer
                     }
                 }
             }
-
             chain.doFilter(request, response);
         }
 
@@ -624,5 +641,10 @@ public class TestingPrestoServer
 
         @Override
         public void destroy() {}
+    }
+
+    private static int driftServerPort(DriftServer server)
+    {
+        return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 }

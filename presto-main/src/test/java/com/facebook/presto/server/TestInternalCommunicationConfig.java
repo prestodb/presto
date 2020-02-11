@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -39,7 +40,9 @@ public class TestInternalCommunicationConfig
                 .setExcludeCipherSuites(null)
                 .setKerberosUseCanonicalHostname(true)
                 .setBinaryTransportEnabled(false)
-                .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE)));
+                .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE))
+                .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP));
     }
 
     @Test
@@ -56,6 +59,8 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.kerberos.use-canonical-hostname", "false")
                 .put("experimental.internal-communication.binary-transport-enabled", "true")
                 .put("experimental.internal-communication.max-task-update-size", "512MB")
+                .put("internal-communication.task-communication-protocol", "THRIFT")
+                .put("internal-communication.server-info-communication-protocol", "THRIFT")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -68,7 +73,9 @@ public class TestInternalCommunicationConfig
                 .setKerberosEnabled(true)
                 .setKerberosUseCanonicalHostname(false)
                 .setBinaryTransportEnabled(true)
-                .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE));
+                .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE))
+                .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT);
 
         assertFullMapping(properties, expected);
     }

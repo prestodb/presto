@@ -116,4 +116,30 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT name, fields.fielda, fields.fieldb FROM nested.data",
                 "VALUES ('nestfield', 32, 'valueb')");
     }
+
+    @Test
+    public void testMixedCaseFields()
+    {
+        embeddedElasticsearchNode.getClient()
+                .prepareIndex("person", "doc")
+                .setSource(ImmutableMap.<String, Object>builder()
+                        .put("Name", "John")
+                        .put("Age", 20)
+                        .build())
+                .get();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest("person"))
+                .actionGet();
+
+        assertQuery(
+                "SELECT Name, Age FROM test.person",
+                "VALUES ('John', 20)");
+
+        assertQuery(
+                "SELECT name, age FROM test.person",
+                "VALUES ('John', 20)");
+    }
 }

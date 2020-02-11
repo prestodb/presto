@@ -20,13 +20,14 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class SessionFunctions
 {
     private SessionFunctions() {}
 
-    @ScalarFunction(value = "$current_user", hidden = true)
+    @ScalarFunction(value = "$current_user", visibility = HIDDEN)
     @Description("current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)

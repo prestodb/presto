@@ -15,24 +15,23 @@ package com.facebook.presto.kafka.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kafka.serializer.Encoder;
-import kafka.utils.VerifiableProperties;
+import org.apache.kafka.common.serialization.Serializer;
 
 import java.io.UncheckedIOException;
 
 public class JsonEncoder
-        implements Encoder<Object>
+        implements Serializer
 {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @SuppressWarnings("UnusedParameters")
-    public JsonEncoder(VerifiableProperties properties)
+    public JsonEncoder()
     {
         // constructor required by Kafka
     }
 
     @Override
-    public byte[] toBytes(Object o)
+    public byte[] serialize(String topic, Object o)
     {
         try {
             return objectMapper.writeValueAsBytes(o);

@@ -15,29 +15,40 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -179,5 +190,242 @@ public class TestAddExchangesPlans
                                 anyTree(exchange(REMOTE_STREAMING, REPARTITION,
                                         anyTree(node(AggregationNode.class,
                                                 anyTree(tableScan("orders"))))))))));
+    }
+
+    @Test
+    public void testAggregateIsExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    AVG(1)\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus,\n" +
+                        "        COUNT(*)\n" +
+                        "    FROM orders\n" +
+                        "    WHERE\n" +
+                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
+                        "    GROUP BY\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus\n" +
+                        ")\n" +
+                        "GROUP BY\n" +
+                        "    orderkey",
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ordertatus", "orderstatus",
+                                                                "orderkey", "orderkey",
+                                                                "orderdate", "orderdate"))))))));
+    }
+
+    @Test
+    public void testWindowIsExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    AVG(otherwindow) OVER (\n" +
+                        "        PARTITION BY\n" +
+                        "            orderkey\n" +
+                        "    )\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus,\n" +
+                        "        COUNT(*) OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                orderkey,\n" +
+                        "                orderstatus\n" +
+                        "        ) AS otherwindow\n" +
+                        "    FROM orders\n" +
+                        "    WHERE\n" +
+                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
+                        ")",
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "orderkey", "orderkey",
+                                                                "orderdate", "orderdate"))))))));
+    }
+
+    @Test
+    public void testRowNumberIsExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    *\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        a,\n" +
+                        "        ROW_NUMBER() OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                a\n" +
+                        "        ) rn\n" +
+                        "    FROM (\n" +
+                        "        VALUES\n" +
+                        "            (1)\n" +
+                        "    ) t (a)\n" +
+                        ") t",
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                anyTree(
+                                        values("a")))));
+    }
+
+    @Test
+    public void testTopNRowNumberIsExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    a,\n" +
+                        "    ROW_NUMBER() OVER (\n" +
+                        "        PARTITION BY\n" +
+                        "            a\n" +
+                        "        ORDER BY\n" +
+                        "            a\n" +
+                        "    ) rn\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        a,\n" +
+                        "        b,\n" +
+                        "        COUNT(*)\n" +
+                        "    FROM (\n" +
+                        "        VALUES\n" +
+                        "            (1, 2)\n" +
+                        "    ) t (a, b)\n" +
+                        "    GROUP BY\n" +
+                        "        a,\n" +
+                        "        b\n" +
+                        ")\n" +
+                        "LIMIT\n" +
+                        "    2",
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                anyTree(
+                                        values("a", "b")))));
+    }
+
+    @Test
+    public void testJoinExactlyPartitioned()
+    {
+        ExpectedValueProvider<FunctionCall> arbitrary = PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol()));
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    orders.orderkey,\n" +
+                        "    orders.orderstatus\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        ARBITRARY(orderstatus) AS orderstatus,\n" +
+                        "        COUNT(*)\n" +
+                        "    FROM orders\n" +
+                        "    GROUP BY\n" +
+                        "        orderkey\n" +
+                        ") t,\n" +
+                        "orders\n" +
+                        "WHERE\n" +
+                        "    orders.orderkey = t.orderkey\n" +
+                        "    AND orders.orderstatus = t.orderstatus",
+                anyTree(
+                        join(INNER, ImmutableList.of(
+                                equiJoinClause("ORDERKEY_LEFT", "ORDERKEY_RIGHT"),
+                                equiJoinClause("orderstatus", "ORDERSTATUS_RIGHT")),
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        anyTree(
+                                                aggregation(
+                                                        singleGroupingSet("ORDERKEY_LEFT"),
+                                                        ImmutableMap.of(Optional.of("orderstatus"), arbitrary),
+                                                        ImmutableList.of("ORDERKEY_LEFT"),
+                                                        ImmutableMap.of(),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY_LEFT", "orderkey",
+                                                                "ORDERSTATUS_LEFT", "orderstatus"))))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY_RIGHT", "orderkey",
+                                                                "ORDERSTATUS_RIGHT", "orderstatus"))))))));
+    }
+
+    @Test
+    public void testSemiJoinExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    orderkey\n" +
+                        "FROM orders\n" +
+                        "WHERE\n" +
+                        "    orderkey IN (\n" +
+                        "        SELECT\n" +
+                        "            orderkey\n" +
+                        "        FROM orders\n" +
+                        "        WHERE\n" +
+                        "            orderkey IS NULL\n" +
+                        "            AND orderstatus IS NULL\n" +
+                        "    )",
+                anyTree(
+                        semiJoin("ORDERKEY_OK", "VALUE_ORDERKEY", "S",
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "ORDERKEY_OK", "orderkey")))),
+                                anyTree(
+
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        values("VALUE_ORDERKEY")))))));
+    }
+
+    @Test
+    public void testMarkDistinctIsExactlyPartitioned()
+    {
+        assertExactDistributedPlan(
+                "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus,\n" +
+                        "        COUNT(DISTINCT orderdate),\n" +
+                        "        COUNT(DISTINCT clerk)\n" +
+                        "    FROM orders\n" +
+                        "    WHERE\n" +
+                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
+                        "    GROUP BY\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus\n",
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                                anyTree(
+                                                                        tableScan("orders", ImmutableMap.of(
+                                                                                "orderstatus", "orderstatus",
+                                                                                "orderkey", "orderkey",
+                                                                                "clerk", "clerk",
+                                                                                "orderdate", "orderdate"))))))))));
+    }
+
+    void assertExactDistributedPlan(String sql, PlanMatchPattern pattern)
+    {
+        assertDistributedPlan(
+                sql,
+                TestingSession.testSessionBuilder()
+                        .setCatalog("local")
+                        .setSchema("tiny")
+                        .setSystemProperty(
+                                SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY,
+                                FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING.toString())
+                        .build(),
+                pattern);
     }
 }

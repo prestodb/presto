@@ -57,7 +57,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits, boolean expectFilter)
     {
-        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
+        PinotConfig pinotConfig = new PinotConfig().setForbidBrokerQueries(false);
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch);
@@ -70,7 +70,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
+        PinotConfig pinotConfig = new PinotConfig().setForbidBrokerQueries(false);
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);
         PlanBuilder planBuilder = createPlanBuilder(sessionHolder);
         PlanNode plan = filter(planBuilder, tableScan(planBuilder, table, regionId, city, fare, secondsSinceEpoch), getRowExpression("city = 'Boston'", sessionHolder));

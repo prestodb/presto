@@ -18,6 +18,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 
 import java.net.URI;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
@@ -32,14 +33,21 @@ public class InternalNode
 {
     private final String nodeIdentifier;
     private final URI internalUri;
+    private final OptionalInt thriftPort;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator)
+    {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
+        this.thriftPort = requireNonNull(thriftPort, "thriftPort is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
     }
@@ -61,6 +69,11 @@ public class InternalNode
     public URI getHttpUri()
     {
         return getInternalUri();
+    }
+
+    public OptionalInt getThriftPort()
+    {
+        return thriftPort;
     }
 
     public URI getInternalUri()
@@ -116,6 +129,7 @@ public class InternalNode
         return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("internalUri", internalUri)
+                .add("thriftPort", thriftPort)
                 .add("nodeVersion", nodeVersion)
                 .toString();
     }

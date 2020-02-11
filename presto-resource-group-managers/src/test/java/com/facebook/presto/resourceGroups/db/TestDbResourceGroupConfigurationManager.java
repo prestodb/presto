@@ -54,7 +54,7 @@ import static org.testng.Assert.fail;
 public class TestDbResourceGroupConfigurationManager
 {
     private static final String ENVIRONMENT = "test";
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     static H2DaoProvider setup(String prefix)
     {

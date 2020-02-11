@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.232-SNAPSHOT</version>
+        <version>0.233-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -71,6 +71,26 @@
                 <exclusion>
                     <groupId>org.xerial.snappy</groupId>
                     <artifactId>snappy-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-hadoop-mr</artifactId>
+            <version>0.5.1-incubating</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.objenesis</groupId>
+                    <artifactId>objenesis</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -424,7 +444,7 @@
                                 <exclude>**/TestHiveDistributedAggregationsWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithOptimizedRepartitioning.java</exclude>
-                                <exclude>**/TestHiveRecoverableGroupedExecution.java</exclude>
+                                <exclude>**/TestHiveRecoverableExecution.java</exclude>
                                 <exclude>**/TestHivePushdownFilterQueries.java</exclude>
                                 <exclude>**/TestHivePushdownIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestHivePushdownDistributedQueries.java</exclude>
@@ -485,7 +505,7 @@
             </build>
         </profile>
         <profile>
-            <id>test-hive-recoverable-grouped-execution</id>
+            <id>test-hive-recoverable-execution</id>
             <build>
                 <plugins>
                     <plugin>
@@ -493,7 +513,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveRecoverableGroupedExecution.java</include>
+                                <include>**/TestHiveRecoverableExecution.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -508,6 +528,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
+                            <argLine>-Xms4g -Xmx4g</argLine>
                             <includes>
                                 <include>**/TestHivePushdownFilterQueries.java</include>
                                 <include>**/TestHivePushdownIntegrationSmokeTest.java</include>

@@ -58,7 +58,7 @@ public class ParametricAggregation
             AggregationHeader details,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
-        super(signature, details.isHidden());
+        super(signature, details.getVisibility());
         this.details = requireNonNull(details, "details is null");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }

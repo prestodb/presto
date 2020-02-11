@@ -32,7 +32,8 @@ public class TestFailureDetectorConfig
                 .setFailureRatioThreshold(0.1)
                 .setHeartbeatInterval(new Duration(500, TimeUnit.MILLISECONDS))
                 .setWarmupInterval(new Duration(5, TimeUnit.SECONDS))
-                .setEnabled(true));
+                .setEnabled(true)
+                .setExponentialDecaySeconds(60));
     }
 
     @Test
@@ -44,6 +45,7 @@ public class TestFailureDetectorConfig
                 .put("failure-detector.heartbeat-interval", "10s")
                 .put("failure-detector.threshold", "0.5")
                 .put("failure-detector.enabled", "false")
+                .put("failure-detector.exponential-decay-seconds", "1")
                 .build();
 
         FailureDetectorConfig expected = new FailureDetectorConfig()
@@ -51,7 +53,8 @@ public class TestFailureDetectorConfig
                 .setWarmupInterval(new Duration(60, TimeUnit.SECONDS))
                 .setHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
                 .setFailureRatioThreshold(0.5)
-                .setEnabled(false);
+                .setEnabled(false)
+                .setExponentialDecaySeconds(1);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

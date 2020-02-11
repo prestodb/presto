@@ -15,6 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -112,6 +113,7 @@ public final class StatementUtils
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
+        builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
         builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
         builder.put(Use.class, QueryType.DATA_DEFINITION);
         builder.put(SetSession.class, QueryType.DATA_DEFINITION);

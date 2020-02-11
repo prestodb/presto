@@ -465,6 +465,7 @@ public class QueryStateMachine
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
+        long retriedCpuTime = 0;
         long totalBlockedTime = 0;
 
         long rawInputDataSize = 0;
@@ -506,6 +507,7 @@ public class QueryStateMachine
             totalMemoryReservation += stageExecutionStats.getTotalMemoryReservation().toBytes();
             totalScheduledTime += stageExecutionStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageExecutionStats.getTotalCpuTime().roundTo(MILLISECONDS);
+            retriedCpuTime += computeRetriedCpuTime(stageInfo);
             totalBlockedTime += stageExecutionStats.getTotalBlockedTime().roundTo(MILLISECONDS);
             if (!stageInfo.getLatestAttemptExecutionInfo().getState().isDone()) {
                 fullyBlocked &= stageExecutionStats.isFullyBlocked();
@@ -589,6 +591,7 @@ public class QueryStateMachine
 
                 succinctDuration(totalScheduledTime, MILLISECONDS),
                 succinctDuration(totalCpuTime, MILLISECONDS),
+                succinctDuration(retriedCpuTime, MILLISECONDS),
                 succinctDuration(totalBlockedTime, MILLISECONDS),
                 fullyBlocked,
                 blockedReasons,
@@ -609,6 +612,15 @@ public class QueryStateMachine
                 stageGcStatistics.build(),
 
                 operatorStatsSummary.build());
+    }
+
+    private static long computeRetriedCpuTime(StageInfo stageInfo)
+    {
+        long stageRetriedCpuTime = stageInfo.getPreviousAttemptsExecutionInfos().stream()
+                .mapToLong(executionInfo -> executionInfo.getStats().getTotalCpuTime().roundTo(MILLISECONDS))
+                .sum();
+        long taskRetriedCpuTime = stageInfo.getLatestAttemptExecutionInfo().getStats().getRetriedCpuTime().roundTo(MILLISECONDS);
+        return stageRetriedCpuTime + taskRetriedCpuTime;
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -1034,7 +1046,6 @@ public class QueryStateMachine
     private static StageExecutionInfo pruneStageExecutionInfo(StageExecutionInfo info)
     {
         return new StageExecutionInfo(
-                info.getStageExecutionId(),
                 info.getState(),
                 info.getStats(),
                 // Remove the tasks
@@ -1075,6 +1086,7 @@ public class QueryStateMachine
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getTotalCpuTime(),
+                queryStats.getRetriedCpuTime(),
                 queryStats.getTotalBlockedTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),

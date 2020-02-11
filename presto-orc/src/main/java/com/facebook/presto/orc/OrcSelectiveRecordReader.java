@@ -161,6 +161,7 @@ public class OrcSelectiveRecordReader
             Optional<OrcDecompressor> decompressor,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             PostScript.HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
@@ -177,6 +178,7 @@ public class OrcSelectiveRecordReader
                         orcDataSource,
                         types,
                         hiveStorageTimeZone,
+                        legacyMapSubscript,
                         includedColumns,
                         outputColumns,
                         filters,
@@ -553,6 +555,7 @@ public class OrcSelectiveRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
             Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
@@ -584,6 +587,7 @@ public class OrcSelectiveRecordReader
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
+                        legacyMapSubscript,
                         systemMemoryContext);
             }
         }

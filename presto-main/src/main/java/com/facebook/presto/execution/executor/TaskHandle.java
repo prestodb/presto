@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -38,7 +37,9 @@ import static java.util.Objects.requireNonNull;
 public class TaskHandle
 {
     private final TaskId taskId;
-    protected final DoubleSupplier utilizationSupplier;
+    private final DoubleSupplier utilizationSupplier;
+    private final TaskPriorityTracker priorityTracker;
+    private final OptionalInt maxDriversPerTask;
 
     @GuardedBy("this")
     protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
@@ -47,29 +48,23 @@ public class TaskHandle
     @GuardedBy("this")
     protected final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
     @GuardedBy("this")
-    protected long scheduledNanos;
-    @GuardedBy("this")
     private boolean destroyed;
     @GuardedBy("this")
     protected final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
-    private final MultilevelSplitQueue splitQueue;
-    private final OptionalInt maxDriversPerTask;
-
     public TaskHandle(
             TaskId taskId,
-            MultilevelSplitQueue splitQueue,
+            TaskPriorityTracker priorityTracker,
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
         this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        this.priorityTracker = requireNonNull(priorityTracker, "queryPriorityTracker is null");
         this.maxDriversPerTask = requireNonNull(maxDriversPerTask, "maxDriversPerTask is null");
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
@@ -79,24 +74,12 @@ public class TaskHandle
     public synchronized Priority addScheduledNanos(long durationNanos)
     {
         concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
-        scheduledNanos += durationNanos;
-
-        Priority newPriority = splitQueue.updatePriority(priority.get(), durationNanos, scheduledNanos);
-
-        priority.set(newPriority);
-        return newPriority;
+        return priorityTracker.updatePriority(durationNanos);
     }
 
     public synchronized Priority resetLevelPriority()
     {
-        long levelMinPriority = splitQueue.getLevelMinPriority(priority.get().getLevel(), scheduledNanos);
-        if (priority.get().getLevelPriority() < levelMinPriority) {
-            Priority newPriority = new Priority(priority.get().getLevel(), levelMinPriority);
-            priority.set(newPriority);
-            return newPriority;
-        }
-
-        return priority.get();
+        return priorityTracker.resetLevelPriority();
     }
 
     public synchronized boolean isDestroyed()
@@ -106,7 +89,7 @@ public class TaskHandle
 
     public Priority getPriority()
     {
-        return priority.get();
+        return priorityTracker.getPriority();
     }
 
     public TaskId getTaskId()
@@ -153,7 +136,7 @@ public class TaskHandle
 
     public synchronized long getScheduledNanos()
     {
-        return scheduledNanos;
+        return priorityTracker.getScheduledNanos();
     }
 
     public synchronized PrioritizedSplitRunner pollNextSplit()

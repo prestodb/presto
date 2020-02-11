@@ -54,6 +54,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
+import static org.elasticsearch.search.sort.SortOrder.ASC;
 
 public class ElasticsearchQueryBuilder
 {
@@ -102,6 +103,9 @@ public class ElasticsearchQueryBuilder
         List<String> fields = columns.stream()
                 .map(ElasticsearchColumnHandle::getColumnName)
                 .collect(toList());
+        // Scroll requests have optimizations that make them faster when the sort order is _doc.
+        // If you want to iterate over all documents regardless of the order, this is the most efficient option
+        // With this settings, the performance can promote several times.
         SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indices)
                 .setTypes(type)
                 .setSearchType(QUERY_THEN_FETCH)
@@ -109,6 +113,7 @@ public class ElasticsearchQueryBuilder
                 .setFetchSource(fields.toArray(new String[0]), null)
                 .setQuery(buildSearchQuery())
                 .setPreference("_shards:" + shard)
+                .addSort("_doc", ASC)
                 .setSize(scrollSize);
         LOG.debug("Elasticsearch Request: %s", searchRequestBuilder);
         return searchRequestBuilder;

@@ -17,7 +17,7 @@ public interface SqlFunction
 {
     Signature getSignature();
 
-    boolean isHidden();
+    SqlFunctionVisibility getVisibility();
 
     boolean isDeterministic();
 

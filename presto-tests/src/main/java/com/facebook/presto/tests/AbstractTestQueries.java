@@ -4653,6 +4653,7 @@ public abstract class AbstractTestQueries
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
         assertExplainDdl("CREATE OR REPLACE FUNCTION testing.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)", "CREATE FUNCTION testing.default.tan");
+        assertExplainDdl("ALTER FUNCTION testing.default.tan CALLED ON NULL INPUT", "ALTER FUNCTION testing.default.tan");
         assertExplainDdl("DROP FUNCTION IF EXISTS testing.default.tan (int)", "DROP FUNCTION testing.default.tan");
         assertExplainDdl("DROP TABLE orders");
         assertExplainDdl("DROP VIEW view");
@@ -4878,7 +4879,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
         ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
-            assertEquals(input.getFieldCount(), 6);
+            assertEquals(input.getFieldCount(), 9);
             return (String) input.getField(0);
         });
 
@@ -4906,18 +4907,39 @@ public abstract class AbstractTestQueries
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("abs").asList().get(0).getField(4), true);
+        assertEquals(functions.get("abs").asList().get(0).getField(6), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(7), true);
+        assertEquals(functions.get("abs").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
         assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("rand").asList().get(0).getField(4), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(7), true);
+        assertEquals(functions.get("rand").asList().get(0).getField(8), "");
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
+        assertEquals(functions.get("rank").asList().get(0).getField(4), true);
+        assertEquals(functions.get("rank").asList().get(0).getField(6), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(7), true);
+        assertEquals(functions.get("rank").asList().get(0).getField(8), "");
 
-        assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'split_part'");
+        assertTrue(functions.containsKey("greatest"), "Expected function names " + functions + " to contain 'greatest'");
+        assertEquals(functions.get("greatest").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("greatest").asList().get(0).getField(4), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(6), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(7), true);
+        assertEquals(functions.get("greatest").asList().get(0).getField(8), "");
+
+        assertTrue(functions.containsKey("split_part"), "Expected function names " + functions + " to contain 'split_part'");
         assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
         assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar(x), varchar(y), bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
+        assertEquals(functions.get("split_part").asList().get(0).getField(4), true);
+        assertEquals(functions.get("split_part").asList().get(0).getField(6), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(7), true);
+        assertEquals(functions.get("split_part").asList().get(0).getField(8), "");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
@@ -7982,6 +8004,7 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("CREATE FUNCTION testing.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
+        assertDescribeOutputEmpty("ALTER FUNCTION testing.default.tan CALLED ON NULL INPUT");
         assertDescribeOutputEmpty("DROP FUNCTION IF EXISTS testing.default.tan (int)");
 
         assertDescribeOutputEmpty("DROP VIEW foo");

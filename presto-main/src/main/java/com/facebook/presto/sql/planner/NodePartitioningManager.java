@@ -32,17 +32,16 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -165,7 +164,7 @@ public class NodePartitioningManager
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session))),
+                        nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount()));
     }
 
@@ -184,7 +183,7 @@ public class NodePartitioningManager
 
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
@@ -218,15 +217,13 @@ public class NodePartitioningManager
 
     private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
     {
-        return cyclingShuffledStream(nodes)
-                .limit(bucketCount)
-                .collect(toImmutableList());
-    }
+        List<InternalNode> shuffledNodes = new ArrayList<>(nodes);
+        Collections.shuffle(shuffledNodes);
 
-    private static <T> Stream<T> cyclingShuffledStream(Collection<T> collection)
-    {
-        List<T> list = new ArrayList<>(collection);
-        Collections.shuffle(list);
-        return Stream.generate(() -> list).flatMap(List::stream);
+        ImmutableList.Builder<InternalNode> distribution = ImmutableList.builderWithExpectedSize(bucketCount);
+        for (int i = 0; i < bucketCount; i++) {
+            distribution.add(shuffledNodes.get(i % shuffledNodes.size()));
+        }
+        return distribution.build();
     }
 }

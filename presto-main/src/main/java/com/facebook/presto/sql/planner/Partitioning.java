@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -239,6 +240,26 @@ public final class Partitioning
             }
         }
         return true;
+    }
+
+    public boolean isPartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
+    {
+        Set<VariableReferenceExpression> toCheck = new HashSet<>();
+        for (RowExpression argument : arguments) {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
+            // can safely ignore all constant columns when comparing partition properties
+            if (argument instanceof ConstantExpression) {
+                continue;
+            }
+            if (!(argument instanceof VariableReferenceExpression)) {
+                return false;
+            }
+            if (knownConstants.contains(argument)) {
+                continue;
+            }
+            toCheck.add((VariableReferenceExpression) argument);
+        }
+        return ImmutableSet.copyOf(columns).equals(toCheck);
     }
 
     public boolean isEffectivelySinglePartition(Set<VariableReferenceExpression> knownConstants)

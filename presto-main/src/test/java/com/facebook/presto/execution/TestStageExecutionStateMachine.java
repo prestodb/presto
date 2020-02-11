@@ -13,32 +13,16 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
-import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -288,7 +272,6 @@ public class TestStageExecutionStateMachine
         assertEquals(stateMachine.getStageExecutionId(), STAGE_ID);
 
         StageExecutionInfo stageExecutionInfo = stateMachine.getStageExecutionInfo(ImmutableList::of, 0, 0);
-        assertEquals(stageExecutionInfo.getStageExecutionId(), STAGE_ID);
         assertEquals(stageExecutionInfo.getTasks(), ImmutableList.of());
 
         assertEquals(stateMachine.getState(), expectedState);
@@ -307,26 +290,5 @@ public class TestStageExecutionStateMachine
     private StageExecutionStateMachine createStageStateMachine()
     {
         return new StageExecutionStateMachine(STAGE_ID, executor, new SplitSchedulerStats(), false);
-    }
-
-    private static PlanFragment createValuesPlan()
-    {
-        VariableReferenceExpression variable = new VariableReferenceExpression("column", VARCHAR);
-        PlanNodeId valuesNodeId = new PlanNodeId("plan");
-        PlanFragment planFragment = new PlanFragment(
-                new PlanFragmentId(0),
-                new ValuesNode(valuesNodeId,
-                        ImmutableList.of(variable),
-                        ImmutableList.of(ImmutableList.of(constant(Slices.utf8Slice("foo"), VARCHAR)))),
-                ImmutableSet.of(variable),
-                SOURCE_DISTRIBUTION,
-                ImmutableList.of(valuesNodeId),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
-                StageExecutionDescriptor.ungroupedExecution(),
-                false,
-                StatsAndCosts.empty(),
-                Optional.empty());
-
-        return planFragment;
     }
 }

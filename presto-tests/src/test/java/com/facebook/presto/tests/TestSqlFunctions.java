@@ -50,13 +50,27 @@ public class TestSqlFunctions
     }
 
     @Test
+    public void testAlterFunctionInvalidFunctionName()
+    {
+        assertQueryFails(
+                "ALTER FUNCTION tan CALLED ON NULL INPUT",
+                ".*Function name should be in the form of catalog\\.schema\\.function_name, found: tan");
+        assertQueryFails(
+                "ALTER FUNCTION testing.tan CALLED ON NULL INPUT",
+                ".*Function name should be in the form of catalog\\.schema\\.function_name, found: testing\\.tan");
+        assertQueryFails(
+                "ALTER FUNCTION presto.default.sin RETURNS NULL ON NULL INPUT",
+                "Cannot alter function in built-in function namespace: presto\\.default\\.sin");
+    }
+
+    @Test
     public void testDropFunctionInvalidFunctionName()
     {
         assertQueryFails(
                 "DROP FUNCTION IF EXISTS testing.tan",
                 ".*Function name should be in the form of catalog\\.schema\\.function_name, found: testing\\.tan");
         assertQueryFails(
-                "DROP FUNCTION presto.default.tan (double)",
-                "Cannot drop function in built-in function namespace: presto\\.default\\.tan");
+                "DROP FUNCTION presto.default.sin (double)",
+                "Cannot drop function in built-in function namespace: presto\\.default\\.sin");
     }
 }

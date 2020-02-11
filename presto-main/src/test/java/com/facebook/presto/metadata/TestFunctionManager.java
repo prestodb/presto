@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -40,6 +42,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.EXPERIMENTAL_FUNCTIONS_ENABLED;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -47,6 +50,7 @@ import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -55,6 +59,8 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.String.format;
@@ -144,7 +150,7 @@ public class TestFunctionManager
     }
 
     @Test
-    public void testListingHiddenFunctions()
+    public void testListingVisibilityBetaFunctionsDisabled()
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
@@ -154,6 +160,31 @@ public class TestFunctionManager
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
         assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
+        assertFalse(names.contains("tdigest_agg"), "Expected function names " + names + " not to contain 'tdigest_agg'");
+        assertFalse(names.contains("quantiles_at_values"), "Expected function names " + names + " not to contain 'quantiles_at_values'");
+        assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
+        assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
+        assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
+    }
+
+    @Test
+    public void testListingVisibilityBetaFunctionsEnabled()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(EXPERIMENTAL_FUNCTIONS_ENABLED, "true")
+                .build();
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionManager functionManager = createFunctionManager(typeManager);
+        List<SqlFunction> functions = functionManager.listFunctions(session);
+        List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
+
+        assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
+        assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
+        assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
+        assertTrue(names.contains("tdigest_agg"), "Expected function names " + names + " to contain 'tdigest_agg'");
+        assertTrue(names.contains("quantiles_at_values"), "Expected function names " + names + " to contain 'tdigest_agg'");
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
         assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
         assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
@@ -441,9 +472,9 @@ public class TestFunctionManager
                     }
 
                     @Override
-                    public boolean isHidden()
+                    public SqlFunctionVisibility getVisibility()
                     {
-                        return false;
+                        return PUBLIC;
                     }
 
                     @Override

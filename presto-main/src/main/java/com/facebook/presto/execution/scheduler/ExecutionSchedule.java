@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.SqlStageExecution;
-
 import java.util.Set;
 
 public interface ExecutionSchedule
 {
-    Set<SqlStageExecution> getStagesToSchedule();
+    Set<StageExecutionAndScheduler> getStagesToSchedule();
 
     boolean isFinished();
 }

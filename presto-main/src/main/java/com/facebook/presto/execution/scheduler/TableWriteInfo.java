@@ -15,7 +15,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.scheduler.SqlQueryScheduler.StreamingSubPlan;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;

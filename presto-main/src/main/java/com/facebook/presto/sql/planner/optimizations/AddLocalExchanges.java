@@ -486,11 +486,11 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode originalTableWriterNode, StreamPreferredProperties parentPreferences)
         {
-            if (originalTableWriterNode.getPartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
+            if (originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
                 return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
             }
 
-            if (!originalTableWriterNode.getPartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
+            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
             }
 
@@ -506,7 +506,7 @@ public class AddLocalExchanges
 
             PlanWithProperties tableWriter;
 
-            if (!originalTableWriterNode.getPartitioningScheme().isPresent()) {
+            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent()) {
                 tableWriter = planAndEnforceChildren(
                         new TableWriterNode(
                                 originalTableWriterNode.getId(),
@@ -517,7 +517,8 @@ public class AddLocalExchanges
                                 variableAllocator.newVariable("partialcontext", VARBINARY),
                                 originalTableWriterNode.getColumns(),
                                 originalTableWriterNode.getColumnNames(),
-                                originalTableWriterNode.getPartitioningScheme(),
+                                originalTableWriterNode.getTablePartitioningScheme(),
+                                originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
                         fixedParallelism(),
                         fixedParallelism());
@@ -529,7 +530,7 @@ public class AddLocalExchanges
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 source.getNode(),
-                                originalTableWriterNode.getPartitioningScheme().get()),
+                                originalTableWriterNode.getTablePartitioningScheme().get()),
                         source.getProperties());
                 tableWriter = deriveProperties(
                         new TableWriterNode(
@@ -541,7 +542,8 @@ public class AddLocalExchanges
                                 variableAllocator.newVariable("partialcontext", VARBINARY),
                                 originalTableWriterNode.getColumns(),
                                 originalTableWriterNode.getColumnNames(),
-                                originalTableWriterNode.getPartitioningScheme(),
+                                originalTableWriterNode.getTablePartitioningScheme(),
+                                originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
                         exchange.getProperties());
             }
