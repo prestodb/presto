@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.hive.CachingDirectoryLister.HadoopFileInfoIterator;
+import com.facebook.presto.hive.HadoopDirectoryLister.HadoopFileInfoIterator;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.util.HiveFileIterator.ListDirectoryOperation;
 import com.google.common.collect.Iterators;

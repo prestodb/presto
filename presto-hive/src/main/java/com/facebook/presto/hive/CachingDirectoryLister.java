@@ -14,8 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.util.HiveFileIterator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -24,25 +22,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -50,13 +42,16 @@ import static java.util.Objects.requireNonNull;
 public class CachingDirectoryLister
         implements DirectoryLister
 {
-    private final Cache<Path, List<LocatedFileStatus>> cache;
+    private final Cache<Path, List<HiveFileInfo>> cache;
     private final Set<SchemaTableName> cachedTableNames;
 
+    protected final DirectoryLister delegate;
+
     @Inject
-    public CachingDirectoryLister(HiveClientConfig hiveClientConfig)
+    public CachingDirectoryLister(@ForCachingDirectoryLister DirectoryLister delegate, HiveClientConfig hiveClientConfig)
     {
         this(
+                delegate,
                 hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
                 hiveClientConfig.getFileStatusCacheMaxSize(),
                 hiveClientConfig.getFileStatusCacheTables().stream()
@@ -64,11 +59,12 @@ public class CachingDirectoryLister
                         .collect(Collectors.toSet()));
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, Set<SchemaTableName> tables)
+    public CachingDirectoryLister(DirectoryLister delegate, Duration expireAfterWrite, long maxSize, Set<SchemaTableName> tables)
     {
+        this.delegate = requireNonNull(delegate, "delegate is null");
         cache = CacheBuilder.newBuilder()
                 .maximumWeight(maxSize)
-                .weigher((Weigher<Path, List<LocatedFileStatus>>) (key, value) -> value.size())
+                .weigher((Weigher<Path, List<HiveFileInfo>>) (key, value) -> value.size())
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats()
                 .build();
@@ -87,60 +83,26 @@ public class CachingDirectoryLister
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
 
-        List<LocatedFileStatus> files = cache.getIfPresent(path);
+        List<HiveFileInfo> files = cache.getIfPresent(path);
         if (files != null) {
-            return new HiveFileIterator(path, p -> new HadoopFileInfoIterator(simpleRemoteIterator(files)), namenodeStats, nestedDirectoryPolicy, pathFilter);
-        }
-        RemoteIterator<LocatedFileStatus> iterator = null;
-        try {
-            iterator = fileSystem.listLocatedStatus(path);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILE_NOT_FOUND, "Hive file location does not exist: " + path);
+            return files.iterator();
         }
 
-        if (!cachedTableNames.contains(schemaTableName)) {
-            HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(iterator);
-            return new HiveFileIterator(path, p -> fileIterator, namenodeStats, nestedDirectoryPolicy, pathFilter);
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, nestedDirectoryPolicy, pathFilter);
+        if (cachedTableNames.contains(schemaTableName)) {
+            return cachingIterator(iterator, path);
         }
-        HadoopFileInfoIterator fileIterator = new HadoopFileInfoIterator(cachingRemoteIterator(iterator, path));
-        return new HiveFileIterator(path, p -> fileIterator, namenodeStats, nestedDirectoryPolicy, pathFilter);
+        return iterator;
     }
 
-    public static class HadoopFileInfoIterator
-            implements RemoteIterator<HiveFileInfo>
+    private Iterator<HiveFileInfo> cachingIterator(Iterator<HiveFileInfo> iterator, Path path)
     {
-        private final RemoteIterator<LocatedFileStatus> locatedFileStatusIterator;
-
-        public HadoopFileInfoIterator(RemoteIterator<LocatedFileStatus> locatedFileStatusIterator)
+        return new Iterator<HiveFileInfo>()
         {
-            this.locatedFileStatusIterator = requireNonNull(locatedFileStatusIterator, "locatedFileStatusIterator is null");
-        }
-
-        @Override
-        public boolean hasNext()
-                throws IOException
-        {
-            return locatedFileStatusIterator.hasNext();
-        }
-
-        @Override
-        public HiveFileInfo next()
-                throws IOException
-        {
-            return createHiveFileInfo(locatedFileStatusIterator.next(), Optional.empty());
-        }
-    }
-
-    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(RemoteIterator<LocatedFileStatus> iterator, Path path)
-    {
-        return new RemoteIterator<LocatedFileStatus>()
-        {
-            private final List<LocatedFileStatus> files = new ArrayList<>();
+            private final List<HiveFileInfo> files = new ArrayList<>();
 
             @Override
             public boolean hasNext()
-                    throws IOException
             {
                 boolean hasNext = iterator.hasNext();
                 if (!hasNext) {
@@ -150,34 +112,11 @@ public class CachingDirectoryLister
             }
 
             @Override
-            public LocatedFileStatus next()
-                    throws IOException
+            public HiveFileInfo next()
             {
-                LocatedFileStatus next = iterator.next();
+                HiveFileInfo next = iterator.next();
                 files.add(next);
                 return next;
-            }
-        };
-    }
-
-    private static RemoteIterator<LocatedFileStatus> simpleRemoteIterator(List<LocatedFileStatus> files)
-    {
-        return new RemoteIterator<LocatedFileStatus>()
-        {
-            private final Iterator<LocatedFileStatus> iterator = ImmutableList.copyOf(files).iterator();
-
-            @Override
-            public boolean hasNext()
-                    throws IOException
-            {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public LocatedFileStatus next()
-                    throws IOException
-            {
-                return iterator.next();
             }
         };
     }

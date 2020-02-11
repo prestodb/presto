@@ -97,7 +97,6 @@ public class HiveClientModule
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
-        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
@@ -109,8 +108,10 @@ public class HiveClientModule
 
         binder.bind(PrestoS3ClientFactory.class).in(Scopes.SINGLETON);
 
-        binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
+        binder.bind(DirectoryLister.class).annotatedWith(ForCachingDirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
+        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DirectoryLister.class)
+                .as(generatedNameOf(CachingDirectoryLister.class, connectorId));
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);
         recordCursorProviderBinder.addBinding().to(S3SelectRecordCursorProvider.class).in(Scopes.SINGLETON);
