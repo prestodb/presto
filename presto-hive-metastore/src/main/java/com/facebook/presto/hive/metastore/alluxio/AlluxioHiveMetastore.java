@@ -282,7 +282,13 @@ public class AlluxioHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
-        throw new UnsupportedOperationException("getPartitionNames is not supported in AlluxioHiveMetastore");
+        try {
+            List<PartitionInfo> partitionInfos = AlluxioProtoUtils.toPartitionInfoList(client.readTable(databaseName, tableName, Constraint.getDefaultInstance()));
+            return Optional.of(partitionInfos.stream().map(PartitionInfo::getPartitionName).collect(toImmutableList()));
+        }
+        catch (AlluxioStatusException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
