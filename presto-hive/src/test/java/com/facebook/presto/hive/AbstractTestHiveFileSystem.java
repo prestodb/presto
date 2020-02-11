@@ -208,7 +208,7 @@ public abstract class AbstractTestHiveFileSystem
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(new HiveClientConfig()),
+                new CachingDirectoryLister(new HadoopDirectoryLister(), new HiveClientConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
