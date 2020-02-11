@@ -192,7 +192,7 @@ public class TestRaptorSplitManager
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, layout);
         List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
-        assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
+        assertEquals(getOnlyElement(((RaptorSplit) getOnlyElement(batch)).getAddresses()), node.getHostAndPort());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
