@@ -80,8 +80,13 @@ public class ExampleSplit
         return NO_PREFERENCE;
     }
 
-    @Override
     public List<HostAddress> getAddresses()
+    {
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

@@ -82,9 +82,9 @@ public final class Split
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return connectorSplit.getAddresses();
+        return connectorSplit.getPreferredNodes(sortedCandidates);
     }
 
     public NodeSelectionStrategy getNodeSelectionStrategy()

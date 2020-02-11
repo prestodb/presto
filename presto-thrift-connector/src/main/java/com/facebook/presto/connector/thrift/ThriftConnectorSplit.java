@@ -50,6 +50,11 @@ public class ThriftConnectorSplit
     }
 
     @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    {
+        return addresses;
+    }
+
     @JsonProperty
     public List<HostAddress> getAddresses()
     {

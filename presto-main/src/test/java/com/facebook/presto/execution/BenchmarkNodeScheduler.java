@@ -271,7 +271,7 @@ public class BenchmarkNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return hosts;
         }

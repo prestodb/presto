@@ -24,6 +24,7 @@ import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.base.Supplier;
@@ -49,6 +50,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.newHashSet;
+import static com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionUtils.sortedNodes;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -121,12 +123,13 @@ public class SimpleNodeSelector
         ResettableRandomizedIterator<InternalNode> randomCandidates = getRandomCandidates(maxTasksPerStage, nodeMap, existingTasks);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
+        List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
         for (Split split : splits) {
             randomCandidates.reset();
 
             List<InternalNode> candidateNodes;
             if (split.getNodeSelectionStrategy() != NodeSelectionStrategy.NO_PREFERENCE) {
-                candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
             }
             else {
                 candidateNodes = selectNodes(minCandidates, randomCandidates);

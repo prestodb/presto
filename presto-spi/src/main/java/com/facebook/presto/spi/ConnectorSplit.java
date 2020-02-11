@@ -27,7 +27,14 @@ public interface ConnectorSplit
      */
     NodeSelectionStrategy getNodeSelectionStrategy();
 
-    List<HostAddress> getAddresses();
+    /**
+     * Provide a list of preferred nodes for scheduler to pick.
+     * 1. The scheduler will respect the preference if the strategy is HARD_AFFINITY.
+     * 2. Otherwise, the scheduler will prioritize the provided nodes if the strategy is SOFT_AFFINITY.
+     * But there is no guarantee that the scheduler will pick them if the provided nodes are busy.
+     * 3. Empty list indicates no preference.
+     */
+    List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates);
 
     Object getInfo();
 }

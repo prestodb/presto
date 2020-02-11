@@ -71,9 +71,14 @@ public class SystemSplit
         return HARD_AFFINITY;
     }
 
-    @Override
     @JsonProperty
     public List<HostAddress> getAddresses()
+    {
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

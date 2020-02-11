@@ -143,7 +143,7 @@ public final class RedisSplit
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return nodes;
     }

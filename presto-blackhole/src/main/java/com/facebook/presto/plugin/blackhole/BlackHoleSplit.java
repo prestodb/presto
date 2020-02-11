@@ -79,7 +79,7 @@ public final class BlackHoleSplit
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of();
     }

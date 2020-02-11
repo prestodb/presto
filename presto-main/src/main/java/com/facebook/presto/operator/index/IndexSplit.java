@@ -39,7 +39,7 @@ public class IndexSplit
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         throw new UnsupportedOperationException();
     }

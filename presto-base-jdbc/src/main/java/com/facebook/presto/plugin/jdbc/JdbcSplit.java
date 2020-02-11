@@ -102,8 +102,13 @@ public class JdbcSplit
         return NO_PREFERENCE;
     }
 
-    @Override
     public List<HostAddress> getAddresses()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of();
     }

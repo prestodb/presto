@@ -85,7 +85,7 @@ public class AtopSplit
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         // discard the port number
         return ImmutableList.of(HostAddress.fromString(host.getHostText()));

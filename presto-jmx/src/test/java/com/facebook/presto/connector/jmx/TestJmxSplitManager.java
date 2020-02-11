@@ -111,8 +111,8 @@ public class TestJmxSplitManager
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
             assertEquals(allSplits.size(), 1);
-            assertEquals(allSplits.get(0).getAddresses().size(), 1);
-            assertEquals(allSplits.get(0).getAddresses().get(0).getHostText(), nodeIdentifier);
+            assertEquals(((JmxSplit) allSplits.get(0)).getAddresses().size(), 1);
+            assertEquals(((JmxSplit) allSplits.get(0)).getAddresses().get(0).getHostText(), nodeIdentifier);
         }
     }
 
@@ -128,7 +128,7 @@ public class TestJmxSplitManager
         Set<String> actualNodes = nodes.stream().map(Node::getNodeIdentifier).collect(toSet());
         Set<String> expectedNodes = new HashSet<>();
         for (ConnectorSplit split : allSplits) {
-            List<HostAddress> addresses = split.getAddresses();
+            List<HostAddress> addresses = ((JmxSplit) split).getAddresses();
             assertEquals(addresses.size(), 1);
             expectedNodes.add(addresses.get(0).getHostText());
         }
