@@ -23,7 +23,6 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -33,7 +32,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -43,21 +41,16 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.CELL_TOO_LARGE;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayAggregationFunction
         extends SqlAggregationFunction
 {
     private static final String NAME = "array_agg";
-    private static final long MAX_ENTRY_RETAINED_SIZE_IN_BYTES = new DataSize(1, GIGABYTE).toBytes();
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregationFunction.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
@@ -144,16 +137,7 @@ public class ArrayAggregationFunction
         }
         else {
             BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.forEach((block, position) -> {
-                elementType.appendTo(block, position, entryBuilder);
-
-                if (entryBuilder.getRetainedSizeInBytes() > MAX_ENTRY_RETAINED_SIZE_IN_BYTES) {
-                    throw new PrestoException(CELL_TOO_LARGE, format(
-                            "Array size %s bytes exceeds the maximum supported array size %s",
-                            new DataSize(entryBuilder.getRetainedSizeInBytes(), BYTE).toString(),
-                            new DataSize(MAX_ENTRY_RETAINED_SIZE_IN_BYTES, BYTE).toString()));
-                }
-            });
+            state.forEach((block, position) -> elementType.appendTo(block, position, entryBuilder));
             out.closeEntry();
         }
     }
