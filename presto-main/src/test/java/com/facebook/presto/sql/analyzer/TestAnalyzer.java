@@ -32,7 +32,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
@@ -1640,7 +1639,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
+        ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v1"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata1, viewData1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1650,7 +1652,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v2"),
+                ImmutableList.of(new ColumnMetadata("a", VARCHAR)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata2, viewData2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1660,17 +1665,23 @@ public class TestAnalyzer
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
+        ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
+                new SchemaTableName("s3", "v3"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, THIRD_CATALOG, viewMetadata3, viewData3, false));
 
         // valid view with uppercase column name
         String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select A from t1",
-                        Optional.of("tpch"),
+                        Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+        ConnectorTableMetadata viewMetadata4 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v4"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata4, viewData4, false));
 
         // recursive view referencing to itself
         String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1680,7 +1691,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+        ConnectorTableMetadata viewMetadata5 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v5"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)

@@ -3638,7 +3638,10 @@ public abstract class AbstractTestHiveClient
     {
         String viewData = "test data";
         try (Transaction transaction = newTransaction()) {
-            transaction.getMetadata().createView(newSession(), viewName, viewData, replace);
+            ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
+                    viewName,
+                    ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+            transaction.getMetadata().createView(newSession(), viewMetadata1, viewData, replace);
             transaction.commit();
         }
 

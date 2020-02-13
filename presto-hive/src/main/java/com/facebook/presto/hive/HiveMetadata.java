@@ -197,7 +197,6 @@ import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -1676,7 +1675,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, "Presto View")
@@ -1685,14 +1684,18 @@ public class HiveMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
 
-        Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
+        List<Column> columns = viewMetadata.getColumns().stream()
+                .map(col -> new Column(col.getName(), toHiveType(typeTranslator, col.getType()), Optional.ofNullable(col.getComment())))
+                        .collect(toImmutableList());
+
+        SchemaTableName viewName = viewMetadata.getTable();
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(session.getUser())
                 .setTableType(VIRTUAL_VIEW)
-                .setDataColumns(ImmutableList.of(dummyColumn))
+                .setDataColumns(columns)
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
                 .setViewOriginalText(Optional.of(encodeViewData(viewData)))

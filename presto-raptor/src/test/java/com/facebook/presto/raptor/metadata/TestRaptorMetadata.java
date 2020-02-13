@@ -638,12 +638,18 @@ public class TestRaptorMetadata
     @Test
     public void testViews()
     {
-        SchemaTableName test1 = new SchemaTableName("test", "test_view1");
-        SchemaTableName test2 = new SchemaTableName("test", "test_view2");
+        ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view1"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view2"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        SchemaTableName test1 = viewMetadata1.getTable();
+        SchemaTableName test2 = viewMetadata2.getTable();
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, viewMetadata1, "test1", false);
+        metadata.createView(SESSION, viewMetadata2, "test2", false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, "test");
@@ -675,24 +681,29 @@ public class TestRaptorMetadata
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
     public void testCreateViewWithoutReplace()
     {
-        SchemaTableName test = new SchemaTableName("test", "test_view");
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, viewMetadata, "test", false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, viewMetadata, "test", false);
     }
 
     @Test
     public void testCreateViewWithReplace()
     {
-        SchemaTableName test = new SchemaTableName("test", "test_view");
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        SchemaTableName test = viewMetadata.getTable();
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, viewMetadata, "aaa", true);
+        metadata.createView(SESSION, viewMetadata, "bbb", true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }
