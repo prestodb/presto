@@ -226,8 +226,9 @@ public class StreamingAggregationOperator
 
     private void addRowsToAggregates(Page page, int startPosition, int endPosition)
     {
+        Page region = page.getRegion(startPosition, endPosition - startPosition + 1);
         for (Aggregator aggregator : aggregates) {
-            aggregator.processPage(page.getRegion(startPosition, endPosition - startPosition + 1));
+            aggregator.processPage(region);
         }
     }
 
