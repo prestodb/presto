@@ -80,6 +80,10 @@ public class ComposableStatsCalculator
         return rule.calculate((T) node, sourceStats, lookup, session, types);
     }
 
+    /**
+     * It's preferable to extend SimpleStatsRule than using this Rule interface directly.
+     * SimpleStatsRule has an advantage that PlanNodeStatsEstimates get normalized.
+     */
     public interface Rule<T extends PlanNode>
     {
         Pattern<T> getPattern();
