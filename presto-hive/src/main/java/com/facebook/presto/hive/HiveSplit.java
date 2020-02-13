@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -179,6 +180,17 @@ public class HiveSplit
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
+        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
+            throw new RuntimeException("sortedCandidates is null or empty for HiveSplit");
+        }
+
+        if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
+            // Use + 1 as secondary hash for now, would always get a diffrent position from the first hash.
+            // When + 1 overflow, will circle back to starting point: Integer.MAX_VALUE + 1 == Integer.MIN_VALUE
+            return ImmutableList.of(
+                    sortedCandidates.get(path.hashCode() % sortedCandidates.size()),
+                    sortedCandidates.get((path.hashCode() + 1) % sortedCandidates.size()));
+        }
         return addresses;
     }
 
