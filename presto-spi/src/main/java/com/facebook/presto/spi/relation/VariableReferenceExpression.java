@@ -53,6 +53,13 @@ public final class VariableReferenceExpression
         return type;
     }
 
+    // TODO: remove this hack once Jackson is able to properly recognize parent type's JsonSubTypes.Type specification
+    @JsonProperty("@type")
+    public String getIdentiferForSerialization()
+    {
+        return "variable";
+    }
+
     @Override
     public int hashCode()
     {
