@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -307,6 +308,13 @@ public class CostCalculatorUsingExchanges
             double memoryCost = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForAccumulation(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitSample(SampleNode node, Void context)
+        {
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputVariables()));
+            return costForStreaming(node, localCost);
         }
 
         private PlanCostEstimate costForSource(PlanNode node, LocalCostEstimate localCost)
