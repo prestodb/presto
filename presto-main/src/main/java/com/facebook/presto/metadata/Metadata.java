@@ -342,7 +342,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace);
 
     /**
      * Drops the specified view.

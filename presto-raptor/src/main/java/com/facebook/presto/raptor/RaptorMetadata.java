@@ -863,8 +863,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
+        SchemaTableName viewName = viewMetadata.getTable();
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
 
