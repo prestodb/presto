@@ -33,6 +33,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
@@ -54,6 +55,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
@@ -68,9 +70,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -216,87 +220,106 @@ public class PrestoSparkTaskExecutorFactory
                 new PrestoSparkRemoteSourceFactory(sparkInputs, blockEncodingSerde),
                 taskDescriptor.getTableWriteInfo());
 
-        List<Driver> drivers = createDrivers(
+        List<Driver> unpartitionedDrivers = createUnpartitionedDrivers(localExecutionPlan, taskContext, fragment.getTableScanSchedulingOrder());
+        Iterator<Driver> partitionedDriverIterator = createPartitionedDriverIterator(
                 localExecutionPlan,
                 taskContext,
                 fragment.getTableScanSchedulingOrder(),
                 taskDescriptor.getTaskSourcesBySchedulingOrder());
 
-        return new PrestoSparkTaskExecutor(taskContext, drivers, outputBuffer, taskStatsJsonCodec, taskStatsCollector);
+        return new PrestoSparkTaskExecutor(
+                taskContext,
+                unpartitionedDrivers,
+                partitionedDriverIterator,
+                outputBuffer,
+                taskStatsJsonCodec,
+                taskStatsCollector);
     }
 
-    public List<Driver> createDrivers(
-            LocalExecutionPlan localExecutionPlan,
-            TaskContext taskContext,
-            List<PlanNodeId> tableScanSchedulingOrder,
-            List<TaskSource> sources)
+    public List<Driver> createUnpartitionedDrivers(LocalExecutionPlan localExecutionPlan, TaskContext taskContext, List<PlanNodeId> tableScanSchedulingOrder)
     {
-        // Based on LocalQueryRunner#createDrivers
         List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
-                if (driverFactory.getSourceId().isPresent()) {
-                    boolean partitioned = tableScanSchedulingOrder.contains(driverFactory.getSourceId().get());
-                    if (partitioned) {
-                        checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
-                    }
-                    else {
-                        DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
-                        Driver driver = driverFactory.createDriver(driverContext);
-                        drivers.add(driver);
-                    }
-                }
-                else {
-                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
+            if (!driverFactory.getSourceId().isPresent() || !tableScanSchedulingOrder.contains(driverFactory.getSourceId().get())) {
+                PipelineContext pipelineContext = taskContext.addPipelineContext(
+                        driverFactory.getPipelineId(),
+                        driverFactory.isInputDriver(),
+                        driverFactory.isOutputDriver(),
+                        false);
+
+                for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
+                    DriverContext driverContext = pipelineContext.addDriverContext();
                     Driver driver = driverFactory.createDriver(driverContext);
                     drivers.add(driver);
                 }
-            }
-        }
 
-        // TODO: avoid pre-creating drivers for all task sources
-        for (TaskSource source : sources) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
-            checkState(driverFactory != null);
-            boolean partitioned = tableScanSchedulingOrder.contains(driverFactory.getSourceId().get());
-            for (ScheduledSplit split : source.getSplits()) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
-                Driver driver = driverFactory.createDriver(driverContext);
-                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
-                drivers.add(driver);
+                driverFactory.noMoreDrivers();
             }
-        }
-
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            driverFactory.noMoreDrivers();
         }
 
         return ImmutableList.copyOf(drivers);
+    }
+
+    public Iterator<Driver> createPartitionedDriverIterator(
+            LocalExecutionPlan localExecutionPlan,
+            TaskContext taskContext,
+            List<PlanNodeId> tableScanSchedulingOrder,
+            List<TaskSource> taskSourcesBySchedulingOrder)
+    {
+        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
+        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+            if (driverFactory.getSourceId().isPresent() && tableScanSchedulingOrder.contains(driverFactory.getSourceId().get())) {
+                checkState(!driverFactoriesBySource.containsKey(driverFactory.getSourceId().get()));
+                driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory);
+            }
+        }
+
+        List<PartitionedDriverGenerator> partitionedDriverGenerators = new ArrayList<>();
+        for (TaskSource source : taskSourcesBySchedulingOrder) {
+            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
+            checkState(driverFactory != null);
+
+            PipelineContext pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), true);
+            partitionedDriverGenerators.add(new PartitionedDriverGenerator(driverFactory, pipelineContext, source.getSplits()));
+        }
+
+        return Iterators.concat(partitionedDriverGenerators.iterator());
     }
 
     private static class PrestoSparkTaskExecutor
             extends AbstractIterator<Tuple2<Integer, SerializedPrestoSparkPage>>
             implements IPrestoSparkTaskExecutor
     {
+        private static final int MAX_PARTITIONED_DRIVER_COUNT = 100;
+
         private final TaskContext taskContext;
-        private final List<Driver> drivers;
+
+        private final List<Driver> unpartitionedDrivers;
+
+        private final Set<Driver> currentPartitionedDrivers;
+        private final Iterator<Driver> remainingPartitionedDrivers;
+
         private final PrestoSparkOutputBuffer outputBuffer;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
 
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
-                List<Driver> drivers,
+                List<Driver> unpartitionedDrivers,
+                Iterator<Driver> partitionedDriverIterator,
                 PrestoSparkOutputBuffer outputBuffer,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
                 CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
-            this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
+            this.unpartitionedDrivers = ImmutableList.copyOf(requireNonNull(unpartitionedDrivers, "unpartitionedDrivers is null"));
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
+
+            this.currentPartitionedDrivers = new HashSet<>();
+            this.remainingPartitionedDrivers = requireNonNull(partitionedDriverIterator, "partitionedDriverIterator is null");
+            createPartitionedDriversIfNecessary();
         }
 
         @Override
@@ -305,7 +328,7 @@ public class PrestoSparkTaskExecutorFactory
             boolean done = false;
             while (!done && !outputBuffer.hasPagesBuffered()) {
                 boolean processed = false;
-                for (Driver driver : drivers) {
+                for (Driver driver : Iterables.concat(unpartitionedDrivers, currentPartitionedDrivers)) {
                     if (!driver.isFinished()) {
                         // TODO: avoid busy looping, wait on blocked future
                         driver.process();
@@ -314,6 +337,16 @@ public class PrestoSparkTaskExecutorFactory
                 }
                 done = !processed;
             }
+
+            // clean up finished partitioned drivers
+            Set<Driver> finishedPartitionedDrivers = new HashSet<>();
+            for (Driver driver : currentPartitionedDrivers) {
+                if (driver.isFinished()) {
+                    finishedPartitionedDrivers.add(driver);
+                }
+            }
+            currentPartitionedDrivers.removeAll(finishedPartitionedDrivers);
+            createPartitionedDriversIfNecessary();
 
             if (done && !outputBuffer.hasPagesBuffered()) {
                 TaskStats taskStats = taskContext.getTaskStats();
@@ -328,6 +361,46 @@ public class PrestoSparkTaskExecutorFactory
             log.debug("[%s] Producing page for partition: %s\n", taskContext.getTaskId(), pageWithPartitionId.getPartitionId());
 
             return new Tuple2<>(pageWithPartitionId.getPartitionId(), writeSerializedPage(serializedPage));
+        }
+
+        private void createPartitionedDriversIfNecessary()
+        {
+            while (currentPartitionedDrivers.size() < MAX_PARTITIONED_DRIVER_COUNT && remainingPartitionedDrivers.hasNext()) {
+                currentPartitionedDrivers.add(remainingPartitionedDrivers.next());
+            }
+        }
+    }
+
+    private static class PartitionedDriverGenerator
+            extends AbstractIterator<Driver>
+    {
+        private final DriverFactory driverFactory;
+        private final PipelineContext pipelineContext;
+
+        private final Iterator<ScheduledSplit> splitIterator;
+
+        private PartitionedDriverGenerator(DriverFactory driverFactory, PipelineContext pipelineContext, Set<ScheduledSplit> splits)
+        {
+            this.driverFactory = requireNonNull(driverFactory, "driverFactory is null");
+            this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
+            this.splitIterator = ImmutableSet.copyOf(requireNonNull(splits, "splitIterator is null")).iterator();
+        }
+
+        @Override
+        protected Driver computeNext()
+        {
+            if (!splitIterator.hasNext()) {
+                return endOfData();
+            }
+            Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
+            ScheduledSplit split = splitIterator.next();
+            driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
+
+            if (!splitIterator.hasNext()) {
+                driverFactory.noMoreDrivers();
+            }
+
+            return driver;
         }
     }
 
