@@ -19,8 +19,10 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -46,6 +48,7 @@ public class RaptorOutputTableHandle
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final boolean organized;
     private final boolean tableSupportsDeltaDelete;
+    private final Map<String, String> properties;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -62,7 +65,8 @@ public class RaptorOutputTableHandle
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
             @JsonProperty("organized") boolean organized,
-            @JsonProperty("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete)
+            @JsonProperty("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete,
+            @JsonProperty("properties") Map<String, String> properties)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
@@ -78,6 +82,7 @@ public class RaptorOutputTableHandle
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.organized = organized;
         this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     @JsonProperty
@@ -162,6 +167,12 @@ public class RaptorOutputTableHandle
     public boolean isTableSupportsDeltaDelete()
     {
         return tableSupportsDeltaDelete;
+    }
+
+    @JsonProperty
+    public Map<String, String> getProperties()
+    {
+        return properties;
     }
 
     @Override

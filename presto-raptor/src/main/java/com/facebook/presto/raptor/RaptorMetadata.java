@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import io.airlift.slice.Slice;
+import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.Nullable;
@@ -261,7 +262,14 @@ public class RaptorMetadata
             columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
         }
 
+        properties.putAll(getExtraProperties(handle.getTableId()));
+
         return new ConnectorTableMetadata(tableName, columns, properties.build());
+    }
+
+    protected Map<String, Object> getExtraProperties(long tableid)
+    {
+        return ImmutableMap.of();
     }
 
     @Override
@@ -607,7 +615,8 @@ public class RaptorMetadata
                 distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
                 distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()),
                 organized,
-                isTableSupportsDeltaDelete(tableMetadata.getProperties()));
+                isTableSupportsDeltaDelete(tableMetadata.getProperties()),
+                tableMetadata.getProperties().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toString())));
     }
 
     private DistributionInfo getDistributionInfo(long distributionId, Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -671,6 +680,8 @@ public class RaptorMetadata
             // TODO: update default value of organization_enabled to true
             long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.isOrganized(), distributionId, updateTime, table.isTableSupportsDeltaDelete());
 
+            runExtraCreateTableStatement(tableId, dbiHandle, table.getProperties());
+
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
 
@@ -705,6 +716,11 @@ public class RaptorMetadata
         clearRollback();
 
         return Optional.empty();
+    }
+
+    protected void runExtraCreateTableStatement(long tableId, Handle dbiHandle, Map<String, String> extraProperties)
+    {
+        // no-op
     }
 
     @Override
