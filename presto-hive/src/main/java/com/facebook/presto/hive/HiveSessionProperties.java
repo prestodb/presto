@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -144,7 +145,7 @@ public final class HiveSessionProperties
                         "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
                         VARCHAR,
                         InsertExistingPartitionsBehavior.class,
-                        hiveClientConfig.isImmutablePartitions() ? ERROR : APPEND,
+                        getDefaultInsertExistingPartitionsBehavior(hiveClientConfig),
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveClientConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
@@ -726,5 +727,14 @@ public final class HiveSessionProperties
                 hidden,
                 value -> DataSize.valueOf((String) value),
                 DataSize::toString);
+    }
+
+    private static InsertExistingPartitionsBehavior getDefaultInsertExistingPartitionsBehavior(HiveClientConfig hiveClientConfig)
+    {
+        if (!hiveClientConfig.isImmutablePartitions()) {
+            return APPEND;
+        }
+
+        return hiveClientConfig.isInsertOverwriteImmutablePartitionEnabled() ? OVERWRITE : ERROR;
     }
 }
