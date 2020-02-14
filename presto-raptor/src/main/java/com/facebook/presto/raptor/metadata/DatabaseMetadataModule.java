@@ -19,6 +19,8 @@ import com.facebook.airlift.dbpool.MySqlDataSource;
 import com.facebook.airlift.dbpool.MySqlDataSourceConfig;
 import com.facebook.airlift.discovery.client.ServiceDescriptor;
 import com.facebook.airlift.discovery.client.testing.StaticServiceSelector;
+import com.facebook.presto.raptor.RaptorMetadataFactory;
+import com.facebook.presto.raptor.RaptorTableProperties;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
@@ -49,23 +51,26 @@ public class DatabaseMetadataModule
         extends AbstractConfigurationAwareModule
 {
     @Override
-    protected void setup(Binder ignored)
+    protected void setup(Binder binder)
     {
         install(installModuleIf(
                 DatabaseConfig.class,
                 config -> "mysql".equals(config.getDatabaseType()),
-                binder -> {
+                innerBinder -> {
                     binder.install(new MySqlDataSourceModule());
-                    bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
+                    bindDaoSupplier(innerBinder, ShardDao.class, MySqlShardDao.class);
                 }));
 
         install(installModuleIf(
                 DatabaseConfig.class,
                 config -> "h2".equals(config.getDatabaseType()),
-                binder -> {
+                innerBinder -> {
                     binder.install(new H2EmbeddedDataSourceModule("metadata", ForMetadata.class));
                     bindDaoSupplier(binder, ShardDao.class, H2ShardDao.class);
                 }));
+
+        binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
     }
 
     @ForMetadata
