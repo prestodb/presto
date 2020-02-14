@@ -16,19 +16,26 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -47,10 +54,20 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        return createBucketNodeMap(handle.getBucketCount());
+        NodeSelectionStrategy nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        int bucketCount = handle.getBucketCount();
+        switch (nodeSelectionStrategy) {
+            case HARD_AFFINITY:
+            case SOFT_AFFINITY:
+                return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(bucketCount).collect(toImmutableList()), nodeSelectionStrategy);
+            case NO_PREFERENCE:
+                return createBucketNodeMap(bucketCount);
+            default:
+                throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", nodeSelectionStrategy));
+        }
     }
 
     @Override
