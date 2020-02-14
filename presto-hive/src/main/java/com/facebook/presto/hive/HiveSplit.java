@@ -261,6 +261,7 @@ public class HiveSplit
                 .put("database", database)
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
+                .put("nodeSelectionStrategy", nodeSelectionStrategy)
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .build();
