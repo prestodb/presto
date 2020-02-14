@@ -26,10 +26,10 @@ import static java.util.Objects.requireNonNull;
 
 public class RaptorMetadataFactory
 {
-    private final String connectorId;
-    private final IDBI dbi;
-    private final ShardManager shardManager;
-    private final TypeManager typeManager;
+    protected final String connectorId;
+    protected final IDBI dbi;
+    protected final ShardManager shardManager;
+    protected final TypeManager typeManager;
 
     @Inject
     public RaptorMetadataFactory(

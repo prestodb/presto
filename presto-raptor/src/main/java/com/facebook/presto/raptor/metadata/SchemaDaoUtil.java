@@ -79,7 +79,7 @@ public final class SchemaDaoUtil
         alterTable(dao::alterTableShardsWithDeltaUuid, "shards", "delta_uuid", connection);
     }
 
-    private static void alterTable(Runnable alterTableFunction, String tableName, String columnName, Connection connection)
+    public static void alterTable(Runnable alterTableFunction, String tableName, String columnName, Connection connection)
             throws SQLException
     {
         if (!findColumnName(tableName, columnName, connection)) {
@@ -88,7 +88,7 @@ public final class SchemaDaoUtil
         }
     }
 
-    private static boolean findColumnName(String tableName, String columnName, Connection connection)
+    public static boolean findColumnName(String tableName, String columnName, Connection connection)
             throws SQLException
     {
         Statement statement = connection.createStatement();
@@ -103,7 +103,7 @@ public final class SchemaDaoUtil
         return false;
     }
 
-    private static void sleep(Duration duration)
+    public static void sleep(Duration duration)
     {
         try {
             Thread.sleep(duration.toMillis());
