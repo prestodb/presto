@@ -1040,7 +1040,10 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stIntersection(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        if (deserializeType(left) == GeometrySerializationType.ENVELOPE && deserializeType(right) == GeometrySerializationType.ENVELOPE) {
+        GeometrySerializationType leftType = deserializeType(left);
+        GeometrySerializationType rightType = deserializeType(right);
+
+        if (leftType == GeometrySerializationType.ENVELOPE && rightType == GeometrySerializationType.ENVELOPE) {
             Envelope leftEnvelope = deserializeEnvelope(left);
             Envelope rightEnvelope = deserializeEnvelope(right);
 
@@ -1062,6 +1065,17 @@ public final class GeoFunctions
             }
 
             return EsriGeometrySerde.serialize(intersection);
+        }
+
+        // If one side is an envelope, then if it contains the other's envelope we can just return the other geometry.
+        if (leftType == GeometrySerializationType.ENVELOPE
+                && deserializeEnvelope(left).contains(deserializeEnvelope(right))) {
+            return right;
+        }
+
+        if (rightType == GeometrySerializationType.ENVELOPE
+                && deserializeEnvelope(right).contains(deserializeEnvelope(left))) {
+            return left;
         }
 
         OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
