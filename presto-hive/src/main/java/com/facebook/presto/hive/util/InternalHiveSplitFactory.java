@@ -39,7 +39,6 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -50,7 +49,6 @@ public class InternalHiveSplitFactory
     private final FileSystem fileSystem;
     private final InputFormat<?, ?> inputFormat;
     private final Optional<Domain> pathDomain;
-    private final boolean forceLocalScheduling;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
@@ -60,7 +58,6 @@ public class InternalHiveSplitFactory
             FileSystem fileSystem,
             InputFormat<?, ?> inputFormat,
             Optional<Domain> pathDomain,
-            boolean forceLocalScheduling,
             NodeSelectionStrategy nodeSelectionStrategy,
             boolean s3SelectPushdownEnabled,
             HiveSplitPartitionInfo partitionInfo,
@@ -69,7 +66,6 @@ public class InternalHiveSplitFactory
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
-        this.forceLocalScheduling = forceLocalScheduling;
         this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
@@ -133,8 +129,7 @@ public class InternalHiveSplitFactory
             return Optional.empty();
         }
 
-        boolean forceLocalScheduling = this.forceLocalScheduling;
-
+        boolean forceLocalScheduling = this.nodeSelectionStrategy == HARD_AFFINITY;
         // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
@@ -186,8 +181,7 @@ public class InternalHiveSplitFactory
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
-                forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                (nodeSelectionStrategy == HARD_AFFINITY && !allBlocksHaveRealAddress(blocks)) ? NO_PREFERENCE : nodeSelectionStrategy,
+                forceLocalScheduling && allBlocksHaveRealAddress(blocks) ? HARD_AFFINITY : nodeSelectionStrategy,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 partitionInfo,
                 extraFileInfo));

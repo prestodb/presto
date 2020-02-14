@@ -67,7 +67,6 @@ public class HiveClientConfig
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
-    private boolean forceLocalScheduling;
     private NodeSelectionStrategy nodeSelectionStrategy = NO_PREFERENCE;
     private boolean recursiveDirWalkerEnabled;
 
@@ -229,18 +228,6 @@ public class HiveClientConfig
     public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
     {
         this.writerSortBufferSize = writerSortBufferSize;
-        return this;
-    }
-
-    public boolean isForceLocalScheduling()
-    {
-        return forceLocalScheduling;
-    }
-
-    @Config("hive.force-local-scheduling")
-    public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
-    {
-        this.forceLocalScheduling = forceLocalScheduling;
         return this;
     }
 

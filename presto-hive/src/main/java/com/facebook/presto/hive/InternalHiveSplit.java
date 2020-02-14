@@ -60,7 +60,6 @@ public class InternalHiveSplit
     private final int tableBucketNumber;
 
     private final boolean splittable;
-    private final boolean forceLocalScheduling;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
@@ -78,7 +77,6 @@ public class InternalHiveSplit
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
-            boolean forceLocalScheduling,
             NodeSelectionStrategy nodeSelectionStrategy,
             boolean s3SelectPushdownEnabled,
             HiveSplitPartitionInfo partitionInfo,
@@ -101,7 +99,6 @@ public class InternalHiveSplit
         this.readBucketNumber = readBucketNumber.orElse(-1);
         this.tableBucketNumber = tableBucketNumber.orElse(-1);
         this.splittable = splittable;
-        this.forceLocalScheduling = forceLocalScheduling;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
@@ -169,11 +166,6 @@ public class InternalHiveSplit
     public boolean isSplittable()
     {
         return splittable;
-    }
-
-    public boolean isForceLocalScheduling()
-    {
-        return forceLocalScheduling;
     }
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
