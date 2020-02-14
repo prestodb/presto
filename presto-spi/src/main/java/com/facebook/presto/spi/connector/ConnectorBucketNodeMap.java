@@ -14,31 +14,36 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class ConnectorBucketNodeMap
 {
     private final int bucketCount;
     private final Optional<List<Node>> bucketToNode;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
 
     public static ConnectorBucketNodeMap createBucketNodeMap(int bucketCount)
     {
-        return new ConnectorBucketNodeMap(bucketCount, Optional.empty());
+        return new ConnectorBucketNodeMap(bucketCount, Optional.empty(), NO_PREFERENCE);
     }
 
-    public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode)
+    public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode, NodeSelectionStrategy nodeSelectionStrategy)
     {
-        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode));
+        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode), nodeSelectionStrategy);
     }
 
-    private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode)
+    private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode, NodeSelectionStrategy nodeSelectionStrategy)
     {
+        this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         if (bucketCount <= 0) {
             throw new IllegalArgumentException("bucketCount must be positive");
         }
@@ -54,9 +59,9 @@ public final class ConnectorBucketNodeMap
         return bucketCount;
     }
 
-    public boolean hasFixedMapping()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return bucketToNode.isPresent();
+        return nodeSelectionStrategy;
     }
 
     public List<Node> getFixedMapping()
