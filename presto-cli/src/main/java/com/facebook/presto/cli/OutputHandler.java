@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.type.TypeRegistry;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
@@ -22,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -36,12 +42,16 @@ public final class OutputHandler
     private final AtomicBoolean closed = new AtomicBoolean();
     private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final OutputPrinter printer;
+    private final PagesSerde pagesSerde;
 
     private long bufferStart;
 
     public OutputHandler(OutputPrinter printer)
     {
         this.printer = requireNonNull(printer, "printer is null");
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        PagesSerdeFactory factory = new PagesSerdeFactory(blockEncodingSerde, false);
+        this.pagesSerde = factory.createPagesSerde();
     }
 
     public void processRow(List<?> row)
@@ -74,6 +84,10 @@ public final class OutputHandler
             Iterable<List<Object>> data = client.currentData().getData();
             if (data != null) {
                 for (List<Object> row : data) {
+                    for (Object cell : row) {
+                        checkArgument(cell instanceof String);
+                        pagesSerde.deserialize(Query.serializedDataToSerializedPage((String) cell));
+                    }
                     processRow(unmodifiableList(row));
                 }
             }

@@ -161,6 +161,9 @@ final class FixJsonDataUtils
                 }
                 return Boolean.class.cast(value);
             case VARCHAR:
+                if (value instanceof SerializedData) {
+                    return value.toString();
+                }
             case JSON:
             case TIME:
             case TIME_WITH_TIME_ZONE:

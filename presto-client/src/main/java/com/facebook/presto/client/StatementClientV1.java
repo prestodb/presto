@@ -139,7 +139,7 @@ class StatementClientV1
         if (url == null) {
             throw new ClientException("Invalid server URL: " + session.getServer());
         }
-        url = url.newBuilder().encodedPath("/v1/statement").build();
+        url = url.newBuilder().encodedPath("/v1/serializedstatement").build();
 
         Request.Builder builder = prepareRequest(url)
                 .post(RequestBody.create(MEDIA_TYPE_TEXT, query));

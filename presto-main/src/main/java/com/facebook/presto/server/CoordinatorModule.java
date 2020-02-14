@@ -90,6 +90,7 @@ import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.protocol.SerializedStatementResource;
 import com.facebook.presto.server.protocol.StatementResource;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
@@ -194,6 +195,8 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         jaxrsBinder(binder).bind(StatementResource.class);
         newExporter(binder).export(StatementResource.class).withGeneratedName();
+        jaxrsBinder(binder).bind(SerializedStatementResource.class);
+        newExporter(binder).export(SerializedStatementResource.class).withGeneratedName();
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 

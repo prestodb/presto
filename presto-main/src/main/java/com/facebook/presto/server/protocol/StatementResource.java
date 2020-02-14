@@ -88,17 +88,17 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/statement")
 public class StatementResource
 {
-    private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
+    protected static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
+    protected static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
-    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
-    private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
+    protected static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
+    protected static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
 
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
-    private final BoundedExecutor responseExecutor;
+    protected final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
@@ -154,7 +154,7 @@ public class StatementResource
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), StatementResource.class.getSimpleName()));
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), getAllocationTag()));
         Query query = Query.create(
                 sessionContext,
                 statement,
@@ -166,7 +166,17 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
+        return getQueryResultsResponse(query, uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
+    }
+
+    protected String getAllocationTag()
+    {
+        return StatementResource.class.getSimpleName();
+    }
+
+    protected Response getQueryResultsResponse(Query query, UriInfo uriInfo, String schema, DataSize targetResultSize)
+    {
+        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, schema, targetResultSize);
         return toResponse(query, queryResults);
     }
 
@@ -192,7 +202,7 @@ public class StatementResource
             proto = uriInfo.getRequestUri().getScheme();
         }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse);
+        asyncQueryResults(query, OptionalLong.of(token), maxWait, MAX_TARGET_RESULT_SIZE, uriInfo, proto, asyncResponse);
     }
 
     @Nullable
@@ -205,7 +215,7 @@ public class StatementResource
         return null;
     }
 
-    private void asyncQueryResults(
+    protected void asyncQueryResults(
             Query query,
             OptionalLong token,
             Duration maxWait,
@@ -228,7 +238,7 @@ public class StatementResource
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults)
+    protected static Response toResponse(Query query, QueryResults queryResults)
     {
         ResponseBuilder response = Response.ok(queryResults);
 

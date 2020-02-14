@@ -18,7 +18,9 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.client.SerializedData;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Splitter;
@@ -289,6 +291,13 @@ public class Query
     private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames)
     {
         return new OutputHandler(createOutputPrinter(format, writer, fieldNames));
+    }
+
+    public static SerializedPage serializedDataToSerializedPage(String unparsed)
+    {
+        SerializedData serializedData = SerializedData.getSerializedData(unparsed);
+        SerializedPage ret = new SerializedPage(serializedData.getData(), serializedData.getPageCodecMarker(), serializedData.getPositionCount(), serializedData.getUncompressedSizeBytes());
+        return ret;
     }
 
     private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<String> fieldNames)

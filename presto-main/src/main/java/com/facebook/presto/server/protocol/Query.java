@@ -19,6 +19,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.SerializedData;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.QueryExecution;
@@ -44,6 +45,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +66,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -315,6 +318,27 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
+    public synchronized ListenableFuture<QueryResults> waitForResultsSerialized(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    {
+        // before waiting, check if this request has already been processed and cached
+        if (token.isPresent()) {
+            Optional<QueryResults> cachedResult = getCachedResult(token.getAsLong(), uriInfo);
+            if (cachedResult.isPresent()) {
+                return immediateFuture(cachedResult.get());
+            }
+        }
+
+        // wait for a results data or query to finish, up to the wait timeout
+        ListenableFuture<?> futureStateChange = addTimeout(
+                getFutureStateChange(),
+                () -> null,
+                wait,
+                timeoutExecutor);
+
+        // when state changes, fetch the next result
+        return Futures.transform(futureStateChange, ignored -> getNextResultSerialized(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+    }
+
     private synchronized ListenableFuture<?> getFutureStateChange()
     {
         // ensure the query has been submitted
@@ -363,6 +387,156 @@ class Query
         }
 
         return Optional.empty();
+    }
+
+    public synchronized QueryResults getNextResultSerialized(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    {
+        // check if the result for the token have already been created
+        if (token.isPresent()) {
+            Optional<QueryResults> cachedResult = getCachedResult(token.getAsLong(), uriInfo);
+            if (cachedResult.isPresent()) {
+                return cachedResult.get();
+            }
+        }
+
+        URI queryHtmlUri = uriInfo.getRequestUriBuilder()
+                .scheme(scheme)
+                .replacePath("ui/query.html")
+                .replaceQuery(queryId.toString())
+                .build();
+
+        // if query query submission has not finished, return simple empty result
+        if (!submissionFuture.isDone()) {
+            QueryResults queryResults = new QueryResults(
+                    queryId.toString(),
+                    queryHtmlUri,
+                    null,
+                    createNextResultsSerializedUri(scheme, uriInfo),
+                    null,
+                    null,
+                    StatementStats.builder()
+                            .setState(QueryState.QUEUED.toString())
+                            .setQueued(true)
+                            .setScheduled(false)
+                            .build(),
+                    null,
+                    ImmutableList.of(),
+                    null,
+                    null);
+
+            cacheLastResults(queryResults);
+            return queryResults;
+        }
+
+        if (session == null) {
+            session = queryManager.getFullQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
+        }
+
+        // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
+        // NOTE: it is critical that query results are created for the pages removed from the exchange
+        // client while holding the lock because the query may transition to the finished state when the
+        // last page is removed.  If another thread observes this state before the response is cached
+        // the pages will be lost.
+        List<List<Object>> data = null;
+        try {
+            List<Object> pages = new ArrayList<>();
+            long bytes = 0;
+            long rows = 0;
+            long targetResultBytes = targetResultSize.toBytes();
+            while (bytes < targetResultBytes) {
+                SerializedPage page = exchangeClient.pollPage();
+                if (page == null) {
+                    break;
+                }
+
+                bytes += page.getSizeInBytes();
+                rows += page.getPositionCount();
+                pages.add(new SerializedData(page.getData(), page.getPageCodecMarkers(), page.getPositionCount(), page.getUncompressedSizeInBytes()));
+            }
+            if (rows > 0) {
+                // client implementations do not properly handle empty list of data
+                data = new ArrayList<>();
+                for (Object page : pages) {
+                    data.add(ImmutableList.of(page));
+                }
+            }
+        }
+        catch (Throwable cause) {
+            queryManager.failQuery(queryId, cause);
+        }
+
+        // get the query info before returning
+        // force update if query manager is closed
+        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+        queryManager.recordHeartbeat(queryId);
+
+        // TODO: figure out a better way to do this
+        // grab the update count for non-queries
+        if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
+                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+            Iterator<List<Object>> iterator = data.iterator();
+            if (iterator.hasNext()) {
+                Number number = (Number) iterator.next().get(0);
+                if (number != null) {
+                    updateCount = number.longValue();
+                }
+            }
+        }
+
+        closeExchangeClientIfNecessary(queryInfo);
+
+        // for queries with no output, return a fake result for clients that require it
+        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+            columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
+            data = new ArrayList<>();
+            data.add(ImmutableList.of(true));
+        }
+
+        // only return a next if
+        // (1) the query is not done AND the query state is not FAILED
+        //   OR
+        // (2)there is more data to send (due to buffering)
+        URI nextResultsUri = null;
+        if (!queryInfo.isFinalQueryInfo() && !queryInfo.getState().equals(QueryState.FAILED)
+                || !exchangeClient.isClosed()) {
+            nextResultsUri = createNextResultsSerializedUri(scheme, uriInfo);
+        }
+
+        // update catalog and schema
+        setCatalog = queryInfo.getSetCatalog();
+        setSchema = queryInfo.getSetSchema();
+
+        // update setSessionProperties
+        setSessionProperties = queryInfo.getSetSessionProperties();
+        resetSessionProperties = queryInfo.getResetSessionProperties();
+
+        // update setRoles
+        setRoles = queryInfo.getSetRoles();
+
+        // update preparedStatements
+        addedPreparedStatements = queryInfo.getAddedPreparedStatements();
+        deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
+
+        // update startedTransactionId
+        startedTransactionId = queryInfo.getStartedTransactionId();
+        clearTransactionId = queryInfo.isClearTransactionId();
+
+        // first time through, self is null
+        QueryResults queryResults = new QueryResults(
+                queryId.toString(),
+                queryHtmlUri,
+                findCancelableLeafStage(queryInfo),
+                nextResultsUri,
+                ImmutableList.of(new Column("result", VarcharType.VARCHAR)),
+                data,
+                toStatementStats(queryInfo),
+                toQueryError(queryInfo),
+                queryInfo.getWarnings(),
+                queryInfo.getUpdateType(),
+                updateCount);
+
+        cacheLastResults(queryResults);
+        return queryResults;
     }
 
     public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
@@ -571,6 +745,18 @@ class Query
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement")
+                .path(queryId.toString())
+                .path(String.valueOf(resultId.incrementAndGet()))
+                .replaceQuery("")
+                .queryParam("slug", slug)
+                .build();
+    }
+
+    private synchronized URI createNextResultsSerializedUri(String scheme, UriInfo uriInfo)
+    {
+        return uriInfo.getBaseUriBuilder()
+                .scheme(scheme)
+                .replacePath("/v1/serializedstatement")
                 .path(queryId.toString())
                 .path(String.valueOf(resultId.incrementAndGet()))
                 .replaceQuery("")
