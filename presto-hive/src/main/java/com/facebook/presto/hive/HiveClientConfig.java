@@ -87,6 +87,7 @@ public class HiveClientConfig
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private boolean insertOverwriteImmutablePartitions;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -516,6 +517,19 @@ public class HiveClientConfig
     public HiveClientConfig setRespectTableFormat(boolean respectTableFormat)
     {
         this.respectTableFormat = respectTableFormat;
+        return this;
+    }
+
+    public boolean isInsertOverwriteImmutablePartitionEnabled()
+    {
+        return insertOverwriteImmutablePartitions;
+    }
+
+    @Config("hive.insert-overwrite-immutable-partitions-enabled")
+    @ConfigDescription("When enabled, insertion query will overwrite existing partitions when partitions are immutable. This config only takes effect with hive.immutable-partitions set to true")
+    public HiveClientConfig setInsertOverwriteImmutablePartitionEnabled(boolean insertOverwriteImmutablePartitions)
+    {
+        this.insertOverwriteImmutablePartitions = insertOverwriteImmutablePartitions;
         return this;
     }
 
