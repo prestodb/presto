@@ -160,7 +160,7 @@ public class PrestoSparkQueryExecutionFactory
         PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
         PlanAndUpdateType planAndUpdateType = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
         SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndUpdateType.getPlan(), warningCollector);
-        log.debug(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
+        log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
         PrestoSparkPlan prestoSparkPlan = splitEnumerator.preparePlan(session, fragmentedPlan);
 
         JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
