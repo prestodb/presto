@@ -52,14 +52,12 @@ public class RaptorModule
     {
         binder.bind(RaptorConnectorId.class).toInstance(new RaptorConnectorId(connectorId));
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(RaptorNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
 
         Multibinder<SystemTable> tableBinder = newSetBinder(binder, SystemTable.class);
         tableBinder.addBinding().to(ShardMetadataSystemTable.class).in(Scopes.SINGLETON);
