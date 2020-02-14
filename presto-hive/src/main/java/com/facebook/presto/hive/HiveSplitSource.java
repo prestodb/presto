@@ -478,7 +478,6 @@ class HiveSplitSource
                         block.getAddresses(),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
-                        internalSplit.isForceLocalScheduling(),
                         internalSplit.getNodeSelectionStrategy(),
                         internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
                         internalSplit.getPartitionSchemaDifference(),

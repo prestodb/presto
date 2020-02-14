@@ -43,7 +43,6 @@ public final class HiveSessionProperties
 {
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
-    private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -130,11 +129,6 @@ public final class HiveSessionProperties
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
                         hiveClientConfig.isBucketExecutionEnabled(),
-                        false),
-                booleanProperty(
-                        FORCE_LOCAL_SCHEDULING,
-                        "Only schedule splits on workers colocated with data node",
-                        hiveClientConfig.isForceLocalScheduling(),
                         false),
                 new PropertyMetadata<>(
                         NODE_SELECTION_STRATEGY,
@@ -448,11 +442,6 @@ public final class HiveSessionProperties
     public static int getMaxBucketsForGroupedExecution(ConnectorSession session)
     {
         return session.getProperty(MAX_BUCKETS_FOR_GROUPED_EXECUTION, Integer.class);
-    }
-
-    public static boolean isForceLocalScheduling(ConnectorSession session)
-    {
-        return session.getProperty(FORCE_LOCAL_SCHEDULING, Boolean.class);
     }
 
     public static NodeSelectionStrategy getNodeSelectionStrategy(ConnectorSession session)

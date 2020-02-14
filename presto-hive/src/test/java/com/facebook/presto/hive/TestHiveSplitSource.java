@@ -427,7 +427,6 @@ public class TestHiveSplitSource
                     bucketNumber,
                     bucketNumber,
                     true,
-                    false,
                     NO_PREFERENCE,
                     false,
                     new HiveSplitPartitionInfo(

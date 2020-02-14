@@ -80,7 +80,6 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                true,
                 NO_PREFERENCE,
                 10,
                 ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty())),
@@ -108,7 +107,6 @@ public class TestHiveSplit
         assertEquals(actual.getPartitionDataColumnCount(), expected.getPartitionDataColumnCount());
         assertEquals(actual.getPartitionSchemaDifference(), expected.getPartitionSchemaDifference());
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
-        assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.getNodeSelectionStrategy(), expected.getNodeSelectionStrategy());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
     }

@@ -49,7 +49,6 @@ public class HiveSplit
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
-    private final boolean forceLocalScheduling;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final int partitionDataColumnCount;
     private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
@@ -71,7 +70,6 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
-            @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
             @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
@@ -108,7 +106,6 @@ public class HiveSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
-        this.forceLocalScheduling = forceLocalScheduling;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.partitionDataColumnCount = partitionDataColumnCount;
         this.partitionSchemaDifference = partitionSchemaDifference;
@@ -207,12 +204,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public boolean isForceLocalScheduling()
-    {
-        return forceLocalScheduling;
-    }
-
-    @JsonProperty
     public int getPartitionDataColumnCount()
     {
         return partitionDataColumnCount;
@@ -260,7 +251,6 @@ public class HiveSplit
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
-                .put("forceLocalScheduling", forceLocalScheduling)
                 .put("nodeSelectionStrategy", nodeSelectionStrategy)
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)

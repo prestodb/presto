@@ -236,7 +236,6 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                false,
                 NO_PREFERENCE,
                 getColumnHandles().size(),
                 ImmutableMap.of(),
