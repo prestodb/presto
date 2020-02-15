@@ -465,6 +465,22 @@ to bypass the network. See `Performance Tuning Tips for Presto with Alluxio
 <https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=prestodb&utm_medium=prestodocs>`_
 for more details.
 
+Alluxio Catalog Service
+^^^^^^^^^^^^^^^^^^^^^^^
+
+In addition to using Alluxio storage system in a Hive metastore, the Hive connector
+can also connect to an Alluxio Catalog Service. <https://docs.alluxio.io/ee/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>
+Alluxio catalog service is a caching metastore that can cache the information from different underlying metastores.
+It currently supports Hive metastore as an underlying metastore.
+To configure the Hive connector for Alluxio Catalog Service, create a catalog properties file
+such as ``/etc/catalog/catalog_alluxio.properties`` and include the following:
+
+.. code-block:: none
+
+    connector.name=hive-hadoop2
+    hive.metastore=alluxio
+    hive.metastore.alluxio.master.address=HOSTNAME:PORT
+
 Table Statistics
 ----------------
 
