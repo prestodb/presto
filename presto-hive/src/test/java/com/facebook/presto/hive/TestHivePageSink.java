@@ -119,7 +119,7 @@ public class TestHivePageSink
                 assertGreaterThan(uncompressedLength, 0L);
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
-                    if (codec == NONE) {
+                    if (codec == NONE || !codec.isSupportedStorageFormat(format)) {
                         continue;
                     }
                     config.setCompressionCodec(codec);
