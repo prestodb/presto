@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -40,7 +41,12 @@ public class TestingPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split,
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
         requireNonNull(columns, "columns is null");
 

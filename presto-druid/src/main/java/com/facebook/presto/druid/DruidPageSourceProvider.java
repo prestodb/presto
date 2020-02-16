@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
@@ -59,7 +60,8 @@ public class DruidPageSourceProvider
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
         DruidSplit druidSplit = (DruidSplit) split;
         if (druidSplit.getSplitType() == BROKER) {
