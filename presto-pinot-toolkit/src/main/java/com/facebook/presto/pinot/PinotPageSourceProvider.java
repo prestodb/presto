@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,7 +66,8 @@ public class PinotPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableLayoutHandle tableLayoutHandle,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
         requireNonNull(split, "split is null");
 

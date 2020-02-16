@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -67,7 +68,8 @@ public final class BlackHolePageSourceProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
         BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
 

@@ -55,9 +55,15 @@ public class PageSourceManager
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
         if (table.getLayout().isPresent()) {
-            return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), table.getLayout().get(), columns);
+            return getPageSourceProvider(split).createPageSource(
+                    split.getTransactionHandle(),
+                    connectorSession,
+                    split.getConnectorSplit(),
+                    table.getLayout().get(),
+                    columns,
+                    split.getSplitContext());
         }
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
+        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns, split.getSplitContext());
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)
