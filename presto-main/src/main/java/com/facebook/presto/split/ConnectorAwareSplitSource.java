@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +66,7 @@ public class ConnectorAwareSplitSource
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
-                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
+                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan, NON_CACHEABLE));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());

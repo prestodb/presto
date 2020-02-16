@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -102,27 +101,6 @@ public class MemorySplit
     public long getExpectedRows()
     {
         return expectedRows;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        MemorySplit other = (MemorySplit) obj;
-        return Objects.equals(this.tableHandle, other.tableHandle) &&
-                Objects.equals(this.totalPartsPerWorker, other.totalPartsPerWorker) &&
-                Objects.equals(this.partNumber, other.partNumber);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(tableHandle, totalPartsPerWorker, partNumber);
     }
 
     @Override
