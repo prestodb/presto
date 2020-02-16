@@ -48,6 +48,7 @@ import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReas
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -241,7 +242,8 @@ public class SourcePartitionedScheduler
                                     splitSource.getConnectorId(),
                                     splitSource.getTransactionHandle(),
                                     new EmptySplit(splitSource.getConnectorId()),
-                                    lifespan));
+                                    lifespan,
+                                    NON_CACHEABLE));
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }
