@@ -50,6 +50,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.stream.Collectors.joining;
 
@@ -865,6 +866,18 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testStructSchemaEvolution()
+            throws IOException
+    {
+        getQueryRunner().execute("CREATE TABLE test_struct(x) AS SELECT CAST(ROW(1, 2) AS ROW(a int, b int)) AS x");
+        getQueryRunner().execute("CREATE TABLE test_struct_add_column(x) AS SELECT CAST(ROW(1, 2, 3) AS ROW(a int, b int, c int)) AS x");
+        Path oldFilePath = getOnlyPath("test_struct");
+        Path newDirectoryPath = getOnlyPath("test_struct_add_column").getParent();
+        Files.move(oldFilePath, Paths.get(newDirectoryPath.toString(), "old_file"), ATOMIC_MOVE);
+        assertQuery("SELECT * FROM test_struct_add_column", "SELECT (1, 2, 3) UNION ALL SELECT (1, 2, null)");
+    }
+
+    @Test
     public void testRcAndTextFormats()
             throws IOException
     {
@@ -1053,6 +1066,12 @@ public class TestHivePushdownFilterQueries
         String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())
                 .replace("file:", "");
         return Paths.get(filePath).getParent();
+    }
+
+    private Path getOnlyPath(String tableName)
+    {
+        return Paths.get(((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s LIMIT 1", tableName)).getOnlyValue())
+                .replace("file:", ""));
     }
 
     private void assertQueryUsingH2Cte(String query, String cte)
