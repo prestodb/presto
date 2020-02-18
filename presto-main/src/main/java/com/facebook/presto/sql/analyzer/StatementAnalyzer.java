@@ -958,9 +958,7 @@ class StatementAnalyzer
                 RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
                 analysis.unregisterTableForView();
 
-                if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
-                    throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
-                }
+                checkViewNotStale(table, name, view.getColumns(), descriptor.getVisibleFields());
 
                 // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
                 // This is needed in case the underlying table(s) changed and the query in the view now produces types that
@@ -2035,23 +2033,37 @@ class StatementAnalyzer
             }
         }
 
-        private boolean isViewStale(List<ViewDefinition.ViewColumn> columns, Collection<Field> fields)
+        private void checkViewNotStale(Table table, QualifiedObjectName name, List<ViewDefinition.ViewColumn> columns, Collection<Field> fields)
         {
             if (columns.size() != fields.size()) {
-                return true;
+                throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created:  Expected %s columns, but found %s", name, columns.size(), fields.size());
             }
 
             List<Field> fieldList = ImmutableList.copyOf(fields);
             for (int i = 0; i < columns.size(); i++) {
                 ViewDefinition.ViewColumn column = columns.get(i);
                 Field field = fieldList.get(i);
-                if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !metadata.getTypeManager().canCoerce(field.getType(), column.getType())) {
-                    return true;
+                if (!column.getName().equalsIgnoreCase(field.getName().orElse(null))) {
+                    throw new SemanticException(
+                            VIEW_IS_STALE,
+                            table,
+                            "View '%s' is stale; it must be re-created:  Expected column %s to be '%s', but found '%s'",
+                            name,
+                            i + 1,
+                            column.getName(),
+                            field.getName().orElse(null));
+                }
+                if (!metadata.getTypeManager().canCoerce(field.getType(), column.getType())) {
+                    throw new SemanticException(
+                            VIEW_IS_STALE,
+                            table,
+                            "View '%s' is stale; it must be re-created:  Column '%s' expected to be of type %s but found %s",
+                            name,
+                            column.getName(),
+                            column.getType().getDisplayName(),
+                            field.getType().getDisplayName());
                 }
             }
-
-            return false;
         }
 
         private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope)

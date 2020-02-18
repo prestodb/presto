@@ -1180,7 +1180,7 @@ public class TestAnalyzer
     public void testShowCreateView()
     {
         analyze("SHOW CREATE VIEW v1");
-        analyze("SHOW CREATE VIEW v2");
+        analyze("SHOW CREATE VIEW v2a");
 
         assertFails(NOT_SUPPORTED, "SHOW CREATE VIEW t1");
         assertFails(MISSING_TABLE, "SHOW CREATE VIEW none");
@@ -1189,7 +1189,9 @@ public class TestAnalyzer
     @Test
     public void testStaleView()
     {
-        assertFails(VIEW_IS_STALE, "SELECT * FROM v2");
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v2a");
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v2b");
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v2c");
     }
 
     @Test
@@ -1643,14 +1645,34 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
-        String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+        String viewData2a = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2a"), viewData2a, false));
+
+        // stale view (different column name)
+        String viewData2b = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("b", BIGINT)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2b"), viewData2b, false));
+
+        // stale view (different number of columns)
+        String viewData2c = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT), new ViewColumn("b", VARCHAR)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2c"), viewData2c, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
