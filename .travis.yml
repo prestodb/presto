@@ -211,7 +211,7 @@ script:
     fi
   - |
     if [[ -v SPARK_INTEGRATION_TESTS ]]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-spark-launcher,presto-spark-package,presto-spark-testing $TEST_FLAGS
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
     fi
 
 before_cache:
