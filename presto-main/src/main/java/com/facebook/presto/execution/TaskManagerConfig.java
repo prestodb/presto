@@ -71,6 +71,7 @@ public class TaskManagerConfig
     private Integer partitionedWriterCount;
     private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
+    private int httpTimeoutConcurrency = 1;
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;
@@ -449,9 +450,24 @@ public class TaskManagerConfig
     }
 
     @Config("task.http-timeout-threads")
+    @ConfigDescription("Total number of timeout threads across all timeout thread pools")
     public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
     {
         this.httpTimeoutThreads = httpTimeoutThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getHttpTimeoutConcurrency()
+    {
+        return httpTimeoutConcurrency;
+    }
+
+    @Config("task.http-timeout-concurrency")
+    @ConfigDescription("Number of thread pools to handle timeouts. Threads per pool is calculated by http-timeout-threads / http-timeout-concurrency")
+    public TaskManagerConfig setHttpTimeoutConcurrency(int httpTimeoutConcurrency)
+    {
+        this.httpTimeoutConcurrency = httpTimeoutConcurrency;
         return this;
     }
 
