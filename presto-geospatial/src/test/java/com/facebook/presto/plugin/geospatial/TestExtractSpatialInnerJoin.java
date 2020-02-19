@@ -106,30 +106,7 @@ public class TestExtractSpatialInnerJoin
                                         p.values(p.variable("b", GEOMETRY)))))
                 .doesNotFire();
 
-        // SphericalGeography operand
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(
-                                sqlToRowExpression(
-                                        "ST_Distance(a, b) < 5",
-                                        ImmutableMap.of("a", SPHERICAL_GEOGRAPHY, "b", SPHERICAL_GEOGRAPHY)),
-                                p.join(INNER,
-                                        p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
-                                        p.values(p.variable("b", SPHERICAL_GEOGRAPHY)))))
-                .doesNotFire();
-
-        // to_spherical_geography() operand
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(
-                                sqlToRowExpression(
-                                        "ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5",
-                                        ImmutableMap.of("wkt", VARCHAR, "point", SPHERICAL_GEOGRAPHY)),
-                                p.join(INNER,
-                                        p.values(p.variable("wkt", VARCHAR)),
-                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
-                .doesNotFire();
-
+        // We do not support spherical ST_Contains yet
         assertRuleApplication()
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
@@ -285,6 +262,46 @@ public class TestExtractSpatialInnerJoin
                                 project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
                                         project(ImmutableMap.of("radius", expression(radiusExpression)),
                                                 values(ImmutableMap.of("lat_b", 0, "lng_b", 1, "name_b", 2))))));
+    }
+
+    @Test
+    public void testSphericalGeographiesDoesFire()
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(
+                                sqlToRowExpression(
+                                        "ST_Distance(a, b) < 5000",
+                                        ImmutableMap.of("a", SPHERICAL_GEOGRAPHY, "b", SPHERICAL_GEOGRAPHY)),
+                                p.join(INNER,
+                                        p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
+                                        p.values(p.variable("b", SPHERICAL_GEOGRAPHY)))))
+                .matches(
+                        spatialJoin("ST_Distance(a, b) < radius",
+                                values(ImmutableMap.of("a", 0)),
+                                project(ImmutableMap.of(
+                                        "b", expression("b"),
+                                        "radius", expression("BIGINT '5000'")),
+                                        values(ImmutableMap.of("b", 0)))));
+
+        // to_spherical_geography() operand
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(
+                                sqlToRowExpression(
+                                        "ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5",
+                                        ImmutableMap.of("wkt", VARCHAR, "point", SPHERICAL_GEOGRAPHY)),
+                                p.join(INNER,
+                                        p.values(p.variable("wkt", VARCHAR)),
+                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
+                .matches(
+                        spatialJoin("ST_Distance(to_spherical_geography, point) < radius",
+                                project(ImmutableMap.of("to_spherical_geography", expression("to_spherical_geography(ST_GeometryFromText(wkt))")),
+                                        values(ImmutableMap.of("wkt", 0))),
+                                project(ImmutableMap.of(
+                                        "point", expression("point"),
+                                        "radius", expression("INTEGER '5'")),
+                                        values(ImmutableMap.of("point", 0)))));
     }
 
     @Test
