@@ -141,6 +141,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -216,6 +217,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -232,6 +234,7 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartition
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -247,11 +250,13 @@ import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
@@ -315,6 +320,8 @@ public class LocalExecutionPlanner
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+
+    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
     @Inject
     public LocalExecutionPlanner(
@@ -1744,7 +1751,24 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)
         {
-            QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle()).getName();
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle());
+            QualifiedFunctionName functionName = functionMetadata.getName();
+            List<TypeSignature> argumentTypes = functionMetadata.getArgumentTypes();
+            Predicate<TypeSignature> isSpherical = (typeSignature)
+                    -> typeSignature.equals(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
+            if (argumentTypes.stream().allMatch(isSpherical)) {
+                return sphericalSpatialTest(functionName, comparisonOperator);
+            }
+            else if (argumentTypes.stream().noneMatch(isSpherical)) {
+                return euclideanSpatialTest(functionName, comparisonOperator, probeFirst);
+            }
+            else {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Mixing spherical and euclidean geometric types");
+            }
+        }
+
+        private SpatialPredicate euclideanSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator, boolean probeFirst)
+        {
             if (functionName.equals(ST_CONTAINS)) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -1784,10 +1808,26 @@ public class LocalExecutionPlanner
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
                 }
                 else {
-                    throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
+                    throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator);
                 }
             }
             throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
+        }
+
+        private SpatialPredicate sphericalSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator)
+        {
+            if (functionName.equals(ST_DISTANCE)) {
+                if (comparisonOperator.get() == OperatorType.LESS_THAN) {
+                    return (buildGeometry, probeGeometry, radius) -> sphericalDistance(buildGeometry, probeGeometry) < radius.getAsDouble();
+                }
+                else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                    return (buildGeometry, probeGeometry, radius) -> sphericalDistance(buildGeometry, probeGeometry) <= radius.getAsDouble();
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported spherical comparison operator: " + comparisonOperator);
+                }
+            }
+            throw new UnsupportedOperationException("Unsupported spherical spatial function: " + functionName);
         }
 
         private Set<SymbolReference> getSymbolReferences(Collection<VariableReferenceExpression> variables)

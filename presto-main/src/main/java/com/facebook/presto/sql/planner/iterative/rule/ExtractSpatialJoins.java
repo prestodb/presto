@@ -386,9 +386,10 @@ public class ExtractSpatialJoins
         RowExpression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        // TODO check if we can just call arguments.getType().equals(sphericalGeographyType) as opposed to checking individual args
         if (firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType)) {
-            return Result.empty();
+            if (joinNode.getType() != INNER) {
+                return Result.empty();
+            }
         }
 
         Set<VariableReferenceExpression> firstVariables = extractUnique(firstArgument);

@@ -385,4 +385,35 @@ public class TestSpatialJoins
         testRelationshipSpatialJoin(getSession(), "ST_Overlaps", OVERLAPS_PAIRS);
         testRelationshipSpatialJoin(getSession(), "ST_Crosses", CROSSES_PAIRS);
     }
+
+    @Test
+    public void testSphericalSpatialJoin()
+    {
+        double tooSmallRadius = 10;
+        double sufficientRadius = 111200;
+        // Ensure that correct spherical geography filter predicate is used for
+        // the join. If planar geometry is used, the distance will be 1, but if
+        // spherical geography is used, it will be ~111195.
+        assertSphericalSpatialJoin("<", sufficientRadius, true);
+        assertSphericalSpatialJoin("<", tooSmallRadius, false);
+        assertSphericalSpatialJoin("<=", sufficientRadius, true);
+        assertSphericalSpatialJoin("<=", tooSmallRadius, false);
+    }
+
+    private void assertSphericalSpatialJoin(String comparison, double radius, boolean shouldMatch)
+    {
+        String expected;
+        if (shouldMatch) {
+            expected = "SELECT 'p0', 'p1'";
+        }
+        else {
+            expected = "SELECT * FROM (VALUES 1) LIMIT 0";
+        }
+
+        assertQuery(format("SELECT a.name, b.name FROM " +
+                        "( VALUES (to_spherical_geography(ST_Point(0, 0)), 'p0') ) as a(point, name) " +
+                        "JOIN ( VALUES (to_spherical_geography(ST_Point(0, 1)), 'p1') ) as b(point, name) " +
+                        "ON ST_Distance(a.point, b.point) %s %s", comparison, radius),
+                expected);
+    }
 }
