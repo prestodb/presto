@@ -15,10 +15,15 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -48,7 +53,13 @@ public class DruidConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new DruidModule(context.getTypeManager()));
+                    new DruidModule(), binder -> {
+                binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
+                binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                binder.bind(LogicalRowExpressions.class).toInstance(new LogicalRowExpressions(context.getRowExpressionService().getDeterminismEvaluator(), context.getStandardFunctionResolution(), context.getFunctionMetadataManager()));
+                binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+            });
 
             Injector injector = app
                     .strictConfig()

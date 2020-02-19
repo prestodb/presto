@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class DruidTableHandle
@@ -30,17 +29,17 @@ public class DruidTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<DruidQueryGenerator.GeneratedDql> dql;
 
     @JsonCreator
     public DruidTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("dql") Optional<DruidQueryGenerator.GeneratedDql> dql)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.dql = requireNonNull(dql, "dql is null");
     }
 
     @JsonProperty
@@ -56,9 +55,9 @@ public class DruidTableHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public Optional<DruidQueryGenerator.GeneratedDql> getDql()
     {
-        return constraint;
+        return dql;
     }
 
     @Override
@@ -79,18 +78,23 @@ public class DruidTableHandle
 
         DruidTableHandle other = (DruidTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.dql, other.dql);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(".").join(schemaName, tableName);
+        return toStringHelper(this)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("dql", dql)
+                .toString();
     }
 
     public static DruidTableHandle fromSchemaTableName(SchemaTableName schemaTableName)
     {
-        return new DruidTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName(), TupleDomain.all());
+        return new DruidTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName(), Optional.empty());
     }
 
     public SchemaTableName toSchemaTableName()
