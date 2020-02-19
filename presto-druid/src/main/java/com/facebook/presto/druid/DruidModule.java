@@ -13,36 +13,31 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static java.util.Objects.requireNonNull;
 
 public class DruidModule
         implements Module
 {
-    private final TypeManager typeManager;
-
-    public DruidModule(TypeManager typeManager)
+    public DruidModule()
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         binder.bind(DruidConnector.class).in(Scopes.SINGLETON);
         binder.bind(DruidMetadata.class).in(Scopes.SINGLETON);
         binder.bind(DruidHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(DruidClient.class).in(Scopes.SINGLETON);
+        binder.bind(DruidConnectorPlanOptimizer.class).in(Scopes.SINGLETON);
         binder.bind(DruidSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(DruidPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DruidQueryGenerator.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(DruidConfig.class);
         httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class);

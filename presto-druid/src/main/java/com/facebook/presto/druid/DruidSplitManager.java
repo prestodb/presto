@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -21,14 +20,11 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +48,7 @@ public class DruidSplitManager
     {
         DruidTableLayoutHandle layoutHandle = (DruidTableLayoutHandle) layout;
         DruidTableHandle table = layoutHandle.getTable();
-        List<String> segmentIds = getSegmentId(table);
+        List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
 
         List<DruidSplit> splits = segmentIds.stream()
                 .map(id -> druidClient.getSingleSegmentInfo(table.getTableName(), id))
@@ -60,18 +56,5 @@ public class DruidSplitManager
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);
-    }
-
-    public List<String> getSegmentId(DruidTableHandle table)
-    {
-        TupleDomain<ColumnHandle> constraint = table.getConstraint();
-
-        if (constraint.getDomains().isPresent()) {
-            Domain domain = constraint.getDomains().get().get(new DruidColumnHandle("__time", TIMESTAMP));
-            if (domain != null) {
-                return druidClient.getDataSegmentIdInDomain(table.getTableName(), domain);
-            }
-        }
-        return druidClient.getAllDataSegmentId(table.getTableName());
     }
 }

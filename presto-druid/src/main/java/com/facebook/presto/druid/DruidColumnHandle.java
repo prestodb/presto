@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,14 +29,31 @@ public class DruidColumnHandle
 {
     private final String columnName;
     private final Type columnType;
+    private final DruidColumnType type;
+
+    public DruidColumnHandle(
+            VariableReferenceExpression variable,
+            DruidColumnType type)
+    {
+        this(variable.getName(), variable.getType(), type);
+    }
+
+    public DruidColumnHandle(
+            String columnName,
+            Type columnType)
+    {
+        this(columnName, columnType, DruidColumnType.REGULAR);
+    }
 
     @JsonCreator
     public DruidColumnHandle(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType)
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("type") DruidColumnType type)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -48,6 +66,12 @@ public class DruidColumnHandle
     public Type getColumnType()
     {
         return columnType;
+    }
+
+    @JsonProperty
+    public DruidColumnType getType()
+    {
+        return type;
     }
 
     @Override
@@ -76,6 +100,13 @@ public class DruidColumnHandle
         return toStringHelper(this)
                 .add("columnName", columnName)
                 .add("columnType", columnType)
+                .add("type", type)
                 .toString();
+    }
+
+    public enum DruidColumnType
+    {
+        REGULAR, // refers to the column in table
+        DERIVED, // refers to a derived column that is created after a pushdown expression
     }
 }
