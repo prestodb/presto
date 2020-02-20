@@ -93,6 +93,12 @@ public interface TupleDomainFilter
      */
     int getSucceedingPositionsToFail();
 
+    /**
+     * @return true if getPrecedingPositionsToFail or getSucceedingPositionsToFail may return
+     *      non-zero values
+     */
+    boolean isPositionalFilter();
+
     abstract class AbstractTupleDomainFilter
             implements TupleDomainFilter
     {
@@ -175,6 +181,12 @@ public interface TupleDomainFilter
         public int getSucceedingPositionsToFail()
         {
             return 0;
+        }
+
+        @Override
+        public boolean isPositionalFilter()
+        {
+            return false;
         }
     }
 
@@ -1508,6 +1520,12 @@ public interface TupleDomainFilter
         public int getSucceedingPositionsToFail()
         {
             return succeedingPositionsToFail;
+        }
+
+        @Override
+        public boolean isPositionalFilter()
+        {
+            return true;
         }
 
         protected void reset()
