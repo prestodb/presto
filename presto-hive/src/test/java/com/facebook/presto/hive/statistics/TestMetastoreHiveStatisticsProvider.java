@@ -48,12 +48,12 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionManager.parsePartition;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;

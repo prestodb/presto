@@ -65,6 +65,7 @@ import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -81,7 +82,6 @@ import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -504,7 +504,7 @@ public class TestHiveFileFormats
 
         List<TestColumn> columns = ImmutableList.of(partitionColumn, varcharColumn);
 
-        MetastoreErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE;
+        HiveErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE;
         String expectedMessage = "Invalid partition value 'test' for varchar(3) partition key: partition_column";
 
         assertThatFileFormat(RCTEXT)

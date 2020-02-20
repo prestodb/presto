@@ -77,7 +77,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;

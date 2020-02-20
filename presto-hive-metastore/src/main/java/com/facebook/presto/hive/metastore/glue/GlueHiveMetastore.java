@@ -105,8 +105,8 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;

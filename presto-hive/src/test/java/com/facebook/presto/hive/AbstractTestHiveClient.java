@@ -180,6 +180,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
@@ -226,7 +227,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -990,7 +990,8 @@ public abstract class AbstractTestHiveClient
     protected ConnectorSession newSession(Map<String, Object> extraProperties)
     {
         ConnectorSession session = newSession();
-        return new ConnectorSession() {
+        return new ConnectorSession()
+        {
             @Override
             public String getQueryId()
             {

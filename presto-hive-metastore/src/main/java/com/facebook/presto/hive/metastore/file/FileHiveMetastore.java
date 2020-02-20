@@ -74,8 +74,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;

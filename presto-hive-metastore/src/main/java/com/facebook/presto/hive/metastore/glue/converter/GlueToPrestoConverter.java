@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;

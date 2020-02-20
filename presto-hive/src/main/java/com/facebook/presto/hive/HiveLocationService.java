@@ -27,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
 import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
@@ -37,7 +38,6 @@ import static com.facebook.presto.hive.LocationHandle.TableType.TEMPORARY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static java.lang.String.format;

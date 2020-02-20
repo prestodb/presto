@@ -48,6 +48,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
@@ -60,7 +61,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static java.util.Locale.ENGLISH;

@@ -25,7 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
