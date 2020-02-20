@@ -110,6 +110,15 @@ public class Int128ArrayBlockEncodingBuffer
     }
 
     @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("valuesBufferCapacity=").append(valuesBuffer == null ? 0 : valuesBuffer.length).append(",");
+        sb.append("valuesBufferIndex=").append(valuesBufferIndex).append("}");
+        return sb.toString();
+    }
+
+    @Override
     protected void accumulateSerializedRowSizes(int[] positionOffsets, int positionCount, int[] serializedRowSizes)
     {
         for (int i = 0; i < positionCount; i++) {

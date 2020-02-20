@@ -79,4 +79,18 @@ class DecodedBlockNode
         }
         return size;
     }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder("DecodedBlockNode{");
+        sb.append("decodedBlock=").append(decodedBlock.toString()).append(",");
+        sb.append("childrenCount=").append(children.size()).append(",");
+        for (int i = 0; i < children.size(); i++) {
+            sb.append("fieldBuffer_").append(i).append("=").append(children.get(i).toString()).append(",");
+        }
+        sb.append("}");
+
+        return sb.toString();
+    }
 }
