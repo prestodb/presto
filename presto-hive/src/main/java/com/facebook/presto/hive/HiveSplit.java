@@ -182,11 +182,13 @@ public class HiveSplit
         }
 
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // Use + 1 as secondary hash for now, would always get a diffrent position from the first hash.
-            // When + 1 overflow, will circle back to starting point: Integer.MAX_VALUE + 1 == Integer.MIN_VALUE
+            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
+            int size = sortedCandidates.size();
+            int mod = path.hashCode() % size;
+            int position = mod < 0 ? mod + size : mod;
             return ImmutableList.of(
-                    sortedCandidates.get(path.hashCode() % sortedCandidates.size()),
-                    sortedCandidates.get((path.hashCode() + 1) % sortedCandidates.size()));
+                    sortedCandidates.get(position),
+                    sortedCandidates.get((position + 1) % size));
         }
         return addresses;
     }
