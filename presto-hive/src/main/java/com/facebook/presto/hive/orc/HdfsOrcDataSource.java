@@ -22,9 +22,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

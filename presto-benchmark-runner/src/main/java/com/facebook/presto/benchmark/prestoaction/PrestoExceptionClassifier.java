@@ -16,7 +16,6 @@ package com.facebook.presto.benchmark.prestoaction;
 import com.facebook.presto.benchmark.framework.QueryException;
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
-import com.facebook.presto.hive.MetastoreErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -42,7 +41,7 @@ public class PrestoExceptionClassifier
 {
     private static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
             .addAll(asList(StandardErrorCode.values()))
-            .addAll(asList(MetastoreErrorCode.values()))
+            .addAll(asList(HiveErrorCode.values()))
             .addAll(asList(HiveErrorCode.values()))
             .addAll(asList(JdbcErrorCode.values()))
             .addAll(asList(ThriftErrorCode.values()))

@@ -41,7 +41,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.MAX;

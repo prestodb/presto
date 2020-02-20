@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;

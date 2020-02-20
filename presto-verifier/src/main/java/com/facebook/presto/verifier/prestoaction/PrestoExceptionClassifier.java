@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
-import com.facebook.presto.hive.MetastoreErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -38,15 +37,15 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -67,7 +66,6 @@ public class PrestoExceptionClassifier
 {
     public static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
             .addAll(asList(StandardErrorCode.values()))
-            .addAll(asList(MetastoreErrorCode.values()))
             .addAll(asList(HiveErrorCode.values()))
             .addAll(asList(JdbcErrorCode.values()))
             .addAll(asList(ThriftErrorCode.values()))

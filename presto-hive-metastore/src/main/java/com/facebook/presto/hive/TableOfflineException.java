@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_TABLE_OFFLINE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 

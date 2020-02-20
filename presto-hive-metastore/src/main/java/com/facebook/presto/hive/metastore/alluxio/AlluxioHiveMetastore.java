@@ -53,7 +53,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.google.common.collect.ImmutableList.toImmutableList;

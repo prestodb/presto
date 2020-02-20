@@ -25,7 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 
 public final class GlueExpressionUtil
 {

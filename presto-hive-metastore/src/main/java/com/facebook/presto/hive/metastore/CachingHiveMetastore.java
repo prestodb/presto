@@ -47,7 +47,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
