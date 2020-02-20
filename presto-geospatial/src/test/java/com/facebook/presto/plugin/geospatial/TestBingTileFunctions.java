@@ -112,6 +112,9 @@ public class TestBingTileFunctions
 
         // X/Y too big
         assertBingTileCastInvalid(256L | (256L << 32) | (4L << 27));
+
+        // Wrong version
+        assertBingTileCastInvalid(1L << BingTile.VERSION_OFFSET);
     }
 
     private void assertBingTileCast(int x, int y, int zoom)
