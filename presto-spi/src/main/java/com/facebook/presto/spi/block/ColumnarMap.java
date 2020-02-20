@@ -191,4 +191,18 @@ public class ColumnarMap
     {
         return nullCheckBlock.getRetainedSizeInBytes() + keysBlock.getRetainedSizeInBytes() + valuesBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(hashTables);
     }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("positionCount=").append(getPositionCount()).append(",");
+        sb.append("offsetsOffset=").append(offsetsOffset).append(",");
+        sb.append("nullCheckBlock=").append(nullCheckBlock.toString()).append(",");
+        sb.append("keysBlock=").append(keysBlock.toString()).append(",");
+        sb.append("valuesBlock=").append(valuesBlock.toString()).append(",");
+        sb.append("hashTablesSize=").append(hashTables == null ? 0 : hashTables.length).append(",");
+        sb.append('}');
+        return sb.toString();
+    }
 }

@@ -155,4 +155,16 @@ public class ColumnarArray
     {
         return nullCheckBlock.getRetainedSizeInBytes() + elementsBlock.getRetainedSizeInBytes() + sizeOf(offsets);
     }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("positionCount=").append(getPositionCount()).append(",");
+        sb.append("offsetsOffset=").append(offsetsOffset).append(",");
+        sb.append("nullCheckBlock=").append(nullCheckBlock.toString()).append(",");
+        sb.append("elementsBlock=").append(elementsBlock.toString()).append(",");
+        sb.append('}');
+        return sb.toString();
+    }
 }
