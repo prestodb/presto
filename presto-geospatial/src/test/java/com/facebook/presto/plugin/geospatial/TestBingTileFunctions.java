@@ -35,6 +35,7 @@ import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MAX_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MIN_LONGITUDE;
@@ -78,6 +79,52 @@ public class TestBingTileFunctions
         String json = objectMapper.writeValueAsString(tile);
         assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
         assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
+    }
+
+    @Test
+    public void testBingTileEncoding()
+    {
+        for (int zoom = 0; zoom <= MAX_ZOOM_LEVEL; zoom++) {
+            int maxValue = (1 << zoom) - 1;
+            testEncodingRoundTrip(0, 0, zoom);
+            testEncodingRoundTrip(0, maxValue, zoom);
+            testEncodingRoundTrip(maxValue, 0, zoom);
+            testEncodingRoundTrip(maxValue, maxValue, zoom);
+        }
+    }
+
+    private void testEncodingRoundTrip(int x, int y, int zoom)
+    {
+        BingTile expected = BingTile.fromCoordinates(x, y, zoom);
+        BingTile actual = BingTile.decode(expected.encode());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testBingTileCast()
+    {
+        assertBingTileCast(0, 0, 0);
+        assertBingTileCast(0, 0, 1);
+        assertBingTileCast(0, 0, 10);
+        assertBingTileCast(125, 900, 10);
+        assertBingTileCast(0, 0, 23);
+        assertBingTileCast((1 << 23) - 1, (1 << 23) - 1, 23);
+
+        // X/Y too big
+        assertBingTileCastInvalid(256L | (256L << 32) | (4L << 27));
+    }
+
+    private void assertBingTileCast(int x, int y, int zoom)
+    {
+        BingTile tile = BingTile.fromCoordinates(x, y, zoom);
+        assertFunction(format("cast(cast(%s as bigint) as bingtile)", tile.encode()), BING_TILE, tile);
+        assertFunction(format("cast(bing_tile('%s') as bigint)", tile.toQuadKey()), BIGINT, tile.encode());
+    }
+
+    private void assertBingTileCastInvalid(long encoding)
+    {
+        assertInvalidCast(format("cast(cast(%s as bigint) as bingtile)", encoding),
+                format("Invalid bigint tile encoding: %s", encoding));
     }
 
     @Test

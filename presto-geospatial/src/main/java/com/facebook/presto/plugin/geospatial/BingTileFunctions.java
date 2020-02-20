@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -38,7 +39,9 @@ import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,6 +87,29 @@ public class BingTileFunctions
     private static final String ZOOM_LEVEL_TOO_LARGE = "Zoom level must be <= " + MAX_ZOOM_LEVEL;
 
     private BingTileFunctions() {}
+
+    @Description("Encodes a Bing tile into a bigint")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToBigint(@SqlType(BingTileType.NAME) long tile)
+    {
+        return tile;
+    }
+
+    @Description("Decodes a Bing tile from a bigint")
+    @ScalarOperator(CAST)
+    @SqlType(BingTileType.NAME)
+    public static long castFromBigint(@SqlType(StandardTypes.BIGINT) long tile)
+    {
+        try {
+            BingTile.decode(tile);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT,
+                    format("Invalid bigint tile encoding: %s", tile));
+        }
+        return tile;
+    }
 
     @Description("Creates a Bing tile from XY coordinates and zoom level")
     @ScalarFunction("bing_tile")

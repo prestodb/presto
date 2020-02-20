@@ -456,7 +456,15 @@ Bing Tiles
 
 These functions convert between geometries and
 `Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.  For
-Bing tiles, ``x`` and ``y`` refer to ``tile_x`` and ``tile_y``.
+Bing tiles, ``x`` and ``y`` refer to ``tile_x`` and ``tile_y``.  Bing Tiles
+can be cast to and from BigInts, using an internal representation that encodes
+the ``zoom``, ``x``, and ``y`` efficiently::
+
+    cast(cast(tile AS BIGINT) AS BINGTILE)
+
+While every tile can be cast to a bigint, casting from a bigint that does not
+represent a valid tile will raise an exception.
+
 
 .. function:: bing_tile(x, y, zoom_level) -> BingTile
 
