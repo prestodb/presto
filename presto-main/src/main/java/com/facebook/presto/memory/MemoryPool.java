@@ -24,13 +24,13 @@ import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.presto.memory.context.AbstractAggregatedMemoryContext.FORCE_FREE_TAG;
@@ -49,25 +49,19 @@ public class MemoryPool
     private final MemoryPoolId id;
     private final long maxBytes;
 
-    @GuardedBy("this")
-    private long reservedBytes;
-    @GuardedBy("this")
-    private long reservedRevocableBytes;
+    private volatile long reservedBytes;
+    private volatile long reservedRevocableBytes;
 
     @Nullable
-    @GuardedBy("this")
     private NonCancellableMemoryFuture<?> future;
 
-    @GuardedBy("this")
     // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
-    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
+    private final Map<QueryId, Long> queryMemoryReservations = new ConcurrentHashMap<>();
 
     // This map keeps track of all the tagged allocations, e.g., query-1 -> ['TableScanOperator': 10MB, 'LazyOutputBuffer': 5MB, ...]
-    @GuardedBy("this")
-    private final Map<QueryId, Map<String, Long>> taggedMemoryAllocations = new HashMap<>();
+    private final Map<QueryId, Map<String, Long>> taggedMemoryAllocations = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
+    private final Map<QueryId, Long> queryMemoryRevocableReservations = new ConcurrentHashMap<>();
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -83,7 +77,7 @@ public class MemoryPool
         return id;
     }
 
-    public synchronized MemoryPoolInfo getInfo()
+    public MemoryPoolInfo getInfo()
     {
         Map<QueryId, List<MemoryAllocation>> memoryAllocations = new HashMap<>();
         for (Entry<QueryId, Map<String, Long>> entry : taggedMemoryAllocations.entrySet()) {
@@ -114,11 +108,26 @@ public class MemoryPool
         checkArgument(bytes >= 0, "bytes is negative");
 
         ListenableFuture<?> result;
-        synchronized (this) {
-            if (bytes != 0) {
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
-                updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
+        if (bytes != 0) {
+            while (true) {
+                if (queryMemoryReservations.computeIfPresent(queryId, (ignored, value) -> value + bytes) != null) {
+                    // queryMemoryReservations is updated,
+                    // use flag putQueryIdAbsent = false to prevent adding new queryId to taggedMemoryAllocations
+                    // in race condition when queryId has been removed
+                    updateTaggedMemoryAllocations(queryId, allocationTag, bytes, false);
+                    break;
+                }
+                synchronized (this) {
+                    if (queryMemoryReservations.putIfAbsent(queryId, bytes) == null) {
+                        // queryId is successfully put into queryMemoryReservations,
+                        // safe to update taggedMemoryAllocations
+                        updateTaggedMemoryAllocations(queryId, allocationTag, bytes, true);
+                        break;
+                    }
+                }
             }
+        }
+        synchronized (this) {
             reservedBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
@@ -146,10 +155,11 @@ public class MemoryPool
         checkArgument(bytes >= 0, "bytes is negative");
 
         ListenableFuture<?> result;
+
+        if (bytes != 0) {
+            queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
+        }
         synchronized (this) {
-            if (bytes != 0) {
-                queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
-            }
             reservedRevocableBytes += bytes;
             if (getFreeBytes() <= 0) {
                 if (future == null) {
@@ -178,9 +188,24 @@ public class MemoryPool
                 return false;
             }
             reservedBytes += bytes;
-            if (bytes != 0) {
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
-                updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
+        }
+        if (bytes != 0) {
+            while (true) {
+                if (queryMemoryReservations.computeIfPresent(queryId, (ignored, value) -> value + bytes) != null) {
+                    // queryMemoryReservations is updated,
+                    // use flag putQueryIdAbsent = false to prevent adding new queryId to taggedMemoryAllocations
+                    // in race condition when queryId has been removed
+                    updateTaggedMemoryAllocations(queryId, allocationTag, bytes, false);
+                    break;
+                }
+                synchronized (this) {
+                    if (queryMemoryReservations.putIfAbsent(queryId, bytes) == null) {
+                        // queryId is successfully put into queryMemoryReservations,
+                        // safe to update taggedMemoryAllocations
+                        updateTaggedMemoryAllocations(queryId, allocationTag, bytes, true);
+                        break;
+                    }
+                }
             }
         }
 
@@ -188,7 +213,7 @@ public class MemoryPool
         return true;
     }
 
-    public synchronized void free(QueryId queryId, String allocationTag, long bytes)
+    public void free(QueryId queryId, String allocationTag, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
@@ -197,26 +222,32 @@ public class MemoryPool
             return;
         }
 
-        Long queryReservation = queryMemoryReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more memory than is reserved by query");
-        queryReservation -= bytes;
+        Long queryReservation = queryMemoryReservations.merge(queryId, -bytes, Long::sum);
+        checkArgument(queryReservation != -bytes, "queryId does not exist in queryMemoryReservations");
+        checkArgument(queryReservation >= 0, "tried to free more memory than is reserved by query");
         if (queryReservation == 0) {
-            queryMemoryReservations.remove(queryId);
-            taggedMemoryAllocations.remove(queryId);
+            synchronized (this) {
+                if (queryMemoryReservations.remove(queryId, queryReservation)) {
+                    // queryId is successfully removed from queryMemoryReservations,
+                    // safe to update taggedMemoryAllocations
+                    taggedMemoryAllocations.remove(queryId);
+                }
+            }
         }
         else {
-            queryMemoryReservations.put(queryId, queryReservation);
-            updateTaggedMemoryAllocations(queryId, allocationTag, -bytes);
+            updateTaggedMemoryAllocations(queryId, allocationTag, -bytes, false);
         }
-        reservedBytes -= bytes;
-        if (getFreeBytes() > 0 && future != null) {
-            future.set(null);
-            future = null;
+
+        synchronized (this) {
+            reservedBytes -= bytes;
+            if (getFreeBytes() > 0 && future != null) {
+                future.set(null);
+                future = null;
+            }
         }
     }
 
-    public synchronized void freeRevocable(QueryId queryId, long bytes)
+    public void freeRevocable(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
@@ -225,20 +256,19 @@ public class MemoryPool
             return;
         }
 
-        Long queryReservation = queryMemoryRevocableReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
-        queryReservation -= bytes;
+        Long queryReservation = queryMemoryRevocableReservations.merge(queryId, -bytes, Long::sum);
+        checkArgument(queryReservation != -bytes, "queryId does not exist in queryMemoryRevocableReservations");
+        checkArgument(queryReservation >= 0, "tried to free more revocable memory than is reserved by query");
         if (queryReservation == 0) {
-            queryMemoryRevocableReservations.remove(queryId);
+            queryMemoryRevocableReservations.remove(queryId, queryReservation);
         }
-        else {
-            queryMemoryRevocableReservations.put(queryId, queryReservation);
-        }
-        reservedRevocableBytes -= bytes;
-        if (getFreeBytes() > 0 && future != null) {
-            future.set(null);
-            future = null;
+
+        synchronized (this) {
+            reservedRevocableBytes -= bytes;
+            if (getFreeBytes() > 0 && future != null) {
+                future.set(null);
+                future = null;
+            }
         }
     }
 
@@ -256,7 +286,9 @@ public class MemoryPool
         free(queryId, MOVE_QUERY_TAG, originalReserved);
         targetMemoryPool.reserveRevocable(queryId, originalRevocableReserved);
         freeRevocable(queryId, originalRevocableReserved);
-        targetMemoryPool.taggedMemoryAllocations.put(queryId, taggedAllocations);
+        if (taggedAllocations != null) {
+            targetMemoryPool.taggedMemoryAllocations.put(queryId, taggedAllocations);
+        }
         return future;
     }
 
@@ -264,41 +296,41 @@ public class MemoryPool
      * Returns the number of free bytes. This value may be negative, which indicates that the pool is over-committed.
      */
     @Managed
-    public synchronized long getFreeBytes()
+    public long getFreeBytes()
     {
         return maxBytes - reservedBytes - reservedRevocableBytes;
     }
 
     @Managed
-    public synchronized long getMaxBytes()
+    public long getMaxBytes()
     {
         return maxBytes;
     }
 
     @Managed
-    public synchronized long getReservedBytes()
+    public long getReservedBytes()
     {
         return reservedBytes;
     }
 
     @Managed
-    public synchronized long getReservedRevocableBytes()
+    public long getReservedRevocableBytes()
     {
         return reservedRevocableBytes;
     }
 
-    synchronized long getQueryMemoryReservation(QueryId queryId)
+    long getQueryMemoryReservation(QueryId queryId)
     {
         return queryMemoryReservations.getOrDefault(queryId, 0L);
     }
 
-    synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
+    long getQueryRevocableMemoryReservation(QueryId queryId)
     {
         return queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
     }
 
     @Override
-    public synchronized String toString()
+    public String toString()
     {
         return toStringHelper(this)
                 .add("id", id)
@@ -331,13 +363,22 @@ public class MemoryPool
         }
     }
 
-    private synchronized void updateTaggedMemoryAllocations(QueryId queryId, String allocationTag, long delta)
+    private void updateTaggedMemoryAllocations(QueryId queryId, String allocationTag, long delta, boolean putQueryIdIfAbsent)
     {
         if (delta == 0) {
             return;
         }
 
-        Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, ignored -> new HashMap<>());
+        Map<String, Long> allocations;
+        if (putQueryIdIfAbsent) {
+            allocations = taggedMemoryAllocations.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap<>());
+        }
+        else {
+            allocations = taggedMemoryAllocations.get(queryId);
+            if (allocations == null) {
+                return;
+            }
+        }
         allocations.compute(allocationTag, (ignored, oldValue) -> {
             if (oldValue == null) {
                 return delta;
@@ -351,14 +392,14 @@ public class MemoryPool
     }
 
     @VisibleForTesting
-    synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
+    Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
         return taggedMemoryAllocations.keySet().stream()
                 .collect(toImmutableMap(identity(), this::getTaggedMemoryAllocations));
     }
 
     @VisibleForTesting
-    synchronized Map<String, Long> getTaggedMemoryAllocations(QueryId targetQueryId)
+    Map<String, Long> getTaggedMemoryAllocations(QueryId targetQueryId)
     {
         if (taggedMemoryAllocations.get(targetQueryId) == null) {
             return null;
