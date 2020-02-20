@@ -116,6 +116,15 @@ public class ByteArrayBlockEncodingBuffer
                 getNullsBufferSerializedSizeInBytes();    // nulls buffer
     }
 
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("valuesBufferCapacity=").append(valuesBuffer == null ? 0 : valuesBuffer.length).append(",");
+        sb.append("valuesBufferIndex=").append(valuesBufferIndex).append("}");
+        return sb.toString();
+    }
+
     private void appendValuesToBuffer()
     {
         valuesBuffer = ensureCapacity(valuesBuffer, valuesBufferIndex + batchSize, LARGE, PRESERVE);

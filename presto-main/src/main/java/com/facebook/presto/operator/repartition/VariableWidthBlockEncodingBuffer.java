@@ -143,6 +143,17 @@ public class VariableWidthBlockEncodingBuffer
     }
 
     @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("sliceBufferCapacity=").append(sliceBuffer == null ? 0 : sliceBuffer.length).append(",");
+        sb.append("sliceBufferIndex=").append(sliceBufferIndex).append(",");
+        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
+        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append("}");
+        return sb.toString();
+    }
+
+    @Override
     protected void accumulateSerializedRowSizes(int[] positionOffsets, int positionCount, int[] serializedRowSizes)
     {
         // The nested level positionCount could be 0.

@@ -200,6 +200,21 @@ public class RowBlockEncodingBuffer
     }
 
     @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
+        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append(",");
+        sb.append("offsetsCapacity=").append(offsets == null ? 0 : offsets.length).append(",");
+        sb.append("lastOffset=").append(lastOffset).append(",");
+        for (int i = 0; i < fieldBuffers.length; i++) {
+            sb.append("fieldBuffer_").append(i).append("=").append(fieldBuffers[i].toString()).append(",");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");

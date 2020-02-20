@@ -219,6 +219,21 @@ public class MapBlockEncodingBuffer
     }
 
     @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("hashTablesBufferCapacity=").append(hashTablesBuffer == null ? 0 : hashTablesBuffer.length).append(",");
+        sb.append("hashTableBufferIndex=").append(hashTableBufferIndex).append(",");
+        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
+        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append(",");
+        sb.append("offsetsCapacity=").append(offsets == null ? 0 : offsets.length).append(",");
+        sb.append("lastOffset=").append(lastOffset).append(",");
+        sb.append("keyBuffers=").append(keyBuffers.toString()).append(",");
+        sb.append("valueBuffers=").append(valueBuffers.toString()).append("}");
+        return sb.toString();
+    }
+
+    @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
