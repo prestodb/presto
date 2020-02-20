@@ -54,6 +54,7 @@ public class HiveS3Module
         }
         else if (type == S3FileSystemType.HADOOP_DEFAULT) {
             // configuration is done using Hadoop configuration files
+            binder.bind(S3ConfigurationUpdater.class).to(HadoopDefaultConfigurationUpdater.class).in(Scopes.SINGLETON);
         }
         else {
             throw new RuntimeException("Unknown file system type: " + type);
@@ -81,6 +82,15 @@ public class HiveS3Module
             config.set("fs.s3.impl", EMR_FS_CLASS_NAME);
             config.set("fs.s3a.impl", EMR_FS_CLASS_NAME);
             config.set("fs.s3n.impl", EMR_FS_CLASS_NAME);
+        }
+    }
+
+    public static class HadoopDefaultConfigurationUpdater
+            implements S3ConfigurationUpdater
+    {
+        @Override
+        public void updateConfiguration(Configuration config)
+        {
         }
     }
 }
