@@ -115,6 +115,25 @@ public class LongDirectSelectiveStreamReader
                 skip(offset - readOffset);
             }
 
+            if (positions[positionCount - 1] == positionCount - 1) {
+                // no skipping
+                if (presentStream == null) {
+                    // no nulls
+                    if (!outputRequired && filter != null && !filter.isPositionalFilter()) {
+                        // no output; just filter
+                        for (int i = 0; i < positionCount; i++) {
+                            long value = dataStream.next();
+                            if (filter.testLong(value)) {
+                                outputPositions[outputPositionCount] = positions[i];
+                                outputPositionCount++;
+                            }
+                        }
+                        readOffset = offset + positionCount;
+                        return outputPositionCount;
+                    }
+                }
+            }
+
             for (int i = 0; i < positionCount; i++) {
                 int position = positions[i];
                 if (position > streamPosition) {
