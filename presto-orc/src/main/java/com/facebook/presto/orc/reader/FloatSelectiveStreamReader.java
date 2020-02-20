@@ -250,6 +250,32 @@ public class FloatSelectiveStreamReader
     private int readNoFilter(int[] positions, int positionCount)
             throws IOException
     {
+        if (positions[positionCount - 1] == positionCount - 1) {
+            // no skipping
+            if (presentStream != null) {
+                // some nulls
+                int nullCount = presentStream.getUnsetBits(positionCount, nulls);
+                if (nullCount == positionCount) {
+                    allNulls = true;
+                }
+                else {
+                    for (int i = 0; i < positionCount; i++) {
+                        if (!nulls[i]) {
+                            values[i] = floatToRawIntBits(dataStream.next());
+                        }
+                    }
+                }
+            }
+            else {
+                // no nulls
+                for (int i = 0; i < positionCount; i++) {
+                    values[i] = floatToRawIntBits(dataStream.next());
+                }
+            }
+            outputPositionCount = positionCount;
+            return positions[positionCount - 1] + 1;
+        }
+
         int streamPosition = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
