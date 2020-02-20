@@ -375,7 +375,8 @@ public class DictionaryBlock
     public String toString()
     {
         StringBuilder sb = new StringBuilder("DictionaryBlock{");
-        sb.append("positionCount=").append(getPositionCount());
+        sb.append("positionCount=").append(getPositionCount()).append(",");
+        sb.append("dictionary=").append(dictionary.toString());
         sb.append('}');
         return sb.toString();
     }
