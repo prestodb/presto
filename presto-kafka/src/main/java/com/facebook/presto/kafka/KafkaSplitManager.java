@@ -23,13 +23,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
 
 import javax.inject.Inject;
 
@@ -42,9 +39,7 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONSUMER_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertLayout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -108,16 +103,6 @@ public class KafkaSplitManager
                     throw new IllegalArgumentException(String.format("Invalid Kafka Offset start/end pair: %s - %s", startTimestamp, endTimestamp));
                 }
 
-                TopicPartition topicPartition = new TopicPartition(partition.topic(), partition.partition());
-                consumer.assign(ImmutableList.of(topicPartition));
-
-                long beginningOffset = (startTimestamp == 0) ?
-                        consumer.beginningOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, startTimestamp);
-                long endOffset = (endTimestamp == 0) ?
-                        consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, endTimestamp);
-
                 KafkaSplit split = new KafkaSplit(
                         connectorId,
                         topic,
@@ -126,8 +111,8 @@ public class KafkaSplitManager
                         kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
                         kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
                         partition.partition(),
-                        beginningOffset,
-                        endOffset,
+                        startTimestamp,
+                        endTimestamp,
                         partitionLeader);
                 splits.add(split);
             }
@@ -139,21 +124,6 @@ public class KafkaSplitManager
                 throw e;
             }
             throw new PrestoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
-        }
-    }
-
-    private static long findOffsetsByTimestamp(KafkaConsumer<ByteBuffer, ByteBuffer> consumer, TopicPartition topicPartition, long timestamp)
-    {
-        try {
-            Map<TopicPartition, OffsetAndTimestamp> topicPartitionOffsets = consumer.offsetsForTimes(ImmutableMap.of(topicPartition, timestamp));
-            if (topicPartitionOffsets == null || topicPartitionOffsets.values().size() == 0) {
-                return 0;
-            }
-            OffsetAndTimestamp offsetAndTimestamp = topicPartitionOffsets.values().iterator().next();
-            return offsetAndTimestamp.offset();
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(KAFKA_CONSUMER_ERROR, String.format("Failed to find offset by timestamp: %d for partition %d", timestamp, topicPartition.partition()), e);
         }
     }
 

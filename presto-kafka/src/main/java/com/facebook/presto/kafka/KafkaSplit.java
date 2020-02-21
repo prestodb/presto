@@ -41,8 +41,10 @@ public class KafkaSplit
     private final Optional<String> keyDataSchemaContents;
     private final Optional<String> messageDataSchemaContents;
     private final int partitionId;
-    private final long start;
-    private final long end;
+    private final long startTimestamp;
+    private final long endTimestamp;
+    private long startOffset;
+    private long endOffset;
     private final HostAddress leader;
 
     @JsonCreator
@@ -54,8 +56,8 @@ public class KafkaSplit
             @JsonProperty("keyDataSchemaContents") Optional<String> keyDataSchemaContents,
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("start") long start,
-            @JsonProperty("end") long end,
+            @JsonProperty("startTimestamp") long startTimestamp,
+            @JsonProperty("endTimestamp") long endTimestamp,
             @JsonProperty("leader") HostAddress leader)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
@@ -65,8 +67,10 @@ public class KafkaSplit
         this.keyDataSchemaContents = keyDataSchemaContents;
         this.messageDataSchemaContents = messageDataSchemaContents;
         this.partitionId = partitionId;
-        this.start = start;
-        this.end = end;
+        this.startTimestamp = startTimestamp;
+        this.endTimestamp = endTimestamp;
+        this.startOffset = 0;
+        this.endOffset = 0;
         this.leader = requireNonNull(leader, "leader address is null");
     }
 
@@ -77,15 +81,37 @@ public class KafkaSplit
     }
 
     @JsonProperty
-    public long getStart()
+    public long getStartTimestamp()
     {
-        return start;
+        return startTimestamp;
     }
 
     @JsonProperty
-    public long getEnd()
+    public long getEndTimestamp()
     {
-        return end;
+        return endTimestamp;
+    }
+
+    @JsonProperty
+    public long getStartOffset()
+    {
+        return startOffset;
+    }
+
+    public void setStartOffset(long startOffset)
+    {
+        this.startOffset = startOffset;
+    }
+
+    @JsonProperty
+    public long getEndOffset()
+    {
+        return endOffset;
+    }
+
+    public void setEndOffset(long endOffset)
+    {
+        this.endOffset = endOffset;
     }
 
     @JsonProperty
@@ -159,8 +185,10 @@ public class KafkaSplit
                 .add("keyDataSchemaContents", keyDataSchemaContents)
                 .add("messageDataSchemaContents", messageDataSchemaContents)
                 .add("partitionId", partitionId)
-                .add("start", start)
-                .add("end", end)
+                .add("startTimestamp", startTimestamp)
+                .add("endTimestamp", endTimestamp)
+                .add("startOffset", startOffset)
+                .add("endOffset", endOffset)
                 .add("leader", leader)
                 .toString();
     }

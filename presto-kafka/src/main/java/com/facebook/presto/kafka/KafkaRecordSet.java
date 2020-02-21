@@ -24,10 +24,12 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
 
 import java.nio.ByteBuffer;
@@ -41,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
 import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider;
 import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONSUMER_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -88,6 +91,49 @@ public class KafkaRecordSet
         }
 
         this.columnTypes = typeBuilder.build();
+        String threadName = Thread.currentThread().getName();
+        KafkaConsumer consumer = consumerManager.createConsumer(threadName, split.getLeader());
+        TopicPartition tp = new TopicPartition(split.getTopicName(), split.getPartitionId());
+        consumer.assign(ImmutableList.of(tp));
+        setOffsetRange(consumer, split);
+        consumer.close();
+    }
+
+    private static void setOffsetRange(KafkaConsumer<ByteBuffer, ByteBuffer> consumer, KafkaSplit split)
+    {
+        if (split.getStartTimestamp() > split.getEndTimestamp()) {
+            throw new IllegalArgumentException(String.format("Invalid Kafka Offset start/end pair: %s - %s", split.getStartTimestamp(), split.getEndTimestamp()));
+        }
+
+        TopicPartition topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
+        consumer.assign(ImmutableList.of(topicPartition));
+
+        long startOffset =
+                (split.getStartTimestamp() == 0) ?
+                consumer.beginningOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
+                findOffsetsByTimestamp(consumer, topicPartition, split.getStartTimestamp());
+        long endOffset =
+                (split.getEndTimestamp() == 0) ?
+                consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
+                findOffsetsByTimestamp(consumer, topicPartition, split.getEndTimestamp());
+
+        split.setStartOffset(startOffset);
+        split.setEndOffset(endOffset);
+    }
+
+    private static long findOffsetsByTimestamp(KafkaConsumer<ByteBuffer, ByteBuffer> consumer, TopicPartition topicPartition, long timestamp)
+    {
+        try {
+            Map<TopicPartition, OffsetAndTimestamp> topicPartitionOffsets = consumer.offsetsForTimes(ImmutableMap.of(topicPartition, timestamp));
+            if (topicPartitionOffsets == null || topicPartitionOffsets.values().size() == 0) {
+                return 0;
+            }
+            OffsetAndTimestamp offsetAndTimestamp = topicPartitionOffsets.values().iterator().next();
+            return offsetAndTimestamp.offset();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(KAFKA_CONSUMER_ERROR, String.format("Failed to find offset by timestamp: %d for partition %d", timestamp, topicPartition.partition()), e);
+        }
     }
 
     @Override
@@ -107,7 +153,7 @@ public class KafkaRecordSet
     {
         private long totalBytes;
         private long totalMessages;
-        private long cursorOffset = split.getStart();
+        private long cursorOffset = split.getStartOffset();
         private Iterator<ConsumerRecord<ByteBuffer, ByteBuffer>> messageAndOffsetIterator;
         private final AtomicBoolean reported = new AtomicBoolean();
         private KafkaConsumer<ByteBuffer, ByteBuffer> consumer;
@@ -140,7 +186,7 @@ public class KafkaRecordSet
         public boolean advanceNextPosition()
         {
             while (true) {
-                if (cursorOffset >= split.getEnd()) {
+                if (cursorOffset >= split.getEndOffset()) {
                     return endOfData();
                 }
                 // Create a fetch request
@@ -150,7 +196,7 @@ public class KafkaRecordSet
                     ConsumerRecord<ByteBuffer, ByteBuffer> currentMessageAndOffset = messageAndOffsetIterator.next();
                     long messageOffset = currentMessageAndOffset.offset();
 
-                    if (messageOffset >= split.getEnd()) {
+                    if (messageOffset >= split.getEndOffset()) {
                         return endOfData();
                     }
 
@@ -166,8 +212,8 @@ public class KafkaRecordSet
         {
             if (!reported.getAndSet(true)) {
                 log.debug("Found a total of %d messages with %d bytes (%d messages expected). Last Offset: %d (%d, %d)",
-                        totalMessages, totalBytes, split.getEnd() - split.getStart(),
-                        cursorOffset, split.getStart(), split.getEnd());
+                        totalMessages, totalBytes, split.getEndTimestamp() - split.getStartTimestamp(),
+                        cursorOffset, split.getStartOffset(), split.getEndOffset());
             }
             return false;
         }
@@ -331,8 +377,8 @@ public class KafkaRecordSet
                                 "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, leader %s ",
                                 split.getTopicName(),
                                 split.getPartitionId(),
-                                split.getStart(),
-                                split.getEnd(),
+                                split.getStartOffset(),
+                                split.getEndOffset(),
                                 split.getLeader()),
                         e);
             }
