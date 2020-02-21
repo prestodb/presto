@@ -21,13 +21,17 @@ import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.geospatial.KdbTree;
+import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.SphericalGeographyUtils;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.KdbTreeType;
 import io.airlift.slice.Slice;
 
 import java.util.EnumSet;
@@ -47,6 +51,8 @@ import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHER
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Double.isInfinite;
+import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;
 import static java.lang.Math.toRadians;
 
@@ -151,6 +157,48 @@ public final class SphericalGeoFunctions
             @SqlType(DOUBLE) double longitude2)
     {
         return SphericalGeographyUtils.greatCircleDistance(latitude1, longitude1, latitude2, longitude2);
+    }
+
+    @ScalarFunction
+    @SqlNullable
+    @Description("Returns an array of spatial partition IDs for a given geometry")
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice geometry)
+    {
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope.isEmpty()) {
+            // Empty geometry
+            return null;
+        }
+
+        return GeoFunctions.spatialPartitions((KdbTree) kdbTree, new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+    }
+
+    @ScalarFunction
+    @SqlNullable
+    @Description("Returns an array of spatial partition IDs for a geometry representing a set of points within specified distance from the input geometry")
+    @SqlType("array(int)")
+    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice geometry, @SqlType(DOUBLE) double distance)
+    {
+        if (isNaN(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+        }
+
+        if (isInfinite(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is infinite");
+        }
+
+        if (distance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+        }
+
+        Envelope envelope = deserializeEnvelope(geometry);
+        if (envelope.isEmpty()) {
+            return null;
+        }
+
+        Rectangle expandedEnvelope2D = new Rectangle(envelope.getXMin() - distance, envelope.getYMin() - distance, envelope.getXMax() + distance, envelope.getYMax() + distance);
+        return GeoFunctions.spatialPartitions((KdbTree) kdbTree, expandedEnvelope2D);
     }
 
     @SqlNullable
