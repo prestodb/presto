@@ -18,6 +18,7 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -26,8 +27,11 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,7 +54,8 @@ public class DynamicLifespanScheduler
 
     private final IntSet[] runningDriverGroupIdsByTask;
     private final int[] taskByDriverGroup;
-    private final IntArrayFIFOQueue driverGroupQueue;
+    private final IntArrayFIFOQueue noPreferenceDriverGroups;
+    private final Map<InternalNode, IntArrayFIFOQueue> nodeToPreferredDriverGroups;
     private final IntSet failedTasks;
 
     // initialScheduled does not need to be guarded because this object
@@ -87,10 +92,19 @@ public class DynamicLifespanScheduler
             runningDriverGroupIdsByTask[i] = new IntOpenHashSet();
         }
         this.taskByDriverGroup = new int[bucketCount];
-        this.driverGroupQueue = new IntArrayFIFOQueue(bucketCount);
+        this.noPreferenceDriverGroups = new IntArrayFIFOQueue();
+        this.nodeToPreferredDriverGroups = new HashMap<>();
+        Set<InternalNode> nodeSet = ImmutableSet.copyOf(nodeByTaskId);
         for (int i = 0; i < bucketCount; i++) {
             taskByDriverGroup[i] = NOT_ASSIGNED;
-            driverGroupQueue.enqueue(i);
+            if (bucketNodeMap.getAssignedNode(i).isPresent() && nodeSet.contains(bucketNodeMap.getAssignedNode(i).get())) {
+                InternalNode preferredNode = bucketNodeMap.getAssignedNode(i).get();
+                nodeToPreferredDriverGroups.computeIfAbsent(preferredNode, k -> new IntArrayFIFOQueue());
+                nodeToPreferredDriverGroups.get(preferredNode).enqueue(i);
+            }
+            else {
+                noPreferenceDriverGroups.enqueue(i);
+            }
         }
         this.failedTasks = new IntOpenHashSet();
     }
@@ -102,14 +116,16 @@ public class DynamicLifespanScheduler
 
         int driverGroupsScheduledPerTask = 0;
         synchronized (this) {
-            while (!driverGroupQueue.isEmpty()) {
-                for (int i = 0; i < nodeByTaskId.size() && !driverGroupQueue.isEmpty(); i++) {
-                    int driverGroupId = driverGroupQueue.dequeueInt();
-                    checkState(!bucketNodeMap.getAssignedNode(driverGroupId).isPresent());
-                    bucketNodeMap.assignOrUpdateBucketToNode(driverGroupId, nodeByTaskId.get(i));
-                    scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
-                    taskByDriverGroup[driverGroupId] = i;
-                    runningDriverGroupIdsByTask[i].add(driverGroupId);
+            while (!noPreferenceDriverGroups.isEmpty() || !nodeToPreferredDriverGroups.isEmpty()) {
+                for (int taskId = 0; taskId < nodeByTaskId.size() && (!noPreferenceDriverGroups.isEmpty() || !nodeToPreferredDriverGroups.isEmpty()); taskId++) {
+                    InternalNode node = nodeByTaskId.get(taskId);
+                    OptionalInt driverGroupId = getNextDriverGroup(node);
+                    if (!driverGroupId.isPresent()) {
+                        continue;
+                    }
+                    scheduler.startLifespan(Lifespan.driverGroup(driverGroupId.getAsInt()), partitionHandles.get(driverGroupId.getAsInt()));
+                    taskByDriverGroup[driverGroupId.getAsInt()] = taskId;
+                    runningDriverGroupIdsByTask[taskId].add(driverGroupId.getAsInt());
                 }
 
                 driverGroupsScheduledPerTask++;
@@ -151,8 +167,19 @@ public class DynamicLifespanScheduler
                 for (SourceScheduler sourceScheduler : sourceSchedulers) {
                     sourceScheduler.rewindLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
                 }
-                driverGroupQueue.enqueue(driverGroupId);
+                noPreferenceDriverGroups.enqueue(driverGroupId);
             }
+
+            // When a task fails, all driverGroups that prefer this task/node would be not able to execute
+            // Thus they should be relocated to driverGroupNoPreferenceQueue
+            if (nodeToPreferredDriverGroups.containsKey(nodeByTaskId.get(taskId))) {
+                IntArrayFIFOQueue preferredDriverGroupQueue = nodeToPreferredDriverGroups.get(nodeByTaskId.get(taskId));
+                while (!preferredDriverGroupQueue.isEmpty()) {
+                    noPreferenceDriverGroups.enqueue(preferredDriverGroupQueue.dequeueInt());
+                }
+                nodeToPreferredDriverGroups.remove(nodeByTaskId.get(taskId));
+            }
+
             runningDriverGroupIdsByTask[taskId].clear();
         }
     }
@@ -163,22 +190,30 @@ public class DynamicLifespanScheduler
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.
 
+        // TODO: After initial scheduling, tasks would only be available after they finished at least one bucket.
+        //  This is not necessarily the case if the initial scheduling covered all buckets and
+        //  the available slots is not fully utilized (concurrentLifespansPerTask is large or infinite).
+        //  In this case if a task failed, the recovered driver groups have to wait for tasks to be available again after finishing at least one bucket,
+        //  even though by definition of concurrentLifespansPerTask they are already available.
+
         checkState(initialScheduled, "schedule should only be called after initial scheduling finished");
         checkState(failedTasks.size() < nodeByTaskId.size(), "All tasks have failed");
 
         synchronized (this) {
             newDriverGroupReady = SettableFuture.create();
-            while (!availableTasks.isEmpty() && !driverGroupQueue.isEmpty()) {
+            while (!availableTasks.isEmpty() && (!noPreferenceDriverGroups.isEmpty() || !nodeToPreferredDriverGroups.isEmpty())) {
                 int taskId = availableTasks.dequeueInt();
                 if (failedTasks.contains(taskId)) {
                     continue;
                 }
-                int nextDriverGroupId = driverGroupQueue.dequeueInt();
-                InternalNode nodeForCompletedDriverGroup = nodeByTaskId.get(taskId);
-                bucketNodeMap.assignOrUpdateBucketToNode(nextDriverGroupId, nodeForCompletedDriverGroup);
-                scheduler.startLifespan(Lifespan.driverGroup(nextDriverGroupId), partitionHandles.get(nextDriverGroupId));
-                taskByDriverGroup[nextDriverGroupId] = taskId;
-                runningDriverGroupIdsByTask[taskId].add(nextDriverGroupId);
+
+                OptionalInt nextDriverGroupId = getNextDriverGroup(nodeByTaskId.get(taskId));
+                if (!nextDriverGroupId.isPresent()) {
+                    continue;
+                }
+                scheduler.startLifespan(Lifespan.driverGroup(nextDriverGroupId.getAsInt()), partitionHandles.get(nextDriverGroupId.getAsInt()));
+                taskByDriverGroup[nextDriverGroupId.getAsInt()] = taskId;
+                runningDriverGroupIdsByTask[taskId].add(nextDriverGroupId.getAsInt());
             }
         }
         return newDriverGroupReady;
@@ -188,5 +223,21 @@ public class DynamicLifespanScheduler
     public synchronized boolean allLifespanExecutionFinished()
     {
         return totalLifespanExecutionFinished == partitionHandles.size();
+    }
+
+    private OptionalInt getNextDriverGroup(InternalNode node)
+    {
+        OptionalInt driverGroupId = OptionalInt.empty();
+        if ((nodeToPreferredDriverGroups.get(node) != null) && !nodeToPreferredDriverGroups.get(node).isEmpty()) {
+            driverGroupId = OptionalInt.of(nodeToPreferredDriverGroups.get(node).dequeueInt());
+            if (nodeToPreferredDriverGroups.get(node).isEmpty()) {
+                nodeToPreferredDriverGroups.remove(node);
+            }
+        }
+        else if (!noPreferenceDriverGroups.isEmpty()) {
+            driverGroupId = OptionalInt.of(noPreferenceDriverGroups.dequeueInt());
+            bucketNodeMap.assignOrUpdateBucketToNode(driverGroupId.getAsInt(), node);
+        }
+        return driverGroupId;
     }
 }

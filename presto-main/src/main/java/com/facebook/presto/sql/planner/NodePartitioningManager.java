@@ -168,7 +168,11 @@ public class NodePartitioningManager
         NodeSelectionStrategy nodeSelectionStrategy = connectorBucketNodeMap.getNodeSelectionStrategy();
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
+                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
             case SOFT_AFFINITY:
+                if (preferDynamic) {
+                    return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount(), getFixedMapping(connectorBucketNodeMap));
+                }
                 return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
             case NO_PREFERENCE:
                 if (preferDynamic) {
