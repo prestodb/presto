@@ -468,18 +468,43 @@ for more details.
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In addition to using Alluxio storage system in a Hive metastore, the Hive connector
-can also connect to an Alluxio Catalog Service. <https://docs.alluxio.io/ee/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>
-Alluxio catalog service is a caching metastore that can cache the information from different underlying metastores.
-It currently supports Hive metastore as an underlying metastore.
-To configure the Hive connector for Alluxio Catalog Service, create a catalog properties file
-such as ``/etc/catalog/catalog_alluxio.properties`` and include the following:
+An alternative way for Presto to interact with Alluxio is via the
+`Alluxio Catalog Service. <https://docs.alluxio.io/os/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>`_.
+The primary benefits for using the Alluxio Catalog Service are simpler
+deployment of Alluxio with Presto, and enabling schema-aware optimizations
+such as transparent caching and transformations. Currently, the catalog service
+supports read-only workloads.
+
+The Alluxio Catalog Service is a metastore that can cache the information
+from different underlying metastores. It currently supports the Hive metastore
+as an underlying metastore. In for the Alluxio Catalog to manage the metadata
+of other existing metastores, the other metastores must be "attached" to the
+Alluxio catalog. To attach an existing Hive metastore to the Alluxio
+Catalog, simply use the
+`Alluxio CLI attachdb command <https://docs.alluxio.io/os/user/stable/en/operation/User-CLI.html#attachdb?utm_source=prestodb&utm_medium=prestodocs>`_.
+The appropriate Hive metastore location and Hive database name need to be
+provided.
+
+.. code-block:: none
+
+    ./bin/alluxio table attachdb hive thrift://HOSTNAME:9083 hive_db_name
+
+Once a metastore is attached, the Alluxio Catalog can manage and serve the
+information to Presto. To configure the Hive connector for Alluxio
+Catalog Service, simply configure the connector to use the Alluxio
+metastore type, and provide the location to the Alluxio cluster.
+For example, your ``etc/catalog/catalog_alluxio.properties`` will include
+the following (replace the Alluxio address with the appropriate location):
 
 .. code-block:: none
 
     connector.name=hive-hadoop2
     hive.metastore=alluxio
     hive.metastore.alluxio.master.address=HOSTNAME:PORT
+
+Now, Presto queries can take advantage of the Alluxio Catalog Service, such as
+transparent caching and transparent transformations, without any modifications
+to existing Hive metastore deployments.
 
 Table Statistics
 ----------------
