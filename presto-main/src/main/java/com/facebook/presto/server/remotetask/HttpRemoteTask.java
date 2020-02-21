@@ -642,7 +642,7 @@ public final class HttpRemoteTask
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
-            throw new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes));
+            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes)));
         }
 
         if (fragment.isPresent()) {

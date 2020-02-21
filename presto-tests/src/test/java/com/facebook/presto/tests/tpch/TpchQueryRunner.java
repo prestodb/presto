@@ -16,18 +16,27 @@ package com.facebook.presto.tests.tpch;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 
 public final class TpchQueryRunner
 {
     private TpchQueryRunner() {}
 
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+            throws Exception
+    {
+        return TpchQueryRunnerBuilder.builder()
+                .setExtraProperties(extraProperties)
+                .build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleExtraProperty("http-server.http.port", "8080")
-                .build();
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
