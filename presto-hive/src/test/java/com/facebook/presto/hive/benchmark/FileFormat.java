@@ -69,6 +69,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -423,7 +424,7 @@ public enum FileFormat
                         columnHandles,
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
-                        Optional.empty())
+                        DEFAULT_HIVE_FILE_CONTEXT)
                 .get();
     }
 

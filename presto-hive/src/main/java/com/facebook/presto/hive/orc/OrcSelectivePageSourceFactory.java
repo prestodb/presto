@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -209,7 +210,7 @@ public class OrcSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo)
+            HiveFileContext hiveFileContext)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -246,7 +247,7 @@ public class OrcSelectivePageSourceFactory
                 domainCompactionThreshold,
                 orcFileTailSource,
                 stripeMetadataSource,
-                extraFileInfo,
+                hiveFileContext,
                 fileOpener,
                 tupleDomainFilterCache));
     }
@@ -277,7 +278,7 @@ public class OrcSelectivePageSourceFactory
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            Optional<byte[]> extraFileInfo,
+            HiveFileContext hiveFileContext,
             FileOpener fileOpener,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
@@ -294,7 +295,7 @@ public class OrcSelectivePageSourceFactory
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, extraFileInfo);
+            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,

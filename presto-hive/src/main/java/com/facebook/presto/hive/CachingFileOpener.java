@@ -23,7 +23,6 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -44,12 +43,16 @@ public class CachingFileOpener
     }
 
     @Override
-    public CachingInputStream open(FileSystem fileSystem, Path path, Optional<byte[]> extraFileInfo)
+    public FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
             throws IOException
     {
         checkArgument(fileSystem instanceof CachingFileSystem, "fileSystem should be of CachingFileSystem type");
+
         CachingFileSystem cachingFileSystem = (CachingFileSystem) fileSystem;
-        FSDataInputStream inputStream = fileOpener.open(cachingFileSystem.getDataTier(), path, extraFileInfo);
-        return new CachingInputStream(inputStream, cacheManager, path, cachingFileSystem.isCacheValidationEnabled());
+        FSDataInputStream inputStream = fileOpener.open(cachingFileSystem.getDataTier(), path, hiveFileContext);
+        if (hiveFileContext.isCacheable()) {
+            return new CachingInputStream(inputStream, cacheManager, path, cachingFileSystem.isCacheValidationEnabled());
+        }
+        return inputStream;
     }
 }

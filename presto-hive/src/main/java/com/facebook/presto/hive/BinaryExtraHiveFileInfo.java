@@ -13,14 +13,23 @@
  */
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import com.facebook.presto.hive.HiveFileContext.ExtraHiveFileInfo;
 
-import java.io.IOException;
+import static java.util.Objects.requireNonNull;
 
-public interface FileOpener
+public class BinaryExtraHiveFileInfo
+        implements ExtraHiveFileInfo<byte[]>
 {
-    FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
-            throws IOException;
+    private final byte[] extraFileInfo;
+
+    public BinaryExtraHiveFileInfo(byte[] extraFileInfo)
+    {
+        this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
+    }
+
+    @Override
+    public byte[] getExtraFileInfo()
+    {
+        return extraFileInfo;
+    }
 }

@@ -67,6 +67,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
@@ -758,7 +759,7 @@ public class TestHiveFileFormats
                 ImmutableMap.of(),
                 Optional.empty(),
                 false,
-                Optional.empty(),
+                DEFAULT_HIVE_FILE_CONTEXT,
                 TRUE_CONSTANT,
                 false,
                 ROW_EXPRESSION_SERVICE);
@@ -819,7 +820,7 @@ public class TestHiveFileFormats
                 ImmutableMap.of(),
                 Optional.empty(),
                 false,
-                Optional.empty(),
+                DEFAULT_HIVE_FILE_CONTEXT,
                 TRUE_CONSTANT,
                 false,
                 ROW_EXPRESSION_SERVICE);

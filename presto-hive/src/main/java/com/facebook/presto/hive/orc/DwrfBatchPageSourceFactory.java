@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.StripeMetadataSource;
@@ -82,7 +83,8 @@ public class DwrfBatchPageSourceFactory
     }
 
     @Override
-    public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration,
+    public Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
@@ -93,7 +95,7 @@ public class DwrfBatchPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo)
+            HiveFileContext hiveFileContext)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -125,7 +127,7 @@ public class DwrfBatchPageSourceFactory
                 domainCompactionThreshold,
                 orcFileTailSource,
                 stripeMetadataSource,
-                extraFileInfo,
+                hiveFileContext,
                 fileOpener,
                 new OrcReaderOptions(
                         getOrcMaxMergeDistance(session),
