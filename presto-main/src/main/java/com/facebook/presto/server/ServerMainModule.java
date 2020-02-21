@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.JmxGcMonitor;
 import com.facebook.airlift.stats.PauseMeter;
@@ -165,6 +166,7 @@ import io.airlift.units.Duration;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.servlet.Servlet;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -185,6 +187,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.Networ
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -510,6 +513,12 @@ public class ServerMainModule
         binder.install(new DriftNettyServerModule());
         driftServerBinder(binder).bindService(ThriftTaskService.class);
         driftServerBinder(binder).bindService(ThriftServerInfoService.class);
+
+        // Async page transport
+        newMapBinder(binder, String.class, Servlet.class, TheServlet.class)
+                .addBinding("/v1/task/async/*")
+                .to(AsyncPageTransportServlet.class)
+                .in(Scopes.SINGLETON);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
