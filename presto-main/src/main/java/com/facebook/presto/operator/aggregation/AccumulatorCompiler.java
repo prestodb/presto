@@ -32,6 +32,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.WindowIndex;
@@ -56,6 +57,7 @@ import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
@@ -543,14 +545,32 @@ public class AccumulatorCompiler
                         .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
                 .ifTrue(loopBody);
 
-        block.append(new ForLoop()
+        BytecodeNode forLoop = new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
                 .condition(new BytecodeBlock()
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
-                .body(loopBody));
+                .body(loopBody);
+
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            if (!nullable.get(i)) {
+                Variable variableDefinition = parameterVariables.get(i);
+                forLoop = new IfStatement("if(!(%s instanceof RunLengthEncodedBlock && %s.isNull(0)))", variableDefinition.getName(), variableDefinition.getName())
+                        .condition(and(
+                                variableDefinition.instanceOf(RunLengthEncodedBlock.class),
+                                variableDefinition.invoke("isNull", boolean.class, constantInt(0))))
+                        .ifFalse(forLoop);
+            }
+        }
+
+        block.append(new IfStatement("if(%s > 0)", rowsVariable.getName())
+                .condition(new BytecodeBlock()
+                        .getVariable(rowsVariable)
+                        .push(0)
+                        .invokeStatic(CompilerOperations.class, "greaterThan", boolean.class, int.class, int.class))
+                .ifTrue(forLoop));
 
         return block;
     }
