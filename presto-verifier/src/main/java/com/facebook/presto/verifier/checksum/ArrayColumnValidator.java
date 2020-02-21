@@ -103,11 +103,11 @@ public class ArrayColumnValidator
 
     private static String getChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_checksum";
+        return column.getName() + "$checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)
     {
-        return column.getName() + "_cardinality_sum";
+        return column.getName() + "$cardinality_sum";
     }
 }

@@ -111,21 +111,21 @@ public class MapColumnValidator
 
     private static String getChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_checksum";
+        return column.getName() + "$checksum";
     }
 
     private static String getKeysChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_keys_checksum";
+        return column.getName() + "$keys_checksum";
     }
 
     private static String getValuesChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_values_checksum";
+        return column.getName() + "$values_checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)
     {
-        return column.getName() + "_cardinality_sum";
+        return column.getName() + "$cardinality_sum";
     }
 }

@@ -59,6 +59,6 @@ public class SimpleColumnValidator
 
     private static String getChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_checksum";
+        return column.getName() + "$checksum";
     }
 }

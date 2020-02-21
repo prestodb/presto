@@ -179,21 +179,21 @@ public class FloatingPointColumnValidator
 
     private static String getSumColumnAlias(Column column)
     {
-        return column.getName() + "_sum";
+        return column.getName() + "$sum";
     }
 
     private static String getNanCountColumnAlias(Column column)
     {
-        return column.getName() + "_nan_count";
+        return column.getName() + "$nan_count";
     }
 
     private static String getPositiveInfinityCountColumnAlias(Column column)
     {
-        return column.getName() + "_pos_inf_count";
+        return column.getName() + "$pos_inf_count";
     }
 
     private static String getNegativeInfinityCountColumnAlias(Column column)
     {
-        return column.getName() + "_neg_inf_count";
+        return column.getName() + "$neg_inf_count";
     }
 }
