@@ -314,14 +314,51 @@ public class TestSpatialJoinPlanning
     @Test
     public void testSphericalDistanceQuery()
     {
+        String queryFormat = "SELECT b.name, a.name " +
+                "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                "WHERE ST_Distance(to_spherical_geography(ST_Point(a.lng, a.lat)), to_spherical_geography(ST_Point(b.lng, b.lat))) %s 3.1";
+        String queryLessThan = format(queryFormat, "<");
+        String queryLessThanEquals = format(queryFormat, "<=");
+
         // broadcast
-        assertPlan("SELECT b.name, a.name " +
-                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
-                        "WHERE ST_Distance(to_spherical_geography(ST_Point(a.lng, a.lat)), to_spherical_geography(ST_Point(b.lng, b.lat))) <= 3.1",
-                anyTree(
-                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(ImmutableMap.of("st_point_a", expression("to_spherical_geography(ST_Point(cast(a_lng as double), cast(a_lat as double)))")), anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
-                                anyTree(project(ImmutableMap.of("st_point_b", expression("to_spherical_geography(ST_Point(cast(b_lng as double), cast(b_lat as double)))"), "radius", expression("3.1e0")), anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+        assertPlan(queryLessThan, anyTree(
+                spatialJoin("st_distance(st_point_a, st_point_b) < radius",
+                        project(ImmutableMap.of("st_point_a", expression("to_spherical_geography(ST_Point(cast(a_lng as double), cast(a_lat as double)))")),
+                                anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
+                        anyTree(project(ImmutableMap.of("st_point_b", expression("to_spherical_geography(ST_Point(cast(b_lng as double), cast(b_lat as double)))"), "radius", expression("3.1e0")),
+                                anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+
+        assertPlan(queryLessThanEquals, anyTree(
+                spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
+                        project(ImmutableMap.of("st_point_a", expression("to_spherical_geography(ST_Point(cast(a_lng as double), cast(a_lat as double)))")),
+                                anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
+                        anyTree(project(ImmutableMap.of("st_point_b", expression("to_spherical_geography(ST_Point(cast(b_lng as double), cast(b_lat as double)))"), "radius", expression("3.1e0")),
+                                anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+
+        // distributed
+        assertDistributedPlan(queryLessThan, withSpatialPartitioning("memory.default.kdb_tree"),
+                anyTree(spatialJoin("st_distance(st_point_a, st_point_b) < radius", Optional.of(KDB_TREE_JSON),
+                        anyTree(unnest(
+                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_a)", KDB_TREE_JSON))),
+                                        project(ImmutableMap.of("st_point_a", expression("to_spherical_geography(ST_Point(cast(a_lng as double), cast(a_lat as double)))")),
+                                                anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
+                        anyTree(unnest(
+                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_b, 3.1e0)", KDB_TREE_JSON)),
+                                        "radius", expression("3.1e0")),
+                                        project(ImmutableMap.of("st_point_b", expression("to_spherical_geography(ST_Point(cast(b_lng as double), cast(b_lat as double)))")),
+                                                anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))))));
+
+        assertDistributedPlan(queryLessThanEquals, withSpatialPartitioning("memory.default.kdb_tree"), anyTree(
+                spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of(KDB_TREE_JSON),
+                        anyTree(unnest(
+                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_a)", KDB_TREE_JSON))),
+                                        project(ImmutableMap.of("st_point_a", expression("to_spherical_geography(ST_Point(cast(a_lng as double), cast(a_lat as double)))")),
+                                                anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
+                        anyTree(
+                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_b, 3.1e0)", KDB_TREE_JSON)),
+                                        "radius", expression("3.1e0")),
+                                        project(ImmutableMap.of("st_point_b", expression("to_spherical_geography(ST_Point(cast(b_lng as double), cast(b_lat as double)))")),
+                                                anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1)))))))));
     }
 
     @Test
