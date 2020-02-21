@@ -315,6 +315,38 @@ public final class VarbinaryFunctions
         return crc32.getValue();
     }
 
+    @Description("compute fnv-1 32 bit")
+    @ScalarFunction("fnv1_32")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fnv1Hash32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return FnvHash.fnv1Hash32(slice);
+    }
+
+    @Description("compute fnv-1 64 bit")
+    @ScalarFunction("fnv1_64")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fnv1Hash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return FnvHash.fnv1Hash64(slice);
+    }
+
+    @Description("compute fnv-1a 32 bit")
+    @ScalarFunction("fnv1a_32")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fnv1aHash32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return FnvHash.fnv1aHash32(slice);
+    }
+
+    @Description("compute fnv-1a 64 bit")
+    @ScalarFunction("fnv1a_64")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fnv1aHash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return FnvHash.fnv1aHash64(slice);
+    }
+
     @Description("suffix starting at given index")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
