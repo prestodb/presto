@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Split;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
@@ -35,6 +36,17 @@ public class DynamicBucketNodeMap
     {
         super(splitToBucket);
         checkArgument(bucketCount > 0, "bucketCount must be positive");
+        this.bucketCount = bucketCount;
+    }
+
+    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode)
+    {
+        super(splitToBucket);
+        checkArgument(bucketCount > 0, "bucketCount must be positive");
+        checkArgument(bucketToPreferredNode.size() == bucketCount, "bucketToPreferredNode size must be equal to bucketCount");
+        for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
+            bucketToNode.put(bucketNumber, bucketToPreferredNode.get(bucketNumber));
+        }
         this.bucketCount = bucketCount;
     }
 
