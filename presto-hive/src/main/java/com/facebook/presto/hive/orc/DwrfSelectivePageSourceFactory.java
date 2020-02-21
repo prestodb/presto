@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.StripeMetadataSource;
@@ -105,7 +106,7 @@ public class DwrfSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo)
+            HiveFileContext hiveFileContext)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -141,7 +142,7 @@ public class DwrfSelectivePageSourceFactory
                 domainCompactionThreshold,
                 orcFileTailSource,
                 stripeMetadataSource,
-                extraFileInfo,
+                hiveFileContext,
                 fileOpener,
                 tupleDomainFilterCache));
     }

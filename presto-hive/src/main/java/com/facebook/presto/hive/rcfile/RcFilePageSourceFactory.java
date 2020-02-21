@@ -18,6 +18,7 @@ import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
@@ -107,7 +108,7 @@ public class RcFilePageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo)
+            HiveFileContext hiveFileContext)
     {
         RcFileEncoding rcFileEncoding;
         if (LazyBinaryColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
@@ -127,7 +128,7 @@ public class RcFilePageSourceFactory
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            inputStream = fileOpener.open(fileSystem, path, extraFileInfo);
+            inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

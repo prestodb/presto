@@ -101,6 +101,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -508,7 +509,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableMap.of(),
                     Optional.empty(),
                     false,
-                    Optional.empty(),
+                    DEFAULT_HIVE_FILE_CONTEXT,
                     null,
                     false,
                     ROW_EXPRESSION_SERVICE)

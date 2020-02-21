@@ -18,13 +18,12 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.util.Optional;
 
 public class HadoopFileOpener
         implements FileOpener
 {
     @Override
-    public FSDataInputStream open(FileSystem fileSystem, Path path, Optional<byte[]> extraFileInfo)
+    public FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
             throws IOException
     {
         return fileSystem.open(path);

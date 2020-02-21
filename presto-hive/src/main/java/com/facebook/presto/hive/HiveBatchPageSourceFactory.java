@@ -39,5 +39,5 @@ public interface HiveBatchPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo);
+            HiveFileContext hiveFileContext);
 }

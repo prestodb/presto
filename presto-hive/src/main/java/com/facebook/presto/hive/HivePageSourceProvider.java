@@ -156,7 +156,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                hiveSplit.getExtraFileInfo(),
+                new HiveFileContext(true, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),  // TODO: adjust cacheable accordingly
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService);
@@ -233,7 +233,7 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    split.getExtraFileInfo());
+                    new HiveFileContext(true, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));  // TODO: adjust cacheable accordingly
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -267,7 +267,7 @@ public class HivePageSourceProvider
             Map<Integer, Column> partitionSchemaDifference,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<byte[]> extraFileInfo,
+            HiveFileContext hiveFileContext,
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService)
@@ -318,7 +318,7 @@ public class HivePageSourceProvider
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    extraFileInfo);
+                    hiveFileContext);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,

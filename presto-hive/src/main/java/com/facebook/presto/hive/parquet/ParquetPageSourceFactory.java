@@ -18,6 +18,7 @@ import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.ParquetCorruptionException;
@@ -134,7 +135,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            Optional<byte[]> extraFileInfo)
+            HiveFileContext hiveFileContext)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -155,7 +156,7 @@ public class ParquetPageSourceFactory
                 typeManager,
                 effectivePredicate,
                 stats,
-                extraFileInfo,
+                hiveFileContext,
                 fileOpener));
     }
 
@@ -174,7 +175,7 @@ public class ParquetPageSourceFactory
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats,
-            Optional<byte[]> extraFileInfo,
+            HiveFileContext hiveFileContext,
             FileOpener fileOpener)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
@@ -182,7 +183,7 @@ public class ParquetPageSourceFactory
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, extraFileInfo);
+            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
