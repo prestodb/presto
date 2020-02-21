@@ -146,19 +146,19 @@ public class TestChecksumValidator
                         ", \"checksum\"(\"map_keys\"(\"map_non_orderable\")) \"map_non_orderable$keys_checksum\"\n" +
                         ", \"checksum\"(\"map_values\"(\"map_non_orderable\")) \"map_non_orderable$values_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"map_non_orderable\")), 0) \"map_non_orderable$cardinality_sum\"" +
-                        ", \"checksum\"(\"row\".i) \"row.i$checksum\"\n " +
+                        ", \"checksum\"(\"row\".\"i\") \"row.i$checksum\"\n " +
                         ", \"checksum\"(\"row\"[2]) \"row._col2$checksum\"\n " +
-                        ", \"sum\"(\"row\".d) FILTER (WHERE \"is_finite\"(\"row\".d)) \"row.d$sum\"" +
-                        ", \"count\"(\"row\".d) FILTER (WHERE \"is_nan\"(\"row\".d)) \"row.d$nan_count\"" +
-                        ", \"count\"(\"row\".d) FILTER (WHERE (\"row\".d = \"infinity\"())) \"row.d$pos_inf_count\"" +
-                        ", \"count\"(\"row\".d) FILTER (WHERE (\"row\".d = -\"infinity\"())) \"row.d$neg_inf_count\"" +
-                        ", \"checksum\"(\"array_sort\"(\"row\".a)) \"row.a$checksum\"" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"row\".a)), 0) \"row.a$cardinality_sum\"" +
-                        ", \"sum\"(\"row\".r[1]) FILTER (WHERE \"is_finite\"(\"row\".r[1])) \"row.r._col1$sum\"" +
-                        ", \"count\"(\"row\".r[1]) FILTER (WHERE \"is_nan\"(\"row\".r[1])) \"row.r._col1$nan_count\"" +
-                        ", \"count\"(\"row\".r[1]) FILTER (WHERE (\"row\".r[1] = \"infinity\"())) \"row.r._col1$pos_inf_count\"" +
-                        ", \"count\"(\"row\".r[1]) FILTER (WHERE (\"row\".r[1] = -\"infinity\"())) \"row.r._col1$neg_inf_count\"" +
-                        ", \"checksum\"(\"row\".r.b) \"row.r.b$checksum\"" +
+                        ", \"sum\"(\"row\".\"d\") FILTER (WHERE \"is_finite\"(\"row\".\"d\")) \"row.d$sum\"" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE \"is_nan\"(\"row\".\"d\")) \"row.d$nan_count\"" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = \"infinity\"())) \"row.d$pos_inf_count\"" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = -\"infinity\"())) \"row.d$neg_inf_count\"" +
+                        ", \"checksum\"(\"array_sort\"(\"row\".\"a\")) \"row.a$checksum\"" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"row\".\"a\")), 0) \"row.a$cardinality_sum\"" +
+                        ", \"sum\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_finite\"(\"row\".\"r\"[1])) \"row.r._col1$sum\"" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_nan\"(\"row\".\"r\"[1])) \"row.r._col1$nan_count\"" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = \"infinity\"())) \"row.r._col1$pos_inf_count\"" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = -\"infinity\"())) \"row.r._col1$neg_inf_count\"" +
+                        ", \"checksum\"(\"row\".\"r\".\"b\") \"row.r.b$checksum\"" +
                         "FROM\n" +
                         "  test:di",
                 PARSING_OPTIONS);

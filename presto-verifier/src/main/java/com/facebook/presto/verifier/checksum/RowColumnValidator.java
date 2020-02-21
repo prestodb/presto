@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SubscriptExpression;
@@ -30,6 +29,7 @@ import javax.inject.Provider;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class RowColumnValidator
@@ -90,7 +90,7 @@ public class RowColumnValidator
     private static Column getFieldAsColumn(Column column, Field field, int fieldIndex)
     {
         Expression fieldExpression = field.getName()
-                .<Expression>map(name -> new DereferenceExpression(column.getExpression(), new Identifier(field.getName().get())))
+                .<Expression>map(name -> new DereferenceExpression(column.getExpression(), delimitedIdentifier(field.getName().get())))
                 .orElseGet(() -> new SubscriptExpression(column.getExpression(), new LongLiteral(String.valueOf(fieldIndex + 1))));
 
         return Column.create(column.getName() + "." + field.getName().orElse("_col" + (fieldIndex + 1)), fieldExpression, field.getType());
