@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PageCodecMarker;
@@ -41,6 +42,7 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -89,6 +91,7 @@ public class ExchangeClient
     private final HttpClient httpClient;
     private final DriftClient<ThriftTaskClient> driftClient;
     private final ScheduledExecutorService scheduler;
+    private boolean asyncPageTransportEnabled;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -130,6 +133,7 @@ public class ExchangeClient
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            boolean asyncPageTransportEnabled,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
             DriftClient<ThriftTaskClient> driftClient,
@@ -143,6 +147,7 @@ public class ExchangeClient
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
+        this.asyncPageTransportEnabled = asyncPageTransportEnabled;
         this.httpClient = httpClient;
         this.driftClient = driftClient;
         this.scheduler = scheduler;
@@ -194,10 +199,11 @@ public class ExchangeClient
         checkState(!noMoreLocations, "No more locations already set");
 
         RpcShuffleClient resultClient;
+        Optional<URI> asyncPageTransportLocation = getAsyncPageTransportLocation(location, asyncPageTransportEnabled);
         switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
             case "http":
             case "https":
-                resultClient = new HttpRpcShuffleClient(httpClient, location);
+                resultClient = new HttpRpcShuffleClient(httpClient, location, asyncPageTransportLocation);
                 break;
             case "thrift":
                 resultClient = new ThriftRpcShuffleClient(driftClient, location);
@@ -211,6 +217,7 @@ public class ExchangeClient
                 maxErrorDuration,
                 acknowledgePages,
                 location,
+                asyncPageTransportLocation,
                 new ExchangeClientCallback(),
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -532,6 +539,19 @@ public class ExchangeClient
         }
         catch (RuntimeException e) {
             // ignored
+        }
+    }
+
+    private static Optional<URI> getAsyncPageTransportLocation(URI location, boolean asyncPageTransportEnabled)
+    {
+        if (asyncPageTransportEnabled) {
+            // rewrite location for http request to get task results in async mode
+            // new URL cannot replace v1/task completely, v1/task/async is only used to get task results
+            String path = location.getPath().replace("v1/task", "v1/task/async");
+            return Optional.of(HttpUriBuilder.uriBuilderFrom(location).replacePath(path).build());
+        }
+        else {
+            return Optional.empty();
         }
     }
 
