@@ -30,6 +30,7 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.Rectangle;
+import com.facebook.presto.geospatial.SphericalGeographyUtils;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.spi.PrestoException;
@@ -95,6 +96,11 @@ import static com.facebook.presto.geospatial.GeometryUtils.getGeometryInvalidRea
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.EARTH_RADIUS_M;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.checkLatitude;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.checkLongitude;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.validateSphericalType;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeType;
 import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
@@ -117,10 +123,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;
-import static java.lang.Math.atan2;
-import static java.lang.Math.cos;
-import static java.lang.Math.sin;
-import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
@@ -132,8 +134,6 @@ public final class GeoFunctions
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final Slice EMPTY_POLYGON = serialize(createJtsEmptyPolygon());
-    private static final double EARTH_RADIUS_KM = 6371.01;
-    private static final double EARTH_RADIUS_M = EARTH_RADIUS_KM * 1000.0;
     private static final Map<Reason, String> NON_SIMPLE_REASONS = ImmutableMap.<Reason, String>builder()
             .put(DegenerateSegments, "Degenerate segments")
             .put(Clustering, "Repeated points")
@@ -145,11 +145,6 @@ public final class GeoFunctions
             .build();
     private static final int NUMBER_OF_DIMENSIONS = 3;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
-
-    private static final float MIN_LATITUDE = -90;
-    private static final float MAX_LATITUDE = 90;
-    private static final float MIN_LONGITUDE = -180;
-    private static final float MAX_LONGITUDE = 180;
 
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
@@ -1298,40 +1293,7 @@ public final class GeoFunctions
             @SqlType(DOUBLE) double latitude2,
             @SqlType(DOUBLE) double longitude2)
     {
-        checkLatitude(latitude1);
-        checkLongitude(longitude1);
-        checkLatitude(latitude2);
-        checkLongitude(longitude2);
-
-        double radianLatitude1 = toRadians(latitude1);
-        double radianLatitude2 = toRadians(latitude2);
-
-        double sin1 = sin(radianLatitude1);
-        double cos1 = cos(radianLatitude1);
-        double sin2 = sin(radianLatitude2);
-        double cos2 = cos(radianLatitude2);
-
-        double deltaLongitude = toRadians(longitude1) - toRadians(longitude2);
-        double cosDeltaLongitude = cos(deltaLongitude);
-
-        double t1 = cos2 * sin(deltaLongitude);
-        double t2 = cos1 * sin2 - sin1 * cos2 * cosDeltaLongitude;
-        double t3 = sin1 * sin2 + cos1 * cos2 * cosDeltaLongitude;
-        return atan2(sqrt(t1 * t1 + t2 * t2), t3) * EARTH_RADIUS_KM;
-    }
-
-    private static void checkLatitude(double latitude)
-    {
-        if (Double.isNaN(latitude) || Double.isInfinite(latitude) || latitude < MIN_LATITUDE || latitude > MAX_LATITUDE) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
-        }
-    }
-
-    private static void checkLongitude(double longitude)
-    {
-        if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
-        }
+        return SphericalGeographyUtils.greatCircleDistance(latitude1, longitude1, latitude2, longitude2);
     }
 
     private static OGCGeometry geomFromBinary(Slice input)
@@ -1390,28 +1352,7 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalDistance(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice left, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
-        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
-            return null;
-        }
-
-        // TODO: support more SphericalGeography types.
-        validateSphericalType("ST_Distance", leftGeometry, EnumSet.of(POINT));
-        validateSphericalType("ST_Distance", rightGeometry, EnumSet.of(POINT));
-        Point leftPoint = (Point) leftGeometry.getEsriGeometry();
-        Point rightPoint = (Point) rightGeometry.getEsriGeometry();
-
-        // greatCircleDistance returns distance in KM.
-        return greatCircleDistance(leftPoint.getY(), leftPoint.getX(), rightPoint.getY(), rightPoint.getX()) * 1000;
-    }
-
-    private static void validateSphericalType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
-    {
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
-        }
+        return sphericalDistance(EsriGeometrySerde.deserialize(left), EsriGeometrySerde.deserialize(right));
     }
 
     @SqlNullable
