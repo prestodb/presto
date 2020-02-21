@@ -74,4 +74,10 @@ public class TestDistributedSpilledQueries
     {
         // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
     }
+
+    @Override
+    public void testJoinDoubleClauseWithRightOverlap()
+    {
+        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
+    }
 }
