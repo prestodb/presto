@@ -93,6 +93,6 @@ public class RowColumnValidator
                 .<Expression>map(name -> new DereferenceExpression(column.getExpression(), new Identifier(field.getName().get())))
                 .orElseGet(() -> new SubscriptExpression(column.getExpression(), new LongLiteral(String.valueOf(fieldIndex + 1))));
 
-        return Column.create(column.getName() + "$" + field.getName().orElse("$col" + (fieldIndex + 1)), fieldExpression, field.getType());
+        return Column.create(column.getName() + "." + field.getName().orElse("_col" + (fieldIndex + 1)), fieldExpression, field.getType());
     }
 }
