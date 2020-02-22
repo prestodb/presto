@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -757,6 +758,12 @@ public class PlanBuilder
     {
         Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
         return new UnionNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
+    }
+
+    public IntersectNode intersect(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
+    {
+        Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
+        return new IntersectNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
     }
 
     public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)
