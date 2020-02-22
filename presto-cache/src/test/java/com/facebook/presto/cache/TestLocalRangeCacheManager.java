@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.presto.cache.localrange.LocalRangeCacheConfig;
+import com.facebook.presto.cache.localrange.LocalRangeCacheManager;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -155,10 +157,10 @@ public class TestLocalRangeCacheManager
     public void testStress()
             throws ExecutionException, InterruptedException
     {
-        CacheManager cacheManager = localRangeCacheManager(
-                new CacheConfig()
-                        .setBaseDirectory(cacheDirectory)
-                        .setCacheTtl(new Duration(10, MILLISECONDS)));
+        CacheConfig cacheConfig = new CacheConfig().setBaseDirectory(cacheDirectory);
+        LocalRangeCacheConfig localRangeCacheConfig = new LocalRangeCacheConfig().setCacheTtl(new Duration(10, MILLISECONDS));
+
+        CacheManager cacheManager = localRangeCacheManager(cacheConfig, localRangeCacheConfig);
 
         ExecutorService executor = newScheduledThreadPool(5);
         List<Future<?>> futures = new ArrayList<>();
@@ -194,14 +196,16 @@ public class TestLocalRangeCacheManager
         }
     }
 
-    private CacheManager localRangeCacheManager(CacheConfig cacheConfig)
+    private CacheManager localRangeCacheManager(CacheConfig cacheConfig, LocalRangeCacheConfig localRangeCacheConfig)
     {
-        return new LocalRangeCacheManager(cacheConfig, new CacheStats(), flushExecutor, removeExecutor);
+        return new LocalRangeCacheManager(cacheConfig, localRangeCacheConfig, new CacheStats(), flushExecutor, removeExecutor);
     }
 
     private CacheManager localRangeCacheManager(CacheStats cacheStats)
     {
-        return new LocalRangeCacheManager(new CacheConfig().setBaseDirectory(cacheDirectory), cacheStats, flushExecutor, removeExecutor);
+        CacheConfig cacheConfig = new CacheConfig();
+        LocalRangeCacheConfig localRangeCacheConfig = new LocalRangeCacheConfig();
+        return new LocalRangeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory), localRangeCacheConfig, cacheStats, flushExecutor, removeExecutor);
     }
 
     private void validateBuffer(long position, byte[] buffer, int offset, int length)

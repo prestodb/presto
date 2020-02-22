@@ -17,8 +17,9 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.cache.LocalRangeCacheManager;
 import com.facebook.presto.cache.NoOpCacheManager;
+import com.facebook.presto.cache.localrange.LocalRangeCacheConfig;
+import com.facebook.presto.cache.localrange.LocalRangeCacheManager;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
@@ -32,6 +33,7 @@ import javax.inject.Singleton;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.cache.CacheType.LOCAL_RANGE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -64,14 +66,16 @@ public class HdfsModule
 
     @Singleton
     @Provides
-    public CacheManager createCacheManager(CacheConfig cacheConfig, CacheStats cacheStats)
+    public CacheManager createCacheManager(CacheConfig cacheConfig, LocalRangeCacheConfig localRangeCacheConfig, CacheStats cacheStats)
     {
-        return cacheConfig.getBaseDirectory() == null ?
-                new NoOpCacheManager() :
-                new LocalRangeCacheManager(
-                        cacheConfig,
-                        cacheStats,
-                        newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
-                        newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")));
+        if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == LOCAL_RANGE) {
+            return new LocalRangeCacheManager(
+                    cacheConfig,
+                    localRangeCacheConfig,
+                    cacheStats,
+                    newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")));
+        }
+        return new NoOpCacheManager();
     }
 }

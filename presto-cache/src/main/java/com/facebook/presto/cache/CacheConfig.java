@@ -16,27 +16,43 @@ package com.facebook.presto.cache;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
 
 import java.net.URI;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static java.util.concurrent.TimeUnit.DAYS;
 
 public class CacheConfig
 {
+    private boolean cachingEnabled;
+    private CacheType cacheType;
     private URI baseDirectory;
-    private boolean validationEnabled;
     private DataSize maxInMemoryCacheSize = new DataSize(2, GIGABYTE);
-    private int maxCachedEntries = 1_000;
-    private Duration cacheTtl = new Duration(2, DAYS);
+    private boolean validationEnabled;
 
-    public URI getBaseDirectory()
+    @Config("cache.enabled")
+    @ConfigDescription("Is cache enabled")
+    public CacheConfig setCachingEnabled(boolean cachingEnabled)
     {
-        return baseDirectory;
+        this.cachingEnabled = cachingEnabled;
+        return this;
+    }
+
+    public boolean isCachingEnabled()
+    {
+        return cachingEnabled;
+    }
+
+    @Config("cache.type")
+    @ConfigDescription("Caching type")
+    public CacheConfig setCacheType(CacheType cacheType)
+    {
+        this.cacheType = cacheType;
+        return this;
+    }
+
+    public CacheType getCacheType()
+    {
+        return cacheType;
     }
 
     @Config("cache.base-directory")
@@ -44,6 +60,24 @@ public class CacheConfig
     public CacheConfig setBaseDirectory(URI dataURI)
     {
         this.baseDirectory = dataURI;
+        return this;
+    }
+
+    public URI getBaseDirectory()
+    {
+        return baseDirectory;
+    }
+
+    public DataSize getMaxInMemoryCacheSize()
+    {
+        return maxInMemoryCacheSize;
+    }
+
+    @Config("cache.max-in-memory-cache-size")
+    @ConfigDescription("The maximum cache size allowed in memory")
+    public CacheConfig setMaxInMemoryCacheSize(DataSize maxInMemoryCacheSize)
+    {
+        this.maxInMemoryCacheSize = maxInMemoryCacheSize;
         return this;
     }
 
@@ -60,44 +94,15 @@ public class CacheConfig
         return this;
     }
 
-    public DataSize getMaxInMemoryCacheSize()
+    @Override
+    public String toString()
     {
-        return maxInMemoryCacheSize;
-    }
-
-    @Config("cache.max-in-memory-cache-size")
-    @ConfigDescription("The maximum cache size allowed in memory")
-    public CacheConfig setMaxInMemoryCacheSize(DataSize maxInMemoryCacheSize)
-    {
-        this.maxInMemoryCacheSize = maxInMemoryCacheSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxCachedEntries()
-    {
-        return maxCachedEntries;
-    }
-
-    @Config("cache.max-cached-entries")
-    @ConfigDescription("Number of entries allowed in the cache")
-    public CacheConfig setMaxCachedEntries(int maxCachedEntries)
-    {
-        this.maxCachedEntries = maxCachedEntries;
-        return this;
-    }
-
-    @MinDuration("0s")
-    public Duration getCacheTtl()
-    {
-        return cacheTtl;
-    }
-
-    @Config("cache.ttl")
-    @ConfigDescription("Time-to-live for a cache entry")
-    public CacheConfig setCacheTtl(Duration cacheTtl)
-    {
-        this.cacheTtl = cacheTtl;
-        return this;
+        return "CacheConfig{" +
+                "cachingEnabled=" + cachingEnabled +
+                ", cacheType=" + cacheType +
+                ", baseDirectory=" + baseDirectory +
+                ", maxInMemoryCacheSize=" + maxInMemoryCacheSize +
+                ", validationEnabled=" + validationEnabled +
+                '}';
     }
 }

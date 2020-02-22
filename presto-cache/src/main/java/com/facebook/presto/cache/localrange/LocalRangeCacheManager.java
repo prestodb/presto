@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.localrange;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.cache.CacheManager;
+import com.facebook.presto.cache.CacheStats;
+import com.facebook.presto.cache.FileReadRequest;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -28,6 +32,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -89,14 +94,20 @@ public class LocalRangeCacheManager
     private final Path baseDirectory;
     private final long maxInflightBytes;
 
-    public LocalRangeCacheManager(CacheConfig cacheConfig, CacheStats stats, ExecutorService cacheFlushExecutor, ExecutorService cacheRemovalExecutor)
+    @Inject
+    public LocalRangeCacheManager(
+            CacheConfig cacheConfig,
+            LocalRangeCacheConfig localRangeCacheConfig,
+            CacheStats stats,
+            ExecutorService cacheFlushExecutor,
+            ExecutorService cacheRemovalExecutor)
     {
         requireNonNull(cacheConfig, "directory is null");
         this.cacheFlushExecutor = cacheFlushExecutor;
         this.cacheRemovalExecutor = cacheRemovalExecutor;
         this.cache = CacheBuilder.newBuilder()
-                .maximumSize(cacheConfig.getMaxCachedEntries())
-                .expireAfterAccess(cacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
+                .maximumSize(localRangeCacheConfig.getMaxCachedEntries())
+                .expireAfterAccess(localRangeCacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
                 .removalListener(new CacheRemovalListener())
                 .recordStats()
                 .build();

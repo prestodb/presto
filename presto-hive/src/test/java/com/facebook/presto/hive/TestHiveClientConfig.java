@@ -121,6 +121,7 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setTemporaryTableSchema("default")
+                .setDataCachingDirectory("")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
@@ -222,6 +223,7 @@ public class TestHiveClientConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.data-caching-directory-path", "/data/cache")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -311,7 +313,8 @@ public class TestHiveClientConfig
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
-                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
+                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setDataCachingDirectory("/data/cache");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

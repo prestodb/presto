@@ -163,6 +163,7 @@ public class HiveClientConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
     private long fileStatusCacheMaxSize;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private String dataCachingDirectory = "";
 
     public int getMaxInitialSplits()
     {
@@ -1244,6 +1245,20 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
     {
         this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
+        return this;
+    }
+
+    @NotNull
+    public String getDataCachingDirectory()
+    {
+        return dataCachingDirectory;
+    }
+
+    @Config("hive.data-caching-directory-path")
+    @ConfigDescription("Location of caching directory to cache data.")
+    public HiveClientConfig setDataCachingDirectory(String dataCachingDirectory)
+    {
+        this.dataCachingDirectory = dataCachingDirectory;
         return this;
     }
 

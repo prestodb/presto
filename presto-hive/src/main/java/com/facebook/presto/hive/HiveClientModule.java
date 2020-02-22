@@ -20,8 +20,13 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.cache.LocalRangeCacheManager;
 import com.facebook.presto.cache.NoOpCacheManager;
+import com.facebook.presto.cache.alluxio.AlluxioCacheConfig;
+import com.facebook.presto.cache.alluxio.CacheFactory;
+import com.facebook.presto.cache.alluxio.HiveCacheFactory;
+import com.facebook.presto.cache.localrange.LocalRangeCacheConfig;
+import com.facebook.presto.cache.localrange.LocalRangeCacheManager;
+import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -69,6 +74,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.cache.CacheType.LOCAL_RANGE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
@@ -120,6 +126,8 @@ public class HiveClientModule
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).as(generatedNameOf(HiveWriterStats.class, connectorId));
 
+        binder.bind(CacheFactory.class).to(HiveCacheFactory.class).in(Scopes.SINGLETON);
+
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
@@ -158,6 +166,9 @@ public class HiveClientModule
 
         binder.bind(CacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CacheStats.class).withGeneratedName();
+
+        configBinder(binder).bindConfig(LocalRangeCacheConfig.class);
+        configBinder(binder).bindConfig(AlluxioCacheConfig.class);
         configBinder(binder).bindConfig(CacheConfig.class);
 
         binder.bind(FileOpener.class).to(CachingFileOpener.class).in(Scopes.SINGLETON);
@@ -266,16 +277,19 @@ public class HiveClientModule
         return stripeMetadataSource;
     }
 
+    //TODO: how to inject something with having constructor with parameter.
     @Singleton
     @Provides
-    public CacheManager createCacheManager(CacheConfig cacheConfig, CacheStats cacheStats)
+    public CacheManager createCacheManager(CacheConfig cacheConfig, LocalRangeCacheConfig localRangeCacheConfig, CacheStats cacheStats)
     {
-        return cacheConfig.getBaseDirectory() == null ?
-                new NoOpCacheManager() :
-                new LocalRangeCacheManager(
-                        cacheConfig,
-                        cacheStats,
-                        newScheduledThreadPool(5, daemonThreadsNamed("hive-cache-flusher-%s")),
-                        newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-remover-%s")));
+        if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == LOCAL_RANGE) {
+            return new LocalRangeCacheManager(
+                    cacheConfig,
+                    localRangeCacheConfig,
+                    cacheStats,
+                    newScheduledThreadPool(5, daemonThreadsNamed("hive-cache-flusher-%s")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-remover-%s")));
+        }
+        return new NoOpCacheManager();
     }
 }
