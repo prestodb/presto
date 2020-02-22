@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -160,6 +161,14 @@ public class CostCalculatorWithEstimatedExchanges
             // that is not aways true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
+            return calculateRemoteGatherCost(inputSizeInBytes);
+        }
+
+        @Override
+        public LocalCostEstimate visitIntersect(IntersectNode node, Void context)
+        {
+            // Similar to Union
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
