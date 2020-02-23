@@ -157,15 +157,15 @@ public class FloatingPointColumnValidator
                     format("control(sum: %s) test(sum: %s)", controlSum, testSum)));
         }
 
-        // Use absolute error margin if either control sum or test sum is 0
-        if (controlSum == 0 || testSum == 0) {
-            double controlMean = controlSum / controlResult.getRowCount();
-            double testMean = testSum / controlResult.getRowCount();
-            double difference = abs(controlMean - testMean);
+        // Use absolute error margin if either control sum or test sum is 0.
+        // Row count won't be zero since otherwise controlSum and testSum will both be null, and this has already been handled above.
+        double controlMean = controlSum / controlResult.getRowCount();
+        double testMean = testSum / controlResult.getRowCount();
+        if (abs(controlMean) < absoluteErrorMargin || abs(testMean) < absoluteErrorMargin) {
             return ImmutableList.of(new ColumnMatchResult(
-                    difference < absoluteErrorMargin,
+                    abs(controlMean) < absoluteErrorMargin && abs(testMean) < absoluteErrorMargin,
                     column,
-                    format("control(mean: %s) test(mean: %s) difference: %s", controlMean, testMean, difference)));
+                    format("control(mean: %s) test(mean: %s)", controlMean, testMean)));
         }
 
         // Use relative error margin for the common cases
