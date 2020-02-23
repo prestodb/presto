@@ -288,7 +288,7 @@ public class TestChecksumValidator
                 5,
                 ImmutableMap.<String, Object>builder()
                         .putAll(FLOATING_POINT_COUNTS)
-                        .put("double$sum", 0.0)
+                        .put("double$sum", -4.9e-12)
                         .put("real$sum", 4.9e-12)
                         .build());
         ChecksumResult testChecksum = new ChecksumResult(
@@ -318,8 +318,8 @@ public class TestChecksumValidator
         assertEquals(
                 checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
                 ImmutableMap.builder()
-                        .put(DOUBLE_COLUMN, new ColumnMatchResult(false, DOUBLE_COLUMN, "control(mean: 0.0) test(mean: 1.0199999999999999E-12) difference: 1.0199999999999999E-12"))
-                        .put(REAL_COLUMN, new ColumnMatchResult(false, REAL_COLUMN, "control(mean: 1.0199999999999999E-12) test(mean: 0.0) difference: 1.0199999999999999E-12"))
+                        .put(DOUBLE_COLUMN, new ColumnMatchResult(false, DOUBLE_COLUMN, "control(mean: 0.0) test(mean: 1.0199999999999999E-12)"))
+                        .put(REAL_COLUMN, new ColumnMatchResult(false, REAL_COLUMN, "control(mean: 1.0199999999999999E-12) test(mean: 0.0)"))
                         .build());
     }
 
