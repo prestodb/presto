@@ -14,15 +14,23 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
@@ -34,6 +42,7 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSI
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_INCONSISTENT_SCHEMA;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_QUERY_FAILURE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_CATALOG;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
@@ -54,6 +63,7 @@ public class DeterminismAnalyzer
 
     private boolean runTeardown;
     private int maxAnalysisRuns;
+    private Set<String> nonDeterministicCatalogs;
     private boolean handleLimitQuery;
 
     public DeterminismAnalyzer(
@@ -74,11 +84,17 @@ public class DeterminismAnalyzer
 
         this.runTeardown = config.isRunTeardown();
         this.maxAnalysisRuns = config.getMaxAnalysisRuns();
+        this.nonDeterministicCatalogs = ImmutableSet.copyOf(config.getNonDeterministicCatalogs());
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
     protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum)
     {
+        // Handle mutable catalogs
+        if (isNonDeterministicCatalogReferenced(control.getQuery())) {
+            return NON_DETERMINISTIC_CATALOG;
+        }
+
         List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
         List<QueryBundle> queryBundles = new ArrayList<>();
 
@@ -144,6 +160,36 @@ public class DeterminismAnalyzer
                 return NON_DETERMINISTIC_COLUMNS;
             default:
                 throw new IllegalArgumentException(format("Invalid MatchResult: %s", matchResult));
+        }
+    }
+
+    @VisibleForTesting
+    boolean isNonDeterministicCatalogReferenced(Statement statement)
+    {
+        if (nonDeterministicCatalogs.isEmpty()) {
+            return false;
+        }
+
+        AtomicBoolean nonDeterministicCatalogReferenced = new AtomicBoolean();
+        new NonDeterministicCatalogVisitor().process(statement, nonDeterministicCatalogReferenced);
+        return nonDeterministicCatalogReferenced.get();
+    }
+
+    private class NonDeterministicCatalogVisitor
+            extends AstVisitor<Void, AtomicBoolean>
+    {
+        protected Void visitNode(Node node, AtomicBoolean context)
+        {
+            node.getChildren().forEach(child -> process(child, context));
+            return null;
+        }
+
+        protected Void visitTable(Table node, AtomicBoolean nonDeterministicCatalogReferenced)
+        {
+            if (node.getName().getParts().size() == 3 && nonDeterministicCatalogs.contains(node.getName().getParts().get(0))) {
+                nonDeterministicCatalogReferenced.set(true);
+            }
+            return null;
         }
     }
 }

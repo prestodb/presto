@@ -16,14 +16,23 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 
 public class DeterminismAnalyzerConfig
 {
     private boolean runTeardown;
     private int maxAnalysisRuns = 2;
     private boolean handleLimitQuery = true;
+    private Set<String> nonDeterministicCatalogs = ImmutableSet.of();
 
     public boolean isRunTeardown()
     {
@@ -63,6 +72,24 @@ public class DeterminismAnalyzerConfig
     public DeterminismAnalyzerConfig setHandleLimitQuery(boolean handleLimitQuery)
     {
         this.handleLimitQuery = handleLimitQuery;
+        return this;
+    }
+
+    @NotNull
+    public Set<String> getNonDeterministicCatalogs()
+    {
+        return nonDeterministicCatalogs;
+    }
+
+    @Config("determinism.non-deterministic-catalogs")
+    @ConfigDescription("A comma-separated list of non-deterministic catalogs. Queries referencing table from those catalogs are treated as non-deterministic.")
+    public DeterminismAnalyzerConfig setNonDeterministicCatalogs(String nonDeterministicCatalogs)
+    {
+        if (nonDeterministicCatalogs != null) {
+            this.nonDeterministicCatalogs = Splitter.on(",").trimResults().splitToList(nonDeterministicCatalogs).stream()
+                    .map(catalog -> catalog.toLowerCase(ENGLISH))
+                    .collect(toImmutableSet());
+        }
         return this;
     }
 }

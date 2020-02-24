@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.checksum;
 
 import com.facebook.presto.spi.type.SqlVarbinary;
-import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -33,8 +32,7 @@ public class ChecksumResult
     private final long rowCount;
     private final Map<String, Object> checksums;
 
-    @VisibleForTesting
-    ChecksumResult(long rowCount, Map<String, Object> checksums)
+    public ChecksumResult(long rowCount, Map<String, Object> checksums)
     {
         this.rowCount = rowCount;
         this.checksums = unmodifiableMap(requireNonNull(checksums, "checksums is null"));
