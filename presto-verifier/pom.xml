@@ -42,7 +42,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive-base</artifactId>
+            <artifactId>presto-hive-common</artifactId>
         </dependency>
 
         <dependency>
