@@ -69,6 +69,7 @@ public class HttpRemoteTaskFactory
     private final Codec<TaskStatus> taskStatusCodec;
     private final Codec<TaskInfo> taskInfoCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Codec<PlanFragment> planFragmentCodec;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoRefreshMaxWait;
@@ -94,6 +95,8 @@ public class HttpRemoteTaskFactory
             SmileCodec<TaskInfo> taskInfoSmileCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+            JsonCodec<PlanFragment> planFragmentJsonCodec,
+            SmileCodec<PlanFragment> planFragmentSmileCodec,
             RemoteTaskStats stats,
             InternalCommunicationConfig communicationConfig)
     {
@@ -114,11 +117,13 @@ public class HttpRemoteTaskFactory
             this.taskStatusCodec = taskStatusSmileCodec;
             this.taskInfoCodec = taskInfoSmileCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
+            this.planFragmentCodec = planFragmentSmileCodec;
         }
         else {
             this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
             this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
             this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
+            this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
         }
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
@@ -173,6 +178,7 @@ public class HttpRemoteTaskFactory
                 taskStatusCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
+                planFragmentCodec,
                 partitionedSplitCountTracker,
                 stats,
                 isBinaryTransportEnabled,

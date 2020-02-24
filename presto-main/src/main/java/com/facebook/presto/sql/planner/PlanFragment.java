@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -27,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,10 +36,10 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
 public class PlanFragment
 {
     private final PlanFragmentId id;
@@ -53,6 +54,12 @@ public class PlanFragment
     private final boolean outputTableWriterFragment;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
+
+    // This is ensured to be lazily populated on the first successful call to #toBytes
+    @GuardedBy("this")
+    private byte[] cachedSerialization;
+    @GuardedBy("this")
+    private Codec<PlanFragment> lastUsedCodec;
 
     @JsonCreator
     public PlanFragment(
@@ -151,6 +158,20 @@ public class PlanFragment
         // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
         // workers don't need this, so that should be OK, but it's worth thinking about.
         return jsonRepresentation;
+    }
+
+    // Serialize this plan fragment with the provided codec, caching the results
+    public synchronized byte[] toBytes(Codec<PlanFragment> codec)
+    {
+        requireNonNull(codec, "codec is null");
+        if (cachedSerialization != null) {
+            verify(codec == lastUsedCodec, "Only one Codec may be used to serialize PlanFragments");
+        }
+        else {
+            cachedSerialization = codec.toBytes(this);
+            lastUsedCodec = codec;
+        }
+        return cachedSerialization;
     }
 
     public List<Type> getTypes()

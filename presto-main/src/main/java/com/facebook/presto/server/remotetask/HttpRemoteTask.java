@@ -171,6 +171,7 @@ public final class HttpRemoteTask
 
     private final Codec<TaskInfo> taskInfoCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Codec<PlanFragment> planFragmentCodec;
 
     private final RequestErrorTracker updateErrorTracker;
 
@@ -207,6 +208,7 @@ public final class HttpRemoteTask
             Codec<TaskStatus> taskStatusCodec,
             Codec<TaskInfo> taskInfoCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Codec<PlanFragment> planFragmentCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
@@ -225,6 +227,7 @@ public final class HttpRemoteTask
         requireNonNull(taskStatusCodec, "taskStatusCodec is null");
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
+        requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
@@ -245,6 +248,7 @@ public final class HttpRemoteTask
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+            this.planFragmentCodec = planFragmentCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.maxErrorDuration = maxErrorDuration;
@@ -630,7 +634,7 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
+        Optional<byte[]> fragment = sendPlan.get() ? Optional.of(planFragment.toBytes(planFragmentCodec)) : Optional.empty();
         Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
