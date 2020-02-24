@@ -23,8 +23,6 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.verifier.framework.Column;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,9 +36,6 @@ import static java.lang.String.format;
 public class MapColumnValidator
         implements ColumnValidator
 {
-    @Inject
-    public MapColumnValidator() {}
-
     @Override
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
