@@ -30,7 +30,8 @@ public class TestDeterminismAnalyzerConfig
         assertRecordedDefaults(recordDefaults(DeterminismAnalyzerConfig.class)
                 .setRunTeardown(false)
                 .setMaxAnalysisRuns(2)
-                .setHandleLimitQuery(true));
+                .setHandleLimitQuery(true)
+                .setNonDeterministicCatalogs(null));
     }
 
     @Test
@@ -40,11 +41,13 @@ public class TestDeterminismAnalyzerConfig
                 .put("determinism.run-teardown", "true")
                 .put("determinism.max-analysis-runs", "1")
                 .put("determinism.handle-limit-query", "false")
+                .put("determinism.non-deterministic-catalogs", "mysql,xdb")
                 .build();
         DeterminismAnalyzerConfig expected = new DeterminismAnalyzerConfig()
                 .setRunTeardown(true)
                 .setMaxAnalysisRuns(1)
-                .setHandleLimitQuery(false);
+                .setHandleLimitQuery(false)
+                .setNonDeterministicCatalogs("mysql,xdb");
 
         assertFullMapping(properties, expected);
     }
