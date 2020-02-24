@@ -17,8 +17,8 @@ import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +35,7 @@ public class TaskUpdateRequest
     private final SessionRepresentation session;
     // extraCredentials is stored separately from SessionRepresentation to avoid being leaked
     private final Map<String, String> extraCredentials;
-    private final Optional<PlanFragment> fragment;
+    private final Optional<byte[]> fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
     private final Optional<TableWriteInfo> tableWriteInfo;
@@ -43,7 +44,7 @@ public class TaskUpdateRequest
     public TaskUpdateRequest(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
-            @JsonProperty("fragment") Optional<PlanFragment> fragment,
+            @JsonProperty("fragment") Optional<byte[]> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
             @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
@@ -75,8 +76,9 @@ public class TaskUpdateRequest
         return extraCredentials;
     }
 
+    @JsonInclude(NON_ABSENT)
     @JsonProperty
-    public Optional<PlanFragment> getFragment()
+    public Optional<byte[]> getFragment()
     {
         return fragment;
     }

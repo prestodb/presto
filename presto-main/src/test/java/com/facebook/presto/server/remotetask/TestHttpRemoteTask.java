@@ -30,7 +30,6 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -50,6 +49,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -95,6 +95,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -215,7 +216,7 @@ public class TestHttpRemoteTask
                 TEST_SESSION,
                 new TaskId("test", 1, 0, 2),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
-                TaskTestUtils.PLAN_FRAGMENT,
+                createPlanFragment(),
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
@@ -244,9 +245,11 @@ public class TestHttpRemoteTask
                         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
+                        smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+                        jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
                     }
@@ -259,7 +262,9 @@ public class TestHttpRemoteTask
                             JsonCodec<TaskInfo> taskInfoJsonCodec,
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
-                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec)
+                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+                            JsonCodec<PlanFragment> planFragmentJsonCodec,
+                            SmileCodec<PlanFragment> planFragmentSmileCodec)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
@@ -275,6 +280,8 @@ public class TestHttpRemoteTask
                                 taskInfoSmileCodec,
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
+                                planFragmentJsonCodec,
+                                planFragmentSmileCodec,
                                 new RemoteTaskStats(),
                                 new InternalCommunicationConfig());
                     }
