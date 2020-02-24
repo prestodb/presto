@@ -26,8 +26,6 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.verifier.framework.Column;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,11 +37,6 @@ import static java.lang.String.format;
 public class ArrayColumnValidator
         implements ColumnValidator
 {
-    @Inject
-    public ArrayColumnValidator()
-    {
-    }
-
     @Override
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
