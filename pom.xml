@@ -98,7 +98,7 @@
         <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
-        <module>presto-hive-base</module>
+        <module>presto-hive-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
         <module>presto-teradata-functions</module>
@@ -249,7 +249,7 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-hive-base</artifactId>
+                <artifactId>presto-hive-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

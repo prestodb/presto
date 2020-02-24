@@ -12,7 +12,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
-    <artifactId>presto-hive-base</artifactId>
+    <artifactId>presto-hive-common</artifactId>
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
