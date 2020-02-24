@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
@@ -27,8 +26,6 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,13 +38,10 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
 import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
-import static com.facebook.presto.verifier.framework.QueryStage.forMain;
-import static com.facebook.presto.verifier.framework.QueryStage.forSetup;
-import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_TIMED_OUT;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
@@ -58,7 +52,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -72,6 +65,7 @@ public abstract class AbstractVerification
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
+    private final DeterminismAnalyzer determinismAnalyzer;
     private final FailureResolverManager failureResolverManager;
     private final VerificationContext verificationContext;
 
@@ -83,6 +77,7 @@ public abstract class AbstractVerification
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
+            DeterminismAnalyzer determinismAnalyzer,
             FailureResolverManager failureResolverManager,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig)
@@ -91,6 +86,7 @@ public abstract class AbstractVerification
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
+        this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
@@ -99,8 +95,6 @@ public abstract class AbstractVerification
     }
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
-
-    protected abstract DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum);
 
     @Override
     public SourceQuery getSourceQuery()
@@ -123,12 +117,12 @@ public abstract class AbstractVerification
         try {
             control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
-            controlQueryStats = setupAndRun(control, false);
-            testQueryStats = setupAndRun(test, false);
+            controlQueryStats = DataVerificationUtil.setupAndRun(prestoAction, control, false);
+            testQueryStats = DataVerificationUtil.setupAndRun(prestoAction, test, false);
             matchResult = verify(control, test);
 
             if (matchResult.isMismatchPossiblyCausedByNonDeterminism()) {
-                determinismAnalysis = Optional.of(analyzeDeterminism(control, matchResult.getControlChecksum()));
+                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control, matchResult.getControlChecksum()));
             }
             boolean maybeDeterministic = !determinismAnalysis.isPresent() ||
                     determinismAnalysis.get().isDeterministic() ||
@@ -163,8 +157,8 @@ public abstract class AbstractVerification
         }
         finally {
             if (!resultMismatched || runTearDownOnResultMismatch) {
-                teardownSafely(control);
-                teardownSafely(test);
+                teardownSafely(prestoAction, control);
+                teardownSafely(prestoAction, test);
             }
         }
     }
@@ -182,34 +176,6 @@ public abstract class AbstractVerification
     protected VerificationContext getVerificationContext()
     {
         return verificationContext;
-    }
-
-    protected QueryStats setupAndRun(QueryBundle bundle, boolean determinismAnalysis)
-    {
-        checkState(!determinismAnalysis || bundle.getCluster() == CONTROL, "Determinism analysis can only be run on control cluster");
-        QueryStage setupStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forSetup(bundle.getCluster());
-        QueryStage mainStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forMain(bundle.getCluster());
-
-        for (Statement setupQuery : bundle.getSetupQueries()) {
-            prestoAction.execute(setupQuery, setupStage);
-        }
-        return getPrestoAction().execute(bundle.getQuery(), mainStage);
-    }
-
-    protected void teardownSafely(@Nullable QueryBundle bundle)
-    {
-        if (bundle == null) {
-            return;
-        }
-
-        for (Statement teardownQuery : bundle.getTeardownQueries()) {
-            try {
-                prestoAction.execute(teardownQuery, forTeardown(bundle.getCluster()));
-            }
-            catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", bundle.getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery));
-            }
-        }
     }
 
     private VerifierQueryEvent buildEvent(

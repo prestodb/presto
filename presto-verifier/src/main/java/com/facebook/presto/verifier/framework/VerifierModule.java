@@ -106,6 +106,7 @@ public class VerifierModule
     protected final void setup(Binder binder)
     {
         configBinder(binder).bindConfig(VerifierConfig.class);
+        configBinder(binder).bindConfig(DeterminismAnalyzerConfig.class);
         configBinder(binder).bindConfig(QueryConfigurationOverridesConfig.class, ForControl.class, "control");
         configBinder(binder).bindConfig(QueryConfigurationOverridesConfig.class, ForTest.class, "test");
         binder.bind(QueryConfigurationOverrides.class).annotatedWith(ForControl.class).to(Key.get(QueryConfigurationOverridesConfig.class, ForControl.class)).in(SINGLETON);
