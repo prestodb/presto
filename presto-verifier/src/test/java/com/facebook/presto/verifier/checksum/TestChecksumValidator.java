@@ -68,7 +68,7 @@ public class TestChecksumValidator
     private static final Column INT_ARRAY_COLUMN = createColumn("int_array", new ArrayType(INTEGER));
     private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
-    private static final Column MAP_COLUMN = createColumn("map", typeRegistry.getType(parseTypeSignature("map(int,varchar)")));
+    private static final Column MAP_COLUMN = createColumn("map", typeRegistry.getType(parseTypeSignature("map(int,array(varchar))")));
     private static final Column MAP_NON_ORDERABLE_COLUMN = createColumn("map_non_orderable", typeRegistry.getType(parseTypeSignature("map(map(int,varchar),map(int,varchar))")));
     private static final Column ROW_COLUMN = createColumn("row", typeRegistry.getType(parseTypeSignature("row(i int, varchar, d double, a array(int), r row(double, b bigint))")));
 
@@ -140,7 +140,7 @@ public class TestChecksumValidator
                         ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array$cardinality_sum\"" +
                         ", \"checksum\"(\"map\") \"map$checksum\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"map_keys\"(\"map\"))) \"map$keys_checksum\"\n" +
-                        ", \"checksum\"(\"array_sort\"(\"map_values\"(\"map\"))) \"map$values_checksum\"\n" +
+                        ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"map_values\"(\"map\")))), \"checksum\"(\"map_values\"(\"map\"))) \"map$values_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"map\")), 0) \"map$cardinality_sum\"" +
                         ", \"checksum\"(\"map_non_orderable\") \"map_non_orderable$checksum\"\n" +
                         ", \"checksum\"(\"map_keys\"(\"map_non_orderable\")) \"map_non_orderable$keys_checksum\"\n" +

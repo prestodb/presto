@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.checksum;
 
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -29,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.functionCall;
+import static com.facebook.presto.verifier.checksum.ArrayColumnValidator.generateArrayChecksum;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -47,19 +49,8 @@ public class MapColumnValidator
         Type valueType = ((MapType) column.getType()).getValueType();
 
         Expression checksum = functionCall("checksum", column.getExpression());
-
-        Expression keys = functionCall("map_keys", column.getExpression());
-        if (keyType.isOrderable()) {
-            keys = functionCall("array_sort", keys);
-        }
-        Expression keysChecksum = functionCall("checksum", keys);
-
-        Expression values = functionCall("map_values", column.getExpression());
-        if (valueType.isOrderable()) {
-            values = functionCall("array_sort", values);
-        }
-        Expression valuesChecksum = functionCall("checksum", values);
-
+        Expression keysChecksum = generateArrayChecksum(functionCall("map_keys", column.getExpression()), new ArrayType(keyType));
+        Expression valuesChecksum = generateArrayChecksum(functionCall("map_values", column.getExpression()), new ArrayType(valueType));
         Expression mapCardinalitySum = new CoalesceExpression(
                 functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
