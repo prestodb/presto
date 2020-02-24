@@ -45,13 +45,20 @@ public class LimitQueryDeterminismAnalyzer
     private final PrestoAction prestoAction;
     private final boolean enabled;
 
-    public LimitQueryDeterminismAnalyzer(PrestoAction prestoAction, VerifierConfig verifierConfig)
+    public LimitQueryDeterminismAnalyzer(PrestoAction prestoAction, boolean enabled)
     {
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
-        this.enabled = verifierConfig.isEnableLimitQueryDeterminismAnalyzer();
+        this.enabled = enabled;
     }
 
     public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount, VerificationContext verificationContext)
+    {
+        LimitQueryDeterminismAnalysis analysis = analyzeInternal(control, rowCount, verificationContext);
+        verificationContext.setLimitQueryAnalysis(analysis);
+        return analysis;
+    }
+
+    public LimitQueryDeterminismAnalysis analyzeInternal(QueryBundle control, long rowCount, VerificationContext verificationContext)
     {
         if (!enabled) {
             return NOT_RUN;

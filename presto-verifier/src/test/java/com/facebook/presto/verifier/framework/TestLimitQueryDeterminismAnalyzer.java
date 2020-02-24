@@ -89,7 +89,7 @@ public class TestLimitQueryDeterminismAnalyzer
     public void setup()
     {
         this.prestoAction = new MockPrestoAction(rowCount);
-        this.analyzer = new LimitQueryDeterminismAnalyzer(prestoAction, new VerifierConfig());
+        this.analyzer = new LimitQueryDeterminismAnalyzer(prestoAction, true);
     }
 
     @Test

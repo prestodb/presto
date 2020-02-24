@@ -44,6 +44,7 @@ public class VerificationFactory
     private final VerifierConfig verifierConfig;
     private final TypeManager typeManager;
     private final FailureResolverConfig failureResolverConfig;
+    private final DeterminismAnalyzerConfig determinismAnalyzerConfig;
 
     @Inject
     public VerificationFactory(
@@ -55,7 +56,8 @@ public class VerificationFactory
             ChecksumValidator checksumValidator,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
-            FailureResolverConfig failureResolverConfig)
+            FailureResolverConfig failureResolverConfig,
+            DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
@@ -66,6 +68,7 @@ public class VerificationFactory
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.failureResolverConfig = requireNonNull(failureResolverConfig, "failureResolverConfig is null");
+        this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
     }
 
     public Verification get(VerificationResubmitter verificationResubmitter, SourceQuery sourceQuery)
@@ -76,23 +79,30 @@ public class VerificationFactory
                 VerificationContext verificationContext = new VerificationContext();
                 PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
                 QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+                DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
+                        sourceQuery,
+                        prestoAction,
+                        queryRewriter,
+                        checksumValidator,
+                        typeManager,
+                        verificationContext,
+                        determinismAnalyzerConfig);
                 FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
                         sqlParser,
                         prestoAction,
                         testResourceClient,
                         failureResolverConfig));
-                LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer = new LimitQueryDeterminismAnalyzer(prestoAction, verifierConfig);
                 return new DataVerification(
                         verificationResubmitter,
                         prestoAction,
                         sourceQuery,
                         queryRewriter,
+                        determinismAnalyzer,
                         failureResolverManager,
                         verificationContext,
                         verifierConfig,
                         typeManager,
-                        checksumValidator,
-                        limitQueryDeterminismAnalyzer);
+                        checksumValidator);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }

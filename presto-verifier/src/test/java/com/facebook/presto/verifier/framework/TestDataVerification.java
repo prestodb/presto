@@ -85,13 +85,14 @@ public class TestDataVerification
 
     private DataVerification createVerification(String controlQuery, String testQuery)
     {
-        return createVerification(controlQuery, testQuery, new VerifierConfig().setTestId(TEST_ID));
+        return createVerification(controlQuery, testQuery, new DeterminismAnalyzerConfig());
     }
 
-    private DataVerification createVerification(String controlQuery, String testQuery, VerifierConfig verifierConfig)
+    private DataVerification createVerification(String controlQuery, String testQuery, DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = new VerificationContext();
+        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
         PrestoAction prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.createDefault(),
@@ -109,17 +110,25 @@ public class TestDataVerification
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")));
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
+        TypeRegistry typeManager = new TypeRegistry();
         return new DataVerification(
                 (verification, e) -> false,
                 prestoAction,
                 sourceQuery,
                 queryRewriter,
+                new DeterminismAnalyzer(
+                        sourceQuery,
+                        prestoAction,
+                        queryRewriter,
+                        checksumValidator,
+                        typeManager,
+                        verificationContext,
+                        determinismAnalyzerConfig),
                 new FailureResolverManager(ImmutableList.of()),
                 verificationContext,
                 verifierConfig,
-                new TypeRegistry(),
-                checksumValidator,
-                new LimitQueryDeterminismAnalyzer(prestoAction, verifierConfig));
+                typeManager,
+                checksumValidator);
     }
 
     @Test
@@ -242,7 +251,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = createVerification(
                 "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]",
-                new VerifierConfig().setTestId(TEST_ID).setMaxDeterminismAnalysisRuns(3)).run();
+                new DeterminismAnalyzerConfig().setMaxAnalysisRuns(3)).run();
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
