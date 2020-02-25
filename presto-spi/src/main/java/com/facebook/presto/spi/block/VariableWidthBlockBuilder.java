@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.UnsafeSlice;
@@ -22,6 +23,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
@@ -299,6 +302,30 @@ public class VariableWidthBlockBuilder
     private void updateArraysDataSize()
     {
         arraysRetainedSizeInBytes = sizeOf(valueIsNull) + sizeOf(offsets);
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            if (!initialized) {
+                initializeCapacity();
+            }
+            int length = input.readInt();
+            try {
+                sliceOutput.writeBytes(input, length);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            currentEntrySize += length;
+            closeEntry();
+        }
+        return this;
     }
 
     @Override

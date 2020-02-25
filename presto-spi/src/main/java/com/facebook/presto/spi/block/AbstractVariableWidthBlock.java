@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
@@ -134,6 +135,20 @@ public abstract class AbstractVariableWidthBlock
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            int sliceLength = getSliceLength(position);
+            output.writeInt(sliceLength);
+            output.writeBytes(getRawSlice(position), getPositionOffset(position), sliceLength);
+        }
     }
 
     @Override

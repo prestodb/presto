@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -241,6 +242,13 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         value.writePositionTo(0, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        checkReadablePosition(position);
+        value.writePositionTo(0, output);
     }
 
     @Override

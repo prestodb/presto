@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -149,6 +150,19 @@ public class Int128ArrayBlock
         blockBuilder.writeLong(values[(position + positionOffset) * 2]);
         blockBuilder.writeLong(values[((position + positionOffset) * 2) + 1]);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            output.writeLong(values[(position + positionOffset) * 2]);
+            output.writeLong(values[((position + positionOffset) * 2) + 1]);
+        }
     }
 
     @Override

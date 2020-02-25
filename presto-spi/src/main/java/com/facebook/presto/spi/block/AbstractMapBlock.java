@@ -15,6 +15,7 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -276,6 +277,28 @@ public abstract class AbstractMapBlock
     {
         checkReadablePosition(position);
         blockBuilder.appendStructureInternal(this, position);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            int startValueOffset = getOffset(position);
+            int endValueOffset = getOffset(position + 1);
+            int numberOfElements = endValueOffset - startValueOffset;
+
+            output.writeByte(1);
+            output.writeInt(numberOfElements);
+            Block rawKeyBlock = getRawKeyBlock();
+            Block rawValueBlock = getRawValueBlock();
+            for (int i = startValueOffset; i < endValueOffset; i++) {
+                rawKeyBlock.writePositionTo(i, output);
+                rawValueBlock.writePositionTo(i, output);
+            }
+        }
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.function.BiConsumer;
 
@@ -123,6 +124,11 @@ public interface Block
      * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
+
+    /**
+     * Appends the value at {@code position} to {@code output}.
+     */
+    void writePositionTo(int position, SliceOutput output);
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal

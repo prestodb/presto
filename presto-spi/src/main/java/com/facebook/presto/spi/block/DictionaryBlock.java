@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -169,6 +170,12 @@ public class DictionaryBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         dictionary.writePositionTo(getId(position), blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        dictionary.writePositionTo(getId(position), output);
     }
 
     @Override
