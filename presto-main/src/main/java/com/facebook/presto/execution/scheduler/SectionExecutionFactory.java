@@ -335,8 +335,8 @@ public class SectionExecutionFactory
                     // verify execution is consistent with planner's decision on dynamic lifespan schedule
                     verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
-                    if (!bucketNodeMap.isDynamic()) {
-                        stageNodeList = ((FixedBucketNodeMap) bucketNodeMap).getBucketToNode().stream()
+                    if (bucketNodeMap.hasInitialMap()) {
+                        stageNodeList = bucketNodeMap.getBucketToNode().get().stream()
                                 .distinct()
                                 .collect(toImmutableList());
                     }
