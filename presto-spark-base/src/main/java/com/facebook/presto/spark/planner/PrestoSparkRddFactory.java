@@ -20,8 +20,8 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IntegerIdentityPartitioner;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
-import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkPage;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -71,7 +71,7 @@ public class PrestoSparkRddFactory
         this.sparkTaskRequestJsonCodec = requireNonNull(sparkTaskRequestJsonCodec, "sparkTaskRequestJsonCodec is null");
     }
 
-    public JavaPairRDD<Integer, SerializedPrestoSparkPage> createSparkRdd(
+    public JavaPairRDD<Integer, PrestoSparkRow> createSparkRdd(
             JavaSparkContext sparkContext,
             Session session,
             PrestoSparkPlan prestoSparkPlan,
@@ -121,7 +121,7 @@ public class PrestoSparkRddFactory
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
         }
 
-        public JavaPairRDD<Integer, SerializedPrestoSparkPage> createRdd(PrestoSparkSubPlan subPlan)
+        public JavaPairRDD<Integer, PrestoSparkRow> createRdd(PrestoSparkSubPlan subPlan)
         {
             PlanFragment fragment;
             // TODO: fragment adaption should be done prior to RDD creation
@@ -172,7 +172,7 @@ public class PrestoSparkRddFactory
             if (children.size() == 1) {
                 // Single remote source
                 PrestoSparkSubPlan childSubPlan = getOnlyElement(children);
-                JavaPairRDD<Integer, SerializedPrestoSparkPage> childRdd = createRdd(childSubPlan);
+                JavaPairRDD<Integer, PrestoSparkRow> childRdd = createRdd(childSubPlan);
                 PartitioningHandle partitioning = fragment.getPartitioning();
 
                 if (partitioning.equals(COORDINATOR_DISTRIBUTION)) {
@@ -220,8 +220,8 @@ public class PrestoSparkRddFactory
                 String leftRemoteSourcePlanId = leftRemoteSource.getId().toString();
                 String rightRemoteSourcePlanId = rightRemoteSource.getId().toString();
 
-                JavaPairRDD<Integer, SerializedPrestoSparkPage> leftChildRdd = createRdd(leftSubPlan);
-                JavaPairRDD<Integer, SerializedPrestoSparkPage> rightChildRdd = createRdd(rightSubPlan);
+                JavaPairRDD<Integer, PrestoSparkRow> leftChildRdd = createRdd(leftSubPlan);
+                JavaPairRDD<Integer, PrestoSparkRow> rightChildRdd = createRdd(rightSubPlan);
 
                 PlanFragment leftFragment = leftSubPlan.getFragment();
                 PlanFragment rightFragment = rightSubPlan.getFragment();
@@ -240,8 +240,8 @@ public class PrestoSparkRddFactory
                 PartitioningHandle partitioning = fragment.getPartitioning();
                 checkArgument(partitioning.equals(FIXED_HASH_DISTRIBUTION));
 
-                JavaPairRDD<Integer, SerializedPrestoSparkPage> shuffledLeftChildRdd = leftChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
-                JavaPairRDD<Integer, SerializedPrestoSparkPage> shuffledRightChildRdd = rightChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
+                JavaPairRDD<Integer, PrestoSparkRow> shuffledLeftChildRdd = leftChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
+                JavaPairRDD<Integer, PrestoSparkRow> shuffledRightChildRdd = rightChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
                 return JavaPairRDD.fromJavaRDD(
                         shuffledLeftChildRdd.zipPartitions(
                                 shuffledRightChildRdd,
