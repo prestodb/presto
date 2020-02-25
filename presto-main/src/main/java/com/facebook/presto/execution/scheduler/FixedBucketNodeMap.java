@@ -59,8 +59,15 @@ public class FixedBucketNodeMap
         return false;
     }
 
-    public List<InternalNode> getBucketToNode()
+    @Override
+    public boolean hasInitialMap()
     {
-        return bucketToNode;
+        return true;
+    }
+
+    @Override
+    public Optional<List<InternalNode>> getBucketToNode()
+    {
+        return Optional.of(bucketToNode);
     }
 }

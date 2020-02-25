@@ -16,8 +16,10 @@ package com.facebook.presto.execution.scheduler.group;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import org.checkerframework.checker.nullness.Opt;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,12 +33,14 @@ public class DynamicBucketNodeMap
 {
     private final int bucketCount;
     private final Int2ObjectMap<InternalNode> bucketToNode = new Int2ObjectOpenHashMap<>();
+    private final boolean hasInitialMap;
 
     public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount)
     {
         super(splitToBucket);
         checkArgument(bucketCount > 0, "bucketCount must be positive");
         this.bucketCount = bucketCount;
+        hasInitialMap = false;
     }
 
     public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode)
@@ -48,6 +52,7 @@ public class DynamicBucketNodeMap
             bucketToNode.put(bucketNumber, bucketToPreferredNode.get(bucketNumber));
         }
         this.bucketCount = bucketCount;
+        this.hasInitialMap = true;
     }
 
     @Override
@@ -74,5 +79,20 @@ public class DynamicBucketNodeMap
     public boolean isDynamic()
     {
         return true;
+    }
+
+    @Override
+    public boolean hasInitialMap()
+    {
+        return hasInitialMap;
+    }
+
+    @Override
+    public Optional<List<InternalNode>> getBucketToNode()
+    {
+        if (bucketToNode.size() == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(ImmutableList.copyOf(bucketToNode.values()));
     }
 }

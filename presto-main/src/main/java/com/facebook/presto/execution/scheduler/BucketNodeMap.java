@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
@@ -38,8 +39,12 @@ public abstract class BucketNodeMap
 
     public abstract boolean isDynamic();
 
+    public abstract boolean hasInitialMap();
+
     public final Optional<InternalNode> getAssignedNode(Split split)
     {
         return getAssignedNode(splitToBucket.applyAsInt(split));
     }
+
+    public abstract Optional<List<InternalNode>> getBucketToNode();
 }
