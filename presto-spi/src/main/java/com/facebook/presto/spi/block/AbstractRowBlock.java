@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
+
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -170,6 +172,22 @@ public abstract class AbstractRowBlock
     {
         checkReadablePosition(position);
         blockBuilder.appendStructureInternal(this, position);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            int fieldBlockOffset = getFieldBlockOffset(position);
+            Block[] fieldBlocks = getRawFieldBlocks();
+            for (int i = 0; i < numFields; i++) {
+                fieldBlocks[i].writePositionTo(fieldBlockOffset, output);
+            }
+        }
     }
 
     @Override

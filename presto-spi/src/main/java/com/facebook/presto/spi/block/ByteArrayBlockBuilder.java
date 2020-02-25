@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -206,6 +208,32 @@ public class ByteArrayBlockBuilder
         checkReadablePosition(position);
         blockBuilder.writeByte(values[position]);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            output.writeByte(values[position]);
+        }
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            writeByte(input.readByte());
+            closeEntry();
+        }
+        return this;
     }
 
     @Override

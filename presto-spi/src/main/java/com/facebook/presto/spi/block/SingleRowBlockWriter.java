@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -177,6 +178,21 @@ public class SingleRowBlockWriter
         checkFieldIndexToWrite();
         fieldBlockBuilders[currentFieldIndexToWrite].closeEntry();
         entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            checkFieldIndexToWrite();
+            fieldBlockBuilders[currentFieldIndexToWrite].readPositionFrom(input);
+            entryAdded();
+        }
         return this;
     }
 

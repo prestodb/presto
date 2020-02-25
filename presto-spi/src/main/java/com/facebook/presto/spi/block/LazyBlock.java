@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -129,6 +130,13 @@ public class LazyBlock
     {
         assureLoaded();
         block.writePositionTo(position, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        assureLoaded();
+        block.writePositionTo(position, output);
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -187,6 +188,19 @@ public class SingleMapBlockWriter
         }
         else {
             keyBlockBuilder.appendNull();
+        }
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        if (writeToValueNext) {
+            valueBlockBuilder.readPositionFrom(input);
+        }
+        else {
+            keyBlockBuilder.readPositionFrom(input);
         }
         entryAdded();
         return this;

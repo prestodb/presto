@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
+
 import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
@@ -159,6 +161,26 @@ public abstract class AbstractArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.appendStructureInternal(this, position);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            int startValueOffset = getOffset(position);
+            int endValueOffset = getOffset(position + 1);
+            int numberOfElements = endValueOffset - startValueOffset;
+
+            output.writeByte(1);
+            output.writeInt(numberOfElements);
+            Block rawElementBlock = getRawElementBlock();
+            for (int i = startValueOffset; i < endValueOffset; i++) {
+                rawElementBlock.writePositionTo(i, output);
+            }
+        }
     }
 
     @Override

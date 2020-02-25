@@ -15,6 +15,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 
@@ -185,6 +186,18 @@ public abstract class AbstractSingleMapBlock
         }
         else {
             getRawValueBlock().writePositionTo(position / 2, blockBuilder);
+        }
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            getRawKeyBlock().writePositionTo(position / 2, output);
+        }
+        else {
+            getRawValueBlock().writePositionTo(position / 2, output);
         }
     }
 

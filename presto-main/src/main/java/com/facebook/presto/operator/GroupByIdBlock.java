@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -143,6 +144,12 @@ public class GroupByIdBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         block.writePositionTo(position, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        block.writePositionTo(position, output);
     }
 
     @Override

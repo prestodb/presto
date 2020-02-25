@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 
 public interface BlockBuilder
         extends Block
@@ -102,6 +103,11 @@ public interface BlockBuilder
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
+
+    /**
+     * Read a single position from the input
+     */
+    BlockBuilder readPositionFrom(SliceInput input);
 
     /**
      * Builds the block. This method can be called multiple times.

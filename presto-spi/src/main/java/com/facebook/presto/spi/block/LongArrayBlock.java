@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -181,6 +182,18 @@ public class LongArrayBlock
         checkReadablePosition(position);
         blockBuilder.writeLong(values[position + arrayOffset]);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            output.writeLong(values[position + arrayOffset]);
+        }
     }
 
     @Override

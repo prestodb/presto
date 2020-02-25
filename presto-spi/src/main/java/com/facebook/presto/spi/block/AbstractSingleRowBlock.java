@@ -15,6 +15,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 
@@ -147,6 +148,12 @@ public abstract class AbstractSingleRowBlock
     {
         checkFieldIndex(position);
         getRawFieldBlock(position).writePositionTo(rowIndex, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        getRawFieldBlock(position).writePositionTo(rowIndex, output);
     }
 
     @Override
