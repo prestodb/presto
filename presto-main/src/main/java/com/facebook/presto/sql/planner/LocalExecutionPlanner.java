@@ -376,23 +376,68 @@ public class LocalExecutionPlanner
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo)
     {
-        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
+        return plan(
+                taskContext,
+                plan,
+                partitioningScheme,
+                stageExecutionDescriptor,
+                partitionedSourceOrder,
+                createOutputFactory(taskContext, partitioningScheme, outputBuffer),
+                remoteSourceFactory,
+                tableWriteInfo);
+    }
 
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
+            PlanNode plan,
+            PartitioningScheme partitioningScheme,
+            StageExecutionDescriptor stageExecutionDescriptor,
+            List<PlanNodeId> partitionedSourceOrder,
+            OutputFactory outputFactory,
+            RemoteSourceFactory remoteSourceFactory,
+            TableWriteInfo tableWriteInfo)
+    {
+        return plan(
+                taskContext,
+                stageExecutionDescriptor,
+                plan,
+                partitioningScheme.getOutputLayout(),
+                partitionedSourceOrder,
+                outputFactory,
+                createOutputPartitioning(taskContext, partitioningScheme),
+                remoteSourceFactory,
+                tableWriteInfo);
+    }
+
+    private OutputFactory createOutputFactory(TaskContext taskContext, PartitioningScheme partitioningScheme, OutputBuffer outputBuffer)
+    {
         if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(
-                    taskContext,
-                    stageExecutionDescriptor,
-                    plan,
-                    outputLayout,
-                    partitionedSourceOrder,
-                    new TaskOutputFactory(outputBuffer),
-                    remoteSourceFactory,
-                    tableWriteInfo);
+            return new TaskOutputFactory(outputBuffer);
         }
+
+        if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
+            return new OptimizedPartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);
+        }
+        else {
+            return new PartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);
+        }
+    }
+
+    private Optional<OutputPartitioning> createOutputPartitioning(TaskContext taskContext, PartitioningScheme partitioningScheme)
+    {
+        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
+            return Optional.empty();
+        }
+
+        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
 
         // We can convert the variables directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
@@ -412,7 +457,7 @@ public class LocalExecutionPlanner
                         if (argument instanceof ConstantExpression) {
                             return -1;
                         }
-                        return outputLayout.indexOf((VariableReferenceExpression) argument);
+                        return outputLayout.indexOf(argument);
                     })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
@@ -438,37 +483,7 @@ public class LocalExecutionPlanner
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
-        OutputFactory outputFactory;
-        if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
-            outputFactory = new OptimizedPartitionedOutputFactory(
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
-                    partitioningScheme.isReplicateNullsAndAny(),
-                    nullChannel,
-                    outputBuffer,
-                    maxPagePartitioningBufferSize);
-        }
-        else {
-            outputFactory = new PartitionedOutputFactory(
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
-                    partitioningScheme.isReplicateNullsAndAny(),
-                    nullChannel,
-                    outputBuffer,
-                    maxPagePartitioningBufferSize);
-        }
-
-        return plan(
-                taskContext,
-                stageExecutionDescriptor,
-                plan,
-                outputLayout,
-                partitionedSourceOrder,
-                outputFactory,
-                remoteSourceFactory,
-                tableWriteInfo);
+        return Optional.of(new OutputPartitioning(partitionFunction, partitionChannels, partitionConstants, partitioningScheme.isReplicateNullsAndAny(), nullChannel));
     }
 
     @VisibleForTesting
@@ -479,6 +494,7 @@ public class LocalExecutionPlanner
             List<VariableReferenceExpression> outputLayout,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
+            Optional<OutputPartitioning> outputPartitioning,
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo)
     {
@@ -502,6 +518,7 @@ public class LocalExecutionPlanner
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
+                                outputPartitioning,
                                 new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount(),

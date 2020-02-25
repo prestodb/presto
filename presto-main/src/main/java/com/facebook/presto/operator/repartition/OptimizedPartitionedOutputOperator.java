@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -65,6 +66,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -223,28 +225,11 @@ public class OptimizedPartitionedOutputOperator
     public static class OptimizedPartitionedOutputFactory
             implements OutputFactory
     {
-        private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<ConstantExpression>> partitionConstants;
         private final OutputBuffer outputBuffer;
-        private final boolean replicatesAnyRow;
-        private final OptionalInt nullChannel;
         private final DataSize maxMemory;
 
-        public OptimizedPartitionedOutputFactory(
-                PartitionFunction partitionFunction,
-                List<Integer> partitionChannels,
-                List<Optional<ConstantExpression>> partitionConstants,
-                boolean replicatesAnyRow,
-                OptionalInt nullChannel,
-                OutputBuffer outputBuffer,
-                DataSize maxMemory)
+        public OptimizedPartitionedOutputFactory(OutputBuffer outputBuffer, DataSize maxMemory)
         {
-            this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
-            this.replicatesAnyRow = replicatesAnyRow;
-            this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
         }
@@ -255,18 +240,20 @@ public class OptimizedPartitionedOutputOperator
                 PlanNodeId planNodeId,
                 List<Type> types,
                 Function<Page, Page> pagePreprocessor,
+                Optional<OutputPartitioning> outputPartitioning,
                 PagesSerdeFactory serdeFactory)
         {
+            checkArgument(outputPartitioning.isPresent(), "outputPartitioning is not present");
             return new OptimizedPartitionedOutputOperatorFactory(
                     operatorId,
                     planNodeId,
                     types,
                     pagePreprocessor,
-                    partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
-                    replicatesAnyRow,
-                    nullChannel,
+                    outputPartitioning.get().getPartitionFunction(),
+                    outputPartitioning.get().getPartitionChannels(),
+                    outputPartitioning.get().getPartitionConstants(),
+                    outputPartitioning.get().isReplicateNullsAndAny(),
+                    outputPartitioning.get().getNullChannel(),
                     outputBuffer,
                     serdeFactory,
                     maxMemory);
