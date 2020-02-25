@@ -18,29 +18,28 @@ import java.util.Map;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class PrestoSparkConfiguration
 {
-    private final String configFilePath;
+    private final Map<String, String> configProperties;
     private final String pluginsDirectoryPath;
-    private final String pluginsConfigDirectoryPath;
-    private final Map<String, String> extraProperties;
+    private final Map<String, Map<String, String>> catalogProperties;
 
     public PrestoSparkConfiguration(
-            String configFilePath,
+            Map<String, String> configProperties,
             String pluginsDirectoryPath,
-            String pluginsConfigDirectoryPath,
-            Map<String, String> extraProperties)
+            Map<String, Map<String, String>> catalogProperties)
     {
-        this.configFilePath = requireNonNull(configFilePath, "configFilePath is null");
+        this.configProperties = unmodifiableMap(new HashMap<>(requireNonNull(configProperties, "configProperties is null")));
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
-        this.pluginsConfigDirectoryPath = requireNonNull(pluginsConfigDirectoryPath, "pluginsConfigDirectoryPath is null");
-        this.extraProperties = unmodifiableMap(new HashMap<>(requireNonNull(extraProperties, "extraProperties is null")));
+        this.catalogProperties = unmodifiableMap(requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
+                .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
     }
 
-    public String getConfigFilePath()
+    public Map<String, String> getConfigProperties()
     {
-        return configFilePath;
+        return configProperties;
     }
 
     public String getPluginsDirectoryPath()
@@ -48,13 +47,8 @@ public class PrestoSparkConfiguration
         return pluginsDirectoryPath;
     }
 
-    public String getPluginsConfigDirectoryPath()
+    public Map<String, Map<String, String>> getCatalogProperties()
     {
-        return pluginsConfigDirectoryPath;
-    }
-
-    public Map<String, String> getExtraProperties()
-    {
-        return extraProperties;
+        return catalogProperties;
     }
 }

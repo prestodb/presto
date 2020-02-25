@@ -22,11 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
-
-import static com.facebook.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
 public class PrestoSparkServiceFactory
         implements IPrestoSparkServiceFactory
@@ -37,17 +33,13 @@ public class PrestoSparkServiceFactory
     public IPrestoSparkService createService(PrestoSparkConfiguration configuration)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-        try {
-            properties.putAll(loadPropertiesFrom(configuration.getConfigFilePath()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        properties.putAll(configuration.getExtraProperties());
+        properties.putAll(configuration.getConfigProperties());
         properties.put("plugin.dir", configuration.getPluginsDirectoryPath());
-        properties.put("plugin.config-dir", configuration.getPluginsConfigDirectoryPath());
 
-        PrestoSparkInjectorFactory prestoSparkInjectorFactory = new PrestoSparkInjectorFactory(properties.build(), getAdditionalModules());
+        PrestoSparkInjectorFactory prestoSparkInjectorFactory = new PrestoSparkInjectorFactory(
+                properties.build(),
+                configuration.getCatalogProperties(),
+                getAdditionalModules());
 
         Injector injector = prestoSparkInjectorFactory.create();
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
