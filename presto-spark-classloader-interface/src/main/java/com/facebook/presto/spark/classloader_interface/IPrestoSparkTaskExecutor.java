@@ -18,6 +18,6 @@ import scala.Tuple2;
 import java.util.Iterator;
 
 public interface IPrestoSparkTaskExecutor
-        extends Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>
+        extends Iterator<Tuple2<Integer, PrestoSparkRow>>
 {
 }

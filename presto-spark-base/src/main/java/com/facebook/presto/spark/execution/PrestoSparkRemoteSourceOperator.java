@@ -13,22 +13,29 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.UpdatablePageSource;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.SliceInput;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRemoteSourceOperator
@@ -36,17 +43,17 @@ public class PrestoSparkRemoteSourceOperator
 {
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
-    private final Iterator<SerializedPage> iterator;
-    private final PagesSerde serde;
+    private final Iterator<PrestoSparkRow> iterator;
+    private final List<Type> types;
 
     private boolean finished;
 
-    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, Iterator<SerializedPage> iterator, PagesSerde serde)
+    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, Iterator<PrestoSparkRow> iterator, List<Type> types)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.iterator = requireNonNull(iterator, "iterator is null");
-        this.serde = requireNonNull(serde, "serde is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -74,18 +81,29 @@ public class PrestoSparkRemoteSourceOperator
             return null;
         }
 
-        SerializedPage serializedPage = null;
+        PageBuilder pageBuilder = new PageBuilder(types);
         synchronized (iterator) {
-            if (iterator.hasNext()) {
-                serializedPage = iterator.next();
+            while (iterator.hasNext() && !pageBuilder.isFull()) {
+                PrestoSparkRow row = iterator.next();
+                SliceInput sliceInput = new BasicSliceInput(wrappedBuffer(row.getBytes(), 0, row.getLength()));
+                pageBuilder.declarePosition();
+                for (int channel = 0; channel < types.size(); channel++) {
+                    BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
+                    blockBuilder.readPositionFrom(sliceInput);
+                }
+                sliceInput.close();
+            }
+
+            if (!iterator.hasNext()) {
+                finished = true;
             }
         }
-        if (serializedPage == null) {
-            finished = true;
+
+        if (pageBuilder.isEmpty()) {
             return null;
         }
 
-        return serde.deserialize(serializedPage);
+        return pageBuilder.build();
     }
 
     @Override
@@ -123,17 +141,17 @@ public class PrestoSparkRemoteSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Iterator<SerializedPage> iterator;
-        private final PagesSerde serde;
+        private final Iterator<PrestoSparkRow> iterator;
+        private final List<Type> types;
 
         private boolean closed;
 
-        public SparkRemoteSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, Iterator<SerializedPage> iterator, PagesSerde serde)
+        public SparkRemoteSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, Iterator<PrestoSparkRow> iterator, List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.iterator = requireNonNull(iterator, "iterator is null");
-            this.serde = requireNonNull(serde, "serde is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -150,7 +168,7 @@ public class PrestoSparkRemoteSourceOperator
                     planNodeId,
                     driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRemoteSourceOperator.class.getSimpleName()),
                     iterator,
-                    serde);
+                    types);
         }
 
         @Override

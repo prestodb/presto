@@ -32,14 +32,14 @@ public class TaskProcessors
 {
     private TaskProcessors() {}
 
-    public static PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, SerializedPrestoSparkPage> createTaskProcessor(
+    public static PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, PrestoSparkRow> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
-        return new PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, SerializedPrestoSparkPage>()
+        return new PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, PrestoSparkRow>()
         {
             @Override
-            public Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> call(Iterator<SerializedPrestoSparkTaskDescriptor> serializedTaskRequestIterator)
+            public Iterator<Tuple2<Integer, PrestoSparkRow>> call(Iterator<SerializedPrestoSparkTaskDescriptor> serializedTaskRequestIterator)
             {
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = serializedTaskRequestIterator.next();
                 if (serializedTaskRequestIterator.hasNext()) {
@@ -52,16 +52,16 @@ public class TaskProcessors
         };
     }
 
-    public static PairFlatMapFunction<Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Integer, SerializedPrestoSparkPage> createTaskProcessor(
+    public static PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             String planNodeId,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
-        return new PairFlatMapFunction<Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Integer, SerializedPrestoSparkPage>()
+        return new PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow>()
         {
             @Override
-            public Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> call(Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> input)
+            public Iterator<Tuple2<Integer, PrestoSparkRow>> call(Iterator<Tuple2<Integer, PrestoSparkRow>> input)
             {
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
@@ -75,23 +75,23 @@ public class TaskProcessors
         };
     }
 
-    public static FlatMapFunction2<Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Tuple2<Integer, SerializedPrestoSparkPage>> createTaskProcessor(
+    public static FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             String planNodeId1,
             String planNodeId2,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
-        return new FlatMapFunction2<Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>, Tuple2<Integer, SerializedPrestoSparkPage>>()
+        return new FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>>()
         {
             @Override
-            public Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> call(
-                    Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> input1,
-                    Iterator<Tuple2<Integer, SerializedPrestoSparkPage>> input2)
+            public Iterator<Tuple2<Integer, PrestoSparkRow>> call(
+                    Iterator<Tuple2<Integer, PrestoSparkRow>> input1,
+                    Iterator<Tuple2<Integer, PrestoSparkRow>> input2)
             {
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
-                HashMap<String, Iterator<Tuple2<Integer, SerializedPrestoSparkPage>>> inputsMap = new HashMap<>();
+                HashMap<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap = new HashMap<>();
                 inputsMap.put(planNodeId1, input1);
                 inputsMap.put(planNodeId2, input2);
                 return taskExecutorFactoryProvider.get().create(

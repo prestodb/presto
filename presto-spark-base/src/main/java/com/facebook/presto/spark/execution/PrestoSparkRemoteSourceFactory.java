@@ -14,11 +14,9 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
@@ -29,20 +27,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRemoteSourceFactory
         implements RemoteSourceFactory
 {
-    private final Map<PlanNodeId, Iterator<SerializedPage>> inputs;
-    private final BlockEncodingSerde blockEncodingSerde;
+    private final Map<PlanNodeId, Iterator<PrestoSparkRow>> inputs;
 
-    public PrestoSparkRemoteSourceFactory(Map<PlanNodeId, Iterator<SerializedPage>> inputs, BlockEncodingSerde blockEncodingSerde)
+    public PrestoSparkRemoteSourceFactory(Map<PlanNodeId, Iterator<PrestoSparkRow>> inputs)
     {
         this.inputs = ImmutableMap.copyOf(requireNonNull(inputs, "inputs is null"));
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @Override
@@ -52,7 +47,7 @@ public class PrestoSparkRemoteSourceFactory
                 operatorId,
                 planNodeId,
                 requireNonNull(inputs.get(planNodeId), format("input is missing for plan node: %s", planNodeId)),
-                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde());
+                types);
     }
 
     @Override
