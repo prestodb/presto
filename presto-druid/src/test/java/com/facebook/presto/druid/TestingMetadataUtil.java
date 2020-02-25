@@ -33,11 +33,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public final class MetadataUtil
+public final class TestingMetadataUtil
 {
     public static final JsonCodec<DruidColumnHandle> COLUMN_CODEC;
 
-    private MetadataUtil()
+    private TestingMetadataUtil()
     {
     }
 

@@ -33,6 +33,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.inject.Inject;
 
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
@@ -45,7 +46,6 @@ public class DruidQueryGenerator
 {
     private static final Logger log = Logger.get(DruidQueryGenerator.class);
 
-    private final DruidConfig druidConfig;
     private final TypeManager typeManager;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution standardFunctionResolution;
@@ -53,12 +53,10 @@ public class DruidQueryGenerator
 
     @Inject
     public DruidQueryGenerator(
-            DruidConfig druidConfig,
             TypeManager typeManager,
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution standardFunctionResolution)
     {
-        this.druidConfig = requireNonNull(druidConfig, "druid config is null");
         this.typeManager = requireNonNull(typeManager, "type manager is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "function metadata manager is null");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
@@ -140,7 +138,7 @@ public class DruidQueryGenerator
         }
     }
 
-    class DruidQueryPlanVisitor
+    private class DruidQueryPlanVisitor
             extends PlanVisitor<DruidQueryGeneratorContext, DruidQueryGeneratorContext>
     {
         private final ConnectorSession session;
@@ -169,7 +167,7 @@ public class DruidQueryGenerator
         {
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
-            LinkedHashMap<VariableReferenceExpression, Selection> selections = context.getSelections();
+            Map<VariableReferenceExpression, Selection> selections = context.getSelections();
             DruidFilterExpressionConverter druidFilterExpressionConverter = new DruidFilterExpressionConverter(typeManager, functionMetadataManager, standardFunctionResolution, session);
             String filter = node.getPredicate().accept(druidFilterExpressionConverter, selections::get).getDefinition();
             return context.withFilter(filter).withOutputColumns(node.getOutputVariables());
@@ -180,7 +178,7 @@ public class DruidQueryGenerator
         {
             DruidQueryGeneratorContext context = node.getSource().accept(this, contextIn);
             requireNonNull(context, "context is null");
-            LinkedHashMap<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
+            Map<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
 
             node.getOutputVariables().forEach(variable -> {
                 RowExpression expression = node.getAssignments().get(variable);
@@ -199,7 +197,7 @@ public class DruidQueryGenerator
         {
             DruidTableHandle tableHandle = (DruidTableHandle) node.getTable().getConnectorHandle();
             checkArgument(!tableHandle.getDql().isPresent(), "Druid tableHandle should not have dql before pushdown");
-            LinkedHashMap<VariableReferenceExpression, Selection> selections = new LinkedHashMap<>();
+            Map<VariableReferenceExpression, Selection> selections = new LinkedHashMap<>();
             node.getOutputVariables().forEach(outputColumn -> {
                 DruidColumnHandle druidColumn = (DruidColumnHandle) (node.getAssignments().get(outputColumn));
                 selections.put(outputColumn, new Selection(druidColumn.getColumnName(), TABLE_COLUMN));

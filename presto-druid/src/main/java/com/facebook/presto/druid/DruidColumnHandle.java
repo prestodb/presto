@@ -91,7 +91,8 @@ public class DruidColumnHandle
         }
 
         DruidColumnHandle other = (DruidColumnHandle) obj;
-        return Objects.equals(this.columnName, other.columnName);
+        return Objects.equals(this.columnName, other.columnName) &&
+                Objects.equals(this.columnType, other.columnType);
     }
 
     @Override

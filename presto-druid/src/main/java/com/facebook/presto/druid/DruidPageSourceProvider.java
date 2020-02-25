@@ -64,7 +64,6 @@ public class DruidPageSourceProvider
         DruidSplit druidSplit = (DruidSplit) split;
         if (druidSplit.getSplitType() == BROKER) {
             return new DruidBrokerPageSource(
-                    session,
                     druidSplit.getBrokerDql().get(),
                     columns,
                     druidClient);

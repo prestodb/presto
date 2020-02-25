@@ -94,9 +94,9 @@ public class DruidSplit
     }
 
     @JsonProperty
-    public Optional<HostAddress> getAddress()
+    public HostAddress getAddress()
     {
-        return address;
+        return address.isPresent() ? address.get() : null;
     }
 
     @Override
@@ -108,10 +108,7 @@ public class DruidSplit
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        if (address.isPresent()) {
-            return ImmutableList.of(address.get());
-        }
-        return ImmutableList.of();
+        return address.map(ImmutableList::of).orElse(ImmutableList.of());
     }
 
     @Override

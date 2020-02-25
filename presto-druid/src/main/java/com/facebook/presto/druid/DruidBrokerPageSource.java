@@ -17,7 +17,6 @@ import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.druid.DruidQueryGenerator.GeneratedDql;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
@@ -41,17 +40,17 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DruidBrokerPageSource
         implements ConnectorPageSource
 {
-    private final ObjectMapper objecMapper = new ObjectMapperProvider().get();
-    private final ConnectorSession session;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
     private final GeneratedDql brokerDql;
     private final List<ColumnHandle> columnHandles;
     private final DruidClient druidClient;
@@ -62,14 +61,12 @@ public class DruidBrokerPageSource
     private long completedPositions;
 
     public DruidBrokerPageSource(
-            ConnectorSession session,
             GeneratedDql brokerDql,
             List<ColumnHandle> columnHandles,
             DruidClient druidClient)
     {
-        this.session = requireNonNull(session, "session is null");
         this.brokerDql = requireNonNull(brokerDql, "broker is null");
-        this.columnHandles = ImmutableList.copyOf(columnHandles);
+        this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.druidClient = requireNonNull(druidClient, "druid client is null");
     }
 
@@ -108,18 +105,18 @@ public class DruidBrokerPageSource
         try {
             List<DruidColumnHandle> handles = columnHandles.stream()
                     .map(column -> (DruidColumnHandle) column)
-                    .collect(Collectors.toList());
+                    .collect(toImmutableList());
 
             List<Type> columnTypes = handles.stream()
                     .map(DruidColumnHandle::getColumnType)
-                    .collect(Collectors.toList());
+                    .collect(toImmutableList());
 
             PageBuilder pageBuilder = new PageBuilder(columnTypes);
 
             String data = druidClient.getData(brokerDql.getDql());
             JsonNode rootNode;
             try {
-                rootNode = objecMapper.readTree(data);
+                rootNode = OBJECT_MAPPER.readTree(data);
                 checkArgument(rootNode.isArray(), "broker Druid query should return Json Array");
                 ArrayNode arrayNode = (ArrayNode) rootNode;
                 Iterator<JsonNode> iterator = arrayNode.elements();
@@ -132,10 +129,10 @@ public class DruidBrokerPageSource
                         if (type instanceof BigintType) {
                             type.writeLong(blockBuilder, value.longValue());
                         }
-                        if (type instanceof DoubleType) {
+                        else if (type instanceof DoubleType) {
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
-                        if (type instanceof RealType) {
+                        else if (type instanceof RealType) {
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof TimestampType) {

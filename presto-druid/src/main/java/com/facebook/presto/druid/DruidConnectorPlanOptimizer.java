@@ -28,6 +28,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TypeManager;
@@ -37,7 +38,6 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,15 +61,18 @@ public class DruidConnectorPlanOptimizer
     public DruidConnectorPlanOptimizer(
             DruidQueryGenerator druidQueryGenerator,
             TypeManager typeManager,
+            DeterminismEvaluator determinismEvaluator,
             FunctionMetadataManager functionMetadataManager,
-            LogicalRowExpressions logicalRowExpressions,
             StandardFunctionResolution standardFunctionResolution)
     {
         this.druidQueryGenerator = requireNonNull(druidQueryGenerator, "pinot query generator is null");
         this.typeManager = requireNonNull(typeManager, "type manager is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "function manager is null");
-        this.logicalRowExpressions = requireNonNull(logicalRowExpressions, "logical row expressions is null");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standard function resolution is null");
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                determinismEvaluator,
+                standardFunctionResolution,
+                functionMetadataManager);
     }
 
     @Override
@@ -79,8 +82,8 @@ public class DruidConnectorPlanOptimizer
             PlanNodeIdAllocator idAllocator)
     {
         Map<TableScanNode, Void> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
-        TableScanNode druidTableScanNode = getOnlyDruidTable(scanNodes)
-                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR,
+        TableScanNode druidTableScanNode = getOnlyDruidTable(scanNodes).orElseThrow(() -> new PrestoException(
+                        GENERIC_INTERNAL_ERROR,
                         "Expected to find druid table handle for the scan node"));
         return maxSubplan.accept(new Visitor(druidTableScanNode, session, idAllocator), null);
     }
@@ -124,17 +127,17 @@ public class DruidConnectorPlanOptimizer
         @Override
         public Map<TableScanNode, Void> visitPlan(PlanNode node, Void context)
         {
-            Map<TableScanNode, Void> ret = new IdentityHashMap<>();
-            node.getSources().forEach(source -> ret.putAll(source.accept(this, context)));
-            return ret;
+            Map<TableScanNode, Void> result = new IdentityHashMap<>();
+            node.getSources().forEach(source -> result.putAll(source.accept(this, context)));
+            return result;
         }
 
         @Override
         public Map<TableScanNode, Void> visitTableScan(TableScanNode node, Void context)
         {
-            Map<TableScanNode, Void> ret = new IdentityHashMap<>();
-            ret.put(node, null);
-            return ret;
+            Map<TableScanNode, Void> result = new IdentityHashMap<>();
+            result.put(node, null);
+            return result;
         }
     }
 
@@ -164,7 +167,7 @@ public class DruidConnectorPlanOptimizer
             DruidTableHandle druidTableHandle = getDruidTableHandle(tableScanNode).orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table handle"));
             DruidQueryGeneratorContext context = dql.get().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
-            LinkedHashMap<VariableReferenceExpression, DruidColumnHandle> assignments = context.getAssignments();
+            Map<VariableReferenceExpression, DruidColumnHandle> assignments = context.getAssignments();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
                     new DruidTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName(), Optional.of(dql.get().getGeneratedDql())),

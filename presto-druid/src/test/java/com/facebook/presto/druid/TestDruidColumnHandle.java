@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.DERIVED;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
-import static com.facebook.presto.druid.MetadataUtil.COLUMN_CODEC;
+import static com.facebook.presto.druid.TestingMetadataUtil.COLUMN_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -41,15 +41,11 @@ public class TestDruidColumnHandle
         EquivalenceTester
                 .equivalenceTester()
                 .addEquivalentGroup(
-                        new DruidColumnHandle("columnName", VARCHAR, REGULAR),
-                        new DruidColumnHandle("columnName", VARCHAR, DERIVED),
                         new DruidColumnHandle("columnName", BIGINT, REGULAR),
                         new DruidColumnHandle("columnName", BIGINT, DERIVED))
                 .addEquivalentGroup(
                         new DruidColumnHandle("columnNameX", VARCHAR, REGULAR),
-                        new DruidColumnHandle("columnNameX", VARCHAR, DERIVED),
-                        new DruidColumnHandle("columnNameX", BIGINT, REGULAR),
-                        new DruidColumnHandle("columnNameX", BIGINT, DERIVED))
+                        new DruidColumnHandle("columnNameX", VARCHAR, DERIVED))
                 .check();
     }
 }
