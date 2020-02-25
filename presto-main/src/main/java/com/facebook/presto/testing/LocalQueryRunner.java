@@ -790,6 +790,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
+                Optional.empty(),
                 new RemoteSourceFactory()
                 {
                     @Override

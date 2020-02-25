@@ -39,6 +39,7 @@ import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -779,17 +780,17 @@ public class TestOptimizedPartitionedOutputOperator
     {
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(TYPE_MANAGER), false);
 
-        OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(
+        OutputPartitioning outputPartitioning = new OutputPartitioning(
                 partitionFunction,
                 partitionChannel,
                 ImmutableList.of(Optional.empty()),
                 false,
-                nullChannel,
-                buffer,
-                maxMemory);
+                nullChannel);
+
+        OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, maxMemory);
 
         return (OptimizedPartitionedOutputOperator) operatorFactory
-                .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
+                .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.of(outputPartitioning), serdeFactory)
                 .createOperator(createDriverContext());
     }
 

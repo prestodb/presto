@@ -59,7 +59,6 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -284,17 +283,10 @@ public class BenchmarkPartitionedOutputOperator
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
-            OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(
-                    partitionFunction,
-                    ImmutableList.of(0),
-                    ImmutableList.of(Optional.empty()),
-                    false,
-                    OptionalInt.empty(),
-                    buffer,
-                    MAX_PARTITION_BUFFER_SIZE);
+            OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
 
             return (OptimizedPartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
+                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.empty(), serdeFactory)
                     .createOperator(createDriverContext());
         }
 
@@ -304,17 +296,10 @@ public class BenchmarkPartitionedOutputOperator
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
-            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
-                    partitionFunction,
-                    ImmutableList.of(0),
-                    ImmutableList.of(Optional.empty()),
-                    false,
-                    OptionalInt.empty(),
-                    buffer,
-                    MAX_PARTITION_BUFFER_SIZE);
+            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
 
             return (PartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
+                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.empty(), serdeFactory)
                     .createOperator(createDriverContext());
         }
 

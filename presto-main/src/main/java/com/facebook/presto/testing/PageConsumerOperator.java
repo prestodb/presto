@@ -22,8 +22,10 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.OutputPartitioning;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -44,7 +46,13 @@ public class PageConsumerOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
+        public OperatorFactory createOutputOperator(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<Type> types,
+                Function<Page, Page> pagePreprocessor,
+                Optional<OutputPartitioning> outputPartitioning,
+                PagesSerdeFactory serdeFactory)
         {
             return new PageConsumerOperatorFactory(operatorId, planNodeId, pageConsumerFactory.apply(types), pagePreprocessor);
         }

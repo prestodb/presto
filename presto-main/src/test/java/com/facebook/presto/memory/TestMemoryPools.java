@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -125,7 +126,8 @@ public class TestMemoryPools
                     TableScanOperator.class.getSimpleName());
 
             OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> {}));
-            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), new TestingPagesSerdeFactory()).createOperator(driverContext);
+            Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), Optional.empty(), new TestingPagesSerdeFactory())
+                    .createOperator(driverContext);
             RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
             createOperator.set(revocableMemoryOperator);
 
