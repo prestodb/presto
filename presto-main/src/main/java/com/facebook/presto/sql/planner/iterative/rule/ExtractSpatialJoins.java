@@ -374,9 +374,6 @@ public class ExtractSpatialJoins
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
     {
-        // TODO Add support for distributed left spatial joins
-        Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
-        Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
         FunctionManager functionManager = metadata.getFunctionManager();
 
         List<RowExpression> arguments = spatialFunction.getArguments();
@@ -385,11 +382,9 @@ public class ExtractSpatialJoins
         RowExpression firstArgument = arguments.get(0);
         RowExpression secondArgument = arguments.get(1);
 
-        Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType)) {
-            if (joinNode.getType() != INNER) {
-                return Result.empty();
-            }
+        // Currently, only inner joins are supported for spherical geometries.
+        if (joinNode.getType() != INNER && isSphericalJoin(metadata, firstArgument, secondArgument)) {
+            return Result.empty();
         }
 
         Set<VariableReferenceExpression> firstVariables = extractUnique(firstArgument);
@@ -399,12 +394,14 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument, metadata);
-        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument, metadata);
+        // If either firstArgument or secondArgument is not a
+        // VariableReferenceExpression, will replace the left/right join node
+        // with a projection that adds the argument as a variable.
+        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument);
+        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
-
         PlanNode newLeftNode;
         PlanNode newRightNode;
 
@@ -425,6 +422,13 @@ public class ExtractSpatialJoins
         RowExpression newFirstArgument = mapToExpression(newFirstVariable, firstArgument);
         RowExpression newSecondArgument = mapToExpression(newSecondVariable, secondArgument);
 
+        // Implement partitioned spatial joins:
+        // If the session parameter points to a valid spatial partitioning, use
+        // that to assign to each probe and build rows the partitions that the
+        // geometry intersects.  This is a projection that adds an array of ints
+        // which is subsequently unnested.
+        Optional<String> spatialPartitioningTableName = canPartitionSpatialJoin(joinNode) ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
+        Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
@@ -454,6 +458,54 @@ public class ExtractSpatialJoins
                 leftPartitionVariable,
                 rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
+    }
+
+    private static boolean isSphericalJoin(Metadata metadata, RowExpression firstArgument, RowExpression secondArgument)
+    {
+        Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
+        return firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType);
+    }
+
+    private static boolean canPartitionSpatialJoin(JoinNode joinNode)
+    {
+        /*
+         * Unlike equijoins, partitioned spatial joins can send a row to more
+         * than one join worker. Extended geometries (such as polygons) can
+         * intersect more than one spatial partition, but points will be sent
+         * to only one partition. For INNER joins, we only care about matches,
+         * so this is acceptable.  In the case of extended geometries on both
+         * probe and build side, we can disambiguate using the upper-left corner
+         * of the intersection of the envelopes.  Only the worker whose
+         * partition contains that point is responsible for the join.
+         *
+         * For OUTER joins we need to know if a row has not found a match.
+         * If a row in an OUTER side is on more than one worker in a distributed
+         * join (broadcast or partitioned), you cannot determine a non-match
+         * using only local information.  Not matching on one worker does not
+         * tell you if there isn't a match on another worker, so the worker
+         * doesn't know whether to emit a NULL for the non-match.
+         *
+         * This can happen if:
+         * 1. A side is broadcast, and it's OUTER on that side (including FULL).
+         * 2. A side is partitioned, the object is extended (ie, not a Point),
+         *    and it's OUTER on that side (including FULL).
+         *
+         * We assume that the right node is the build side.  The CBO is disabled
+         * for spatial joins, so this should be a good assumption.  Then we have:
+         * 1. INNER joins are OK.
+         * 2. LEFT joins when the left node is a Point are OK.
+         * 3. RIGHT joins when the right node is a Point are OK.
+         * 4. FULL joins when the left and right nodes are Points are OK.
+         * 5. If one side is extended by a radius (for ST_Distance), that side
+         *    is no longer considered a point.
+         *
+         * For now, we are only implementing the INNER case. Partitioned OUTER
+         * joins are future work.
+         *
+         * Caveat implementor: Letting the CBO change these joins requires
+         * thought about outer joins on broadcast sides, so consider carefully.
+         */
+        return joinNode.getType() == INNER;
     }
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
@@ -564,7 +616,7 @@ public class ExtractSpatialJoins
         return optionalVariable.map(RowExpression.class::cast).orElse(defaultExpression);
     }
 
-    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, RowExpression expression, Metadata metadata)
+    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, RowExpression expression)
     {
         if (expression instanceof VariableReferenceExpression) {
             return Optional.empty();
