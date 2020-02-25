@@ -22,14 +22,11 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.google.common.base.Stopwatch;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import org.apache.spark.SparkContext;
@@ -52,10 +49,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.ServiceLoader;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.fromProperties;
@@ -304,7 +301,8 @@ public class PrestoSparkLauncherCommand
     public static class CachingServiceFactory
             implements Serializable
     {
-        private static final Cache<String, IPrestoSparkService> services = CacheBuilder.newBuilder().build();
+        private static IPrestoSparkService service;
+        private static String fingerprint;
 
         private final PrestoSparkDistribution distribution;
 
@@ -315,14 +313,14 @@ public class PrestoSparkLauncherCommand
 
         public IPrestoSparkService createService()
         {
-            try {
-                return services.get(distribution.getFingerprint(), () -> {
+            synchronized (CachingServiceFactory.class) {
+                if (service == null) {
                     IPrestoSparkServiceFactory serviceFactory = createServiceFactory(new File(distribution.getLocalPackageDirectory(), "lib"));
-                    return serviceFactory.createService(createConfiguration(distribution));
-                });
-            }
-            catch (ExecutionException e) {
-                throw new UncheckedExecutionException(e);
+                    service = serviceFactory.createService(createConfiguration(distribution));
+                    fingerprint = distribution.getFingerprint();
+                }
+                checkState(fingerprint.equals(distribution.getFingerprint()), "invalid distribution fingerprint: %s != %s", fingerprint, distribution.getFingerprint());
+                return service;
             }
         }
     }
