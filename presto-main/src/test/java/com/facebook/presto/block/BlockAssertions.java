@@ -115,7 +115,11 @@ public final class BlockAssertions
 
     public static Block createAllNullsBlock(Type type, int positionCount)
     {
-        return new RunLengthEncodedBlock(type.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.appendNull();
+        }
+        return blockBuilder.build();
     }
 
     public static Block createStringsBlock(String... values)
