@@ -46,7 +46,7 @@ public class PrestoSparkRemoteSourceFactory
     }
 
     @Override
-    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId)
+    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,

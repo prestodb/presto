@@ -794,7 +794,7 @@ public class LocalQueryRunner
                 new RemoteSourceFactory()
                 {
                     @Override
-                    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId)
+                    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
                     {
                         throw new UnsupportedOperationException();
                     }
