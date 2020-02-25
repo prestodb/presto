@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -43,7 +44,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -140,9 +140,8 @@ public class DruidBrokerPageSource
                         }
                         else if (type instanceof TimestampType) {
                             DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
-                                    .withChronology(getChronology(session.getTimeZoneKey()))
-                                    .withOffsetParsed()
-                                    .withLocale(session.getLocale());
+                                    .withChronology(ISOChronology.getInstanceUTC())
+                                    .withOffsetParsed();
                             DateTime dateTime = formatter.parseDateTime(value.textValue());
                             type.writeLong(blockBuilder, dateTime.getMillis());
                         }
