@@ -23,11 +23,8 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
-
-import java.util.Set;
 
 import static com.facebook.presto.druid.DruidTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
@@ -85,20 +82,7 @@ public class DruidConnector
     @Override
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
-        return new ConnectorPlanOptimizerProvider()
-        {
-            @Override
-            public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
-            {
-                return ImmutableSet.of(planOptimizer);
-            }
-
-            @Override
-            public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
-            {
-                return ImmutableSet.of();
-            }
-        };
+        return new DruidPlanOptimizerProvider(planOptimizer);
     }
 
     @Override

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DruidQueryGeneratorContext
 {
-    private final LinkedHashMap<VariableReferenceExpression, Selection> selections;
+    private final Map<VariableReferenceExpression, Selection> selections;
     private final Optional<String> from;
     private final Optional<String> filter;
 
@@ -48,7 +49,7 @@ public class DruidQueryGeneratorContext
     }
 
     DruidQueryGeneratorContext(
-            LinkedHashMap<VariableReferenceExpression, Selection> selections,
+            Map<VariableReferenceExpression, Selection> selections,
             String from)
     {
         this(
@@ -58,7 +59,7 @@ public class DruidQueryGeneratorContext
     }
 
     private DruidQueryGeneratorContext(
-            LinkedHashMap<VariableReferenceExpression, Selection> selections,
+            Map<VariableReferenceExpression, Selection> selections,
             Optional<String> from,
             Optional<String> filter)
     {
@@ -76,7 +77,7 @@ public class DruidQueryGeneratorContext
                 Optional.of(filter));
     }
 
-    public DruidQueryGeneratorContext withProject(LinkedHashMap<VariableReferenceExpression, Selection> newSelections)
+    public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
     {
         return new DruidQueryGeneratorContext(
                 newSelections,
@@ -89,7 +90,7 @@ public class DruidQueryGeneratorContext
         return filter.isPresent();
     }
 
-    public LinkedHashMap<VariableReferenceExpression, Selection> getSelections()
+    public Map<VariableReferenceExpression, Selection> getSelections()
     {
         return selections;
     }
@@ -114,10 +115,10 @@ public class DruidQueryGeneratorContext
         return new DruidQueryGenerator.GeneratedDql(tableName, query);
     }
 
-    public LinkedHashMap<VariableReferenceExpression, DruidColumnHandle> getAssignments()
+    public Map<VariableReferenceExpression, DruidColumnHandle> getAssignments()
     {
-        LinkedHashMap<VariableReferenceExpression, DruidColumnHandle> result = new LinkedHashMap<>();
-        selections.entrySet().stream().forEach(entry -> {
+        Map<VariableReferenceExpression, DruidColumnHandle> result = new LinkedHashMap<>();
+        selections.entrySet().forEach(entry -> {
             VariableReferenceExpression variable = entry.getKey();
             Selection selection = entry.getValue();
             DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) : new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
@@ -128,7 +129,7 @@ public class DruidQueryGeneratorContext
 
     public DruidQueryGeneratorContext withOutputColumns(List<VariableReferenceExpression> outputColumns)
     {
-        LinkedHashMap<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
+        Map<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
         outputColumns.forEach(o -> newSelections.put(o, requireNonNull(selections.get(o), "Cannot find the selection " + o + " in the original context " + this)));
 
         return new DruidQueryGeneratorContext(newSelections, from, filter);
