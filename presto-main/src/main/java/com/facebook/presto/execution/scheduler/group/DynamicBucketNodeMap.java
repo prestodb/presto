@@ -14,16 +14,16 @@
 package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import org.checkerframework.checker.nullness.Opt;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +32,7 @@ public class DynamicBucketNodeMap
         extends BucketNodeMap
 {
     private final int bucketCount;
-    private final Int2ObjectMap<InternalNode> bucketToNode = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<InternalNodeInfo> bucketToNodeInfo = new Int2ObjectOpenHashMap<>();
     private final boolean hasInitialMap;
 
     public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount)
@@ -43,13 +43,13 @@ public class DynamicBucketNodeMap
         hasInitialMap = false;
     }
 
-    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode)
+    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode, boolean cacheable)
     {
         super(splitToBucket);
         checkArgument(bucketCount > 0, "bucketCount must be positive");
         checkArgument(bucketToPreferredNode.size() == bucketCount, "bucketToPreferredNode size must be equal to bucketCount");
         for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
-            bucketToNode.put(bucketNumber, bucketToPreferredNode.get(bucketNumber));
+            bucketToNodeInfo.put(bucketNumber, new InternalNodeInfo(bucketToPreferredNode.get(bucketNumber), cacheable));
         }
         this.bucketCount = bucketCount;
         this.hasInitialMap = true;
@@ -58,7 +58,19 @@ public class DynamicBucketNodeMap
     @Override
     public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
-        return Optional.ofNullable(bucketToNode.get(bucketedId));
+        if (!bucketToNodeInfo.containsKey(bucketedId)) {
+            return Optional.empty();
+        }
+        return Optional.of(bucketToNodeInfo.get(bucketedId).getInternalNode());
+    }
+
+    @Override
+    public boolean isBucketCacheable(int bucketedId)
+    {
+        if (!bucketToNodeInfo.containsKey(bucketedId)) {
+            return false;
+        }
+        return bucketToNodeInfo.get(bucketedId).isCacheable();
     }
 
     @Override
@@ -68,11 +80,11 @@ public class DynamicBucketNodeMap
     }
 
     @Override
-    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node)
+    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node, boolean cacheable)
     {
         checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
         requireNonNull(node, "node is null");
-        bucketToNode.put(bucketedId, node);
+        bucketToNodeInfo.put(bucketedId, new InternalNodeInfo(node, cacheable));
     }
 
     @Override
@@ -90,9 +102,9 @@ public class DynamicBucketNodeMap
     @Override
     public Optional<List<InternalNode>> getBucketToNode()
     {
-        if (bucketToNode.size() == 0) {
+        if (bucketToNodeInfo.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(ImmutableList.copyOf(bucketToNode.values()));
+        return Optional.of(bucketToNodeInfo.values().stream().map(InternalNodeInfo::getInternalNode).collect(Collectors.toList()));
     }
 }

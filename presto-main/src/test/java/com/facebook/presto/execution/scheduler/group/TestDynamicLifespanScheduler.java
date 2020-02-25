@@ -120,7 +120,8 @@ public class TestDynamicLifespanScheduler
         BucketNodeMap bucketNodeMap = new DynamicBucketNodeMap(
                 split -> ((TestDynamicLifespanScheduler.TestSplit) split.getConnectorSplit()).getBucketNumber(),
                 BUCKET_COUNT,
-                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2));
+                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2),
+                false);
         LifespanScheduler lifespanScheduler = getAffinityLifespanScheduler(bucketNodeMap);
         TestDynamicLifespanScheduler.TestingSourceScheduler sourceScheduler = new TestDynamicLifespanScheduler.TestingSourceScheduler();
         lifespanScheduler.scheduleInitial(sourceScheduler);
@@ -142,7 +143,8 @@ public class TestDynamicLifespanScheduler
         BucketNodeMap bucketNodeMap = new DynamicBucketNodeMap(
                 split -> ((TestDynamicLifespanScheduler.TestSplit) split.getConnectorSplit()).getBucketNumber(),
                 BUCKET_COUNT,
-                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2));
+                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2),
+                false);
         LifespanScheduler lifespanScheduler = getAffinityLifespanScheduler(bucketNodeMap);
         TestDynamicLifespanScheduler.TestingSourceScheduler sourceScheduler = new TestDynamicLifespanScheduler.TestingSourceScheduler();
         lifespanScheduler.scheduleInitial(sourceScheduler);
@@ -169,7 +171,8 @@ public class TestDynamicLifespanScheduler
         BucketNodeMap bucketNodeMap = new DynamicBucketNodeMap(
                 split -> ((TestDynamicLifespanScheduler.TestSplit) split.getConnectorSplit()).getBucketNumber(),
                 BUCKET_COUNT,
-                ImmutableList.of(node1, node3, node1, node3, node1, node3, node1, node3, node1, node3));
+                ImmutableList.of(node1, node3, node1, node3, node1, node3, node1, node3, node1, node3),
+                false);
         LifespanScheduler lifespanScheduler = getAffinityLifespanScheduler(bucketNodeMap);
         TestDynamicLifespanScheduler.TestingSourceScheduler sourceScheduler = new TestDynamicLifespanScheduler.TestingSourceScheduler();
         lifespanScheduler.scheduleInitial(sourceScheduler);
@@ -216,7 +219,8 @@ public class TestDynamicLifespanScheduler
         BucketNodeMap bucketNodeMap = new DynamicBucketNodeMap(
                 split -> ((TestDynamicLifespanScheduler.TestSplit) split.getConnectorSplit()).getBucketNumber(),
                 BUCKET_COUNT,
-                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2));
+                ImmutableList.of(node1, node2, node1, node2, node1, node2, node1, node2, node1, node2),
+                false);
         LifespanScheduler lifespanScheduler = getAffinityLifespanScheduler(bucketNodeMap);
         TestDynamicLifespanScheduler.TestingSourceScheduler sourceScheduler = new TestDynamicLifespanScheduler.TestingSourceScheduler();
         lifespanScheduler.scheduleInitial(sourceScheduler);

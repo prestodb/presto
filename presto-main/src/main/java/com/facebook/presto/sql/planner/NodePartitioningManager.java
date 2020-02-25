@@ -168,12 +168,12 @@ public class NodePartitioningManager
         NodeSelectionStrategy nodeSelectionStrategy = connectorBucketNodeMap.getNodeSelectionStrategy();
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
-                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
+                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap), false);
             case SOFT_AFFINITY:
                 if (preferDynamic) {
-                    return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount(), getFixedMapping(connectorBucketNodeMap));
+                    return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount(), getFixedMapping(connectorBucketNodeMap), true);
                 }
-                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
+                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap), true);
             case NO_PREFERENCE:
                 if (preferDynamic) {
                     return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount());
@@ -182,7 +182,8 @@ public class NodePartitioningManager
                         getSplitToBucket(session, partitioningHandle),
                         createArbitraryBucketToNode(
                                 nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
-                                connectorBucketNodeMap.getBucketCount()));
+                                connectorBucketNodeMap.getBucketCount()),
+                        false);
             default:
                 throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", nodeSelectionStrategy));
         }

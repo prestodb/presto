@@ -236,7 +236,7 @@ public class DynamicLifespanScheduler
         }
         else if (!noPreferenceDriverGroups.isEmpty()) {
             driverGroupId = OptionalInt.of(noPreferenceDriverGroups.dequeueInt());
-            bucketNodeMap.assignOrUpdateBucketToNode(driverGroupId.getAsInt(), node);
+            bucketNodeMap.assignOrUpdateBucketToNode(driverGroupId.getAsInt(), node, false);
         }
         return driverGroupId;
     }

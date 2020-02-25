@@ -15,40 +15,50 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 // the bucket to node mapping is fixed and pre-assigned
 public class FixedBucketNodeMap
         extends BucketNodeMap
 {
-    private final List<InternalNode> bucketToNode;
+    private final List<InternalNodeInfo> bucketToNodeInfo;
 
-    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<InternalNode> bucketToNode)
+    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<InternalNode> bucketToNode, boolean cacheable)
     {
         super(splitToBucket);
-        this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
+        requireNonNull(bucketToNode, "bucketToNode is null");
+        this.bucketToNodeInfo = bucketToNode.stream().map(internalNode -> new InternalNodeInfo(internalNode, cacheable)).collect(toImmutableList());
     }
 
     @Override
     public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
-        return Optional.of(bucketToNode.get(bucketedId));
+        return Optional.of(bucketToNodeInfo.get(bucketedId).getInternalNode());
+    }
+
+    @Override
+    public boolean isBucketCacheable(int bucketedId)
+    {
+        if (bucketToNodeInfo.get(bucketedId) == null) {
+            return false;
+        }
+        return bucketToNodeInfo.get(bucketedId).isCacheable();
     }
 
     @Override
     public int getBucketCount()
     {
-        return bucketToNode.size();
+        return bucketToNodeInfo.size();
     }
 
     @Override
-    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node)
+    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node, boolean cacheable)
     {
         throw new UnsupportedOperationException();
     }
@@ -68,6 +78,6 @@ public class FixedBucketNodeMap
     @Override
     public Optional<List<InternalNode>> getBucketToNode()
     {
-        return Optional.of(bucketToNode);
+        return Optional.of(bucketToNodeInfo.stream().map(InternalNodeInfo::getInternalNode).collect(toImmutableList()));
     }
 }

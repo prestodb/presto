@@ -78,6 +78,6 @@ public class NodePartitionMap
         for (int partition : bucketToPartition) {
             bucketToNode.add(partitionToNode.get(partition));
         }
-        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build());
+        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build(), false);
     }
 }
