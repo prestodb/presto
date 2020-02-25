@@ -35,7 +35,9 @@ public abstract class BucketNodeMap
 
     public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
 
-    public abstract void assignOrUpdateBucketToNode(int bucketedId, InternalNode node);
+    public abstract boolean isBucketCacheable(int bucketedId);
+
+    public abstract void assignOrUpdateBucketToNode(int bucketedId, InternalNode node, boolean cacheable);
 
     public abstract boolean isDynamic();
 
@@ -44,6 +46,11 @@ public abstract class BucketNodeMap
     public final Optional<InternalNode> getAssignedNode(Split split)
     {
         return getAssignedNode(splitToBucket.applyAsInt(split));
+    }
+
+    public final boolean isSplitCacheable(Split split)
+    {
+        return isBucketCacheable(splitToBucket.applyAsInt(split));
     }
 
     public abstract Optional<List<InternalNode>> getBucketToNode();
