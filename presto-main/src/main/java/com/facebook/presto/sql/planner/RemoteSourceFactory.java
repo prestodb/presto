@@ -23,7 +23,7 @@ import java.util.List;
 
 public interface RemoteSourceFactory
 {
-    OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId);
+    OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types);
 
     OperatorFactory createMergeRemoteSource(
             Session session,

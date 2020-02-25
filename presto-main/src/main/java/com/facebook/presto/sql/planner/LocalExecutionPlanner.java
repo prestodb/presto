@@ -794,7 +794,8 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = remoteSourceFactory.createRemoteSource(
                     session,
                     context.getNextOperatorId(),
-                    node.getId());
+                    node.getId(),
+                    getSourceOperatorTypes(node));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
