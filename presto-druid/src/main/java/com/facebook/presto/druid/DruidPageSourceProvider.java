@@ -34,14 +34,26 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import javax.inject.Inject;
+
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_DEEP_STORAGE_ERROR;
+import static com.facebook.presto.druid.DruidSplit.SplitType.BROKER;
+import static java.util.Objects.requireNonNull;
 
 public class DruidPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final DruidClient druidClient;
+
+    @Inject
+    public DruidPageSourceProvider(DruidClient druidClient)
+    {
+        this.druidClient = requireNonNull(druidClient, "druid client is null");
+    }
+
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
@@ -50,7 +62,14 @@ public class DruidPageSourceProvider
             List<ColumnHandle> columns)
     {
         DruidSplit druidSplit = (DruidSplit) split;
-        DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo();
+        if (druidSplit.getSplitType() == BROKER) {
+            return new DruidBrokerPageSource(
+                    session,
+                    druidSplit.getBrokerDql().get(),
+                    columns,
+                    druidClient);
+        }
+        DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
         try {
             Path hdfsPath = new Path(segmentInfo.getDeepStoragePath());
             FileSystem fileSystem = hdfsPath.getFileSystem(new Configuration());

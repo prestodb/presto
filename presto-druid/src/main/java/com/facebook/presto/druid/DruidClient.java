@@ -33,6 +33,7 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -116,6 +117,11 @@ public class DruidClient
                 .build();
 
         return httpClient.execute(request, createJsonResponseHandler(SEGMENT_INFO_CODEC));
+    }
+
+    public String getData(String dql)
+    {
+        return httpClient.execute(prepareQuery(dql), createStringResponseHandler()).getBody();
     }
 
     private static Request.Builder setContentTypeHeaders(Request.Builder requestBuilder)

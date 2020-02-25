@@ -22,33 +22,79 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class DruidSplit
         implements ConnectorSplit
 {
-    private final DruidSegmentInfo segmentInfo;
-    private final HostAddress address;
+    private final SplitType splitType;
+    private final Optional<DruidQueryGenerator.GeneratedDql> brokerDql;
+    private final Optional<DruidSegmentInfo> segmentInfo;
+    private final Optional<HostAddress> address;
 
     @JsonCreator
     public DruidSplit(
-            @JsonProperty("segmentInfo") DruidSegmentInfo segmentInfo,
-            @JsonProperty("address") HostAddress address)
+            @JsonProperty("splitType") SplitType splitType,
+            @JsonProperty("brokerDql") Optional<DruidQueryGenerator.GeneratedDql> brokerDql,
+            @JsonProperty("segmentInfo") Optional<DruidSegmentInfo> segmentInfo,
+            @JsonProperty("address") Optional<HostAddress> address)
     {
+        this.splitType = requireNonNull(splitType, "splitType id is null");
+        this.brokerDql = requireNonNull(brokerDql, "brokerDql is null");
         this.segmentInfo = requireNonNull(segmentInfo, "segment info is null");
         this.address = requireNonNull(address, "address info is null");
+        if (splitType == SplitType.SEGMENT) {
+            checkArgument(segmentInfo.isPresent(), "SegmentInfo is missing from split");
+            checkArgument(address.isPresent(), "Address is missing from split");
+        }
+        else {
+            checkArgument(brokerDql.isPresent(), "brokerDql is missing from the split");
+        }
+    }
+
+    public static DruidSplit createBrokerSplit(DruidQueryGenerator.GeneratedDql brokerDql)
+    {
+        return new DruidSplit(
+                SplitType.BROKER,
+                Optional.of(requireNonNull(brokerDql, "brokerDql is null")),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public static DruidSplit createSegmentSplit(DruidSegmentInfo segmentInfo, HostAddress address)
+    {
+        return new DruidSplit(
+                SplitType.SEGMENT,
+                Optional.empty(),
+                Optional.of(requireNonNull(segmentInfo, "segmentInfo are null")),
+                Optional.of(requireNonNull(address, "address is null")));
     }
 
     @JsonProperty
-    public DruidSegmentInfo getSegmentInfo()
+    public SplitType getSplitType()
+    {
+        return splitType;
+    }
+
+    @JsonProperty
+    public Optional<DruidQueryGenerator.GeneratedDql> getBrokerDql()
+    {
+        return brokerDql;
+    }
+
+    @JsonProperty
+    public Optional<DruidSegmentInfo> getSegmentInfo()
     {
         return segmentInfo;
     }
 
     @JsonProperty
-    public HostAddress getAddress()
+    public Optional<HostAddress> getAddress()
     {
         return address;
     }
@@ -62,12 +108,32 @@ public class DruidSplit
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return ImmutableList.of(address);
+        if (address.isPresent()) {
+            return ImmutableList.of(address.get());
+        }
+        return ImmutableList.of();
     }
 
     @Override
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("splitType", splitType)
+                .add("brokerDql", brokerDql)
+                .add("segmentInfo", segmentInfo)
+                .add("address", address)
+                .toString();
+    }
+
+    public enum SplitType
+    {
+        SEGMENT,
+        BROKER,
     }
 }
