@@ -110,6 +110,7 @@ public class PrestoSparkQueryRunner
                         "presto.version", "testversion",
                         "query.hash-partition-count", Integer.toString(nodeCount * 2),
                         "redistribute-writes", "false"),
+                ImmutableMap.of(),
                 ImmutableList.of());
 
         Injector injector = injectorFactory.create();

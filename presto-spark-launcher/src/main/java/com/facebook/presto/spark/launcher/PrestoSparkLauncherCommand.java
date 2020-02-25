@@ -39,25 +39,30 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.fromProperties;
 import static com.google.common.hash.Hashing.combineOrdered;
 import static com.google.common.io.Files.asByteSource;
 import static com.google.common.io.Files.asCharSource;
-import static com.google.common.io.Files.createTempDir;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Files.getNameWithoutExtension;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -87,8 +92,7 @@ public class PrestoSparkLauncherCommand
 
         SparkContext sparkContext = sparkContextFactory.create(clientOptions);
 
-        File tempDir = createTempDir();
-        distribution.deploy(sparkContext, tempDir);
+        distribution.deploy(sparkContext);
 
         CachingServiceFactory serviceFactory = new CachingServiceFactory(distribution);
         IPrestoSparkService service = serviceFactory.createService();
@@ -100,21 +104,14 @@ public class PrestoSparkLauncherCommand
 
         System.out.println("Rows: " + results.size());
         results.forEach(System.out::println);
-
-        try {
-            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static PrestoSparkDistribution createDistribution(PrestoSparkClientOptions clientOptions)
     {
         return new PrestoSparkDistribution(
                 new File(clientOptions.packagePath),
-                new File(clientOptions.config),
-                new File(clientOptions.catalogs));
+                loadProperties(checkFile(new File(clientOptions.config))),
+                loadCatalogProperties(checkDirectory(new File(clientOptions.catalogs))));
     }
 
     private static PrestoSparkSession createSessionInfo(PrestoSparkClientOptions clientOptions)
@@ -162,12 +159,10 @@ public class PrestoSparkLauncherCommand
 
     private static PrestoSparkConfiguration createConfiguration(PrestoSparkDistribution distribution)
     {
-        // TODO
         return new PrestoSparkConfiguration(
-                distribution.getLocalConfigFile().getAbsolutePath(),
+                distribution.getConfigProperties(),
                 new File(distribution.getLocalPackageDirectory(), "plugin").getAbsolutePath(),
-                distribution.getLocalCatalogsDirectory().getAbsolutePath(),
-                ImmutableMap.of());
+                distribution.getCatalogProperties());
     }
 
     private static File checkFile(File file)
@@ -194,41 +189,61 @@ public class PrestoSparkLauncherCommand
         }
     }
 
+    public static Map<String, Map<String, String>> loadCatalogProperties(File catalogsDirectory)
+    {
+        ImmutableMap.Builder<String, Map<String, String>> result = ImmutableMap.builder();
+        for (File file : catalogsDirectory.listFiles()) {
+            if (file.isFile() && file.getName().endsWith(".properties")) {
+                result.put(getNameWithoutExtension(file.getName()), loadProperties(file));
+            }
+        }
+        return result.build();
+    }
+
+    public static Map<String, String> loadProperties(File file)
+    {
+        Properties properties = new Properties();
+        try (InputStream in = Files.newInputStream(file.toPath())) {
+            properties.load(in);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return fromProperties(properties);
+    }
+
     public static class PrestoSparkDistribution
             implements Serializable
     {
-        private static final String CATALOGS_ARCHIVE_NAME = "catalogs.tar.gz";
-
         private final File packageFile;
-        private final File config;
-        private final File catalogs;
+        private final Map<String, String> configProperties;
+        private final Map<String, Map<String, String>> catalogProperties;
         private final String fingerprint;
 
-        public PrestoSparkDistribution(File packageFile, File config, File catalogs)
+        public PrestoSparkDistribution(
+                File packageFile,
+                Map<String, String> configProperties,
+                Map<String, Map<String, String>> catalogProperties)
         {
             this.packageFile = checkFile(requireNonNull(packageFile, "packageFile is null"));
-            checkFile(config);
-            checkArgument(!config.getName().equals(packageFile.getName()), "package file name and config file name must be different: %s", config.getName());
-            this.config = requireNonNull(config, "config is null");
-            checkDirectory(catalogs);
-            checkArgument(!catalogs.getName().equals(packageFile.getName()), "catalogs directory name and package file name must be different: %s", catalogs.getName());
-            checkArgument(!catalogs.getName().equals(config.getName()), "catalogs directory name and config file name must be different: %s", catalogs.getName());
-            this.catalogs = requireNonNull(catalogs, "catalogs is null");
-            this.fingerprint = computeFingerprint(packageFile, config, catalogs);
+            this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
+            this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
+            this.fingerprint = computeFingerprint(packageFile, configProperties, catalogProperties);
         }
 
-        private static String computeFingerprint(File packageFile, File config, File catalogs)
+        private static String computeFingerprint(
+                File packageFile,
+                Map<String, String> configProperties,
+                Map<String, Map<String, String>> catalogProperties)
         {
             try {
                 ImmutableList.Builder<HashCode> hashes = ImmutableList.builder();
                 hashes.add(asByteSource(packageFile).hash(Hashing.sha256()));
-                hashes.add(asByteSource(config).hash(Hashing.sha256()));
-                File[] catalogConfigurations = catalogs.listFiles();
-                sort(catalogConfigurations);
-                for (File catalogConfiguration : catalogConfigurations) {
-                    hashes.add(Hashing.sha256().hashString(catalogConfiguration.getName(), UTF_8));
-                    hashes.add(asByteSource(catalogConfiguration).hash(Hashing.sha256()));
-                }
+                ByteBuffer byteBuffer = ByteBuffer.allocate(32);
+                byteBuffer.putInt(configProperties.hashCode());
+                byteBuffer.putInt(catalogProperties.hashCode());
+                hashes.add(HashCode.fromBytes(byteBuffer.array()));
                 return combineOrdered(hashes.build()).toString();
             }
             catch (IOException e) {
@@ -236,14 +251,9 @@ public class PrestoSparkLauncherCommand
             }
         }
 
-        public void deploy(SparkContext context, File tempDir)
+        public void deploy(SparkContext context)
         {
             context.addFile(packageFile.getAbsolutePath());
-            context.addFile(config.getAbsolutePath());
-
-            File catalogsArchive = new File(tempDir, CATALOGS_ARCHIVE_NAME);
-            TarGz.create(catalogs, catalogsArchive);
-            context.addFile(catalogsArchive.getAbsolutePath());
         }
 
         public File getLocalPackageDirectory()
@@ -252,20 +262,14 @@ public class PrestoSparkLauncherCommand
             return ensureDecompressed(localPackageFile, new File(SparkFiles.getRootDirectory()));
         }
 
-        public File getLocalConfigFile()
+        public Map<String, String> getConfigProperties()
         {
-            if (config.exists()) {
-                return config;
-            }
-            return getLocalFile(config.getName());
+            return configProperties;
         }
 
-        public File getLocalCatalogsDirectory()
+        public Map<String, Map<String, String>> getCatalogProperties()
         {
-            if (catalogs.exists()) {
-                return catalogs;
-            }
-            return ensureDecompressed(getLocalFile(CATALOGS_ARCHIVE_NAME), new File(SparkFiles.getRootDirectory()));
+            return catalogProperties;
         }
 
         public String getFingerprint()

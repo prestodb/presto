@@ -33,18 +33,23 @@ import com.google.inject.Module;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkInjectorFactory
 {
-    private final Map<String, String> properties;
+    private final Map<String, String> configProperties;
+    private final Map<String, Map<String, String>> catalogProperties;
     private final List<Module> additionalModules;
 
-    public PrestoSparkInjectorFactory(Map<String, String> properties, List<Module> additionalModules)
+    public PrestoSparkInjectorFactory(Map<String, String> configProperties, Map<String, Map<String, String>> catalogProperties, List<Module> additionalModules)
     {
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
+        this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
     }
 
@@ -70,7 +75,7 @@ public class PrestoSparkInjectorFactory
 
         Map<String, String> requiredProperties = new HashMap<>();
         requiredProperties.put("node.environment", "spark");
-        requiredProperties.putAll(properties);
+        requiredProperties.putAll(configProperties);
 
         app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredProperties));
 
@@ -78,7 +83,7 @@ public class PrestoSparkInjectorFactory
 
         try {
             injector.getInstance(PluginManager.class).loadPlugins();
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
