@@ -183,11 +183,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
         </dependency>
@@ -254,6 +249,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -261,7 +262,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
-            <scope>compile</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
