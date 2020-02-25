@@ -20,11 +20,14 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.druid.DruidSplit.createBrokerSplit;
+import static com.facebook.presto.druid.DruidSplit.createSegmentSplit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -48,11 +51,14 @@ public class DruidSplitManager
     {
         DruidTableLayoutHandle layoutHandle = (DruidTableLayoutHandle) layout;
         DruidTableHandle table = layoutHandle.getTable();
+        if (table.getDql().isPresent()) {
+            return new FixedSplitSource(ImmutableList.of(createBrokerSplit(table.getDql().get())));
+        }
         List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
 
         List<DruidSplit> splits = segmentIds.stream()
                 .map(id -> druidClient.getSingleSegmentInfo(table.getTableName(), id))
-                .map(info -> new DruidSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
+                .map(info -> createSegmentSplit(info, HostAddress.fromUri(druidClient.getDruidBroker())))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);
