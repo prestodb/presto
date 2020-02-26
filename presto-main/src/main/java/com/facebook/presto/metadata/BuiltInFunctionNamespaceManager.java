@@ -28,6 +28,7 @@ import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CentralMomentsAggregation;
+import com.facebook.presto.operator.aggregation.ClassificationFallOutAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationMissRateAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationPrecisionAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationRecallAggregation;
@@ -481,6 +482,7 @@ public class BuiltInFunctionNamespaceManager
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
                 .aggregates(ClassificationMissRateAggregation.class)
+                .aggregates(ClassificationFallOutAggregation.class)
                 .aggregates(ClassificationPrecisionAggregation.class)
                 .aggregates(ClassificationRecallAggregation.class)
                 .aggregates(ClassificationThresholdsAggregation.class)
