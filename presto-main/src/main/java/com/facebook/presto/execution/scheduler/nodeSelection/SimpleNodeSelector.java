@@ -134,6 +134,7 @@ public class SimpleNodeSelector
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
                     candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
                     candidateNodes = convertToInternalNode(nodeMap, split.getPreferredNodes(sortedCandidates));

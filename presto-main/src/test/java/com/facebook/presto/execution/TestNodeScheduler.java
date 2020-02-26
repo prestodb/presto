@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -351,6 +352,31 @@ public class TestNodeScheduler
         splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(3)));
         splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
+    }
+
+    @Test
+    public void testHardAffinityAssignment()
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerTask(10);
+
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID, 3);
+
+        Set<Split> splits = new HashSet<>();
+
+        // Adding one more split (1 % 3 = 1), 1 splits will be distributed to 1 nodes
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestHardAffinitySplitRemote()));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestHardAffinitySplitRemote()));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestHardAffinitySplitRemote()));
+        SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
+        for (Split split : splitPlacementResult.getAssignments().values()) {
+            assertTrue(split.getSplitContext().isCacheable());
+        }
     }
 
     @Test
@@ -659,6 +685,27 @@ public class TestNodeScheduler
         public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of(sortedCandidates.get(scheduleIdentifierId % sortedCandidates.size()));
+        }
+    }
+
+    private static class TestHardAffinitySplitRemote
+            extends TestSplitRemote
+    {
+        public TestHardAffinitySplitRemote()
+        {
+            super();
+        }
+
+        @Override
+        public NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return HARD_AFFINITY;
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        {
+            return ImmutableList.of(sortedCandidates.get(new Random().nextInt(sortedCandidates.size())));
         }
     }
 
