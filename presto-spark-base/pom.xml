@@ -21,6 +21,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
             <version>${project.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
