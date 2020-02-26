@@ -50,6 +50,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -59,7 +60,6 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;

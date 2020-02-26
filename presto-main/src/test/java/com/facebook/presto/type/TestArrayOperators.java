@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -73,7 +74,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;

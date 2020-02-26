@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 
 public class TestJsonType
         extends AbstractTestType

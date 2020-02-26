@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
