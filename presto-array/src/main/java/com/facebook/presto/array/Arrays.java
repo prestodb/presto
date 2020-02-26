@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.array;
 
+import com.facebook.presto.spi.block.ArrayAllocator;
+
 import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
@@ -43,6 +45,31 @@ public class Arrays
             }
         }
         else if (expansionOption == INITIALIZE) {
+            java.util.Arrays.fill(buffer, 0);
+        }
+
+        return buffer;
+    }
+
+    public static int[] ensureCapacityWithAllocator(int[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption, ArrayAllocator allocator)
+    {
+        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+
+        if (buffer == null) {
+            buffer = allocator.borrowIntArray(newCapacity);
+        }
+        else if (buffer.length < capacity) {
+            if (expansionOption == PRESERVE) {
+                int[] newBuffer = allocator.borrowIntArray(newCapacity);
+                System.arraycopy(buffer, 0, newBuffer, 0, Math.min(buffer.length, newCapacity));
+                return newBuffer;
+            }
+            else {
+                buffer = allocator.borrowIntArray(newCapacity);
+            }
+        }
+
+        if (expansionOption == INITIALIZE) {
             java.util.Arrays.fill(buffer, 0);
         }
 
