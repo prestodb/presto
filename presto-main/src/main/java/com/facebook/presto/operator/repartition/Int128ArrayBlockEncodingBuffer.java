@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.spi.block.ArrayAllocator;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
@@ -50,6 +51,11 @@ public class Int128ArrayBlockEncodingBuffer
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;
+
+    public Int128ArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    {
+        super(bufferAllocator);
+    }
 
     @Override
     public void accumulateSerializedRowSizes(int[] serializedRowSizes)

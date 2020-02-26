@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.spi.block.ArrayAllocator;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.type.TypeSerde;
 import com.google.common.annotations.VisibleForTesting;
@@ -88,10 +89,11 @@ public class MapBlockEncodingBuffer
     private final BlockEncodingBuffer keyBuffers;
     private final BlockEncodingBuffer valueBuffers;
 
-    public MapBlockEncodingBuffer(DecodedBlockNode decodedBlockNode)
+    public MapBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
     {
-        keyBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0));
-        valueBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1));
+        super(bufferAllocator);
+        keyBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator);
+        valueBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1), bufferAllocator);
     }
 
     @Override

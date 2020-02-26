@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.spi.block.ArrayAllocator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.block.ColumnarArray;
@@ -63,6 +64,9 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractBlockEncodingBuffer
         implements BlockEncodingBuffer
 {
+    // The allocator for internal buffers
+    protected final ArrayAllocator bufferAllocator;
+
     // The block after peeling off the Dictionary or RLE wrappings.
     protected Block decodedBlock;
 
@@ -110,9 +114,15 @@ public abstract class AbstractBlockEncodingBuffer
     // Boolean indicating whether there are any null values in the nullsBuffer. It is possible that all values are non-null.
     private boolean hasEncodedNulls;
 
-    public static BlockEncodingBuffer createBlockEncodingBuffers(DecodedBlockNode decodedBlockNode)
+    protected AbstractBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    {
+        this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
+    }
+
+    public static BlockEncodingBuffer createBlockEncodingBuffers(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
+        requireNonNull(bufferAllocator, "bufferAllocator is null");
 
         // decodedBlock could be a block or ColumnarArray/Map/Row
         Object decodedBlock = decodedBlockNode.getDecodedBlock();
@@ -133,39 +143,39 @@ public abstract class AbstractBlockEncodingBuffer
         verify(!(decodedBlock instanceof RunLengthEncodedBlock), "Nested RLEs and dictionaries are not supported");
 
         if (decodedBlock instanceof LongArrayBlock) {
-            return new LongArrayBlockEncodingBuffer();
+            return new LongArrayBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof Int128ArrayBlock) {
-            return new Int128ArrayBlockEncodingBuffer();
+            return new Int128ArrayBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof IntArrayBlock) {
-            return new IntArrayBlockEncodingBuffer();
+            return new IntArrayBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof ShortArrayBlock) {
-            return new ShortArrayBlockEncodingBuffer();
+            return new ShortArrayBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof ByteArrayBlock) {
-            return new ByteArrayBlockEncodingBuffer();
+            return new ByteArrayBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof VariableWidthBlock) {
-            return new VariableWidthBlockEncodingBuffer();
+            return new VariableWidthBlockEncodingBuffer(bufferAllocator);
         }
 
         if (decodedBlock instanceof ColumnarArray) {
-            return new ArrayBlockEncodingBuffer(decodedBlockNode);
+            return new ArrayBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
         }
 
         if (decodedBlock instanceof ColumnarMap) {
-            return new MapBlockEncodingBuffer(decodedBlockNode);
+            return new MapBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
         }
 
         if (decodedBlock instanceof ColumnarRow) {
-            return new RowBlockEncodingBuffer(decodedBlockNode);
+            return new RowBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
         }
 
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
