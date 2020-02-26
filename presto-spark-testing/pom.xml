@@ -97,7 +97,6 @@
             <artifactId>presto-spark-launcher</artifactId>
             <version>${project.version}</version>
             <type>jar</type>
-            <classifier>shaded</classifier>
             <scope>test</scope>
         </dependency>
 

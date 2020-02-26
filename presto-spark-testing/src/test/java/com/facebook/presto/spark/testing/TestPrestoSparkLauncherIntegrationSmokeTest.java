@@ -137,7 +137,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         importTables(localQueryRunner, "lineitem", "orders");
 
         File projectRoot = resolveProjectRoot();
-        prestoLauncher = resolveFile(new File(projectRoot, "presto-spark-launcher/target"), Pattern.compile("presto-spark-launcher-.+-shaded\\.jar"));
+        prestoLauncher = resolveFile(new File(projectRoot, "presto-spark-launcher/target"), Pattern.compile("presto-spark-launcher-[\\d\\.]+(-SNAPSHOT)?\\.jar"));
         logPackageInfo(prestoLauncher);
         prestoPackage = resolveFile(new File(projectRoot, "presto-spark-package/target"), Pattern.compile("presto-spark-package-.+\\.tar\\.gz"));
         logPackageInfo(prestoPackage);
