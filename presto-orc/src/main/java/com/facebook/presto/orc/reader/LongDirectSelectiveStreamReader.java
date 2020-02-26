@@ -157,6 +157,35 @@ public class LongDirectSelectiveStreamReader
     private int readNoFilter(int[] positions, int positionCount)
             throws IOException
     {
+        if (positions[positionCount - 1] == positionCount - 1) {
+            // no skipping
+            if (presentStream != null) {
+                // some nulls
+                int nullCount = presentStream.getUnsetBits(positionCount, nulls);
+                if (nullCount == positionCount) {
+                    allNulls = true;
+                }
+                else {
+                    for (int i = 0; i < positionCount; i++) {
+                        if (nulls[i]) {
+                            values[i] = 0;
+                        }
+                        else {
+                            values[i] = dataStream.next();
+                        }
+                    }
+                }
+            }
+            else {
+                // no nulls
+                for (int i = 0; i < positionCount; i++) {
+                    values[i] = dataStream.next();
+                }
+            }
+            outputPositionCount = positionCount;
+            return positionCount;
+        }
+
         int streamPosition = 0;
 
         for (int i = 0; i < positionCount; i++) {
