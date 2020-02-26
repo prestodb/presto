@@ -35,9 +35,9 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.toSphericalGeography;
 import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.createCirclePolygon;
 import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
+import static com.facebook.presto.plugin.geospatial.SphericalGeoFunctions.toSphericalGeography;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
@@ -52,13 +52,13 @@ public class BenchmarkSTArea
     @Benchmark
     public Object stSphericalArea(BenchmarkData data)
     {
-        return GeoFunctions.stSphericalArea(data.geography);
+        return SphericalGeoFunctions.stSphericalArea(data.geography);
     }
 
     @Benchmark
     public Object stSphericalArea500k(BenchmarkData data)
     {
-        return GeoFunctions.stSphericalArea(data.geography500k);
+        return SphericalGeoFunctions.stSphericalArea(data.geography500k);
     }
 
     @Benchmark
