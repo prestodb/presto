@@ -360,10 +360,14 @@ public class OptimizedPartitionedOutputOperator
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
 
+        // The ArrayAllocator used by BlockFlattener for decoding blocks.
         // There could be queries that shuffles data with up to 1000 columns so we need to set the maxOutstandingArrays a high number.
-        private final ArrayAllocator arrayAllocator = new SimpleArrayAllocator(5000);
-        private final BlockFlattener flattener = new BlockFlattener(arrayAllocator);
+        private final ArrayAllocator blockDecodingAllocator = new SimpleArrayAllocator(5_000);
+        private final BlockFlattener flattener = new BlockFlattener(blockDecodingAllocator);
         private final Closer blockLeaseCloser = Closer.create();
+
+        // The ArrayAllocator for the buffers used in repartitioning, e.g. PartitionBuffer#serializedRowSizes, BlockEncodingBuffer#mappedPositions.
+        private final ArrayAllocator bufferAllocator = new SimpleArrayAllocator(10_000);
 
         private final PartitionBuffer[] partitionBuffers;
         private final List<Type> sourceTypes;
@@ -401,7 +405,7 @@ public class OptimizedPartitionedOutputOperator
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {
-                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), pageSize, pagesAdded, rowsAdded, serde, lifespan);
+                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), pageSize, pagesAdded, rowsAdded, serde, lifespan, bufferAllocator);
             }
 
             this.sourceTypes = sourceTypes;
@@ -490,11 +494,13 @@ public class OptimizedPartitionedOutputOperator
 
         public long getRetainedSizeInBytes()
         {
-            // When called by the operator constructor, the arrayAllocator was empty at the moment.
-            // When called in addInput(), the arrays have been returned to the arrayAllocator already,
+            // When called by the operator constructor, the blockDecodingAllocator was empty at the moment.
+            // When called in addInput(), the arrays have been returned to the blockDecodingAllocator already,
             // but they're still owned by the decodedBlock which will be counted as part of the decodedBlock.
-            // In both cases, the arrayAllocator doesn't need to be counted.
-            long size = 0;
+            // In both cases, the blockDecodingAllocator doesn't need to be counted. But we need to count
+            // bufferAllocator which contains buffers used during partitioning, e.g. serializedRowSizes,
+            // mappedPositions, etc.
+            long size = bufferAllocator.getEstimatedSizeInBytes();
 
             for (int i = 0; i < partitionBuffers.length; i++) {
                 size += partitionBuffers[i].getRetainedSizeInBytes();
@@ -544,16 +550,16 @@ public class OptimizedPartitionedOutputOperator
         private final Lifespan lifespan;
         private final int capacity;
         private final int channelCount;
+        private final ArrayAllocator bufferAllocator;
 
         private int[] positions;   // the default positions array for top level BlockEncodingBuffer
-        private int[] serializedRowSizes;  // The sizes of the rows in bytes if they were serialized
         private int positionCount;  // number of positions to be copied for this partition
         private BlockEncodingBuffer[] blockEncodingBuffers;
 
         private int bufferedRowCount;
         private boolean bufferFull;
 
-        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, Lifespan lifespan)
+        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, Lifespan lifespan, ArrayAllocator bufferAllocator)
         {
             this.partition = partition;
             this.channelCount = channelCount;
@@ -562,6 +568,7 @@ public class OptimizedPartitionedOutputOperator
             this.rowsAdded = requireNonNull(rowsAdded, "rowsAdded is null");
             this.serde = requireNonNull(serde, "serde is null");
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
+            this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
         }
 
         private void resetPositions(int estimatedPositionCount)
@@ -597,27 +604,34 @@ public class OptimizedPartitionedOutputOperator
                 blockEncodingBuffers[i].setupDecodedBlocksAndPositions(decodedBlocks[i], positions, positionCount);
             }
 
-            populateSerializedRowSizes(fixedWidthRowSize, variableWidthChannels);
+            int[] serializedRowSizes = ensureCapacity(null, positionCount, SMALL, INITIALIZE, bufferAllocator);
+            try {
+                populateSerializedRowSizes(fixedWidthRowSize, variableWidthChannels, serializedRowSizes);
 
-            // Due to the limitation of buffer size, we append the data batch by batch
-            int offset = 0;
-            do {
-                int batchSize = calculateNextBatchSize(fixedWidthRowSize, variableWidthChannels, offset);
+                // Due to the limitation of buffer size, we append the data batch by batch
+                int offset = 0;
+                do {
+                    int batchSize = calculateNextBatchSize(fixedWidthRowSize, variableWidthChannels, offset, serializedRowSizes);
 
-                for (int i = 0; i < channelCount; i++) {
-                    blockEncodingBuffers[i].setNextBatch(offset, batchSize);
-                    blockEncodingBuffers[i].appendDataInBatch();
+                    for (int i = 0; i < channelCount; i++) {
+                        blockEncodingBuffers[i].setNextBatch(offset, batchSize);
+                        blockEncodingBuffers[i].appendDataInBatch();
+                    }
+
+                    bufferedRowCount += batchSize;
+                    offset += batchSize;
+
+                    if (bufferFull) {
+                        flush(outputBuffer);
+                        bufferFull = false;
+                    }
                 }
-
-                bufferedRowCount += batchSize;
-                offset += batchSize;
-
-                if (bufferFull) {
-                    flush(outputBuffer);
-                    bufferFull = false;
-                }
+                while (offset < positionCount);
             }
-            while (offset < positionCount);
+            finally {
+                // Return the borrowed array for serializedRowSizes when the current page for the current partition is finished.
+                bufferAllocator.returnArray(serializedRowSizes);
+            }
         }
 
         private void initializeBlockEncodingBuffers(DecodedBlockNode[] decodedBlocks)
@@ -635,13 +649,11 @@ public class OptimizedPartitionedOutputOperator
         /**
          * Calculate the row sizes in bytes and write them to serializedRowSizes.
          */
-        private void populateSerializedRowSizes(int fixedWidthRowSize, List<Integer> variableWidthChannels)
+        private void populateSerializedRowSizes(int fixedWidthRowSize, List<Integer> variableWidthChannels, int[] serializedRowSizes)
         {
             if (variableWidthChannels.isEmpty()) {
                 return;
             }
-
-            serializedRowSizes = ensureCapacity(serializedRowSizes, positionCount, SMALL, INITIALIZE);
 
             for (int i : variableWidthChannels) {
                 blockEncodingBuffers[i].accumulateSerializedRowSizes(serializedRowSizes);
@@ -652,7 +664,7 @@ public class OptimizedPartitionedOutputOperator
             }
         }
 
-        private int calculateNextBatchSize(int fixedWidthRowSize, List<Integer> variableWidthChannels, int startPosition)
+        private int calculateNextBatchSize(int fixedWidthRowSize, List<Integer> variableWidthChannels, int startPosition, int[] serializedRowSizes)
         {
             int bytesRemaining = capacity - getSerializedBuffersSizeInBytes();
 
@@ -702,7 +714,7 @@ public class OptimizedPartitionedOutputOperator
 
         private long getRetainedSizeInBytes()
         {
-            long size = INSTANCE_SIZE + sizeOf(positions) + sizeOf(serializedRowSizes);
+            long size = INSTANCE_SIZE + sizeOf(positions);
 
             // Some destination partitions might get 0 rows. In that case the BlockEncodingBuffer won't be created.
             if (blockEncodingBuffers != null) {
