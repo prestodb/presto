@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.plugin.geospatial.SphericalGeoFunctions.toSphericalGeography;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -72,7 +73,7 @@ public class TestSphericalGeoFunctions
 
         BlockBuilder builder = SPHERICAL_GEOGRAPHY.createBlockBuilder(null, wktList.size());
         for (String wkt : wktList) {
-            SPHERICAL_GEOGRAPHY.writeSlice(builder, GeoFunctions.toSphericalGeography(GeoFunctions.stGeometryFromText(utf8Slice(wkt))));
+            SPHERICAL_GEOGRAPHY.writeSlice(builder, toSphericalGeography(GeoFunctions.stGeometryFromText(utf8Slice(wkt))));
         }
         Block block = builder.build();
         for (int i = 0; i < wktList.size(); i++) {
@@ -131,6 +132,29 @@ public class TestSphericalGeoFunctions
     private void assertInvalidLatitude(String wkt)
     {
         assertInvalidFunction(format("to_spherical_geography(ST_GeometryFromText('%s'))", wkt), "Latitude must be between -90 and 90");
+    }
+
+    @Test
+    public void testGreatCircleDistance()
+    {
+        assertFunction("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.448973436703);
+        assertFunction("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.448973436703);
+        assertFunction("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457461);
+        assertFunction("great_circle_distance(36.12, -86.67, 36.12, -86.67)", DOUBLE, 0.0);
+
+        assertInvalidFunction("great_circle_distance(100, 20, 30, 40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(10, 20, 300, 40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(10, 200, 30, 40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(10, 20, 30, 400)", "Longitude must be between -180 and 180");
+
+        assertInvalidFunction("great_circle_distance(nan(), -86.67, 33.94, -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(infinity(), -86.67, 33.94, -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, nan(), 33.94, -118.40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, infinity(), 33.94, -118.40)", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, nan(), -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, infinity(), -118.40)", "Latitude must be between -90 and 90");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, nan())", "Longitude must be between -180 and 180");
+        assertInvalidFunction("great_circle_distance(36.12, -86.67, 33.94, infinity())", "Longitude must be between -180 and 180");
     }
 
     @Test

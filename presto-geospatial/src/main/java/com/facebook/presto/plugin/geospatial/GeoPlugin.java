@@ -50,6 +50,7 @@ public class GeoPlugin
                 .add(KdbTreeCasts.class)
                 .add(SpatialPartitioningAggregateFunction.class)
                 .add(SpatialPartitioningInternalAggregateFunction.class)
+                .add(SphericalGeoFunctions.class)
                 .build();
     }
 }
