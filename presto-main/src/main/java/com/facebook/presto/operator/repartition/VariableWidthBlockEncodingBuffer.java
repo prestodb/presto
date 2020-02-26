@@ -28,6 +28,7 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.spi.block.AbstractVariableWidthBlock;
+import com.facebook.presto.spi.block.ArrayAllocator;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -66,6 +67,11 @@ public class VariableWidthBlockEncodingBuffer
 
     // The last offset in the offsets buffer
     private int lastOffset;
+
+    public VariableWidthBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    {
+        super(bufferAllocator);
+    }
 
     @Override
     public void accumulateSerializedRowSizes(int[] serializedRowSizes)
