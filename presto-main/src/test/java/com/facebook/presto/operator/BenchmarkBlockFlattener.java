@@ -72,6 +72,12 @@ public class BenchmarkBlockFlattener
         }
 
         @Override
+        public void returnAllBorrowedIntArrays()
+        {
+            // no op
+        }
+
+        @Override
         public int getBorrowedArrayCount()
         {
             return 0;

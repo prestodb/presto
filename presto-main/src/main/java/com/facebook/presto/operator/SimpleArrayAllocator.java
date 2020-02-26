@@ -21,6 +21,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,6 +84,17 @@ public class SimpleArrayAllocator
         requireNonNull(array, "array is null");
         checkArgument(borrowedIntArrays.remove(array), "Returned int array which was not borrowed");
         intArrays.push(array);
+    }
+
+    @Override
+    public void returnAllBorrowedIntArrays()
+    {
+        Iterator<int[]> iterator = borrowedIntArrays.iterator();
+        while (iterator.hasNext()) {
+            int[] array = iterator.next();
+            intArrays.push(array);
+            iterator.remove();
+        }
     }
 
     @Override

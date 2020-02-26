@@ -30,6 +30,8 @@ public interface ArrayAllocator
 
     void returnArray(int[] array);
 
+    void returnAllBorrowedIntArrays();
+
     /**
      * @return the number of borrowed arrays which have not been returned
      */

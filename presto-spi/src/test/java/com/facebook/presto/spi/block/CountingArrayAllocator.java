@@ -36,6 +36,12 @@ public class CountingArrayAllocator
     }
 
     @Override
+    public void returnAllBorrowedIntArrays()
+    {
+        borrowedArrays = 0;
+    }
+
+    @Override
     public int getBorrowedArrayCount()
     {
         return borrowedArrays;
