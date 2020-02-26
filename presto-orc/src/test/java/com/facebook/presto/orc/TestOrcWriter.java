@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -107,7 +108,8 @@ public class TestOrcWriter
                             dataSize,
                             dataSize,
                             dataSize,
-                            false)).getFooter();
+                            false),
+                    DEFAULT_HIVE_FILE_CONTEXT).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer

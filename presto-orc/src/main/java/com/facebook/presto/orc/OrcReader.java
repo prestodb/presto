@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -38,6 +39,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static java.lang.Math.toIntExact;
@@ -69,10 +71,11 @@ public class OrcReader
             OrcEncoding orcEncoding,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            OrcReaderOptions orcReaderOptions)
+            OrcReaderOptions orcReaderOptions,
+            HiveFileContext hiveFileContext)
             throws IOException
     {
-        this(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, Optional.empty(), orcReaderOptions);
+        this(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, Optional.empty(), orcReaderOptions, hiveFileContext);
     }
 
     OrcReader(
@@ -81,7 +84,8 @@ public class OrcReader
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             Optional<OrcWriteValidation> writeValidation,
-            OrcReaderOptions orcReaderOptions)
+            OrcReaderOptions orcReaderOptions,
+            HiveFileContext hiveFileContext)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -94,7 +98,7 @@ public class OrcReader
 
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
-        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation);
+        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, hiveFileContext);
         this.bufferSize = orcFileTail.getBufferSize();
         this.compressionKind = orcFileTail.getCompressionKind();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
@@ -271,7 +275,8 @@ public class OrcReader
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
                     Optional.of(writeValidation),
-                    orcReaderOptions);
+                    orcReaderOptions,
+                    DEFAULT_HIVE_FILE_CONTEXT);
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored

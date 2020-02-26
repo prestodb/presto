@@ -67,6 +67,7 @@ import java.util.stream.IntStream;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.raptor.filesystem.LocalFileStorageService.getFileSystemPath;
@@ -496,7 +497,13 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 4);
 
         // Optimized writer will keep the only column
-        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), OrcTestingUtil.createDefaultTestConfig());
+        OrcReader orcReader = new OrcReader(
+                fileOrcDataSource(newFile2),
+                ORC,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                OrcTestingUtil.createDefaultTestConfig(),
+                DEFAULT_HIVE_FILE_CONTEXT);
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
@@ -533,6 +540,7 @@ public class TestOrcFileRewriter
 
         ConnectorPageSource source = storageManager.getPageSource(
                 FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),
                 false,
@@ -654,6 +662,7 @@ public class TestOrcFileRewriter
 
         ConnectorPageSource source = storageManager.getPageSource(
                 FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),
                 false,
