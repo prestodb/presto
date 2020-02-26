@@ -327,7 +327,7 @@ public class TestBlockEncodingBuffers
         BlockFlattener flattener = new BlockFlattener(new SimpleArrayAllocator());
         DecodedBlockNode decodedBlock = decodeBlock(flattener, blockLeaseCloser, block);
 
-        BlockEncodingBuffer buffers = createBlockEncodingBuffers(decodedBlock);
+        BlockEncodingBuffer buffers = createBlockEncodingBuffers(decodedBlock, new SimpleArrayAllocator(100));
 
         int[] positions = IntStream.range(0, block.getPositionCount() / 2).toArray();
         copyPositions(decodedBlock, buffers, positions, expectedRowSizes);

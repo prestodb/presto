@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.spi.block.ArrayAllocator;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
@@ -69,9 +70,10 @@ public class ArrayBlockEncodingBuffer
     // The AbstractBlockEncodingBuffer for the nested values Block of the ArrayBlock
     private final BlockEncodingBuffer valuesBuffers;
 
-    public ArrayBlockEncodingBuffer(DecodedBlockNode decodedBlockNode)
+    public ArrayBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
     {
-        valuesBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0));
+        super(bufferAllocator);
+        valuesBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator);
     }
 
     @Override
