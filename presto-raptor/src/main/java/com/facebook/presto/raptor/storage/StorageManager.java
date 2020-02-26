@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -30,6 +31,7 @@ public interface StorageManager
 {
     default ConnectorPageSource getPageSource(
             FileSystemContext fileSystemContext,
+            HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,
             boolean tableSupportsDeltaDelete,
@@ -39,11 +41,24 @@ public interface StorageManager
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes)
     {
-        return getPageSource(fileSystemContext, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
+        return getPageSource(
+                fileSystemContext,
+                hiveFileContext,
+                shardUuid,
+                deltaShardUuid,
+                tableSupportsDeltaDelete,
+                bucketNumber,
+                columnIds,
+                columnTypes,
+                effectivePredicate,
+                readerAttributes,
+                OptionalLong.empty(),
+                Optional.empty());
     }
 
     ConnectorPageSource getPageSource(
             FileSystemContext fileSystemContext,
+            HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,
             boolean tableSupportsDeltaDelete,

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.cache;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcWriteValidation;
@@ -46,7 +47,7 @@ public class StorageOrcFileTailSource
     private static final int CURRENT_MINOR_VERSION = 12;
 
     @Override
-    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation)
+    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, HiveFileContext hiveFileContext)
             throws IOException
     {
         long size = orcDataSource.getSize();

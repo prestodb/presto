@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
@@ -36,6 +37,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -54,7 +56,7 @@ public class RaptorPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
-
+        HiveFileContext hiveFileContext = DEFAULT_HIVE_FILE_CONTEXT; // TODO: adjust cacheable accordingly
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);
@@ -69,6 +71,7 @@ public class RaptorPageSourceProvider
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
             return createPageSource(
                     context,
+                    hiveFileContext,
                     shardUuid,
                     Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                     tableSupportsDeltaDelete,
@@ -83,6 +86,7 @@ public class RaptorPageSourceProvider
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
                 .map(shardUuid -> createPageSource(
                         context,
+                        hiveFileContext,
                         shardUuid,
                         Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                         tableSupportsDeltaDelete,
@@ -106,6 +110,7 @@ public class RaptorPageSourceProvider
      */
     private ConnectorPageSource createPageSource(
             FileSystemContext context,
+            HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,
             boolean tableSupportsDeltaDelete,
@@ -120,6 +125,6 @@ public class RaptorPageSourceProvider
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(context, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
+        return storageManager.getPageSource(context, hiveFileContext, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
     }
 }

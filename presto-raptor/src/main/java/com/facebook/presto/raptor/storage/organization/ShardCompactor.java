@@ -46,6 +46,7 @@ import java.util.Queue;
 import java.util.UUID;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -111,6 +112,7 @@ public final class ShardCompactor
             Optional<UUID> deltaUuid = entry.getValue();
             try (ConnectorPageSource pageSource = storageManager.getPageSource(
                     FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                    DEFAULT_HIVE_FILE_CONTEXT,
                     uuid,
                     deltaUuid,
                     tableSupportsDeltaDelete,
@@ -163,6 +165,7 @@ public final class ShardCompactor
             uuidsMap.forEach((uuid, deltaUuid) -> {
                 ConnectorPageSource pageSource = storageManager.getPageSource(
                         FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                        DEFAULT_HIVE_FILE_CONTEXT,
                         uuid,
                         deltaUuid,
                         tableSupportsDeltaDelete,

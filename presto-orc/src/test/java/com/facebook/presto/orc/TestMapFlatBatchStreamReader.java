@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
@@ -398,7 +399,8 @@ public class TestMapFlatBatchStreamReader
                 OrcEncoding.DWRF,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
-                OrcReaderTestingUtils.createDefaultTestConfig());
+                OrcReaderTestingUtils.createDefaultTestConfig(),
+                DEFAULT_HIVE_FILE_CONTEXT);
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
