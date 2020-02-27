@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -77,7 +78,8 @@ public final class ShardStats
                 OrcPredicate.TRUE,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                DEFAULT_HIVE_FILE_CONTEXT);
 
         if (type.equals(BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

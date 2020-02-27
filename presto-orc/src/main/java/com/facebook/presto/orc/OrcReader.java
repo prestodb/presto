@@ -65,6 +65,8 @@ public class OrcReader
     private final StripeMetadataSource stripeMetadataSource;
     private final OrcReaderOptions orcReaderOptions;
 
+    private final HiveFileContext hiveFileContext;
+
     // This is based on the Apache Hive ORC code
     public OrcReader(
             OrcDataSource orcDataSource,
@@ -122,6 +124,8 @@ public class OrcReader
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
+
+        this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
     }
 
     public List<String> getColumnNames()
@@ -149,10 +153,16 @@ public class OrcReader
         return compressionKind;
     }
 
-    public OrcBatchRecordReader createBatchRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    public OrcBatchRecordReader createBatchRecordReader(
+            Map<Integer, Type> includedColumns,
+            OrcPredicate predicate,
+            DateTimeZone hiveStorageTimeZone,
+            AggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize,
+            HiveFileContext hiveFileContext)
             throws OrcCorruptionException
     {
-        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, hiveFileContext);
     }
 
     public OrcBatchRecordReader createBatchRecordReader(
@@ -162,7 +172,8 @@ public class OrcReader
             long length,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize)
+            int initialBatchSize,
+            HiveFileContext hiveFileContext)
             throws OrcCorruptionException
     {
         return new OrcBatchRecordReader(
@@ -188,7 +199,8 @@ public class OrcReader
                 systemMemoryUsage.newAggregatedMemoryContext(),
                 writeValidation,
                 initialBatchSize,
-                stripeMetadataSource);
+                stripeMetadataSource,
+                hiveFileContext);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -207,7 +219,8 @@ public class OrcReader
             boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            HiveFileContext hiveFileContext)
     {
         return new OrcSelectiveRecordReader(
                 includedColumns,
@@ -240,7 +253,8 @@ public class OrcReader
                 systemMemoryUsage.newAggregatedMemoryContext(),
                 writeValidation,
                 initialBatchSize,
-                stripeMetadataSource);
+                stripeMetadataSource,
+                hiveFileContext);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -277,7 +291,13 @@ public class OrcReader
                     Optional.of(writeValidation),
                     orcReaderOptions,
                     DEFAULT_HIVE_FILE_CONTEXT);
-            try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
+            try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
+                    readTypes.build(),
+                    OrcPredicate.TRUE,
+                    hiveStorageTimeZone,
+                    newSimpleAggregatedMemoryContext(),
+                    INITIAL_BATCH_SIZE,
+                    DEFAULT_HIVE_FILE_CONTEXT)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

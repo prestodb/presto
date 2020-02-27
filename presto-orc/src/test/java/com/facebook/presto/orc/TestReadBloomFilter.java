@@ -125,7 +125,7 @@ public class TestReadBloomFilter
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE, DEFAULT_HIVE_FILE_CONTEXT);
     }
 
     private static <T> TupleDomainOrcPredicate<String> makeOrcPredicate(Type type, T value, boolean bloomFilterEnabled)

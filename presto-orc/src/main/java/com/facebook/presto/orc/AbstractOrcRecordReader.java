@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -132,7 +133,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
-            StripeMetadataSource stripeMetadataSource)
+            StripeMetadataSource stripeMetadataSource,
+            HiveFileContext hiveFileContext)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -226,7 +228,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 hiveWriterVersion,
                 metadataReader,
                 writeValidation,
-                stripeMetadataSource);
+                stripeMetadataSource,
+                hiveFileContext);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {

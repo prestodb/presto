@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -49,11 +50,14 @@ public class CachingStripeMetadataSource
     }
 
     @Override
-    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength)
+    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, HiveFileContext hiveFileContext)
             throws IOException
     {
         try {
-            return footerSliceCache.get(stripeId, () -> delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength));
+            if (!hiveFileContext.isCacheable()) {
+                return delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, hiveFileContext);
+            }
+            return footerSliceCache.get(stripeId, () -> delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, hiveFileContext));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);
@@ -62,12 +66,12 @@ public class CachingStripeMetadataSource
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, HiveFileContext hiveFileContext)
             throws IOException
     {
-        //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
-        //
+        if (!hiveFileContext.isCacheable()) {
+            return delegate.getInputs(orcDataSource, stripeId, diskRanges, hiveFileContext);
+        }
 
         // Fetch existing stream slice from cache
         ImmutableMap.Builder<StreamId, OrcDataSourceInput> inputsBuilder = ImmutableMap.builder();
@@ -88,7 +92,7 @@ public class CachingStripeMetadataSource
         }
 
         // read ranges and update cache
-        Map<StreamId, OrcDataSourceInput> uncachedInputs = delegate.getInputs(orcDataSource, stripeId, uncachedDiskRangesBuilder.build());
+        Map<StreamId, OrcDataSourceInput> uncachedInputs = delegate.getInputs(orcDataSource, stripeId, uncachedDiskRangesBuilder.build(), hiveFileContext);
         for (Entry<StreamId, OrcDataSourceInput> entry : uncachedInputs.entrySet()) {
             if (isCachedStream(entry.getKey().getStreamKind())) {
                 // We need to rewind the input after eagerly reading the slice.
