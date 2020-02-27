@@ -168,11 +168,6 @@ public abstract class AbstractVerification
         return prestoAction;
     }
 
-    protected QueryRewriter getQueryRewriter()
-    {
-        return queryRewriter;
-    }
-
     protected VerificationContext getVerificationContext()
     {
         return verificationContext;
@@ -224,16 +219,19 @@ public abstract class AbstractVerification
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
 
-        controlStats = queryException.isPresent() && queryException.get().getQueryStage() == CONTROL_MAIN ?
-                queryException.get().getQueryStats() :
-                controlStats;
-        testStats = queryException.isPresent() && queryException.get().getQueryStage() == TEST_MAIN ?
-                queryException.get().getQueryStats() :
-                testStats;
+        if (queryException.isPresent() && queryException.get() instanceof PrestoQueryException) {
+            PrestoQueryException prestoException = (PrestoQueryException) queryException.get();
+            if (prestoException.getQueryStage() == CONTROL_MAIN) {
+                controlStats = prestoException.getQueryStats();
+            }
+            else if (prestoException.getQueryStage() == TEST_MAIN) {
+                testStats = prestoException.getQueryStats();
+            }
+        }
 
         Optional<String> errorCode = Optional.empty();
         if (!succeeded) {
-            errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCode).orElse(
+            errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCodeName).orElse(
                     matchResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
@@ -323,10 +321,14 @@ public abstract class AbstractVerification
         if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
         }
-        if (queryException.isPresent() &&
-                queryException.get().getQueryStage().equals(CHECKSUM) &&
-                queryException.get().getPrestoErrorCode().isPresent() &&
-                queryException.get().getPrestoErrorCode().get().equals(COMPILER_ERROR)) {
+        if (!queryException.isPresent()
+                || !queryException.get().getQueryStage().equals(CHECKSUM)
+                || !(queryException.get() instanceof PrestoQueryException)) {
+            return Optional.empty();
+        }
+        PrestoQueryException prestoException = (PrestoQueryException) queryException.get();
+        if (prestoException.getErrorCode().isPresent() &&
+                prestoException.getErrorCode().get().equals(COMPILER_ERROR)) {
             return Optional.of(VERIFIER_LIMITATION);
         }
         return Optional.empty();
@@ -349,7 +351,8 @@ public abstract class AbstractVerification
             return QueryState.FAILED_TO_SETUP;
         }
         if (queryException.get().getQueryStage().isMain()) {
-            return queryException.get().getPrestoErrorCode().map(errorCode -> errorCode == EXCEEDED_TIME_LIMIT).orElse(false) ?
+            return queryException.get() instanceof PrestoQueryException
+                    && ((PrestoQueryException) queryException.get()).getErrorCode().equals(Optional.of(EXCEEDED_TIME_LIMIT)) ?
                     QueryState.TIMED_OUT :
                     QueryState.FAILED;
         }

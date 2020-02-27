@@ -31,13 +31,13 @@ public class TestQueryException
     public void testErrorCode()
     {
         assertEquals(
-                QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE).getErrorCode(),
+                new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE).getErrorCodeName(),
                 "CLUSTER_CONNECTION(SocketTimeoutException)");
         assertEquals(
-                QueryException.forPresto(new SQLException(), Optional.of(REMOTE_TASK_ERROR), false, Optional.empty(), QUERY_STAGE).getErrorCode(),
+                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.of(REMOTE_TASK_ERROR), Optional.empty()).getErrorCodeName(),
                 "PRESTO(REMOTE_TASK_ERROR)");
         assertEquals(
-                QueryException.forPresto(new SQLException(), Optional.empty(), false, Optional.empty(), QUERY_STAGE).getErrorCode(),
+                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.empty(), Optional.empty()).getErrorCodeName(),
                 "PRESTO(UNKNOWN)");
     }
 }

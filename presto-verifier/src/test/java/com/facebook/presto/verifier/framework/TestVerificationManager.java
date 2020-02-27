@@ -67,7 +67,7 @@ public class TestVerificationManager
         @Override
         public QueryStats execute(Statement statement, QueryStage queryStage)
         {
-            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryStage);
+            throw new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
         }
 
         @Override
@@ -76,7 +76,7 @@ public class TestVerificationManager
                 QueryStage queryStage,
                 ResultSetConverter<R> converter)
         {
-            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryStage);
+            throw new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
         }
     }
 

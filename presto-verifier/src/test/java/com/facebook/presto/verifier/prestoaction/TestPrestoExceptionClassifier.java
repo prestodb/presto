@@ -16,6 +16,8 @@ package com.facebook.presto.verifier.prestoaction;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.verifier.framework.ClusterConnectionException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import org.testng.annotations.Test;
@@ -37,9 +39,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
-import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static org.testng.Assert.assertTrue;
 
 public class TestPrestoExceptionClassifier
 {
@@ -61,13 +62,7 @@ public class TestPrestoExceptionClassifier
 
     private void testNetworkException(SQLException sqlException)
     {
-        assertQueryException(
-                classifier.createException(QUERY_STAGE, Optional.empty(), sqlException),
-                CLUSTER_CONNECTION,
-                Optional.empty(),
-                true,
-                Optional.empty(),
-                QUERY_STAGE);
+        assertClusterConnectionException(classifier.createException(QUERY_STAGE, Optional.empty(), sqlException), QUERY_STAGE);
     }
 
     @Test
@@ -86,9 +81,8 @@ public class TestPrestoExceptionClassifier
     private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
     {
         SQLException sqlException = new SQLException("", "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, errorCode.toErrorCode().getName()));
-        assertQueryException(
+        assertPrestoQueryException(
                 classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
-                PRESTO,
                 Optional.of(errorCode),
                 expectedRetryable,
                 Optional.of(QUERY_STATS),
@@ -99,27 +93,36 @@ public class TestPrestoExceptionClassifier
     public void testUnknownPrestoException()
     {
         SQLException sqlException = new SQLException("", "", 0xabcd_1234, new RuntimeException());
-        assertQueryException(
+        assertPrestoQueryException(
                 classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
-                PRESTO,
                 Optional.empty(),
                 false,
                 Optional.of(QUERY_STATS),
                 QUERY_STAGE);
     }
 
-    private void assertQueryException(
+    private void assertClusterConnectionException(QueryException queryException, QueryStage queryStage)
+    {
+        assertTrue(queryException instanceof ClusterConnectionException);
+        assertEquals(queryException.getQueryStage(), queryStage);
+        ClusterConnectionException exception = (ClusterConnectionException) queryException;
+
+        assertTrue(exception.isRetryable());
+    }
+
+    private void assertPrestoQueryException(
             QueryException queryException,
-            QueryException.Type type,
-            Optional<ErrorCodeSupplier> prestoErrorCode,
+            Optional<ErrorCodeSupplier> errorCode,
             boolean retryable,
             Optional<QueryStats> queryStats,
             QueryStage queryStage)
     {
-        assertEquals(queryException.getType(), type);
-        assertEquals(queryException.getPrestoErrorCode(), prestoErrorCode);
-        assertEquals(queryException.isRetryable(), retryable);
-        assertEquals(queryException.getQueryStats(), queryStats);
+        assertTrue(queryException instanceof PrestoQueryException);
         assertEquals(queryException.getQueryStage(), queryStage);
+        PrestoQueryException exception = (PrestoQueryException) queryException;
+
+        assertEquals(exception.getErrorCode(), errorCode);
+        assertEquals(exception.isRetryable(), retryable);
+        assertEquals(exception.getQueryStats(), queryStats);
     }
 }

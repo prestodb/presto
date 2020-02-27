@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -36,12 +36,12 @@ public class TestExceededGlobalMemoryLimitFailureResolver
     {
         assertFalse(getFailureResolver().resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forPresto(
+                new PrestoQueryException(
                         new RuntimeException(),
-                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
-                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 700L * 1024 * 1024 * 1024)),
-                        TEST_MAIN),
+                        TEST_MAIN,
+                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
+                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 700L * 1024 * 1024 * 1024))),
                 Optional.empty())
                 .isPresent());
     }
@@ -52,12 +52,12 @@ public class TestExceededGlobalMemoryLimitFailureResolver
         assertEquals(
                 getFailureResolver().resolve(
                         CONTROL_QUERY_STATS,
-                        QueryException.forPresto(
+                        new PrestoQueryException(
                                 new RuntimeException(),
-                                Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                                 false,
-                                Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 500L * 1024 * 1024 * 1024)),
-                                TEST_MAIN),
+                                TEST_MAIN,
+                                Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
+                                Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 500L * 1024 * 1024 * 1024))),
                         Optional.empty()),
                 Optional.of("Auto Resolved: Control query uses more memory than test cluster limit"));
     }

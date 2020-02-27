@@ -53,7 +53,7 @@ public class VerifierUtil
             queryStatsConsumer.accept(queryStatsTransformer.apply(result));
             return result;
         }
-        catch (QueryException e) {
+        catch (PrestoQueryException e) {
             e.getQueryStats().ifPresent(queryStatsConsumer);
             throw e;
         }

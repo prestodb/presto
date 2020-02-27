@@ -20,6 +20,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
@@ -84,12 +85,12 @@ public class TestTooManyOpenPartitionsFailureResolver
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
             ImmutableList.of(),
             TEST);
-    private static final QueryException HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION = QueryException.forPresto(
+    private static final QueryException HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION = new PrestoQueryException(
             new RuntimeException(),
-            Optional.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
             false,
-            Optional.of(createQueryStats(0, 0)),
-            TEST_MAIN);
+            TEST_MAIN,
+            Optional.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
+            Optional.of(createQueryStats(0, 0)));
 
     private static final AtomicReference<String> createTable = new AtomicReference<>();
 
