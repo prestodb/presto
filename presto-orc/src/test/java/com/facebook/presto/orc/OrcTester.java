@@ -1283,7 +1283,13 @@ public class OrcTester
     static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, HiveFileContext hiveFileContext)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), hiveFileContext);
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, hiveFileContext);
+    }
+
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, HiveFileContext hiveFileContext)
+            throws IOException
+    {
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), hiveFileContext);
     }
 
     static OrcBatchRecordReader createCustomOrcRecordReader(
@@ -1310,7 +1316,6 @@ public class OrcTester
                         false),
                 hiveFileContext);
 
-        assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         Map<Integer, Type> columnTypes = IntStream.range(0, types.size())
@@ -1979,7 +1984,7 @@ public class OrcTester
         return createOrcRecordWriter(outputFile, format, compression, ImmutableList.of(type));
     }
 
-    private static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, List<Type> types)
+    static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, List<Type> types)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -2019,7 +2024,7 @@ public class OrcTester
         return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(getJavaObjectInspector(type)));
     }
 
-    private static SettableStructObjectInspector createSettableStructObjectInspector(List<Type> types)
+    static SettableStructObjectInspector createSettableStructObjectInspector(List<Type> types)
     {
         List<ObjectInspector> columnTypes = types.stream()
                 .map(OrcTester::getJavaObjectInspector)
