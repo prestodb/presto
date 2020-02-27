@@ -15,7 +15,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
-    - TEST_SPECIFIC_MODULES=presto-cassandra
+    - TEST_SPECIFIC_MODULES=presto-cassandra TEST_FLAGS="-P test-cassandra-integration-smoke-test"
     - TEST_SPECIFIC_MODULES=presto-hive
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-execution"
@@ -24,7 +24,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-main
-    - TEST_SPECIFIC_MODULES=presto-mongodb
+    - TEST_SPECIFIC_MODULES=presto-mongodb TEST_FLAGS="-P test-mongo-distributed-queries"
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
