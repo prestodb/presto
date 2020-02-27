@@ -26,6 +26,7 @@ import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -48,6 +49,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -156,14 +158,12 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
-        ImmutableMap.Builder<Integer, Type> presentColumnsAndTypes = ImmutableMap.builder();
         OrcType root = types.get(0);
-        for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
+        for (int column : includedColumns.keySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
-            if (entry.getKey() >= 0 && entry.getKey() < root.getFieldCount()) {
-                presentColumns.add(entry.getKey());
-                presentColumnsAndTypes.put(entry.getKey(), entry.getValue());
+            if (column >= 0 && column < root.getFieldCount()) {
+                presentColumns.add(column);
             }
         }
         this.presentColumns = presentColumns.build();
@@ -240,7 +240,35 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         maxBytesPerCell = new long[streamReaders.length];
 
-        nextBatchSize = initialBatchSize;
+        OptionalInt fixedWidthRowSize = getFixedWidthRowSize(this.presentColumns, includedColumns);
+        if (fixedWidthRowSize.isPresent()) {
+            if (fixedWidthRowSize.getAsInt() == 0) {
+                nextBatchSize = MAX_BATCH_SIZE;
+            }
+            else {
+                nextBatchSize = adjustMaxBatchSize(MAX_BATCH_SIZE, maxBlockBytes, fixedWidthRowSize.getAsInt());
+            }
+        }
+        else {
+            nextBatchSize = initialBatchSize;
+        }
+    }
+
+    private static OptionalInt getFixedWidthRowSize(Set<Integer> columns, Map<Integer, Type> columnTypes)
+    {
+        int totalFixedWidth = 0;
+        for (int column : columns) {
+            Type type = columnTypes.get(column);
+            if (type instanceof FixedWidthType) {
+                // add 1 byte for null flag
+                totalFixedWidth += ((FixedWidthType) type).getFixedSize() + 1;
+            }
+            else {
+                return OptionalInt.empty();
+            }
+        }
+
+        return OptionalInt.of(totalFixedWidth);
     }
 
     /**
@@ -258,7 +286,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             if (maxBytesPerCell[columnIndex] < bytesPerCell) {
                 maxCombinedBytesPerRow = maxCombinedBytesPerRow - maxBytesPerCell[columnIndex] + bytesPerCell;
                 maxBytesPerCell[columnIndex] = bytesPerCell;
-                adjustMaxBatchSize(maxCombinedBytesPerRow);
+                maxBatchSize = adjustMaxBatchSize(maxBatchSize, maxBlockBytes, maxCombinedBytesPerRow);
             }
         }
     }
@@ -412,7 +440,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         RowGroup currentRowGroup = rowGroups.next();
         currentGroupRowCount = toIntExact(currentRowGroup.getRowCount());
         if (currentRowGroup.getMinAverageRowBytes() > 0) {
-            adjustMaxBatchSize(currentRowGroup.getMinAverageRowBytes());
+            maxBatchSize = adjustMaxBatchSize(maxBatchSize, maxBlockBytes, currentRowGroup.getMinAverageRowBytes());
         }
 
         currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
@@ -429,6 +457,11 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         return true;
     }
 
+    private static int adjustMaxBatchSize(int maxBatchSize, long maxBlockBytes, long averageRowBytes)
+    {
+        return toIntExact(min(maxBatchSize, max(1, maxBlockBytes / averageRowBytes)));
+    }
+
     protected int getNextRowInGroup()
     {
         return nextRowInGroup;
@@ -437,11 +470,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     protected void batchRead(int batchSize)
     {
         nextRowInGroup += batchSize;
-    }
-
-    protected void adjustMaxBatchSize(long averageRowBytes)
-    {
-        maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / averageRowBytes)));
     }
 
     protected int prepareNextBatch()
