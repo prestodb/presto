@@ -59,6 +59,6 @@ public class TestExceededGlobalMemoryLimitFailureResolver
                                 Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 500L * 1024 * 1024 * 1024))),
                         Optional.empty()),
-                Optional.of("Auto Resolved: Control query uses more memory than test cluster limit"));
+                Optional.of("Control query uses more memory than the test cluster memory limit"));
     }
 }
