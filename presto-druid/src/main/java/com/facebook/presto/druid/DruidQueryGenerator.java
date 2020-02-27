@@ -106,14 +106,17 @@ public class DruidQueryGenerator
     {
         final String table;
         final String dql;
+        final boolean pushdown;
 
         @JsonCreator
         public GeneratedDql(
                 @JsonProperty("table") String table,
-                @JsonProperty("dql") String dql)
+                @JsonProperty("dql") String dql,
+                @JsonProperty("pushdown") boolean pushdown)
         {
             this.table = table;
             this.dql = dql;
+            this.pushdown = pushdown;
         }
 
         @JsonProperty("dql")
@@ -128,12 +131,19 @@ public class DruidQueryGenerator
             return table;
         }
 
+        @JsonProperty("pushdown")
+        public boolean getPushdown()
+        {
+            return pushdown;
+        }
+
         @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("dql", dql)
                     .add("table", table)
+                    .add("pushdown", pushdown)
                     .toString();
         }
     }

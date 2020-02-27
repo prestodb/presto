@@ -106,13 +106,14 @@ public class DruidQueryGeneratorContext
 
         String tableName = from.orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Table name missing in Druid query"));
         String query = "SELECT " + expressions + " FROM " + tableName;
+        boolean pushdown = false;
         if (filter.isPresent()) {
-            String filterString = filter.get();
             // this is hack!!!. Ideally we want to clone the scan pipeline and create/update the filter in the scan pipeline to contain this filter and
             // at the same time add the time column to scan so that the query generator doesn't fail when it looks up the time column in scan output columns
-            query += " WHERE " + filterString;
+            query += " WHERE " + filter.get();
+            pushdown = true;
         }
-        return new DruidQueryGenerator.GeneratedDql(tableName, query);
+        return new DruidQueryGenerator.GeneratedDql(tableName, query, pushdown);
     }
 
     public Map<VariableReferenceExpression, DruidColumnHandle> getAssignments()
