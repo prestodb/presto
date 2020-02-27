@@ -23,9 +23,10 @@ import com.facebook.presto.verifier.rewrite.QueryRewriter;
 
 import java.util.List;
 
-import static com.facebook.presto.verifier.framework.DataVerificationUtil.executeChecksumQuery;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -66,10 +67,10 @@ public class DataVerification
         getVerificationContext().setTestChecksumQuery(formatSql(testChecksumQuery));
 
         QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
-                () -> executeChecksumQuery(getPrestoAction(), controlChecksumQuery),
+                () -> getPrestoAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> getVerificationContext().setControlChecksumQueryId(stats.getQueryId()));
         QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
-                () -> executeChecksumQuery(getPrestoAction(), testChecksumQuery),
+                () -> getPrestoAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> getVerificationContext().setTestChecksumQueryId(stats.getQueryId()));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));

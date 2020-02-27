@@ -197,7 +197,9 @@ public class JdbcPrestoAction
             case REWRITE:
             case DESCRIBE:
                 return metadataTimeout;
-            case CHECKSUM:
+            case CONTROL_CHECKSUM:
+            case TEST_CHECKSUM:
+            case DETERMINISM_ANALYSIS_CHECKSUM:
                 return checksumTimeout;
             default:
                 return queryTimeout;
