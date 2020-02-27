@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
@@ -39,7 +38,6 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUM
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
-import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.forMain;
@@ -87,11 +85,6 @@ public class DataVerificationUtil
         return prestoAction
                 .execute(new ShowColumns(tableName), DESCRIBE, resultSet -> Column.fromResultSet(typeManager, resultSet))
                 .getResults();
-    }
-
-    public static QueryResult<ChecksumResult> executeChecksumQuery(PrestoAction prestoAction, Query query)
-    {
-        return prestoAction.execute(query, CHECKSUM, ChecksumResult::fromResultSet);
     }
 
     public static MatchResult match(

@@ -46,6 +46,7 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -109,7 +110,7 @@ public class DeterminismAnalyzer
 
                 Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
                 ChecksumResult testChecksum = getOnlyElement(callWithQueryStatsConsumer(
-                        () -> DataVerificationUtil.executeChecksumQuery(prestoAction, checksumQuery),
+                        () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
 
                 DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
