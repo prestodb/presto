@@ -26,7 +26,10 @@ import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
+import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
+import com.facebook.presto.verifier.resolver.VerifierLimitationFailureResolver;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.base.Joiner;
@@ -48,6 +51,7 @@ import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
+import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
@@ -57,7 +61,6 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_LIMITATION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.DOTALL;
@@ -125,7 +128,10 @@ public class TestDataVerification
                         typeManager,
                         verificationContext,
                         determinismAnalyzerConfig),
-                new FailureResolverManager(ImmutableSet.of()),
+                new FailureResolverManager(ImmutableSet.of(
+                        new ExceededGlobalMemoryLimitFailureResolver(),
+                        new ExceededTimeLimitFailureResolver(),
+                        new VerifierLimitationFailureResolver())),
                 verificationContext,
                 verifierConfig,
                 typeManager,
@@ -278,7 +284,7 @@ public class TestDataVerification
     }
 
     @Test
-    public void testChecksumQueryFailed()
+    public void testChecksumQueryCompilerError()
     {
         List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
         queryRunner.execute(format("CREATE TABLE checksum_test (%s)", columns.stream().map(column -> column + " double").collect(joining(","))));
@@ -287,8 +293,7 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = createVerification(query, query).run();
 
         assertTrue(event.isPresent());
-        assertEquals(event.get().getStatus(), SKIPPED.name());
-        assertEquals(event.get().getSkippedReason(), VERIFIER_LIMITATION.name());
+        assertEquals(event.get().getStatus(), FAILED_RESOLVED.name());
         assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
         assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
         assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
