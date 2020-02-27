@@ -43,7 +43,6 @@ import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column.Category;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
-import com.facebook.presto.verifier.resolver.FailureResolverFactory;
 import com.facebook.presto.verifier.resolver.FailureResolverModule;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
@@ -86,20 +85,17 @@ public class VerifierModule
     private final SqlParserOptions sqlParserOptions;
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
     private final SqlExceptionClassifier exceptionClassifier;
-    private final List<FailureResolverFactory> failureResolverFactories;
     private final List<Property> tablePropertyOverrides;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
             List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
             SqlExceptionClassifier exceptionClassifier,
-            List<FailureResolverFactory> failureResolverFactories,
             List<Property> tablePropertyOverrides)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
-        this.failureResolverFactories = requireNonNull(failureResolverFactories, "failureResolverFactories is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
     }
 
@@ -147,7 +143,7 @@ public class VerifierModule
         // verifier
         install(new VerificationPrestoActionModule(exceptionClassifier));
         install(new VerificationQueryRewriterModule());
-        install(new FailureResolverModule(failureResolverFactories));
+        install(FailureResolverModule.BUILT_IN);
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);

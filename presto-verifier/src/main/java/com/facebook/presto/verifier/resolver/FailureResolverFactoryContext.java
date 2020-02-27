@@ -16,7 +16,6 @@ package com.facebook.presto.verifier.resolver;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,20 +24,15 @@ public class FailureResolverFactoryContext
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
     private final NodeResourceClient testResourceClient;
-    private final int maxBucketPerWriter;
-    private final Duration clusterSizeExpiration;
 
     public FailureResolverFactoryContext(
             SqlParser sqlParser,
             PrestoAction prestoAction,
-            NodeResourceClient testResourceClient,
-            FailureResolverConfig config)
+            NodeResourceClient testResourceClient)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
-        this.maxBucketPerWriter = config.getMaxBucketsPerWriter();
-        this.clusterSizeExpiration = config.getClusterSizeExpiration();
     }
 
     public SqlParser getSqlParser()
@@ -54,15 +48,5 @@ public class FailureResolverFactoryContext
     public NodeResourceClient getTestResourceClient()
     {
         return testResourceClient;
-    }
-
-    public int getMaxBucketPerWriter()
-    {
-        return maxBucketPerWriter;
-    }
-
-    public Duration getClusterSizeExpiration()
-    {
-        return clusterSizeExpiration;
     }
 }

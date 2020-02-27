@@ -20,7 +20,6 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
-import com.facebook.presto.verifier.resolver.FailureResolverConfig;
 import com.facebook.presto.verifier.resolver.FailureResolverFactoryContext;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
@@ -43,7 +42,6 @@ public class VerificationFactory
     private final ChecksumValidator checksumValidator;
     private final VerifierConfig verifierConfig;
     private final TypeManager typeManager;
-    private final FailureResolverConfig failureResolverConfig;
     private final DeterminismAnalyzerConfig determinismAnalyzerConfig;
 
     @Inject
@@ -56,7 +54,6 @@ public class VerificationFactory
             ChecksumValidator checksumValidator,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
-            FailureResolverConfig failureResolverConfig,
             DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -67,7 +64,6 @@ public class VerificationFactory
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.failureResolverConfig = requireNonNull(failureResolverConfig, "failureResolverConfig is null");
         this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
     }
 
@@ -90,8 +86,7 @@ public class VerificationFactory
                 FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
                         sqlParser,
                         prestoAction,
-                        testResourceClient,
-                        failureResolverConfig));
+                        testResourceClient));
                 return new DataVerification(
                         verificationResubmitter,
                         prestoAction,

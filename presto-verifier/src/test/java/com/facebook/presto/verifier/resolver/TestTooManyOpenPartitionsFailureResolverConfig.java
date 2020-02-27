@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,24 +22,28 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestFailureResolverConfig
+public class TestTooManyOpenPartitionsFailureResolverConfig
 {
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(FailureResolverConfig.class)
-                .setEnabled(true));
+        assertRecordedDefaults(recordDefaults(TooManyOpenPartitionsFailureResolverConfig.class)
+                .setMaxBucketsPerWriter(100)
+                .setClusterSizeExpiration(new Duration(30, MINUTES)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("failure-resolver.enabled", "false")
+                .put("failure-resolver.max-buckets-per-writer", "50")
+                .put("failure-resolver.cluster-size-expiration", "10m")
                 .build();
-        FailureResolverConfig expected = new FailureResolverConfig()
-                .setEnabled(false);
+        TooManyOpenPartitionsFailureResolverConfig expected = new TooManyOpenPartitionsFailureResolverConfig()
+                .setMaxBucketsPerWriter(50)
+                .setClusterSizeExpiration(new Duration(10, MINUTES));
 
         assertFullMapping(properties, expected);
     }
