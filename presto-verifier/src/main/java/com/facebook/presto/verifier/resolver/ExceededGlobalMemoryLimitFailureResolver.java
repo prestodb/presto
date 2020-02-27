@@ -14,30 +14,25 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryException;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 
 public class ExceededGlobalMemoryLimitFailureResolver
-        extends AbstractPrestoQueryFailureResolver
+        implements FailureResolver
 {
-    public ExceededGlobalMemoryLimitFailureResolver()
-    {
-        super(TEST_MAIN);
-    }
-
     @Override
-    public Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats, Optional<QueryBundle> test)
+    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        if (errorCode == EXCEEDED_GLOBAL_MEMORY_LIMIT &&
-                controlQueryStats.getPeakMemoryBytes() > testQueryStats.getPeakMemoryBytes()) {
-            return Optional.of("Auto Resolved: Control query uses more memory than test cluster limit");
-        }
-        return Optional.empty();
+        return mapMatchingPrestoException(queryException, TEST_MAIN, EXCEEDED_GLOBAL_MEMORY_LIMIT,
+                e -> e.getQueryStats().isPresent() && controlQueryStats.getPeakMemoryBytes() > e.getQueryStats().get().getPeakMemoryBytes()
+                        ? Optional.of("Control query uses more memory than the test cluster memory limit")
+                        : Optional.empty());
     }
 
     public static class Factory

@@ -126,6 +126,6 @@ public class TestTooManyOpenPartitionsFailureResolver
         getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
         assertEquals(
                 getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)),
-                Optional.of("Auto Resolved: No enough worker on test cluster"));
+                Optional.of("Not enough workers on test cluster"));
     }
 }

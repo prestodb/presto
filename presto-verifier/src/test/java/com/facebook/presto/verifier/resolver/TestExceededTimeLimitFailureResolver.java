@@ -43,6 +43,6 @@ public class TestExceededTimeLimitFailureResolver
                                 Optional.of(EXCEEDED_TIME_LIMIT),
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_MEMORY_BYTES))),
                         Optional.empty()),
-                Optional.of("Auto Resolved: Test cluster has less computing resource"));
+                Optional.of("Time limit exceeded on test cluster"));
     }
 }
