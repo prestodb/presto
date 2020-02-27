@@ -16,10 +16,12 @@ package com.facebook.presto.plugin.memory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.presto.plugin.memory.MemoryQueryRunner.createQueryRunner;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -30,7 +32,8 @@ public class TestMemoryWorkerCrash
 {
     protected TestMemoryWorkerCrash()
     {
-        super(MemoryQueryRunner::createQueryRunner);
+        // failure detector causes test flakiness
+        super(() -> createQueryRunner(ImmutableMap.of("failure-detector.enabled", "false"), ImmutableMap.of()));
     }
 
     @Test
