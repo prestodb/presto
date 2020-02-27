@@ -18,8 +18,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.event.QueryFailure;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
-import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
@@ -40,7 +40,6 @@ import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -120,12 +119,11 @@ public class TestJdbcPrestoAction
                     QUERY_STAGE);
             fail("Expect QueryException");
         }
-        catch (QueryException qe) {
-            assertEquals(qe.getType(), PRESTO);
-            assertFalse(qe.isRetryable());
-            assertEquals(qe.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
-            assertTrue(qe.getQueryStats().isPresent());
-            assertEquals(qe.getQueryStats().get().getState(), FAILED.name());
+        catch (PrestoQueryException e) {
+            assertFalse(e.isRetryable());
+            assertEquals(e.getErrorCodeName(), "PRESTO(SYNTAX_ERROR)");
+            assertTrue(e.getQueryStats().isPresent());
+            assertEquals(e.getQueryStats().get().getState(), FAILED.name());
 
             QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
             assertEquals(queryFailure.getClusterType(), CONTROL.name());

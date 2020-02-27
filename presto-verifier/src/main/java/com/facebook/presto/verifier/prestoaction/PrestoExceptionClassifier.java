@@ -19,6 +19,8 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.verifier.framework.ClusterConnectionException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
@@ -127,17 +129,21 @@ public class PrestoExceptionClassifier
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
-            return QueryException.forClusterConnection(clusterConnectionExceptionCause.get(), queryStage);
+            return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
         }
 
         Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        return QueryException.forPresto(cause, errorCode, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStats, queryStage);
+        return new PrestoQueryException(cause, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStage, errorCode, queryStats);
     }
 
     public static boolean shouldResubmit(QueryException queryException)
     {
-        return queryException.getPrestoErrorCode().isPresent()
-                && DEFAULT_REQUEUABLE_ERRORS.contains(queryException.getPrestoErrorCode().get());
+        if (!(queryException instanceof PrestoQueryException)) {
+            return false;
+        }
+        PrestoQueryException prestoException = (PrestoQueryException) queryException;
+        return prestoException.getErrorCode().isPresent()
+                && DEFAULT_REQUEUABLE_ERRORS.contains(prestoException.getErrorCode().get());
     }
 
     public static boolean isClusterConnectionException(Throwable t)

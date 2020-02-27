@@ -15,13 +15,13 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 
 import java.util.Optional;
 
-import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractPrestoQueryFailureResolver
@@ -39,13 +39,16 @@ public abstract class AbstractPrestoQueryFailureResolver
     @Override
     public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        if (queryException.getQueryStage() != expectedQueryStage ||
-                queryException.getType() != PRESTO ||
-                !queryException.getPrestoErrorCode().isPresent() ||
-                !queryException.getQueryStats().isPresent()) {
+        if (!(queryException instanceof PrestoQueryException)) {
+            return Optional.empty();
+        }
+        PrestoQueryException prestoException = (PrestoQueryException) queryException;
+        if (prestoException.getQueryStage() != expectedQueryStage ||
+                !prestoException.getErrorCode().isPresent() ||
+                !prestoException.getQueryStats().isPresent()) {
             return Optional.empty();
         }
 
-        return resolveTestQueryFailure(queryException.getPrestoErrorCode().get(), controlQueryStats, queryException.getQueryStats().get(), test);
+        return resolveTestQueryFailure(prestoException.getErrorCode().get(), controlQueryStats, prestoException.getQueryStats().get(), test);
     }
 }

@@ -17,6 +17,8 @@ import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.framework.ClusterConnectionException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
@@ -40,8 +42,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
-import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -79,12 +79,12 @@ public class JdbcPrestoAction
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
-                queryException -> queryException.getType() == CLUSTER_CONNECTION,
+                queryException -> queryException instanceof ClusterConnectionException && queryException.isRetryable(),
                 QueryException.class,
                 verificationContext::addException);
         this.prestoRetry = new RetryDriver<>(
                 prestoRetryConfig,
-                queryException -> queryException.getType() == PRESTO && queryException.isRetryable(),
+                queryException -> queryException instanceof PrestoQueryException && queryException.isRetryable(),
                 QueryException.class,
                 verificationContext::addException);
     }

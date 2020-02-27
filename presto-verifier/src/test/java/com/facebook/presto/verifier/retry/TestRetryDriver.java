@@ -14,6 +14,8 @@
 package com.facebook.presto.verifier.retry;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.verifier.framework.ClusterConnectionException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
@@ -65,8 +67,8 @@ public class TestRetryDriver
     }
 
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
-    private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE);
-    private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_STAGE);
+    private static final QueryException RETRYABLE_EXCEPTION = new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE);
+    private static final QueryException NON_RETRYABLE_EXCEPTION = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), Optional.empty());
 
     private VerificationContext verificationContext;
     private RetryDriver<QueryException> retryDriver;

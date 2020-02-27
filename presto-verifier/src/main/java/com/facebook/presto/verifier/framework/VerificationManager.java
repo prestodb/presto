@@ -168,14 +168,14 @@ public class VerificationManager
         VerificationRef ref = new VerificationRef(verification);
         Integer resubmittedCount = resubmittedCounts.getOrDefault(ref, 0);
         if (resubmittedCount >= verificationResubmissionLimit) {
-            log.info("Verification %s failed with %s, resubmission limit exceeded", name, queryException.getErrorCode());
+            log.info("Verification %s failed with %s, resubmission limit exceeded", name, queryException.getErrorCodeName());
             return false;
         }
 
         queriesSubmitted.addAndGet(1);
         resubmittedCounts.compute(ref, (key, count) -> count == null ? 1 : count + 1);
         completionService.submit(verification::run);
-        log.info("Verification %s failed with %s, resubmitted for verification (%s/%s)", name, queryException.getErrorCode(), resubmittedCount, verificationResubmissionLimit);
+        log.info("Verification %s failed with %s, resubmitted for verification (%s/%s)", name, queryException.getErrorCodeName(), resubmittedCount, verificationResubmissionLimit);
         return true;
     }
 

@@ -71,11 +71,6 @@ public class PrestoExceptionClassifier
         return QueryException.forPresto(cause, errorCode, queryStats);
     }
 
-    public static boolean isClusterConnectionException(Throwable t)
-    {
-        return getClusterConnectionExceptionCause(t).isPresent();
-    }
-
     private static Optional<Throwable> getClusterConnectionExceptionCause(Throwable t)
     {
         while (t != null) {
