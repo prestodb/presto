@@ -13,35 +13,36 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
-import java.util.List;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Stream.concat;
 
 public class FailureResolverManagerFactory
 {
-    private final List<FailureResolverFactory> failureResolverFactories;
-    private final boolean enabled;
+    private final Set<FailureResolver> failureResolvers;
+    private final Set<FailureResolverFactory> failureResolverFactories;
 
     @Inject
-    public FailureResolverManagerFactory(List<FailureResolverFactory> failureResolverFactories, FailureResolverConfig failureResolverConfig)
+    public FailureResolverManagerFactory(
+            Set<FailureResolver> failureResolvers,
+            Set<FailureResolverFactory> failureResolverFactories)
     {
-        this.failureResolverFactories = requireNonNull(failureResolverFactories, "failureResolverFactories is null");
-        this.enabled = failureResolverConfig.isEnabled();
+        this.failureResolvers = ImmutableSet.copyOf(failureResolvers);
+        this.failureResolverFactories = ImmutableSet.copyOf(failureResolverFactories);
     }
 
     public FailureResolverManager create(FailureResolverFactoryContext context)
     {
-        List<FailureResolver> failureResolvers = ImmutableList.of();
-        if (enabled) {
-            failureResolvers = failureResolverFactories.stream()
-                    .map(factory -> factory.create(context))
-                    .collect(toImmutableList());
-        }
-        return new FailureResolverManager(failureResolvers);
+        Set<FailureResolver> allResolvers = concat(
+                failureResolvers.stream(),
+                failureResolverFactories.stream()
+                        .map(factory -> factory.create(context)))
+                .collect(toImmutableSet());
+        return new FailureResolverManager(allResolvers);
     }
 }

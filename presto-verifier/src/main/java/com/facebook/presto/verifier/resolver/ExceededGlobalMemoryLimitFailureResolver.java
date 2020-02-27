@@ -26,6 +26,8 @@ import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatch
 public class ExceededGlobalMemoryLimitFailureResolver
         implements FailureResolver
 {
+    public static final String NAME = "exceeded-global-memory-limit";
+
     @Override
     public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
@@ -33,15 +35,5 @@ public class ExceededGlobalMemoryLimitFailureResolver
                 e -> e.getQueryStats().isPresent() && controlQueryStats.getPeakMemoryBytes() > e.getQueryStats().get().getPeakMemoryBytes()
                         ? Optional.of("Control query uses more memory than the test cluster memory limit")
                         : Optional.empty());
-    }
-
-    public static class Factory
-            implements FailureResolverFactory
-    {
-        @Override
-        public FailureResolver create(FailureResolverFactoryContext context)
-        {
-            return new ExceededGlobalMemoryLimitFailureResolver();
-        }
     }
 }

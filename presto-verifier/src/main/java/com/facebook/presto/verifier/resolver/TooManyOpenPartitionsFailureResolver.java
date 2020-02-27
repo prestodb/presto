@@ -24,6 +24,9 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import io.airlift.units.Duration;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +48,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TooManyOpenPartitionsFailureResolver
         implements FailureResolver
 {
+    public static final String NAME = "too-many-open-partitions";
+
     private static final Logger log = Logger.get(TooManyOpenPartitionsFailureResolver.class);
     private static final String NODE_RESOURCE_PATH = "/v1/node";
 
@@ -103,19 +108,29 @@ public class TooManyOpenPartitionsFailureResolver
     public static class Factory
             implements FailureResolverFactory
     {
+        private final Duration clusterSizeExpiration;
+        private final int maxBucketPerWriter;
+
+        @Inject
+        public Factory(TooManyOpenPartitionsFailureResolverConfig config)
+        {
+            this.clusterSizeExpiration = requireNonNull(config.getClusterSizeExpiration(), "clusterSizeExpiration is null");
+            this.maxBucketPerWriter = config.getMaxBucketsPerWriter();
+        }
+
         @Override
         public FailureResolver create(FailureResolverFactoryContext context)
         {
             Supplier<Integer> testClusterSizeSupplier = memoizeWithExpiration(
                     () -> context.getTestResourceClient().getClusterSize(NODE_RESOURCE_PATH),
-                    context.getClusterSizeExpiration().toMillis(),
+                    clusterSizeExpiration.toMillis(),
                     MILLISECONDS);
 
             return new TooManyOpenPartitionsFailureResolver(
                     context.getSqlParser(),
                     context.getPrestoAction(),
                     testClusterSizeSupplier,
-                    context.getMaxBucketPerWriter());
+                    maxBucketPerWriter);
         }
     }
 }

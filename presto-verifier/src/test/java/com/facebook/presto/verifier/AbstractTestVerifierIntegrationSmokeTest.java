@@ -118,6 +118,7 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
                 .put("json.log-file", jsonLogFile.getAbsolutePath())
                 .put("human-readable.log-file", humanReadableLogFile.getAbsolutePath())
                 .put("max-concurrency", "50")
+                .put("failure-resolver.enabled", "true")
                 .putAll(additionalConfigurationProperties)
                 .build();
         sink.write(configurationProperties.entrySet().stream()

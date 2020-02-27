@@ -14,18 +14,10 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
-
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class FailureResolverConfig
 {
     private boolean enabled = true;
-    private int maxBucketsPerWriter = 100;
-    private Duration clusterSizeExpiration = new Duration(30, MINUTES);
 
     public boolean isEnabled()
     {
@@ -36,32 +28,6 @@ public class FailureResolverConfig
     public FailureResolverConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxBucketsPerWriter()
-    {
-        return maxBucketsPerWriter;
-    }
-
-    @Config("failure-resolver.max-buckets-per-writer")
-    public FailureResolverConfig setMaxBucketsPerWriter(int maxBucketsPerWriter)
-    {
-        this.maxBucketsPerWriter = maxBucketsPerWriter;
-        return this;
-    }
-
-    @MinDuration("1m")
-    public Duration getClusterSizeExpiration()
-    {
-        return clusterSizeExpiration;
-    }
-
-    @Config("failure-resolver.cluster-size-expiration")
-    public FailureResolverConfig setClusterSizeExpiration(Duration clusterSizeExpiration)
-    {
-        this.clusterSizeExpiration = clusterSizeExpiration;
         return this;
     }
 }
