@@ -63,6 +63,9 @@ public class InputPageProjection
         if (selectedPositions.isList()) {
             result = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }
+        else if (selectedPositions.getOffset() == 0 && selectedPositions.size() == page.getPositionCount()) {
+            result = block;
+        }
         else {
             result = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }

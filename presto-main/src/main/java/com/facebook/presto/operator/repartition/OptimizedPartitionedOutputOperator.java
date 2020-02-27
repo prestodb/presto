@@ -164,6 +164,7 @@ public class OptimizedPartitionedOutputOperator
             return;
         }
 
+        page = page.getLoadedPage();
         page = pagePreprocessor.apply(page);
         pagePartitioner.partitionPage(page);
 
