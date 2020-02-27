@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -25,7 +26,7 @@ public class StorageStripeMetadataSource
         implements StripeMetadataSource
 {
     @Override
-    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength)
+    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, HiveFileContext hiveFileContext)
             throws IOException
     {
         byte[] tailBuffer = new byte[footerLength];
@@ -34,7 +35,7 @@ public class StorageStripeMetadataSource
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, HiveFileContext hiveFileContext)
             throws IOException
     {
         //

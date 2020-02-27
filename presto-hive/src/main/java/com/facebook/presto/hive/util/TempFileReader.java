@@ -76,7 +76,8 @@ public class TempFileReader
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    DEFAULT_HIVE_FILE_CONTEXT);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data");

@@ -94,7 +94,13 @@ final class OrcTestingUtil
         TypeRegistry typeRegistry = new TypeRegistry();
         typeRegistry.setFunctionManager(functionManager);
         StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeRegistry);
-        return orcReader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns), OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        return orcReader.createBatchRecordReader(
+                storageTypeConverter.toStorageTypes(includedColumns),
+                OrcPredicate.TRUE,
+                DateTimeZone.UTC,
+                newSimpleAggregatedMemoryContext(),
+                MAX_BATCH_SIZE,
+                DEFAULT_HIVE_FILE_CONTEXT);
     }
 
     public static byte[] octets(int... values)

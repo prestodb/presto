@@ -407,7 +407,13 @@ public class TestMapFlatBatchStreamReader
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(valueType.getTypeSignature())));
 
-        try (OrcBatchRecordReader recordReader = orcReader.createBatchRecordReader(ImmutableMap.of(0, mapType), createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), 1024)) {
+        try (OrcBatchRecordReader recordReader = orcReader.createBatchRecordReader(
+                ImmutableMap.of(0, mapType),
+                createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true),
+                HIVE_STORAGE_TIME_ZONE,
+                newSimpleAggregatedMemoryContext(),
+                1024,
+                DEFAULT_HIVE_FILE_CONTEXT)) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;

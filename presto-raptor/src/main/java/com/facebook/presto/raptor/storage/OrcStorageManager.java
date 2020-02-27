@@ -320,7 +320,13 @@ public class OrcStorageManager
 
             StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
 
-            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns.build()), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(
+                    storageTypeConverter.toStorageTypes(includedColumns.build()),
+                    predicate,
+                    DEFAULT_STORAGE_TIMEZONE,
+                    systemMemoryUsage,
+                    INITIAL_BATCH_SIZE,
+                    hiveFileContext);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
@@ -392,7 +398,8 @@ public class OrcStorageManager
                     OrcPredicate.TRUE,
                     DEFAULT_STORAGE_TIMEZONE,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE)) {
+                    INITIAL_BATCH_SIZE,
+                    DEFAULT_HIVE_FILE_CONTEXT)) {
                 BitSet bitSet = new BitSet();
                 while (recordReader.nextBatch() > 0) {
                     Block block = recordReader.readBlock(0);

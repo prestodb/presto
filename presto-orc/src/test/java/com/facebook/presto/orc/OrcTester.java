@@ -1317,7 +1317,7 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize, hiveFileContext);
     }
 
     public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
@@ -1416,7 +1416,8 @@ public class OrcTester
                 LEGACY_MAP_SUBSCRIPT,
                 newSimpleAggregatedMemoryContext(),
                 Optional.empty(),
-                initialBatchSize);
+                initialBatchSize,
+                DEFAULT_HIVE_FILE_CONTEXT);
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)

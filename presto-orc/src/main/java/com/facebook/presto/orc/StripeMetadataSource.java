@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import io.airlift.slice.Slice;
 
@@ -21,12 +22,13 @@ import java.util.Map;
 
 public interface StripeMetadataSource
 {
-    Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength)
+    Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, HiveFileContext hiveFileContext)
             throws IOException;
 
     Map<StreamId, OrcDataSourceInput> getInputs(
             OrcDataSource orcDataSource,
             StripeId stripeId,
-            Map<StreamId, DiskRange> diskRanges)
+            Map<StreamId, DiskRange> diskRanges,
+            HiveFileContext hiveFileContext)
             throws IOException;
 }
