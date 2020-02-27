@@ -33,6 +33,7 @@ public class FailureResolverModule
     public static final FailureResolverModule BUILT_IN = FailureResolverModule.builder()
             .bind(ExceededGlobalMemoryLimitFailureResolver.NAME, ExceededGlobalMemoryLimitFailureResolver.class, Optional.empty())
             .bind(ExceededTimeLimitFailureResolver.NAME, ExceededTimeLimitFailureResolver.class, Optional.empty())
+            .bind(VerifierLimitationFailureResolver.NAME, VerifierLimitationFailureResolver.class, Optional.empty())
             .bindFactory(TooManyOpenPartitionsFailureResolver.NAME, TooManyOpenPartitionsFailureResolver.Factory.class, Optional.of(TooManyOpenPartitionsFailureResolverConfig.class))
             .build();
 
