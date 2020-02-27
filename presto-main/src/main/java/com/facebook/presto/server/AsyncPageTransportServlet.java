@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.operator.ExchangeClientConfig;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -57,7 +58,6 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
@@ -67,8 +67,7 @@ public class AsyncPageTransportServlet
 {
     private static final Logger log = Logger.get(AsyncPageTransportServlet.class);
 
-    private static final Duration PAGE_RESPONSE_WAIT_TIME = new Duration(60, SECONDS);
-
+    private final Duration pageTransportTimeout;
     private final TaskManager taskManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -76,10 +75,12 @@ public class AsyncPageTransportServlet
     @Inject
     public AsyncPageTransportServlet(
             TaskManager taskManager,
+            ExchangeClientConfig exchangeClientConfig,
             @ForAsyncRpc BoundedExecutor responseExecutor,
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
+        this.pageTransportTimeout = requireNonNull(exchangeClientConfig.getAsyncPageTransportTimeout(), "asyncPageTransportTimeout is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
@@ -104,10 +105,10 @@ public class AsyncPageTransportServlet
 
         AsyncContext asyncContext = request.startAsync(request, response);
 
+        // wait time to get results
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
-        asyncContext.setTimeout(waitTime.toMillis() + PAGE_RESPONSE_WAIT_TIME.toMillis());
+        asyncContext.setTimeout(waitTime.toMillis() + pageTransportTimeout.toMillis());
 
-        // set up async listener
         asyncContext.addListener(new AsyncListener()
         {
             public void onComplete(AsyncEvent event)
