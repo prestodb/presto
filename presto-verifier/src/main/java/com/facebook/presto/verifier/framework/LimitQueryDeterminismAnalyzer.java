@@ -37,6 +37,7 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -45,26 +46,38 @@ public class LimitQueryDeterminismAnalyzer
     private final PrestoAction prestoAction;
     private final boolean enabled;
 
-    public LimitQueryDeterminismAnalyzer(PrestoAction prestoAction, boolean enabled)
+    private final Statement statement;
+    private final long rowCount;
+    private final VerificationContext verificationContext;
+
+    public LimitQueryDeterminismAnalyzer(
+            PrestoAction prestoAction,
+            boolean enabled,
+            Statement statement,
+            long rowCount,
+            VerificationContext verificationContext)
     {
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.enabled = enabled;
+        this.statement = requireNonNull(statement, "statement is null");
+        checkArgument(rowCount >= 0, "rowCount is negative: %s", rowCount);
+        this.rowCount = rowCount;
+        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
     }
 
-    public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount, VerificationContext verificationContext)
+    public LimitQueryDeterminismAnalysis analyze()
     {
-        LimitQueryDeterminismAnalysis analysis = analyzeInternal(control, rowCount, verificationContext);
+        LimitQueryDeterminismAnalysis analysis = analyzeInternal();
         verificationContext.setLimitQueryAnalysis(analysis);
         return analysis;
     }
 
-    public LimitQueryDeterminismAnalysis analyzeInternal(QueryBundle control, long rowCount, VerificationContext verificationContext)
+    private LimitQueryDeterminismAnalysis analyzeInternal()
     {
         if (!enabled) {
             return NOT_RUN;
         }
 
-        Statement statement = control.getQuery();
         Query query;
 
         // A query is rewritten to either an Insert or a CreateTableAsSelect
@@ -95,37 +108,43 @@ public class LimitQueryDeterminismAnalyzer
             query = new Query(with, query.getQueryBody(), query.getOrderBy(), query.getLimit());
         }
 
-        // If Query contains ORDER_BY, we won't be able to make conclusion even if there is LIMIT clause.
-        if (query.getOrderBy().isPresent()) {
+        if (query.getQueryBody() instanceof QuerySpecification) {
+            return analyzeQuerySpecification(query.getWith(), (QuerySpecification) query.getQueryBody());
+        }
+        return analyzeQuery(query);
+    }
+
+    private LimitQueryDeterminismAnalysis analyzeQuery(Query query)
+    {
+        if (query.getOrderBy().isPresent() || !query.getLimit().isPresent()) {
             return NOT_RUN;
         }
+        Query queryNoLimit = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.empty());
+        return analyzeLimitNoOrderBy(queryNoLimit);
+    }
 
-        Query queryNoLimit;
-        if (query.getLimit().isPresent()) {
-            queryNoLimit = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.empty());
-        }
-        else if (query.getQueryBody() instanceof QuerySpecification) {
-            QuerySpecification querySpecification = (QuerySpecification) query.getQueryBody();
-            if (querySpecification.getOrderBy().isPresent() || !querySpecification.getLimit().isPresent()) {
-                return NOT_RUN;
-            }
-            queryNoLimit = new Query(
-                    query.getWith(),
-                    new QuerySpecification(
-                            querySpecification.getSelect(),
-                            querySpecification.getFrom(),
-                            querySpecification.getWhere(),
-                            querySpecification.getGroupBy(),
-                            querySpecification.getHaving(),
-                            Optional.empty(),
-                            Optional.empty()),
-                    Optional.empty(),
-                    Optional.empty());
-        }
-        else {
+    private LimitQueryDeterminismAnalysis analyzeQuerySpecification(Optional<With> with, QuerySpecification querySpecification)
+    {
+        if (querySpecification.getOrderBy().isPresent() || !querySpecification.getLimit().isPresent()) {
             return NOT_RUN;
         }
+        Query queryNoLimit = new Query(
+                with,
+                new QuerySpecification(
+                        querySpecification.getSelect(),
+                        querySpecification.getFrom(),
+                        querySpecification.getWhere(),
+                        querySpecification.getGroupBy(),
+                        querySpecification.getHaving(),
+                        Optional.empty(),
+                        Optional.empty()),
+                Optional.empty(),
+                Optional.empty());
+        return analyzeLimitNoOrderBy(queryNoLimit);
+    }
 
+    private LimitQueryDeterminismAnalysis analyzeLimitNoOrderBy(Query queryNoLimit)
+    {
         Query rowCountQuery = simpleQuery(
                 new Select(false, ImmutableList.of(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("1")))))),
                 new TableSubquery(queryNoLimit));

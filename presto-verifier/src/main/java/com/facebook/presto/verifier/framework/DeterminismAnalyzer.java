@@ -119,8 +119,12 @@ public class DeterminismAnalyzer
             }
 
             // Handle limit query
-            LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(prestoAction, handleLimitQuery)
-                    .analyze(control, controlChecksum.getRowCount(), verificationContext);
+            LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
+                    prestoAction,
+                    handleLimitQuery,
+                    control.getQuery(),
+                    controlChecksum.getRowCount(),
+                    verificationContext).analyze();
 
             switch (limitQueryAnalysis) {
                 case NON_DETERMINISTIC:
