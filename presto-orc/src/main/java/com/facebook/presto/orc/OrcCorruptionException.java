@@ -14,11 +14,12 @@
 package com.facebook.presto.orc;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import static java.lang.String.format;
 
 public class OrcCorruptionException
-        extends IOException
+        extends UncheckedIOException
 {
     public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String message)
     {
@@ -27,12 +28,12 @@ public class OrcCorruptionException
 
     public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
-        super(formatMessage(orcDataSourceId, messageFormat, args));
+        super(new IOException(formatMessage(orcDataSourceId, messageFormat, args)));
     }
 
     public OrcCorruptionException(Throwable cause, OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
-        super(formatMessage(orcDataSourceId, messageFormat, args), cause);
+        super(formatMessage(orcDataSourceId, messageFormat, args), new IOException(cause));
     }
 
     private static String formatMessage(OrcDataSourceId orcDataSourceId, String messageFormat, Object[] args)

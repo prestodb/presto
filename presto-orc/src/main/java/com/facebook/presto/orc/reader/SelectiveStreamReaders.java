@@ -18,7 +18,23 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
@@ -26,6 +42,7 @@ import org.joda.time.DateTimeZone;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -49,10 +66,12 @@ public final class SelectiveStreamReaders
         switch (type) {
             case BOOLEAN: {
                 checkArgument(requiredSubfields.isEmpty(), "Boolean stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, BooleanType.class::isInstance);
                 return new BooleanSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             }
             case BYTE: {
                 checkArgument(requiredSubfields.isEmpty(), "Byte stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, TinyintType.class::isInstance);
                 return new ByteSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             }
             case SHORT:
@@ -60,32 +79,41 @@ public final class SelectiveStreamReaders
             case LONG:
             case DATE: {
                 checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
                 return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
             }
             case FLOAT: {
                 checkArgument(requiredSubfields.isEmpty(), "Float type stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, RealType.class::isInstance);
                 return new FloatSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             }
             case DOUBLE:
                 checkArgument(requiredSubfields.isEmpty(), "Double stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, DoubleType.class::isInstance);
                 return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
                 checkArgument(requiredSubfields.isEmpty(), "Primitive stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
             case TIMESTAMP: {
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
+                verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
                 return new TimestampSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), hiveStorageTimeZone, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             }
             case LIST:
+                verifyStreamType(streamDescriptor, outputType, ArrayType.class::isInstance);
                 return new ListSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, null, 0, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
             case STRUCT:
+                verifyStreamType(streamDescriptor, outputType, RowType.class::isInstance);
                 return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
             case MAP:
+                verifyStreamType(streamDescriptor, outputType, MapType.class::isInstance);
                 return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
             case DECIMAL: {
+                verifyStreamType(streamDescriptor, outputType, DecimalType.class::isInstance);
                 if (streamDescriptor.getOrcType().getPrecision().get() <= MAX_SHORT_PRECISION) {
                     return new ShortDecimalSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
                 }
@@ -96,6 +124,13 @@ public final class SelectiveStreamReaders
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    private static void verifyStreamType(StreamDescriptor streamDescriptor, Optional<Type> outputType, Predicate<Type> predicate)
+    {
+        if (outputType.isPresent()) {
+            ReaderUtils.verifyStreamType(streamDescriptor, outputType.get(), predicate);
         }
     }
 
