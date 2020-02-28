@@ -22,8 +22,8 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
@@ -33,22 +33,22 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestLimitQueryDeterminismAnalyzer
 {
     private static class MockPrestoAction
             implements PrestoAction
     {
-        private final AtomicLong rowCount;
+        private final List<Object> rows;
         private Statement lastStatement;
 
-        public MockPrestoAction(AtomicLong rowCount)
+        public MockPrestoAction(List<?> rows)
         {
-            this.rowCount = requireNonNull(rowCount, "rowCount is null");
+            this.rows = ImmutableList.copyOf(rows);
         }
 
         @Override
@@ -62,7 +62,7 @@ public class TestLimitQueryDeterminismAnalyzer
         public <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter)
         {
             lastStatement = statement;
-            return new QueryResult(ImmutableList.of(rowCount.get()), ImmutableList.of("_col0"), QUERY_STATS);
+            return new QueryResult(rows, ImmutableList.of(), QUERY_STATS);
         }
 
         public Statement getLastStatement()
@@ -87,7 +87,6 @@ public class TestLimitQueryDeterminismAnalyzer
 
         // ORDER BY clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
-        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
 
         // No outer LIMIT clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source", NOT_RUN);
@@ -127,9 +126,58 @@ public class TestLimitQueryDeterminismAnalyzer
         assertAnalysis(createPrestoAction(1001), "INSERT INTO test SELECT * FROM source LIMIT 2000", FAILED_DATA_CHANGED);
     }
 
+    @Test
+    public void testLimitOrderByNonDeterministic()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(
+                ImmutableList.of(1001L, "x", "y", 10),
+                ImmutableList.of(1000L, "x", "y", 10)));
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY a, 2, c + d LIMIT 1000", NON_DETERMINISTIC);
+        assertAnalyzerQuery(
+                prestoAction,
+                "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        "   SELECT\n" +
+                        "     \"row_number\"() OVER (ORDER BY a ASC, 2 ASC, (c + d) ASC) \"$$row_number\"\n" +
+                        "   , a\n" +
+                        "   , 2\n" +
+                        "   , (c + d)\n" +
+                        "   FROM\n" +
+                        "     source\n" +
+                        "   ORDER BY a ASC, 2 ASC, (c + d) ASC\n" +
+                        "   LIMIT 1001\n" +
+                        ") \n" +
+                        "WHERE (\"$$row_number\" IN (1000, 1001))");
+    }
+
+    @Test
+    public void testLimitOrderByDeterministic()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(ImmutableList.of(1000L, "x", "y", 10)));
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY a, 2, c + d LIMIT 1000", DETERMINISTIC);
+
+        prestoAction = createPrestoAction(ImmutableList.of(
+                ImmutableList.of(1001L, "x", "y", 10),
+                ImmutableList.of(1000L, "x", "z", 10)));
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY a, 2, c + d LIMIT 1000", DETERMINISTIC);
+    }
+
+    @Test
+    public void testLimitOrderByFailedDataChanged()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of());
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY a, 2, c + d LIMIT 1000", FAILED_DATA_CHANGED);
+    }
+
     private static MockPrestoAction createPrestoAction(long rowCount)
     {
-        return new MockPrestoAction(new AtomicLong(rowCount));
+        return new MockPrestoAction(ImmutableList.of(rowCount));
+    }
+
+    private static MockPrestoAction createPrestoAction(List<List<Object>> rows)
+    {
+        return new MockPrestoAction(rows);
     }
 
     private static void assertAnalysis(PrestoAction prestoAction, String query, LimitQueryDeterminismAnalysis expectedAnalysis)
