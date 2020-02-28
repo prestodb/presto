@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.spark.launcher;
 
-import org.apache.spark.SparkContext;
-
-public interface SparkContextFactory
+public interface PrestoSparkDistributionFactory
 {
-    SparkContext create(PrestoSparkClientOptions clientOptions);
+    PrestoSparkDistribution create(PrestoSparkClientOptions clientOptions);
 }
