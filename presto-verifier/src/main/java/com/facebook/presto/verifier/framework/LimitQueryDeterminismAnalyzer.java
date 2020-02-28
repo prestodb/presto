@@ -39,6 +39,8 @@ import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANAL
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Long.parseLong;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class LimitQueryDeterminismAnalyzer
@@ -119,8 +121,13 @@ public class LimitQueryDeterminismAnalyzer
         if (query.getOrderBy().isPresent() || !query.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        Query queryNoLimit = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.empty());
-        return analyzeLimitNoOrderBy(queryNoLimit);
+        if (isLimitAll(query.getLimit().get())) {
+            return NOT_RUN;
+        }
+        long limit = parseLong(query.getLimit().get());
+        Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
+        Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), newLimit);
+        return analyzeLimitNoOrderBy(newLimitQuery, limit);
     }
 
     private LimitQueryDeterminismAnalysis analyzeQuerySpecification(Optional<With> with, QuerySpecification querySpecification)
@@ -128,7 +135,12 @@ public class LimitQueryDeterminismAnalyzer
         if (querySpecification.getOrderBy().isPresent() || !querySpecification.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        Query queryNoLimit = new Query(
+        if (isLimitAll(querySpecification.getLimit().get())) {
+            return NOT_RUN;
+        }
+        long limit = parseLong(querySpecification.getLimit().get());
+        Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
+        Query newLimitQuery = new Query(
                 with,
                 new QuerySpecification(
                         querySpecification.getSelect(),
@@ -137,29 +149,34 @@ public class LimitQueryDeterminismAnalyzer
                         querySpecification.getGroupBy(),
                         querySpecification.getHaving(),
                         Optional.empty(),
-                        Optional.empty()),
+                        newLimit),
                 Optional.empty(),
                 Optional.empty());
-        return analyzeLimitNoOrderBy(queryNoLimit);
+        return analyzeLimitNoOrderBy(newLimitQuery, limit);
     }
 
-    private LimitQueryDeterminismAnalysis analyzeLimitNoOrderBy(Query queryNoLimit)
+    private LimitQueryDeterminismAnalysis analyzeLimitNoOrderBy(Query newLimitQuery, long limit)
     {
         Query rowCountQuery = simpleQuery(
                 new Select(false, ImmutableList.of(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("1")))))),
-                new TableSubquery(queryNoLimit));
+                new TableSubquery(newLimitQuery));
 
         QueryResult<Long> result = callWithQueryStatsConsumer(
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)),
                 stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
 
-        long rowCountNoLimit = getOnlyElement(result.getResults());
-        if (rowCountNoLimit > rowCount) {
-            return NON_DETERMINISTIC;
-        }
-        if (rowCountNoLimit == rowCount) {
+        long rowCountHigherLimit = getOnlyElement(result.getResults());
+        if (rowCountHigherLimit == rowCount) {
             return DETERMINISTIC;
         }
+        if (rowCount >= limit && rowCountHigherLimit > rowCount) {
+            return NON_DETERMINISTIC;
+        }
         return FAILED_DATA_CHANGED;
+    }
+
+    private static boolean isLimitAll(String limitClause)
+    {
+        return limitClause.toLowerCase(ENGLISH).equals("all");
     }
 }
