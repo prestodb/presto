@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -66,6 +68,13 @@ public class ResourceGroupIdTemplate
             }
         }
         return id;
+    }
+
+    public OptionalInt getFirstDynamicSegment()
+    {
+        return IntStream.range(0, segments.size())
+                .filter(i -> segments.get(i).hasVariables())
+                .findFirst();
     }
 
     public List<ResourceGroupNameTemplate> getSegments()

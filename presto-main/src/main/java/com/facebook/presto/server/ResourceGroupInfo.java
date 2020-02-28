@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 
@@ -51,26 +52,22 @@ public class ResourceGroupInfo
     private final List<ResourceGroupInfo> subGroups;
     private final List<QueryStateInfo> runningQueries;
 
+    @JsonCreator
     public ResourceGroupInfo(
-            ResourceGroupId id,
-            ResourceGroupState state,
-
-            SchedulingPolicy schedulingPolicy,
-            int schedulingWeight,
-
-            DataSize softMemoryLimit,
-            int softConcurrencyLimit,
-            int hardConcurrencyLimit,
-            int maxQueuedQueries,
-
-            DataSize memoryUsage,
-            int numQueuedQueries,
-            int numRunningQueries,
-            int numEligibleSubGroups,
-
-            List<ResourceGroupInfo> subGroups,
-
-            List<QueryStateInfo> runningQueries)
+            @JsonProperty("id") ResourceGroupId id,
+            @JsonProperty("state") ResourceGroupState state,
+            @JsonProperty("schedulingPolicy") SchedulingPolicy schedulingPolicy,
+            @JsonProperty("schedulingWeight") int schedulingWeight,
+            @JsonProperty("softMemoryLimit") DataSize softMemoryLimit,
+            @JsonProperty("softConcurrencyLimit") int softConcurrencyLimit,
+            @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
+            @JsonProperty("maxQueuedQueries") int maxQueuedQueries,
+            @JsonProperty("memoryUsage") DataSize memoryUsage,
+            @JsonProperty("numQueuedQueries") int numQueuedQueries,
+            @JsonProperty("numRunningQueries") int numRunningQueries,
+            @JsonProperty("numEligibleSubGroups") int numEligibleSubGroups,
+            @JsonProperty("subGroups") List<ResourceGroupInfo> subGroups,
+            @JsonProperty("runningQueries") List<QueryStateInfo> runningQueries)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
 import static org.testng.Assert.assertEquals;
@@ -39,6 +40,15 @@ public class TestResourceGroupIdTemplate
         assertEquals(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "u", "SOURCE", "s"))), expected);
         template = new ResourceGroupIdTemplate("test.${USER}");
         assertEquals(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "alice.smith", "SOURCE", "s"))), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
+    }
+
+    @Test
+    public void testFirstDynamicSegment()
+    {
+        ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
+        assertEquals(template.getFirstDynamicSegment(), OptionalInt.of(1));
+        template = new ResourceGroupIdTemplate("test.pipeline.job_${pipeline}_user:${USER}.${USER}");
+        assertEquals(template.getFirstDynamicSegment(), OptionalInt.of(2));
     }
 
     @Test

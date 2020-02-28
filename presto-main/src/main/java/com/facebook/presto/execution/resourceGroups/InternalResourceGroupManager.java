@@ -44,6 +44,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -103,10 +104,10 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id, boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
-        return groups.get(id).getFullInfo();
+        return groups.get(id).getResourceGroupInfo(includeQueryInfo, summarizeSubgroups, includeStaticSubgroupsOnly);
     }
 
     @Override
@@ -239,7 +240,9 @@ public final class InternalResourceGroupManager<C>
                 createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
                 InternalResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
-                group = parent.getOrCreateSubGroup(id.getLastSegment());
+                // parent segments size equals to subgroup segment index
+                int subGroupSegmentIndex = parent.getId().getSegments().size();
+                group = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)));
             }
             else {
                 RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
