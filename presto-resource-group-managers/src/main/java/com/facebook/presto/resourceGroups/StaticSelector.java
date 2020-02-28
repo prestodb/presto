@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -118,8 +119,9 @@ public class StaticSelector
 
         VariableMap map = new VariableMap(variables);
         ResourceGroupId id = group.expandTemplate(map);
+        OptionalInt firstDynamicSegment = group.getFirstDynamicSegment();
 
-        return Optional.of(new SelectionContext<>(id, map));
+        return Optional.of(new SelectionContext<>(id, map, firstDynamicSegment));
     }
 
     private static void addNamedGroups(Pattern pattern, HashSet<String> variables)

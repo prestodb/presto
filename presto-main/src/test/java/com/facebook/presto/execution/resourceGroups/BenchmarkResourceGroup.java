@@ -77,7 +77,7 @@ public class BenchmarkResourceGroup
             root.setHardConcurrencyLimit(queries);
             InternalResourceGroup group = root;
             for (int i = 0; i < children; i++) {
-                group = root.getOrCreateSubGroup(String.valueOf(i));
+                group = root.getOrCreateSubGroup(String.valueOf(i), true);
                 group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
                 group.setMaxQueuedQueries(queries);
                 group.setHardConcurrencyLimit(queries);

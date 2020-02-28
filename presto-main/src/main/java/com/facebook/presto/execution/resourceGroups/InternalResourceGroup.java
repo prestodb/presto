@@ -87,6 +87,7 @@ public class InternalResourceGroup
     private final ResourceGroupId id;
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
+    private final boolean staticResourceGroup;
 
     // Configuration
     // =============
@@ -140,7 +141,12 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final CounterStat timeBetweenStartsSec = new CounterStat();
 
-    protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+    protected InternalResourceGroup(
+            Optional<InternalResourceGroup> parent,
+            String name,
+            BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
+            Executor executor,
+            boolean staticResourceGroup)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -154,9 +160,10 @@ public class InternalResourceGroup
             id = new ResourceGroupId(name);
             root = this;
         }
+        this.staticResourceGroup = staticResourceGroup;
     }
 
-    public ResourceGroupInfo getFullInfo()
+    public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
     {
         synchronized (root) {
             return new ResourceGroupInfo(
@@ -174,9 +181,10 @@ public class InternalResourceGroup
                     eligibleSubGroups.size(),
                     subGroups.values().stream()
                             .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
-                            .map(InternalResourceGroup::getSummaryInfo)
+                            .filter(group -> !includeStaticSubgroupsOnly || group.isStaticResourceGroup())
+                            .map(group -> summarizeSubgroups ? group.getSummaryInfo() : group.getResourceGroupInfo(includeQueryInfo, false, includeStaticSubgroupsOnly))
                             .collect(toImmutableList()),
-                    getAggregatedRunningQueriesInfo());
+                    includeQueryInfo ? getAggregatedRunningQueriesInfo() : null);
         }
     }
 
@@ -223,6 +231,11 @@ public class InternalResourceGroup
                     null,
                     null);
         }
+    }
+
+    boolean isStaticResourceGroup()
+    {
+        return staticResourceGroup;
     }
 
     private ResourceGroupState getState()
@@ -565,7 +578,7 @@ public class InternalResourceGroup
         jmxExportListener.accept(this, export);
     }
 
-    public InternalResourceGroup getOrCreateSubGroup(String name)
+    public InternalResourceGroup getOrCreateSubGroup(String name, boolean staticSegment)
     {
         requireNonNull(name, "name is null");
         synchronized (root) {
@@ -573,7 +586,14 @@ public class InternalResourceGroup
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
-            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor);
+            // parent segments size equals to subgroup segment index
+            int subGroupSegmentIndex = id.getSegments().size();
+            InternalResourceGroup subGroup = new InternalResourceGroup(
+                    Optional.of(this),
+                    name,
+                    jmxExportListener,
+                    executor,
+                    staticResourceGroup && staticSegment);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -941,9 +961,12 @@ public class InternalResourceGroup
     {
         private AtomicBoolean taskLimitExceeded = new AtomicBoolean();
 
-        public RootInternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+        public RootInternalResourceGroup(
+                String name,
+                BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
+                Executor executor)
         {
-            super(Optional.empty(), name, jmxExportListener, executor);
+            super(Optional.empty(), name, jmxExportListener, executor, true);
         }
 
         public synchronized void processQueuedQueries()

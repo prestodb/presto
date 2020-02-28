@@ -70,6 +70,11 @@ public class ResourceGroupNameTemplate
                 .collect(toImmutableSet());
     }
 
+    public boolean hasVariables()
+    {
+        return fragments.stream().anyMatch(NameFragment::isVariable);
+    }
+
     public String expandTemplate(VariableMap variables)
     {
         StringBuilder builder = new StringBuilder();

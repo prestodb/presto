@@ -77,7 +77,7 @@ public class TestResourceGroupIntegration
         long startTime = System.nanoTime();
         while (true) {
             SECONDS.sleep(1);
-            ResourceGroupInfo global = getResourceGroupManager(queryRunner).getResourceGroupInfo(new ResourceGroupId("global"));
+            ResourceGroupInfo global = getResourceGroupManager(queryRunner).getResourceGroupInfo(new ResourceGroupId("global"), true, true, true);
             if (global.getSoftMemoryLimit().toBytes() > 0) {
                 break;
             }
