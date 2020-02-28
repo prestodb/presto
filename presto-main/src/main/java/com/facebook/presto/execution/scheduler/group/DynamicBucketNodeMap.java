@@ -43,13 +43,13 @@ public class DynamicBucketNodeMap
         hasInitialMap = false;
     }
 
-    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode, boolean cacheable)
+    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount, List<InternalNode> bucketToPreferredNode)
     {
         super(splitToBucket);
         checkArgument(bucketCount > 0, "bucketCount must be positive");
         checkArgument(bucketToPreferredNode.size() == bucketCount, "bucketToPreferredNode size must be equal to bucketCount");
         for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
-            bucketToNodeInfo.put(bucketNumber, new InternalNodeInfo(bucketToPreferredNode.get(bucketNumber), cacheable));
+            bucketToNodeInfo.put(bucketNumber, new InternalNodeInfo(bucketToPreferredNode.get(bucketNumber), true));
         }
         this.bucketCount = bucketCount;
         this.hasInitialMap = true;
