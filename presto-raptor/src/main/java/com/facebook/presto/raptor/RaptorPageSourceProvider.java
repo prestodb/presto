@@ -38,7 +38,6 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -62,7 +61,7 @@ public class RaptorPageSourceProvider
             SplitContext splitContext)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
-        HiveFileContext hiveFileContext = DEFAULT_HIVE_FILE_CONTEXT; // TODO: adjust cacheable accordingly
+        HiveFileContext hiveFileContext = new HiveFileContext(splitContext.isCacheable(), Optional.empty());
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);

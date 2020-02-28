@@ -130,7 +130,17 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (hiveLayout.isPushdownFilterEnabled()) {
-            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, typeManager, optimizedRowExpressionCache);
+            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
+                    selectivePageSourceFactories,
+                    configuration,
+                    session,
+                    hiveSplit,
+                    hiveLayout,
+                    selectedColumns,
+                    hiveStorageTimeZone,
+                    typeManager,
+                    optimizedRowExpressionCache,
+                    splitContext);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
@@ -163,7 +173,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(true, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),  // TODO: adjust cacheable accordingly
+                new HiveFileContext(splitContext.isCacheable(), hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService);
@@ -182,7 +192,8 @@ public class HivePageSourceProvider
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache)
+            LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
+            SplitContext splitContext)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -240,7 +251,7 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(true, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));  // TODO: adjust cacheable accordingly
+                    new HiveFileContext(splitContext.isCacheable(), split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
