@@ -85,14 +85,18 @@ public class TestLimitQueryDeterminismAnalyzer
         assertAnalysis(prestoAction, "CREATE TABLE test (x varchar, ds varhcar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
         assertAnalysis(prestoAction, "SELECT * FROM source LIMIT 10", NOT_RUN);
 
-        // Order by clause
+        // ORDER BY clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
 
-        // not outer limit clause
+        // No outer LIMIT clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source", NOT_RUN);
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source", NOT_RUN);
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM (SELECT * FROM source LIMIT 1000)", NOT_RUN);
+
+        // LIMIT ALL clause
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source LIMIT all", NOT_RUN);
+        assertAnalysis(prestoAction, "CREATE TABLE test AS (WITH f AS (select * from g) ((SELECT * FROM source UNION ALL SELECT * FROM source LIMIT ALL)))", NOT_RUN);
     }
 
     @Test
@@ -101,15 +105,13 @@ public class TestLimitQueryDeterminismAnalyzer
         MockPrestoAction prestoAction = createPrestoAction(1001);
 
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source LIMIT 1000", NON_DETERMINISTIC);
-        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (SELECT * FROM source)");
+        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (SELECT * FROM source LIMIT 1001)");
 
         assertAnalysis(prestoAction, "CREATE TABLE test AS (WITH f AS (select * from g) ((SELECT * FROM source UNION ALL SELECT * FROM source LIMIT 1000)))", NON_DETERMINISTIC);
-        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source UNION ALL SELECT * FROM source)");
+        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source UNION ALL SELECT * FROM source LIMIT 1001)");
 
         assertAnalysis(prestoAction, "CREATE TABLE test AS (WITH f AS (select * from g) (SELECT * FROM source LIMIT 1000))", NON_DETERMINISTIC);
-        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source)");
-
-        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source LIMIT 2000", NON_DETERMINISTIC);
+        assertAnalyzerQuery(prestoAction, "SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source LIMIT 1001)");
     }
 
     @Test
@@ -122,6 +124,7 @@ public class TestLimitQueryDeterminismAnalyzer
     public void testFailedDataChangedLimitNoOrderBy()
     {
         assertAnalysis(createPrestoAction(999), "INSERT INTO test SELECT * FROM source LIMIT 1000", FAILED_DATA_CHANGED);
+        assertAnalysis(createPrestoAction(1001), "INSERT INTO test SELECT * FROM source LIMIT 2000", FAILED_DATA_CHANGED);
     }
 
     private static MockPrestoAction createPrestoAction(long rowCount)
