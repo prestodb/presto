@@ -17,11 +17,13 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import javax.inject.Inject;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 
@@ -51,7 +53,11 @@ public class ResourceGroupStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
     @Path("{resourceGroupId: .+}")
-    public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
+    public ResourceGroupInfo getQueryStateInfos(
+            @PathParam("resourceGroupId") String resourceGroupIdString,
+            @QueryParam("includeQueryInfo") @DefaultValue("true") boolean includeQueryInfo,
+            @QueryParam("summarizeSubgroups") @DefaultValue("true") boolean summarizeSubgroups,
+            @QueryParam("includeStaticSubgroupsOnly") @DefaultValue("false") boolean includeStaticSubgroupsOnly)
     {
         if (!isNullOrEmpty(resourceGroupIdString)) {
             try {
@@ -59,7 +65,10 @@ public class ResourceGroupStateInfoResource
                         new ResourceGroupId(
                                 Arrays.stream(resourceGroupIdString.split("/"))
                                         .map(ResourceGroupStateInfoResource::urlDecode)
-                                        .collect(toImmutableList())));
+                                        .collect(toImmutableList())),
+                        includeQueryInfo,
+                        summarizeSubgroups,
+                        includeStaticSubgroupsOnly);
             }
             catch (NoSuchElementException e) {
                 throw new WebApplicationException(NOT_FOUND);

@@ -13,17 +13,28 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import java.util.OptionalInt;
+
 import static java.util.Objects.requireNonNull;
 
 public final class SelectionContext<T>
 {
     private final ResourceGroupId resourceGroupId;
     private final T context;
+    private final OptionalInt firstDynamicSegmentPosition;
+
+    public SelectionContext(ResourceGroupId resourceGroupId, T context, OptionalInt firstDynamicSegmentPosition)
+    {
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.context = requireNonNull(context, "context is null");
+        this.firstDynamicSegmentPosition = requireNonNull(firstDynamicSegmentPosition, "firstDynamicSegmentPosition is null");
+    }
 
     public SelectionContext(ResourceGroupId resourceGroupId, T context)
     {
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.context = requireNonNull(context, "context is null");
+        this.firstDynamicSegmentPosition = OptionalInt.empty();
     }
 
     public ResourceGroupId getResourceGroupId()
@@ -34,5 +45,10 @@ public final class SelectionContext<T>
     public T getContext()
     {
         return context;
+    }
+
+    public OptionalInt getFirstDynamicSegmentPosition()
+    {
+        return firstDynamicSegmentPosition;
     }
 }

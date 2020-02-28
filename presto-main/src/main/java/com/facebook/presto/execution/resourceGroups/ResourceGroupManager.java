@@ -37,7 +37,7 @@ public interface ResourceGroupManager<C>
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
 
-    ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
+    ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id, boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly);
 
     List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id);
 

@@ -37,7 +37,7 @@ public final class NoOpResourceGroupManager
     }
 
     @Override
-    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id)
+    public ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id, boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
     {
         throw new UnsupportedOperationException();
     }
