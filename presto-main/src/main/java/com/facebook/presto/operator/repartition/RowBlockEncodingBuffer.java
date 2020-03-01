@@ -172,6 +172,21 @@ public class RowBlockEncodingBuffer
     }
 
     @Override
+    public void noMoreBatches()
+    {
+        super.noMoreBatches();
+
+        if (offsets != null) {
+            bufferAllocator.returnArray(offsets);
+            offsets = null;
+        }
+
+        for (int i = 0; i < fieldBuffers.length; i++) {
+            fieldBuffers[i].noMoreBatches();
+        }
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         int size = 0;
@@ -180,9 +195,7 @@ public class RowBlockEncodingBuffer
         }
 
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
                 sizeOf(offsetsBuffer) +
-                sizeOf(offsets) +
                 getNullsBufferRetainedSizeInBytes() +
                 size;
     }
@@ -275,7 +288,8 @@ public class RowBlockEncodingBuffer
             return;
         }
 
-        offsets = ensureCapacity(offsets, positionCount + 1);
+        offsets = ensureCapacity(offsets, positionCount + 1, SMALL, NONE, bufferAllocator);
+        offsets[0] = 0;
 
         int[] positions = getPositions();
 

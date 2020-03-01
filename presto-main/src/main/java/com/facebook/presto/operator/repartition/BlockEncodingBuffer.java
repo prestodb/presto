@@ -48,6 +48,11 @@ public interface BlockEncodingBuffer
      */
     void resetBuffers();
 
+    /**
+     * Signals that this is the last batch in this page, so that the internal buffers in BlockEncodingBuffers can recycled.
+     */
+    void noMoreBatches();
+
     long getRetainedSizeInBytes();
 
     long getSerializedSizeInBytes();

@@ -79,6 +79,7 @@ public class ByteArrayBlockEncodingBuffer
 
         appendValuesToBuffer();
         appendNulls();
+
         bufferedPositionCount += batchSize;
     }
 
@@ -108,7 +109,6 @@ public class ByteArrayBlockEncodingBuffer
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
                 sizeOf(valuesBuffer) +
                 getNullsBufferRetainedSizeInBytes();
     }
