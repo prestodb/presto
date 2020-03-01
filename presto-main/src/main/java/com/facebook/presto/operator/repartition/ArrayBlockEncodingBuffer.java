@@ -34,6 +34,8 @@ import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
+import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
@@ -64,9 +66,6 @@ public class ArrayBlockEncodingBuffer
     // The last offset in the offsets buffer
     private int lastOffset;
 
-    // This array holds the offsets into its nested values block for each row in the ArrayBlock.
-    private int[] offsetsCopy;
-
     // The AbstractBlockEncodingBuffer for the nested values Block of the ArrayBlock
     private final BlockEncodingBuffer valuesBuffers;
 
@@ -83,10 +82,14 @@ public class ArrayBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        offsetsCopy = ensureCapacity(offsetsCopy, positionCount + 1);
-        System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-
-        ((AbstractBlockEncodingBuffer) valuesBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        try {
+            System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
+            ((AbstractBlockEncodingBuffer) valuesBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+        }
+        finally {
+            bufferAllocator.returnArray(offsetsCopy);
+        }
     }
 
     @Override
@@ -156,7 +159,6 @@ public class ArrayBlockEncodingBuffer
                 getPositionsRetainedSizeInBytes() +
                 sizeOf(offsetsBuffer) +
                 sizeOf(offsets) +
-                sizeOf(offsetsCopy) +
                 getNullsBufferRetainedSizeInBytes() +
                 valuesBuffers.getRetainedSizeInBytes();
     }
