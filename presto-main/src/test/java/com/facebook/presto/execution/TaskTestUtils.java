@@ -23,6 +23,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -129,6 +130,7 @@ public final class TaskTestUtils
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
+                new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();

@@ -70,6 +70,7 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
@@ -317,6 +318,7 @@ public class LocalQueryRunner
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
                 nodeManager,
+                new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 new NodeTaskMap(finalizerService));
         this.pageSinkManager = new PageSinkManager();

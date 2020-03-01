@@ -20,6 +20,7 @@ import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -172,7 +173,7 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, getNodeSchedulerConfig(), nodeTaskMap);
+            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, new NodeSelectionStats(), getNodeSchedulerConfig(), nodeTaskMap);
             nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
         }
 
