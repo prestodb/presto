@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
@@ -67,6 +68,7 @@ public class NodeScheduler
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final InternalNodeManager nodeManager;
+    private final NodeSelectionStats nodeSelectionStats;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
@@ -76,21 +78,23 @@ public class NodeScheduler
     private final Duration nodeMapRefreshInterval;
 
     @Inject
-    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
+    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSelectionStats nodeSelectionStats, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
-        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSelectionStats, config, nodeTaskMap, new Duration(5, SECONDS));
     }
 
     public NodeScheduler(
             NetworkLocationCache networkLocationCache,
             NetworkTopology networkTopology,
             InternalNodeManager nodeManager,
+            NodeSelectionStats nodeSelectionStats,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             Duration nodeMapRefreshInterval)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
+        this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
@@ -154,7 +158,7 @@ public class NodeScheduler
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
         }
     }
 

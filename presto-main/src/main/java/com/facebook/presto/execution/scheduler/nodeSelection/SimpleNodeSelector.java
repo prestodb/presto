@@ -61,6 +61,7 @@ public class SimpleNodeSelector
     private static final Logger log = Logger.get(SimpleNodeSelector.class);
 
     private final InternalNodeManager nodeManager;
+    private final NodeSelectionStats nodeSelectionStats;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -71,6 +72,7 @@ public class SimpleNodeSelector
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
+            NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
@@ -80,6 +82,7 @@ public class SimpleNodeSelector
             int maxTasksPerStage)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
@@ -196,7 +199,7 @@ public class SimpleNodeSelector
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
     }
 
-    private static Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, Function<InternalNode, Integer> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount)
+    private Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, Function<InternalNode, Integer> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount)
     {
         int min = Integer.MAX_VALUE;
         InternalNode chosenNode = null;
@@ -206,6 +209,12 @@ public class SimpleNodeSelector
 
             // choose the preferred node first as long as they're not busy
             if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && splitCount < maxSplitCount) {
+                if (i == 0) {
+                    nodeSelectionStats.incrementPrimaryPreferredNodeSelectedCount();
+                }
+                else {
+                    nodeSelectionStats.incrementNonPrimaryPrederredNodeSelectedCount();
+                }
                 return Optional.of(new InternalNodeInfo(node, true));
             }
             // fallback to choosing the least busy nodes
@@ -217,6 +226,7 @@ public class SimpleNodeSelector
         if (chosenNode == null) {
             return Optional.empty();
         }
+        nodeSelectionStats.incrementNonPreferredNodeSelectedCount();
         return Optional.of(new InternalNodeInfo(chosenNode, false));
     }
 }

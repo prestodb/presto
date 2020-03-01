@@ -19,6 +19,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorId;
@@ -41,6 +42,7 @@ public class PrestoSparkNodeScheduler
                 new NetworkLocationCache(new LegacyNetworkTopology()),
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
+                new NodeSelectionStats(),
                 new NodeSchedulerConfig(),
                 new NodeTaskMap(new FinalizerService()),
                 new Duration(5, SECONDS));
