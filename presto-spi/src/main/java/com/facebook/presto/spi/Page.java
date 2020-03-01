@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -31,27 +30,40 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class Page
+public final class Page
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
-            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
+
+    /**
+     * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
+     * defensively copy the blocks
+     */
+    static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
+    {
+        return new Page(false, positionCount, blocks);
+    }
 
     private final Block[] blocks;
     private final int positionCount;
-    private final AtomicLong sizeInBytes = new AtomicLong(-1);
-    private final AtomicLong retainedSizeInBytes = new AtomicLong(-1);
-    private final AtomicLong logicalSizeInBytes = new AtomicLong(-1);
+    private volatile long sizeInBytes = -1;
+    private volatile long retainedSizeInBytes = -1;
+    private volatile long logicalSizeInBytes = -1;
 
     public Page(Block... blocks)
     {
-        this(determinePositionCount(blocks), blocks);
+        this(true, determinePositionCount(blocks), blocks);
     }
 
     public Page(int positionCount, Block... blocks)
     {
+        this(true, positionCount, blocks);
+    }
+
+    private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks)
+    {
         requireNonNull(blocks, "blocks is null");
-        this.blocks = Arrays.copyOf(blocks, blocks.length);
         this.positionCount = positionCount;
+        this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
     }
 
     public int getChannelCount()
@@ -66,36 +78,37 @@ public class Page
 
     public long getSizeInBytes()
     {
-        long sizeInBytes = this.sizeInBytes.get();
+        long sizeInBytes = this.sizeInBytes;
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (Block block : blocks) {
                 sizeInBytes += block.getSizeInBytes();
             }
-            this.sizeInBytes.set(sizeInBytes);
+            this.sizeInBytes = sizeInBytes;
         }
         return sizeInBytes;
     }
 
     public long getLogicalSizeInBytes()
     {
-        long size = logicalSizeInBytes.get();
-        if (size < 0) {
-            size = 0;
+        long logicalSizeInBytes = this.logicalSizeInBytes;
+        if (logicalSizeInBytes < 0) {
+            logicalSizeInBytes = 0;
             for (Block block : blocks) {
-                size += block.getLogicalSizeInBytes();
+                logicalSizeInBytes += block.getLogicalSizeInBytes();
             }
-            logicalSizeInBytes.set(size);
+            this.logicalSizeInBytes = logicalSizeInBytes;
         }
-        return size;
+        return logicalSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()
     {
-        if (retainedSizeInBytes.get() < 0) {
-            updateRetainedSize();
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        if (retainedSizeInBytes < 0) {
+            return updateRetainedSize();
         }
-        return retainedSizeInBytes.get();
+        return retainedSizeInBytes;
     }
 
     public Block getBlock(int channel)
@@ -113,7 +126,7 @@ public class Page
         for (int i = 0; i < this.blocks.length; i++) {
             singleValueBlocks[i] = this.blocks[i].getSingleValueBlock(position);
         }
-        return new Page(1, singleValueBlocks);
+        return wrapBlocksWithoutCopy(1, singleValueBlocks);
     }
 
     public Page getRegion(int positionOffset, int length)
@@ -127,7 +140,7 @@ public class Page
         for (int i = 0; i < channelCount; i++) {
             slicedBlocks[i] = blocks[i].getRegion(positionOffset, length);
         }
-        return new Page(length, slicedBlocks);
+        return wrapBlocksWithoutCopy(length, slicedBlocks);
     }
 
     public Page appendColumn(Block block)
@@ -139,7 +152,7 @@ public class Page
 
         Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
         newBlocks[blocks.length] = block;
-        return new Page(newBlocks);
+        return wrapBlocksWithoutCopy(positionCount, newBlocks);
     }
 
     public void compact()
@@ -255,20 +268,22 @@ public class Page
      */
     public Page getLoadedPage()
     {
-        boolean allLoaded = true;
-        Block[] loadedBlocks = new Block[blocks.length];
+        Block[] loadedBlocks = null;
         for (int i = 0; i < blocks.length; i++) {
-            loadedBlocks[i] = blocks[i].getLoadedBlock();
-            if (loadedBlocks[i] != blocks[i]) {
-                allLoaded = false;
+            Block loaded = blocks[i].getLoadedBlock();
+            if (loaded != blocks[i]) {
+                if (loadedBlocks == null) {
+                    loadedBlocks = blocks.clone();
+                }
+                loadedBlocks[i] = loaded;
             }
         }
 
-        if (allLoaded) {
+        if (loadedBlocks == null) {
             return this;
         }
 
-        return new Page(loadedBlocks);
+        return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
     }
 
     @Override
@@ -297,8 +312,10 @@ public class Page
         requireNonNull(retainedPositions, "retainedPositions is null");
 
         Block[] blocks = new Block[this.blocks.length];
-        Arrays.setAll(blocks, i -> this.blocks[i].getPositions(retainedPositions, offset, length));
-        return new Page(length, blocks);
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = this.blocks[i].getPositions(retainedPositions, offset, length);
+        }
+        return wrapBlocksWithoutCopy(length, blocks);
     }
 
     public Page prependColumn(Block column)
@@ -311,16 +328,17 @@ public class Page
         result[0] = column;
         System.arraycopy(blocks, 0, result, 1, blocks.length);
 
-        return new Page(positionCount, result);
+        return wrapBlocksWithoutCopy(positionCount, result);
     }
 
-    private void updateRetainedSize()
+    private long updateRetainedSize()
     {
         long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
         for (Block block : blocks) {
             retainedSizeInBytes += block.getRetainedSizeInBytes();
         }
-        this.retainedSizeInBytes.set(retainedSizeInBytes);
+        this.retainedSizeInBytes = retainedSizeInBytes;
+        return retainedSizeInBytes;
     }
 
     private static class DictionaryBlockIndexes
