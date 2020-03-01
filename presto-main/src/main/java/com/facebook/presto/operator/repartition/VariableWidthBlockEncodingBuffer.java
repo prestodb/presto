@@ -91,6 +91,7 @@ public class VariableWidthBlockEncodingBuffer
 
         appendOffsetsAndSlices();
         appendNulls();
+
         bufferedPositionCount += batchSize;
     }
 
@@ -131,7 +132,6 @@ public class VariableWidthBlockEncodingBuffer
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
                 sizeOf(offsetsBuffer) +
                 getNullsBufferRetainedSizeInBytes() +
                 sizeOf(sliceBuffer);

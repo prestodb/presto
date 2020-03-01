@@ -72,6 +72,7 @@ public class Int128ArrayBlockEncodingBuffer
 
         appendValuesToBuffer();
         appendNulls();
+
         bufferedPositionCount += batchSize;
     }
 
@@ -101,7 +102,6 @@ public class Int128ArrayBlockEncodingBuffer
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
                 sizeOf(valuesBuffer) +
                 getNullsBufferRetainedSizeInBytes();
     }

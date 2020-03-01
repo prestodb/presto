@@ -103,7 +103,6 @@ public class MapBlockEncodingBuffer
         }
 
         int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
-
         try {
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
             ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
@@ -195,13 +194,25 @@ public class MapBlockEncodingBuffer
     }
 
     @Override
+    public void noMoreBatches()
+    {
+        super.noMoreBatches();
+
+        if (offsets != null) {
+            bufferAllocator.returnArray(offsets);
+            offsets = null;
+        }
+
+        keyBuffers.noMoreBatches();
+        valueBuffers.noMoreBatches();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         // columnarMap is counted as part of DecodedBlockNode in OptimizedPartitionedOutputOperator and won't be counted here.
         // This is because the same columnarMap would be hold in all partitions/AbstractBlockEncodingBuffer and thus counting it here would be counting it multiple times.
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
-                sizeOf(offsets) +
                 sizeOf(offsetsBuffer) +
                 getNullsBufferRetainedSizeInBytes() +
                 keyBuffers.getRetainedSizeInBytes() +
@@ -293,7 +304,8 @@ public class MapBlockEncodingBuffer
             return;
         }
 
-        offsets = ensureCapacity(offsets, positionCount + 1);
+        offsets = ensureCapacity(offsets, positionCount + 1, SMALL, NONE, bufferAllocator);
+        offsets[0] = 0;
 
         int[] positions = getPositions();
 

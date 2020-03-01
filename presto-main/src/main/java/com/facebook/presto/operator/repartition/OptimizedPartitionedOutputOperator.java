@@ -631,6 +631,9 @@ public class OptimizedPartitionedOutputOperator
             finally {
                 // Return the borrowed array for serializedRowSizes when the current page for the current partition is finished.
                 bufferAllocator.returnArray(serializedRowSizes);
+                for (int i = 0; i < channelCount; i++) {
+                    blockEncodingBuffers[i].noMoreBatches();
+                }
             }
         }
 
