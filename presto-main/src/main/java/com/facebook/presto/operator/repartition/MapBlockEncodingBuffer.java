@@ -37,6 +37,8 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Optional;
 
 import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
+import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.setInts;
@@ -79,9 +81,6 @@ public class MapBlockEncodingBuffer
     // The last offset in the offsets buffer
     private int lastOffset;
 
-    // This array holds the offsets into its nested key and value blocks for each row in the MapBlock.
-    private int[] offsetsCopy;
-
     // The current incoming MapBlock is converted into ColumnarMap
     private ColumnarMap columnarMap;
 
@@ -103,13 +102,18 @@ public class MapBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        offsetsCopy = ensureCapacity(offsetsCopy, positionCount + 1);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
 
-        System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-        ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+        try {
+            System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
+            ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
 
-        System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-        ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
+            ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+        }
+        finally {
+            bufferAllocator.returnArray(offsetsCopy);
+        }
     }
 
     @Override
@@ -199,7 +203,6 @@ public class MapBlockEncodingBuffer
                 getPositionsRetainedSizeInBytes() +
                 sizeOf(offsets) +
                 sizeOf(offsetsBuffer) +
-                sizeOf(offsetsCopy) +
                 getNullsBufferRetainedSizeInBytes() +
                 keyBuffers.getRetainedSizeInBytes() +
                 valueBuffers.getRetainedSizeInBytes() +
@@ -268,11 +271,16 @@ public class MapBlockEncodingBuffer
         }
 
         // positionOffsets might be modified by the next level. Save it for the valueBuffers first.
-        offsetsCopy = ensureCapacity(offsetsCopy, positionCount + 1);
-        System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        try {
+            System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
 
-        ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
-        ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
+            ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+        }
+        finally {
+            bufferAllocator.returnArray(offsetsCopy);
+        }
     }
 
     private void populateNestedPositions()
