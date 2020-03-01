@@ -169,7 +169,7 @@ public class PageBuilder
             }
         }
 
-        return new Page(blocks);
+        return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
     }
 
     private static void checkArgument(boolean expression, String errorMessage)
