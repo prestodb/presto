@@ -50,6 +50,7 @@ import java.util.Arrays;
 import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
 import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.fill;
@@ -223,7 +224,7 @@ public abstract class AbstractBlockEncodingBuffer
 
         if (decodedObject instanceof DictionaryBlock) {
             DictionaryBlock dictionaryBlock = (DictionaryBlock) decodedObject;
-            mappedPositions = ensureCapacity(mappedPositions, positionCount);
+            mappedPositions = ensureCapacity(mappedPositions, positionCount, SMALL, NONE, bufferAllocator);
 
             for (int i = 0; i < positionCount; i++) {
                 mappedPositions[i] = dictionaryBlock.getId(positions[i]);
@@ -233,7 +234,7 @@ public abstract class AbstractBlockEncodingBuffer
         }
 
         if (decodedObject instanceof RunLengthEncodedBlock) {
-            mappedPositions = ensureCapacity(mappedPositions, positionCount, SMALL, INITIALIZE);
+            mappedPositions = ensureCapacity(mappedPositions, positionCount, SMALL, INITIALIZE, bufferAllocator);
             positionsMapped = true;
             return decodedBlockNode.getChildren().get(0);
         }
@@ -244,7 +245,7 @@ public abstract class AbstractBlockEncodingBuffer
 
     protected void appendPositionRange(int offset, int length)
     {
-        positions = ensureCapacity(positions, positionCount + length, LARGE, PRESERVE);
+        positions = ensureCapacity(positions, positionCount + length, LARGE, PRESERVE, bufferAllocator);
 
         for (int i = 0; i < length; i++) {
             positions[positionCount++] = offset + i;
@@ -304,6 +305,21 @@ public abstract class AbstractBlockEncodingBuffer
         }
     }
 
+    @Override
+    public void noMoreBatches()
+    {
+        // Only the positions for nested level need to be recycled.
+        if (isNested && positions != null) {
+            bufferAllocator.returnArray(positions);
+            positions = null;
+        }
+
+        if (mappedPositions != null) {
+            bufferAllocator.returnArray(mappedPositions);
+            mappedPositions = null;
+        }
+    }
+
     protected void serializeNullsTo(SliceOutput output)
     {
         encodeRemainingNullsAsBits();
@@ -329,11 +345,6 @@ public abstract class AbstractBlockEncodingBuffer
         nullsBufferIndex = 0;
         remainingNullsCount = 0;
         hasEncodedNulls = false;
-    }
-
-    protected long getPositionsRetainedSizeInBytes()
-    {
-        return sizeOf(positions) + sizeOf(mappedPositions);
     }
 
     protected long getNullsBufferRetainedSizeInBytes()

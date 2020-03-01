@@ -105,7 +105,6 @@ public class ArrayBlockEncodingBuffer
         }
 
         int offset = offsets[positionsOffset];
-
         valuesBuffers.setNextBatch(offset, offsets[positionsOffset + batchSize] - offset);
     }
 
@@ -153,12 +152,23 @@ public class ArrayBlockEncodingBuffer
     }
 
     @Override
+    public void noMoreBatches()
+    {
+        super.noMoreBatches();
+
+        if (offsets != null) {
+            bufferAllocator.returnArray(offsets);
+            offsets = null;
+        }
+
+        valuesBuffers.noMoreBatches();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                getPositionsRetainedSizeInBytes() +
                 sizeOf(offsetsBuffer) +
-                sizeOf(offsets) +
                 getNullsBufferRetainedSizeInBytes() +
                 valuesBuffers.getRetainedSizeInBytes();
     }
@@ -227,7 +237,8 @@ public class ArrayBlockEncodingBuffer
             return;
         }
 
-        offsets = ensureCapacity(offsets, positionCount + 1);
+        offsets = ensureCapacity(offsets, positionCount + 1, SMALL, NONE, bufferAllocator);
+        offsets[0] = 0;
 
         int[] positions = getPositions();
 
