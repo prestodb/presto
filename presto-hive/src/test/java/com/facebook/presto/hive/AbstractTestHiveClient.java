@@ -985,7 +985,12 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()));
+    }
+
+    protected ConnectorSession newSession(HiveSessionProperties hiveSessionProperties)
+    {
+        return new TestingConnectorSession(hiveSessionProperties.getSessionProperties());
     }
 
     protected ConnectorSession newSession(Map<String, Object> extraProperties)
@@ -3585,10 +3590,10 @@ public abstract class AbstractTestHiveClient
 
     private ConnectorSession sampleSize(int sampleSize)
     {
-        HiveSessionProperties properties = new HiveSessionProperties(
+        return newSession(new HiveSessionProperties(
                 getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
-                new OrcFileWriterConfig(), new ParquetFileWriterConfig());
-        return new TestingConnectorSession(properties.getSessionProperties());
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig()));
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)
