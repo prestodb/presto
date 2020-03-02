@@ -453,6 +453,7 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 succinctNanos(addInputTiming.getWallNanos()),
                 succinctNanos(addInputTiming.getCpuNanos()),
+                succinctBytes(addInputTiming.getAllocationBytes()),
                 succinctBytes(rawInputDataSize.getTotalCount()),
                 rawInputPositions.getTotalCount(),
                 succinctBytes(inputDataSize.getTotalCount()),
@@ -462,6 +463,7 @@ public class OperatorContext
                 getOutputTiming.getCalls(),
                 succinctNanos(getOutputTiming.getWallNanos()),
                 succinctNanos(getOutputTiming.getCpuNanos()),
+                succinctBytes(getOutputTiming.getAllocationBytes()),
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
@@ -472,6 +474,7 @@ public class OperatorContext
                 finishTiming.getCalls(),
                 succinctNanos(finishTiming.getWallNanos()),
                 succinctNanos(finishTiming.getCpuNanos()),
+                succinctBytes(finishTiming.getAllocationBytes()),
 
                 succinctBytes(operatorMemoryContext.getUserMemory()),
                 succinctBytes(getReservedRevocableBytes()),
