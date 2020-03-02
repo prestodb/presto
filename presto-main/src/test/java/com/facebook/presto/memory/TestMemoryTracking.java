@@ -111,6 +111,8 @@ public class TestMemoryTracking
                 testSessionBuilder().build(),
                 true,
                 true,
+                true,
+                true,
                 false);
         pipelineContext = taskContext.addPipelineContext(0, true, true, false);
         driverContext = pipelineContext.addDriverContext();

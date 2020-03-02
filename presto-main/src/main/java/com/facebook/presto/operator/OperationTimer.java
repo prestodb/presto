@@ -44,10 +44,10 @@ class OperationTimer
 
     OperationTimer(boolean trackOverallCpuTime)
     {
-        this(trackOverallCpuTime, false);
+        this(trackOverallCpuTime, false, false, false);
     }
 
-    OperationTimer(boolean trackOverallCpuTime, boolean trackOperationCpuTime)
+    OperationTimer(boolean trackOverallCpuTime, boolean trackOperationCpuTime, boolean trackOverallAllocation, boolean trackOperationAllocation)
     {
         this.trackOverallCpuTime = trackOverallCpuTime;
         this.trackOperationCpuTime = trackOperationCpuTime;

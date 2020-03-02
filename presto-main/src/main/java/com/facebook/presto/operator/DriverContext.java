@@ -235,6 +235,16 @@ public class DriverContext
         return pipelineContext.isCpuTimerEnabled();
     }
 
+    public boolean isPerOperatorAllocationTrackingEnabled()
+    {
+        return pipelineContext.isPerOperatorAllocationTrackingEnabled();
+    }
+
+    public boolean isAllocationTrackingEnabled()
+    {
+        return pipelineContext.isAllocationTrackingEnabled();
+    }
+
     public CounterStat getInputDataSize()
     {
         OperatorContext inputOperator = getFirst(operatorContexts, null);

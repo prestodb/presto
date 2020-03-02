@@ -96,6 +96,9 @@ public class PrestoSparkTaskExecutorFactory
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
 
+    private final boolean perOperatorAllocationTrackingEnabled;
+    private final boolean allocationTrackingEnabled;
+
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
@@ -120,7 +123,9 @@ public class PrestoSparkTaskExecutorFactory
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
-                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled());
+                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled(),
+                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorAllocationTrackingEnabled(),
+                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskAllocationTrackingEnabled());
     }
 
     public PrestoSparkTaskExecutorFactory(
@@ -135,7 +140,9 @@ public class PrestoSparkTaskExecutorFactory
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled)
+            boolean cpuTimerEnabled,
+            boolean perOperatorAllocationTrackingEnabled,
+            boolean allocationTrackingEnabled)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
@@ -149,6 +156,8 @@ public class PrestoSparkTaskExecutorFactory
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
+        this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
+        this.allocationTrackingEnabled = allocationTrackingEnabled;
     }
 
     @Override
@@ -192,6 +201,8 @@ public class PrestoSparkTaskExecutorFactory
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
+                perOperatorAllocationTrackingEnabled,
+                allocationTrackingEnabled,
                 false);
 
         OutputBufferMemoryManager memoryManager = new OutputBufferMemoryManager(

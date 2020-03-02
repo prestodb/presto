@@ -111,7 +111,7 @@ public class TestQueryContext
         QueryId queryId = new QueryId("query");
         QueryContext queryContext = createQueryContext(queryId, generalPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("queryid.0.0.0"), TEST_EXECUTOR);
-        TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false);
+        TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
         DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "test");
 

@@ -317,7 +317,9 @@ public class Driver
     {
         return new OperationTimer(
                 driverContext.isCpuTimerEnabled(),
-                driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled());
+                driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled(),
+                driverContext.isAllocationTrackingEnabled(),
+                driverContext.isAllocationTrackingEnabled() && driverContext.isPerOperatorAllocationTrackingEnabled());
     }
 
     private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)

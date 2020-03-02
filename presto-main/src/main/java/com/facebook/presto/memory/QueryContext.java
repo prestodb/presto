@@ -260,6 +260,8 @@ public class QueryContext
             Session session,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
+            boolean perOperatorAllocationTrackingEnabled,
+            boolean allocationTrackingEnabled,
             boolean legacyLifespanCompletionCondition)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
@@ -272,6 +274,8 @@ public class QueryContext
                 queryMemoryContext.newMemoryTrackingContext(),
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
+                perOperatorAllocationTrackingEnabled,
+                allocationTrackingEnabled,
                 legacyLifespanCompletionCondition);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;

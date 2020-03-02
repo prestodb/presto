@@ -48,6 +48,8 @@ public class SqlTaskExecutionFactory
     private final SplitMonitor splitMonitor;
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
+    private final boolean perOperatorAllocationTrackingEnabled;
+    private final boolean allocationTrackingEnabled;
     private final boolean legacyLifespanCompletionCondition;
 
     public SqlTaskExecutionFactory(
@@ -68,6 +70,8 @@ public class SqlTaskExecutionFactory
         requireNonNull(config, "config is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        this.perOperatorAllocationTrackingEnabled = config.isPerOperatorAllocationTrackingEnabled();
+        this.allocationTrackingEnabled = config.isTaskAllocationTrackingEnabled();
         this.legacyLifespanCompletionCondition = config.isLegacyLifespanCompletionCondition();
     }
 
@@ -86,6 +90,8 @@ public class SqlTaskExecutionFactory
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
+                perOperatorAllocationTrackingEnabled,
+                allocationTrackingEnabled,
                 legacyLifespanCompletionCondition);
 
         LocalExecutionPlan localExecutionPlan;
