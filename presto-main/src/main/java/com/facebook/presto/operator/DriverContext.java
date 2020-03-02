@@ -310,6 +310,7 @@ public class DriverContext
     {
         long totalScheduledTime = overallTiming.getWallNanos();
         long totalCpuTime = overallTiming.getCpuNanos();
+        long totalAllocation = overallTiming.getAllocationBytes();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
@@ -393,6 +394,7 @@ public class DriverContext
                 succinctNanos(totalBlockedTime),
                 blockedMonitor != null,
                 builder.build(),
+                succinctBytes(totalAllocation),
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 rawInputReadTime,
