@@ -87,6 +87,7 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("26m"),
                                 true,
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),
+                                DataSize.valueOf("123MB"),
                                 DataSize.valueOf("27GB"),
                                 28,
                                 DataSize.valueOf("29GB"),
@@ -152,6 +153,8 @@ public class TestBasicQueryInfo
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
+
+        assertEquals(basicInfo.getQueryStats().getTotalAllocation(), DataSize.valueOf("123MB"));
 
         assertEquals(basicInfo.getQueryStats().getProgressPercentage(), OptionalDouble.of(100));
 

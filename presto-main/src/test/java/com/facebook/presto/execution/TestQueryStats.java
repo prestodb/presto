@@ -194,6 +194,8 @@ public class TestQueryStats
             false,
             ImmutableSet.of(),
 
+            new DataSize(123, BYTE),
+
             new DataSize(24, BYTE),
             25,
 
@@ -270,6 +272,8 @@ public class TestQueryStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
+
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(24, BYTE));
         assertEquals(actual.getRawInputPositions(), 25);

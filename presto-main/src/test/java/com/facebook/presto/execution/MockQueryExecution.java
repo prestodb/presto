@@ -146,6 +146,8 @@ public class MockQueryExecution
                         false,
                         ImmutableSet.of(),
 
+                        new DataSize(123, BYTE),
+
                         new DataSize(24, BYTE),
                         25,
 

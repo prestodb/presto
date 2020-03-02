@@ -137,6 +137,7 @@ public class TestQueryStateInfo
                         Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
+                        DataSize.valueOf("123MB"),
                         DataSize.valueOf("27GB"),
                         28,
                         DataSize.valueOf("29GB"),
