@@ -36,6 +36,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -278,6 +280,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new BucketPartitionFunction(
                     HASH.createBucketFunction(ImmutableList.of(BIGINT), true, PARTITION_COUNT),
                     IntStream.range(0, PARTITION_COUNT).toArray());
+            OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
@@ -285,21 +288,33 @@ public class BenchmarkPartitionedOutputOperator
             OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
 
             return (OptimizedPartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.empty(), serdeFactory)
+                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.of(outputPartitioning), serdeFactory)
                     .createOperator(createDriverContext());
         }
 
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
+            OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
+
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
 
             return (PartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.empty(), serdeFactory)
+                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.of(outputPartitioning), serdeFactory)
                     .createOperator(createDriverContext());
+        }
+
+        private OutputPartitioning createOutputPartitioning(PartitionFunction partitionFunction)
+        {
+            return new OutputPartitioning(
+                    partitionFunction,
+                    ImmutableList.of(0),
+                    ImmutableList.of(Optional.empty(), Optional.empty()),
+                    false,
+                    OptionalInt.empty());
         }
 
         private DriverContext createDriverContext()
