@@ -331,25 +331,36 @@ public final class QueryAssertions
             Session session,
             Iterable<TpchTable<?>> tables)
     {
+        copyTpchTables(queryRunner, sourceCatalog, sourceSchema, session, tables, false);
+    }
+
+    public static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables,
+            boolean ifNotExists)
+    {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
-            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session);
+            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session, ifNotExists);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
+    private static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session, boolean ifNotExists)
     {
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-        copyTable(queryRunner, table, session);
+        copyTable(queryRunner, table, session, ifNotExists);
     }
 
-    public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    private static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session, boolean ifNotExists)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+        @Language("SQL") String sql = format("CREATE TABLE %s %s AS SELECT * FROM %s", ifNotExists ? "IF NOT EXISTS" : "", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
