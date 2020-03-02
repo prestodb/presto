@@ -63,6 +63,8 @@ public class TestPipelineStats
             false,
             ImmutableSet.of(),
 
+            new DataSize(123, BYTE),
+
             new DataSize(14, BYTE),
             15,
 
@@ -114,6 +116,8 @@ public class TestPipelineStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(11, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(13, NANOSECONDS));
+
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(14, BYTE));
         assertEquals(actual.getRawInputPositions(), 15);

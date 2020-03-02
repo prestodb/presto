@@ -83,6 +83,8 @@ public class PipelineContext
     private final AtomicLong totalCpuTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
 
+    private final AtomicLong totalAllocation = new AtomicLong();
+
     private final CounterStat rawInputDataSize = new CounterStat();
     private final CounterStat rawInputPositions = new CounterStat();
 
@@ -187,6 +189,8 @@ public class PipelineContext
         totalCpuTime.getAndAdd(driverStats.getTotalCpuTime().roundTo(NANOSECONDS));
 
         totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
+
+        totalAllocation.getAndAdd(driverStats.getTotalAllocation().toBytes());
 
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
@@ -355,6 +359,8 @@ public class PipelineContext
         long totalCpuTime = this.totalCpuTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
+        long totalAllocation = this.totalAllocation.get();
+
         long rawInputDataSize = this.rawInputDataSize.getTotalCount();
         long rawInputPositions = this.rawInputPositions.getTotalCount();
 
@@ -379,6 +385,8 @@ public class PipelineContext
             totalScheduledTime += driverStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+
+            totalAllocation += driverStats.getTotalAllocation().toBytes();
 
             List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
             for (OperatorStats operator : operators) {
@@ -449,6 +457,8 @@ public class PipelineContext
                 succinctNanos(totalBlockedTime),
                 fullyBlocked,
                 blockedReasons,
+
+                succinctBytes(totalAllocation),
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
