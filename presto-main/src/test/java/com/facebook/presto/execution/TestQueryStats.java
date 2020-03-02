@@ -37,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestQueryStats
 {
-    public static final List<OperatorStats> operatorSummaries = ImmutableList.of(
+    private static final List<OperatorStats> OPERATOR_SUMMARIES = ImmutableList.of(
             new OperatorStats(
                     10,
                     101,
@@ -153,7 +153,7 @@ public class TestQueryStats
                     Optional.empty(),
                     null));
 
-    public static final QueryStats EXPECTED = new QueryStats(
+    private static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
             new DateTime(2),
             new DateTime(3),
@@ -219,7 +219,7 @@ public class TestQueryStats
                     106,
                     107)),
 
-            operatorSummaries);
+            OPERATOR_SUMMARIES);
 
     @Test
     public void testJson()
@@ -232,7 +232,7 @@ public class TestQueryStats
         assertExpectedQueryStats(actual);
     }
 
-    public static void assertExpectedQueryStats(QueryStats actual)
+    private static void assertExpectedQueryStats(QueryStats actual)
     {
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getExecutionStartTime(), new DateTime(2, UTC));
