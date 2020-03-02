@@ -62,6 +62,8 @@ public class BasicQueryStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final DataSize totalAllocation;
+
     private final OptionalDouble progressPercentage;
 
     @JsonCreator
@@ -85,6 +87,7 @@ public class BasicQueryStats
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
@@ -116,6 +119,8 @@ public class BasicQueryStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
@@ -140,6 +145,7 @@ public class BasicQueryStats
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
+                queryStats.getTotalAllocation(),
                 queryStats.getProgressPercentage());
     }
 
@@ -255,6 +261,12 @@ public class BasicQueryStats
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
+    }
+
+    @JsonProperty
+    public DataSize getTotalAllocation()
+    {
+        return totalAllocation;
     }
 
     @JsonProperty

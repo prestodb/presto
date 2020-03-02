@@ -52,6 +52,8 @@ public class BasicStageExecutionStats
             false,
             ImmutableSet.of(),
 
+            new DataSize(0, BYTE),
+
             OptionalDouble.empty());
 
     private final boolean isScheduled;
@@ -68,6 +70,7 @@ public class BasicStageExecutionStats
     private final Duration totalScheduledTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
+    private final DataSize totalAllocation;
     private final OptionalDouble progressPercentage;
 
     public BasicStageExecutionStats(
@@ -91,6 +94,8 @@ public class BasicStageExecutionStats
             boolean fullyBlocked,
             Set<BlockedReason> blockedReasons,
 
+            DataSize totalAllocation,
+
             OptionalDouble progressPercentage)
     {
         this.isScheduled = isScheduled;
@@ -107,6 +112,7 @@ public class BasicStageExecutionStats
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
@@ -180,6 +186,11 @@ public class BasicStageExecutionStats
         return blockedReasons;
     }
 
+    public DataSize getTotalAllocation()
+    {
+        return totalAllocation;
+    }
+
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
@@ -207,6 +218,8 @@ public class BasicStageExecutionStats
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        long totalAllocation = 0;
+
         for (BasicStageExecutionStats stageStats : stages) {
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
@@ -224,6 +237,8 @@ public class BasicStageExecutionStats
 
             fullyBlocked &= stageStats.isFullyBlocked();
             blockedReasons.addAll(stageStats.getBlockedReasons());
+
+            totalAllocation += stageStats.getTotalAllocation().toBytes();
 
             rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
             rawInputPositions += stageStats.getRawInputPositions();
@@ -254,6 +269,8 @@ public class BasicStageExecutionStats
 
                 fullyBlocked,
                 blockedReasons,
+
+                succinctBytes(totalAllocation),
 
                 progressPercentage);
     }

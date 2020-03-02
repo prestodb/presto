@@ -97,6 +97,7 @@ public class TestClusterMemoryLeakDetector
                         Duration.valueOf("24m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
+                        DataSize.valueOf("123MB"),
                         OptionalDouble.of(20)),
                 null,
                 null,

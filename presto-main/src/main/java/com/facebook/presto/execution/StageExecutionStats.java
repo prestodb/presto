@@ -71,6 +71,8 @@ public class StageExecutionStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final DataSize totalAllocation;
+
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
 
@@ -117,6 +119,8 @@ public class StageExecutionStats
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -171,6 +175,8 @@ public class StageExecutionStats
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -325,6 +331,12 @@ public class StageExecutionStats
     }
 
     @JsonProperty
+    public DataSize getTotalAllocation()
+    {
+        return totalAllocation;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -408,6 +420,7 @@ public class StageExecutionStats
                 totalScheduledTime,
                 fullyBlocked,
                 blockedReasons,
+                totalAllocation,
                 progressPercentage);
     }
 
@@ -436,6 +449,7 @@ public class StageExecutionStats
                 new Duration(0, NANOSECONDS),
                 false,
                 ImmutableSet.of(),
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 0,
                 new DataSize(0, BYTE),

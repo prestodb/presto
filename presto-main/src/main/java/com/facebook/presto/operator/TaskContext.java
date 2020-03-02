@@ -422,6 +422,8 @@ public class TaskContext
         long totalCpuTime = 0;
         long totalBlockedTime = 0;
 
+        long totalAllocation = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -449,6 +451,8 @@ public class TaskContext
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
+
+            totalAllocation += pipeline.getTotalAllocation().toBytes();
 
             if (pipeline.isInputPipeline()) {
                 rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
@@ -532,6 +536,7 @@ public class TaskContext
                 succinctNanos(totalBlockedTime),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
+                succinctBytes(totalAllocation),
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),

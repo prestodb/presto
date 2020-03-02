@@ -362,6 +362,9 @@ public class QueryStateMachine
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
+
+                stageStats.getTotalAllocation(),
+
                 stageStats.getProgressPercentage());
 
         return new BasicQueryInfo(
@@ -468,6 +471,8 @@ public class QueryStateMachine
         long retriedCpuTime = 0;
         long totalBlockedTime = 0;
 
+        long totalAllocation = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -513,6 +518,8 @@ public class QueryStateMachine
                 fullyBlocked &= stageExecutionStats.isFullyBlocked();
                 blockedReasons.addAll(stageExecutionStats.getBlockedReasons());
             }
+
+            totalAllocation += stageExecutionStats.getTotalAllocation().toBytes();
 
             if (stageInfo.getPlan().isPresent()) {
                 PlanFragment plan = stageInfo.getPlan().get();
@@ -595,6 +602,8 @@ public class QueryStateMachine
                 succinctDuration(totalBlockedTime, MILLISECONDS),
                 fullyBlocked,
                 blockedReasons,
+
+                succinctBytes(totalAllocation),
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
@@ -1090,6 +1099,7 @@ public class QueryStateMachine
                 queryStats.getTotalBlockedTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
+                queryStats.getTotalAllocation(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),
