@@ -44,6 +44,8 @@ public class TaskManagerConfig
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
+    private boolean perOperatorAllocationTrackingEnabled = true;
+    private boolean taskAllocationTrackingEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
@@ -162,6 +164,30 @@ public class TaskManagerConfig
     public TaskManagerConfig setStatisticsCpuTimerEnabled(boolean statisticsCpuTimerEnabled)
     {
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        return this;
+    }
+
+    public boolean isPerOperatorAllocationTrackingEnabled()
+    {
+        return perOperatorAllocationTrackingEnabled;
+    }
+
+    @Config("task.per-operator-allocation-tracking-enabled")
+    public TaskManagerConfig setPerOperatorAllocationTrackingEnabled(boolean perOperatorAllocationTrackingEnabled)
+    {
+        this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
+        return this;
+    }
+
+    public boolean isTaskAllocationTrackingEnabled()
+    {
+        return taskAllocationTrackingEnabled;
+    }
+
+    @Config("task.allocation-tracking-enabled")
+    public TaskManagerConfig setTaskAllocationTrackingEnabled(boolean taskAllocationTrackingEnabled)
+    {
+        this.taskAllocationTrackingEnabled = taskAllocationTrackingEnabled;
         return this;
     }
 
