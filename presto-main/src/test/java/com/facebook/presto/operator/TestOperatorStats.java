@@ -45,6 +45,7 @@ public class TestOperatorStats
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
+            new DataSize(123, BYTE),
             new DataSize(5, BYTE),
             10,
             new DataSize(6, BYTE),
@@ -54,6 +55,7 @@ public class TestOperatorStats
             9,
             new Duration(10, NANOSECONDS),
             new Duration(11, NANOSECONDS),
+            new DataSize(234, BYTE),
             new DataSize(12, BYTE),
             13,
 
@@ -64,6 +66,7 @@ public class TestOperatorStats
             16,
             new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
+            new DataSize(345, BYTE),
 
             new DataSize(19, BYTE),
             new DataSize(20, BYTE),
@@ -88,6 +91,7 @@ public class TestOperatorStats
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
+            new DataSize(123, BYTE),
             new DataSize(5, BYTE),
             10,
             new DataSize(6, BYTE),
@@ -97,6 +101,7 @@ public class TestOperatorStats
             9,
             new Duration(10, NANOSECONDS),
             new Duration(11, NANOSECONDS),
+            new DataSize(234, BYTE),
             new DataSize(12, BYTE),
             13,
 
@@ -107,6 +112,7 @@ public class TestOperatorStats
             16,
             new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
+            new DataSize(345, BYTE),
 
             new DataSize(19, BYTE),
             new DataSize(20, BYTE),
@@ -140,6 +146,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 2);
         assertEquals(actual.getAddInputWall(), new Duration(3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocation(), new DataSize(123, BYTE));
         assertEquals(actual.getRawInputDataSize(), new DataSize(5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(6, BYTE));
         assertEquals(actual.getInputPositions(), 7);
@@ -148,6 +155,7 @@ public class TestOperatorStats
         assertEquals(actual.getGetOutputCalls(), 9);
         assertEquals(actual.getGetOutputWall(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocation(), new DataSize(234, BYTE));
         assertEquals(actual.getOutputDataSize(), new DataSize(12, BYTE));
         assertEquals(actual.getOutputPositions(), 13);
 
@@ -158,6 +166,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCalls(), 16);
         assertEquals(actual.getFinishWall(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocation(), new DataSize(345, BYTE));
 
         assertEquals(actual.getUserMemoryReservation(), new DataSize(19, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(20, BYTE));
@@ -184,6 +193,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocation(), new DataSize(3 * 123, BYTE));
         assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);
@@ -192,6 +202,7 @@ public class TestOperatorStats
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocation(), new DataSize(3 * 234, BYTE));
         assertEquals(actual.getOutputDataSize(), new DataSize(3 * 12, BYTE));
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
@@ -202,6 +213,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCalls(), 3 * 16);
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocation(), new DataSize(3 * 345, BYTE));
+
         assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 19, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
@@ -226,6 +239,7 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
+        assertEquals(actual.getAddInputAllocation(), new DataSize(3 * 123, BYTE));
         assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);
@@ -234,6 +248,7 @@ public class TestOperatorStats
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
+        assertEquals(actual.getGetOutputAllocation(), new DataSize(3 * 234, BYTE));
         assertEquals(actual.getOutputDataSize(), new DataSize(3 * 12, BYTE));
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
@@ -244,6 +259,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCalls(), 3 * 16);
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
+        assertEquals(actual.getFinishAllocation(), new DataSize(3 * 345, BYTE));
+
         assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 19, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
