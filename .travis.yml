@@ -11,8 +11,14 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - WEBUI_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-tpch-distributed-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-local-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-aggregation-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-plan-determinism"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra
