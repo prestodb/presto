@@ -50,6 +50,8 @@ public class TestDriverStats
             false,
             ImmutableSet.of(),
 
+            new DataSize(123, BYTE),
+
             new DataSize(13, BYTE),
             14,
             new Duration(15, NANOSECONDS),
@@ -92,6 +94,8 @@ public class TestDriverStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(12, NANOSECONDS));
+
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(13, BYTE));
         assertEquals(actual.getRawInputPositions(), 14);
