@@ -34,15 +34,15 @@ public class TestOperationTimer
     @Test
     public void testOverallTiming()
     {
-        testOverallTiming(false);
-        testOverallTiming(true);
+        testOverallTiming(false, false);
+        testOverallTiming(true, true);
     }
 
-    private void testOverallTiming(boolean trackCpuTime)
+    private void testOverallTiming(boolean trackCpuTime, boolean trackAllocation)
     {
-        InternalTiming timing = new InternalTiming(trackCpuTime);
+        InternalTiming timing = new InternalTiming(trackCpuTime, trackAllocation);
         for (int i = 1; i <= 5; i++) {
-            OperationTimer timer = new OperationTimer(trackCpuTime, false);
+            OperationTimer timer = new OperationTimer(trackCpuTime, false, trackAllocation, false);
             doSomething();
             timing.record(timer::end);
         }
@@ -51,19 +51,19 @@ public class TestOperationTimer
     @Test
     public void testOperationTiming()
     {
-        testOperationTiming(false);
-        testOperationTiming(true);
+        testOperationTiming(false, false);
+        testOperationTiming(true, true);
     }
 
-    private void testOperationTiming(boolean trackCpuTime)
+    private void testOperationTiming(boolean trackCpuTime, boolean trackAllocation)
     {
-        InternalTiming overallTiming = new InternalTiming(true);
+        InternalTiming overallTiming = new InternalTiming(true, true);
 
-        InternalTiming operationTiming1 = new InternalTiming(trackCpuTime);
-        InternalTiming operationTiming2 = new InternalTiming(trackCpuTime);
-        InternalTiming operationTiming3 = new InternalTiming(trackCpuTime);
+        InternalTiming operationTiming1 = new InternalTiming(trackCpuTime, trackAllocation);
+        InternalTiming operationTiming2 = new InternalTiming(trackCpuTime, trackAllocation);
+        InternalTiming operationTiming3 = new InternalTiming(trackCpuTime, trackAllocation);
 
-        OperationTimer timer = new OperationTimer(true, trackCpuTime);
+        OperationTimer timer = new OperationTimer(true, trackCpuTime, true, trackAllocation);
 
         doSomething();
         operationTiming1.record(timer::recordOperationComplete);
@@ -84,13 +84,15 @@ public class TestOperationTimer
                 .isLessThanOrEqualTo(overallTiming.getTiming().getWallNanos());
         assertThat(operationTiming1.getTiming().getCpuNanos() + operationTiming2.getTiming().getCpuNanos() + operationTiming3.getTiming().getCpuNanos())
                 .isLessThanOrEqualTo(overallTiming.getTiming().getCpuNanos());
+        assertThat(operationTiming1.getTiming().getAllocationBytes() + operationTiming2.getTiming().getAllocationBytes() + operationTiming3.getTiming().getAllocationBytes())
+                .isLessThanOrEqualTo(overallTiming.getTiming().getAllocationBytes());
     }
 
     @Test
     public void testOperationAfterEndAreNotAllowed()
     {
         OperationTiming timing = new OperationTiming();
-        OperationTimer timer = new OperationTimer(true, false);
+        OperationTimer timer = new OperationTimer(true, false, true, false);
         timer.end(timing);
         assertThatThrownBy(() -> timer.end(timing)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> timer.recordOperationComplete(timing)).isInstanceOf(IllegalStateException.class);
@@ -99,7 +101,8 @@ public class TestOperationTimer
     @Test
     public void testInvalidConstructorArguments()
     {
-        assertThatThrownBy(() -> new OperationTimer(false, true)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new OperationTimer(false, true, false, false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new OperationTimer(true, true, false, true)).isInstanceOf(IllegalArgumentException.class);
     }
 
     private static void doSomething()
@@ -113,16 +116,19 @@ public class TestOperationTimer
     private static class InternalTiming
     {
         private final boolean trackCpuTime;
+        private final boolean trackAllocation;
 
         private final OperationTiming timing = new OperationTiming();
 
         private long calls;
         private long previousWallNanos;
         private long previousCpuNanos;
+        private long previousAllocationBytes;
 
-        private InternalTiming(boolean trackCpuTime)
+        private InternalTiming(boolean trackCpuTime, boolean trackAllocation)
         {
             this.trackCpuTime = trackCpuTime;
+            this.trackAllocation = trackAllocation;
         }
 
         public OperationTiming getTiming()
@@ -134,6 +140,8 @@ public class TestOperationTimer
         {
             previousWallNanos = timing.getWallNanos();
             previousCpuNanos = timing.getCpuNanos();
+            previousAllocationBytes = timing.getAllocationBytes();
+
             assertEquals(timing.getCalls(), calls);
             timer.accept(timing);
             calls++;
@@ -145,6 +153,12 @@ public class TestOperationTimer
             }
             else {
                 assertEquals(timing.getCpuNanos(), 0);
+            }
+            if (trackAllocation) {
+                assertThat(timing.getAllocationBytes()).isGreaterThan(previousAllocationBytes);
+            }
+            else {
+                assertEquals(timing.getAllocationBytes(), 0);
             }
         }
     }

@@ -171,7 +171,7 @@ public class OperatorContext
     {
         rawInputDataSize.update(sizeInBytes);
         rawInputPositions.update(positionCount);
-        addInputTiming.record(readNanos, 0);
+        addInputTiming.record(readNanos, 0, 0);
     }
 
     /**
