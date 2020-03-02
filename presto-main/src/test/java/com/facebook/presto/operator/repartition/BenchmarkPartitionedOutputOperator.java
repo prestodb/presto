@@ -137,11 +137,9 @@ public class BenchmarkPartitionedOutputOperator
         @Param({"true", "false"})
         private boolean enableCompression;
 
-        @SuppressWarnings("unused")
         @Param({"1", "2"})
-        private int channelCount;
+        private int channelCount = 1;
 
-        @SuppressWarnings("unused")
         @Param({
                 "BIGINT",
                 "DICTIONARY(BIGINT)",
@@ -157,8 +155,9 @@ public class BenchmarkPartitionedOutputOperator
                 "MAP(BIGINT,BIGINT)",
                 "MAP(BIGINT,MAP(BIGINT,BIGINT))",
                 "ROW(BIGINT,BIGINT)",
-                "ROW(ARRAY(BIGINT),ARRAY(BIGINT))"})
-        private String type;
+                "ROW(ARRAY(BIGINT),ARRAY(BIGINT))"
+        })
+        private String type = "BIGINT";
 
         @SuppressWarnings("unused")
         @Param({"true", "false"})
