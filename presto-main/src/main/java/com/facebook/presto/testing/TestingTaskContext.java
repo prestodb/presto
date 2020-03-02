@@ -70,6 +70,8 @@ public final class TestingTaskContext
                 session,
                 true,
                 true,
+                true,
+                true,
                 false);
     }
 

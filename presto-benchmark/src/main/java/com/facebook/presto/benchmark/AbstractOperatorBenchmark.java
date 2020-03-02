@@ -283,6 +283,8 @@ public abstract class AbstractOperatorBenchmark
                         session,
                         false,
                         false,
+                        false,
+                        false,
                         false);
 
         CpuTimer cpuTimer = new CpuTimer();

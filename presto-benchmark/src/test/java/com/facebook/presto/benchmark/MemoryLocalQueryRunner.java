@@ -91,6 +91,8 @@ public class MemoryLocalQueryRunner
                         localQueryRunner.getDefaultSession(),
                         false,
                         false,
+                        false,
+                        false,
                         false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results

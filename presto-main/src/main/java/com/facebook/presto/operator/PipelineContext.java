@@ -269,6 +269,16 @@ public class PipelineContext
         return taskContext.isCpuTimerEnabled();
     }
 
+    public boolean isPerOperatorAllocationTrackingEnabled()
+    {
+        return taskContext.isPerOperatorAllocationTrackingEnabled();
+    }
+
+    public boolean isAllocationTrackingEnabled()
+    {
+        return taskContext.isAllocationTrackingEnabled();
+    }
+
     public CounterStat getInputDataSize()
     {
         CounterStat stat = new CounterStat();

@@ -273,6 +273,8 @@ public class TestSqlTaskManager
                         testSessionBuilder().build(),
                         false,
                         false,
+                        false,
+                        false,
                         false);
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
