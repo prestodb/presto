@@ -128,7 +128,7 @@ public class JdbcPrestoAction
                             columnNames.add(resultSet.getMetaData().getColumnName(i));
                         }
                         while (resultSet.next()) {
-                            rows.add(converter.get().apply(resultSet));
+                            converter.get().apply(resultSet).ifPresent(rows::add);
                         }
                     }
                 }

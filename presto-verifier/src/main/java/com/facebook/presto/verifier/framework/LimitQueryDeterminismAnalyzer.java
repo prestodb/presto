@@ -162,7 +162,7 @@ public class LimitQueryDeterminismAnalyzer
                 new TableSubquery(newLimitQuery));
 
         QueryResult<Long> result = callWithQueryStatsConsumer(
-                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)),
+                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> Optional.of(resultSet.getLong(1))),
                 stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
 
         long rowCountHigherLimit = getOnlyElement(result.getResults());
