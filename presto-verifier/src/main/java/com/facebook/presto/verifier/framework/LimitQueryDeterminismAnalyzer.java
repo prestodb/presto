@@ -14,13 +14,17 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -28,7 +32,15 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
@@ -37,9 +49,15 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
+import static com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -130,9 +148,53 @@ public class LimitQueryDeterminismAnalyzer
         return analyzeLimitNoOrderBy(newLimitQuery, limit);
     }
 
+    /**
+     * To check whether all ORDER BY columns are matching between the n-th and the (n+1)-th row, we
+     * may need to project additional columns. Takes in the list of SelectItems of the original query
+     * and append additional SelectItems to the list.
+     *
+     * @param selectItems A list of {@link SelectItem} of the original query
+     * @param orderBy ORDER BY clause
+     * @return the list of column keys to locate ORDER BY columns in the query result
+     */
+    private List<ColumnNameOrIndex> populateSelectItems(List<SelectItem> selectItems, OrderBy orderBy)
+    {
+        Set<String> aliases = selectItems.stream()
+                .filter(SingleColumn.class::isInstance)
+                .map(SingleColumn.class::cast)
+                .map(SingleColumn::getAlias)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(Identifier::getValue)
+                .collect(toImmutableSet());
+        ImmutableList.Builder<ColumnNameOrIndex> orderByKeys = ImmutableList.builder();
+
+        for (int i = 0; i < orderBy.getSortItems().size(); i++) {
+            Expression sortKey = orderBy.getSortItems().get(i).getSortKey();
+            if (sortKey instanceof LongLiteral) {
+                // If sortKey is an long literal, it can be referenced by column index.
+                orderByKeys.add(ColumnNameOrIndex.forIndex(toIntExact(((LongLiteral) sortKey).getValue()) - 1));
+            }
+            else if (sortKey instanceof Identifier && aliases.contains(((Identifier) sortKey).getValue())) {
+                // If sortKey is an identifier, it can either be an alias or a column name.
+                // It is impossible for two columns to have the same alias as sortKey, since otherwise a SYNTAX_ERROR will be thrown due to sortKey being ambiguous.
+                // It is possible that sortKey is both an alias and a column name. In that case, sortKey references the aliased column.
+                orderByKeys.add(ColumnNameOrIndex.forName(((Identifier) sortKey).getValue()));
+            }
+            else {
+                // If the sortKey is non-alias identifier, select the sortKey column, since it might not be selected or it might be aliased.
+                // If the sortKey is not an identifier, select the sortKey column.
+                String columnName = "$$sort_key$$" + i;
+                selectItems.add(new SingleColumn(sortKey, delimitedIdentifier(columnName)));
+                orderByKeys.add(ColumnNameOrIndex.forName(columnName));
+            }
+        }
+        return orderByKeys.build();
+    }
+
     private LimitQueryDeterminismAnalysis analyzeQuerySpecification(Optional<With> with, QuerySpecification querySpecification)
     {
-        if (querySpecification.getOrderBy().isPresent() || !querySpecification.getLimit().isPresent()) {
+        if (!querySpecification.getLimit().isPresent()) {
             return NOT_RUN;
         }
         if (isLimitAll(querySpecification.getLimit().get())) {
@@ -140,6 +202,27 @@ public class LimitQueryDeterminismAnalyzer
         }
         long limit = parseLong(querySpecification.getLimit().get());
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
+        Optional<OrderBy> orderBy = querySpecification.getOrderBy();
+
+        if (orderBy.isPresent()) {
+            List<SelectItem> selectItems = new ArrayList<>(querySpecification.getSelect().getSelectItems());
+            List<ColumnNameOrIndex> orderByKeys = populateSelectItems(selectItems, orderBy.get());
+            return analyzeLimitOrderBy(
+                    new Query(
+                            with,
+                            new QuerySpecification(
+                                    new Select(false, selectItems),
+                                    querySpecification.getFrom(),
+                                    querySpecification.getWhere(),
+                                    querySpecification.getGroupBy(),
+                                    querySpecification.getHaving(),
+                                    orderBy,
+                                    newLimit),
+                            Optional.empty(),
+                            Optional.empty()),
+                    orderByKeys,
+                    limit);
+        }
         Query newLimitQuery = new Query(
                 with,
                 new QuerySpecification(
@@ -175,8 +258,96 @@ public class LimitQueryDeterminismAnalyzer
         return FAILED_DATA_CHANGED;
     }
 
+    private LimitQueryDeterminismAnalysis analyzeLimitOrderBy(Query tieInspectorQuery, List<ColumnNameOrIndex> orderByKeys, long limit)
+    {
+        QueryResult<List<Object>> result = callWithQueryStatsConsumer(
+                () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS, new TieInspector(limit)),
+                stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+        if (result.getResults().isEmpty()) {
+            return FAILED_DATA_CHANGED;
+        }
+        if (result.getResults().size() == 1) {
+            return DETERMINISTIC;
+        }
+
+        List<Object> row1 = result.getResults().get(0);
+        List<Object> row2 = result.getResults().get(1);
+        checkState(row1.size() == row2.size(), "Rows have different sizes: %s %s", row1.size(), row2.size());
+
+        List<String> columnNames = result.getColumnNames();
+        Map<String, Integer> columnIndices = new HashMap<>();
+        for (int i = 0; i < columnNames.size(); i++) {
+            columnIndices.putIfAbsent(columnNames.get(i), i);
+        }
+
+        for (ColumnNameOrIndex orderByKey : orderByKeys) {
+            int columnIndex = orderByKey.getIndex().isPresent()
+                    ? orderByKey.getIndex().get()
+                    : columnIndices.get(orderByKey.getName().orElseThrow(() -> new IllegalArgumentException(format("Invalid orderByKey: %s", orderByKey))));
+            if (!Objects.equals(row1.get(columnIndex), row2.get(columnIndex))) {
+                return DETERMINISTIC;
+            }
+        }
+        return NON_DETERMINISTIC;
+    }
+
     private static boolean isLimitAll(String limitClause)
     {
         return limitClause.toLowerCase(ENGLISH).equals("all");
+    }
+
+    private static class ColumnNameOrIndex
+    {
+        private final Optional<String> name;
+        private final Optional<Integer> index;
+
+        private ColumnNameOrIndex(Optional<String> name, Optional<Integer> index)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.index = requireNonNull(index, "index is null");
+            checkState(this.name.isPresent() ^ this.index.isPresent(), "Exactly one of name and index must be present: %s %s", this.name, this.index);
+        }
+
+        public static ColumnNameOrIndex forName(String name)
+        {
+            return new ColumnNameOrIndex(Optional.of(name), Optional.empty());
+        }
+
+        public static ColumnNameOrIndex forIndex(int index)
+        {
+            return new ColumnNameOrIndex(Optional.empty(), Optional.of(index));
+        }
+
+        public Optional<String> getName()
+        {
+            return name;
+        }
+
+        public Optional<Integer> getIndex()
+        {
+            return index;
+        }
+    }
+
+    private static class TieInspector
+            implements ResultSetConverter<List<Object>>
+    {
+        private final long limit;
+        private long row;
+
+        public TieInspector(long limit)
+        {
+            this.limit = limit;
+        }
+
+        public Optional<List<Object>> apply(ResultSet resultSet)
+                throws SQLException
+        {
+            row++;
+            if (row != limit && row != limit + 1) {
+                return Optional.empty();
+            }
+            return ResultSetConverter.DEFAULT.apply(resultSet);
+        }
     }
 }
