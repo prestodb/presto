@@ -105,7 +105,7 @@ public class TestJdbcPrestoAction
         QueryResult<Integer> result = prestoAction.execute(
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
                 QUERY_STAGE,
-                resultSet -> resultSet.getInt("x") * resultSet.getInt("x"));
+                resultSet -> Optional.of(resultSet.getInt("x") * resultSet.getInt("x")));
         assertEquals(result.getQueryStats().getState(), FINISHED.name());
         assertEquals(result.getResults(), ImmutableList.of(1, 4, 9));
     }

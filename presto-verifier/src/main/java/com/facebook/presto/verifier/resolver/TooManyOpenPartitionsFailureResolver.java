@@ -81,7 +81,7 @@ public class TooManyOpenPartitionsFailureResolver
                 e -> {
                     try {
                         ShowCreate showCreate = new ShowCreate(TABLE, test.get().getTableName());
-                        String showCreateResult = getOnlyElement(prestoAction.execute(showCreate, DESCRIBE, resultSet -> resultSet.getString(1)).getResults());
+                        String showCreateResult = getOnlyElement(prestoAction.execute(showCreate, DESCRIBE, resultSet -> Optional.of(resultSet.getString(1))).getResults());
                         CreateTable createTable = (CreateTable) sqlParser.createStatement(showCreateResult, ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build());
                         List<Property> bucketCountProperty = createTable.getProperties().stream()
                                 .filter(property -> property.getName().getValue().equals(BUCKET_COUNT_PROPERTY))

@@ -83,7 +83,7 @@ public class DataVerificationUtil
     public static List<Column> getColumns(PrestoAction prestoAction, TypeManager typeManager, QualifiedName tableName)
     {
         return prestoAction
-                .execute(new ShowColumns(tableName), DESCRIBE, resultSet -> Column.fromResultSet(typeManager, resultSet))
+                .execute(new ShowColumns(tableName), DESCRIBE, resultSet -> Optional.of(Column.fromResultSet(typeManager, resultSet)))
                 .getResults();
     }
 

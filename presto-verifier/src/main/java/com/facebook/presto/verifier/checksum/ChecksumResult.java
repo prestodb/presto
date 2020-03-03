@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,7 +56,7 @@ public class ChecksumResult
         return checksums.get(columnName);
     }
 
-    public static ChecksumResult fromResultSet(ResultSet resultSet)
+    public static Optional<ChecksumResult> fromResultSet(ResultSet resultSet)
             throws SQLException
     {
         long rowCount = resultSet.getLong(1);
@@ -83,6 +84,6 @@ public class ChecksumResult
                 checksums.put(columnName, new SqlVarbinary((byte[]) checksum));
             }
         }
-        return new ChecksumResult(rowCount, checksums);
+        return Optional.of(new ChecksumResult(rowCount, checksums));
     }
 }

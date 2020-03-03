@@ -17,26 +17,29 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
-import com.google.common.collect.ImmutableList;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Collections.unmodifiableList;
 
 public interface PrestoAction
 {
     @FunctionalInterface
     interface ResultSetConverter<R>
     {
-        R apply(ResultSet resultSet)
+        Optional<R> apply(ResultSet resultSet)
                 throws SQLException;
 
         ResultSetConverter<List<Object>> DEFAULT = resultSet -> {
-            ImmutableList.Builder<Object> row = ImmutableList.builder();
-            for (int i = 0; i < resultSet.getMetaData().getColumnCount(); i++) {
+            List<Object> row = new ArrayList<>();
+            for (int i = 1; i <= resultSet.getMetaData().getColumnCount(); i++) {
                 row.add(resultSet.getObject(i));
             }
-            return row.build();
+            return Optional.of(unmodifiableList(row));
         };
     }
 
