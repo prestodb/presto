@@ -771,10 +771,6 @@ public final class HttpRemoteTask
         checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            // With recoverable grouped execution, failed task does not necessarily fail the whole query.
-            // Not updating task info makes query unable to finish in tests because failed task is stuck in RUNNING state.
-            // TODO: Investigate why this only happens in TestHiveRecoverableGroupedExecution when worker is closed, but not in production test via cli.
-            taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(status));
             taskStatusFetcher.updateTaskStatus(status);
 
             // send abort to task
@@ -880,7 +876,15 @@ public final class HttpRemoteTask
             log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
         }
 
-        abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+        TaskStatus failedTaskStatus = failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause)));
+        // Transition task to failed state without waiting for the final task info returned by the abort request.
+        // The abort request is very likely not to succeed, leaving the task and the stage in the limbo state for
+        // the entire duration of abort retries. If the task is failed, it is not that important to actually
+        // record the final statistics and the final information about a failed task.
+        taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(failedTaskStatus));
+
+        // Initiate abort request
+        abort(failedTaskStatus);
     }
 
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
