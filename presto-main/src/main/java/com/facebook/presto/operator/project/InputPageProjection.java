@@ -64,7 +64,7 @@ public class InputPageProjection
             result = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }
         else if (selectedPositions.getOffset() == 0 && selectedPositions.size() == page.getPositionCount()) {
-            result = block;
+            result = block.getLoadedBlock();
         }
         else {
             result = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
