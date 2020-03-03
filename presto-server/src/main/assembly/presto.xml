@@ -176,5 +176,9 @@
             <directory>${project.build.directory}/dependency/presto-druid-${project.version}</directory>
             <outputDirectory>plugin/presto-druid</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
+            <outputDirectory>plugin/presto-bigqueyr</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
