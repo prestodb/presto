@@ -22,8 +22,8 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
@@ -33,22 +33,24 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestLimitQueryDeterminismAnalyzer
 {
     private static class MockPrestoAction
             implements PrestoAction
     {
-        private final AtomicLong rowCount;
+        private final List<Object> rows;
+        private final List<String> columnNames;
         private Statement lastStatement;
 
-        public MockPrestoAction(AtomicLong rowCount)
+        public MockPrestoAction(List<?> rows, List<String> columnNames)
         {
-            this.rowCount = requireNonNull(rowCount, "rowCount is null");
+            this.rows = ImmutableList.copyOf(rows);
+            this.columnNames = ImmutableList.copyOf(columnNames);
         }
 
         @Override
@@ -62,7 +64,7 @@ public class TestLimitQueryDeterminismAnalyzer
         public <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter)
         {
             lastStatement = statement;
-            return new QueryResult(ImmutableList.of(rowCount.get()), ImmutableList.of("_col0"), QUERY_STATS);
+            return new QueryResult(rows, columnNames, QUERY_STATS);
         }
 
         public Statement getLastStatement()
@@ -76,6 +78,22 @@ public class TestLimitQueryDeterminismAnalyzer
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
+    private static final String ORDER_BY_LIMIT_QUERY = "INSERT INTO test\n" +
+            "SELECT\n" +
+            "    a b,\n" +
+            "    c,\n" +
+            "    *,\n" +
+            "    e\n" +
+            "FROM source\n" +
+            "ORDER BY\n" +
+            "    a,\n" +
+            "    b,\n" +
+            "    2 DESC,\n" +
+            "    c + d DESC\n" +
+            "LIMIT\n" +
+            "    1000";
+    private static final List<String> TIE_INSPECTOR_COLUMNS = ImmutableList.of("b", "c", "e", "x", "y", "$$sort_key$$0", "$$sort_key$$3");
+
     @Test
     public void testNotRunLimitNoOrderBy()
     {
@@ -87,7 +105,6 @@ public class TestLimitQueryDeterminismAnalyzer
 
         // ORDER BY clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
-        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
 
         // No outer LIMIT clause
         assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source", NOT_RUN);
@@ -127,9 +144,59 @@ public class TestLimitQueryDeterminismAnalyzer
         assertAnalysis(createPrestoAction(1001), "INSERT INTO test SELECT * FROM source LIMIT 2000", FAILED_DATA_CHANGED);
     }
 
+    @Test
+    public void testLimitOrderByNonDeterministic()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(
+                ImmutableList.of(
+                        ImmutableList.of(1, 2, 3, 4, 5, 1, 6),
+                        ImmutableList.of(1, 2, 0, 0, 0, 1, 6)),
+                TIE_INSPECTOR_COLUMNS);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, NON_DETERMINISTIC);
+        assertAnalyzerQuery(
+                prestoAction,
+                "SELECT\n" +
+                        "  a b\n" +
+                        ", c\n" +
+                        ", *\n" +
+                        ", e\n" +
+                        ", a \"$$sort_key$$0\"\n" +
+                        ", (c + d) \"$$sort_key$$3\"\n" +
+                        "FROM\n" +
+                        "  source\n" +
+                        "ORDER BY a ASC, b ASC, 2 DESC, (c + d) DESC\n" +
+                        "LIMIT 1001");
+    }
+
+    @Test
+    public void testLimitOrderByDeterministic()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(ImmutableList.of(1, 2, 3, 4, 5, 1, 6)), TIE_INSPECTOR_COLUMNS);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, DETERMINISTIC);
+
+        prestoAction = createPrestoAction(
+                ImmutableList.of(
+                        ImmutableList.of(1, 2, 3, 4, 5, 1, 6),
+                        ImmutableList.of(1, 2, 0, 0, 0, 1, 5)),
+                TIE_INSPECTOR_COLUMNS);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, DETERMINISTIC);
+    }
+
+    @Test
+    public void testLimitOrderByFailedDataChanged()
+    {
+        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(), TIE_INSPECTOR_COLUMNS);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, FAILED_DATA_CHANGED);
+    }
+
     private static MockPrestoAction createPrestoAction(long rowCount)
     {
-        return new MockPrestoAction(new AtomicLong(rowCount));
+        return new MockPrestoAction(ImmutableList.of(rowCount), ImmutableList.of());
+    }
+
+    private static MockPrestoAction createPrestoAction(List<List<Object>> rows, List<String> columnNames)
+    {
+        return new MockPrestoAction(rows, columnNames);
     }
 
     private static void assertAnalysis(PrestoAction prestoAction, String query, LimitQueryDeterminismAnalysis expectedAnalysis)
