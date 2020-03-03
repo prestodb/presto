@@ -50,7 +50,7 @@ public class QueryManagerConfig
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
     private int stageCountWarningThreshold = 50;
-    private int maxTotalRunningTaskCount = Integer.MAX_VALUE;
+    private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
@@ -251,16 +251,16 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getMaxTotalRunningTaskCount()
+    public int getMaxTotalRunningTaskCountToKillQuery()
     {
-        return maxTotalRunningTaskCount;
+        return maxTotalRunningTaskCountToKillQuery;
     }
 
-    @Config("experimental.max-total-running-task-count")
-    @ConfigDescription("Maximal allowed running task from all queries")
-    public QueryManagerConfig setMaxTotalRunningTaskCount(int maxTotalRunningTaskCount)
+    @Config("max-total-running-task-count-to-kill-query")
+    @ConfigDescription("Query may be killed when running task count from all queries exceeds this threshold")
+    public QueryManagerConfig setMaxTotalRunningTaskCountToKillQuery(int maxTotalRunningTaskCountToKillQuery)
     {
-        this.maxTotalRunningTaskCount = maxTotalRunningTaskCount;
+        this.maxTotalRunningTaskCountToKillQuery = maxTotalRunningTaskCountToKillQuery;
         return this;
     }
 
@@ -270,8 +270,8 @@ public class QueryManagerConfig
         return maxQueryRunningTaskCount;
     }
 
-    @Config("experimental.max-query-running-task-count")
-    @ConfigDescription("Maximal allowed running task for single query only if experimental.max-total-running-task-count is violated")
+    @Config("max-query-running-task-count")
+    @ConfigDescription("Maximal allowed running task for single query only if max-total-running-task-count-to-kill-query is violated")
     public QueryManagerConfig setMaxQueryRunningTaskCount(int maxQueryRunningTaskCount)
     {
         this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;

@@ -55,7 +55,7 @@ public class QueryTracker<T extends TrackedQuery>
     private static final Logger log = Logger.get(QueryTracker.class);
 
     private final int maxQueryHistory;
-    private final int maxTotalRunningTaskCount;
+    private final int maxTotalRunningTaskCountToKillQuery;
     private final int maxQueryRunningTaskCount;
 
     private final AtomicInteger runningTaskCount = new AtomicInteger();
@@ -79,7 +79,7 @@ public class QueryTracker<T extends TrackedQuery>
         this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
         this.clientTimeout = queryManagerConfig.getClientTimeout();
-        this.maxTotalRunningTaskCount = queryManagerConfig.getMaxTotalRunningTaskCount();
+        this.maxTotalRunningTaskCountToKillQuery = queryManagerConfig.getMaxTotalRunningTaskCountToKillQuery();
         this.maxQueryRunningTaskCount = queryManagerConfig.getMaxQueryRunningTaskCount();
 
         this.queryManagementExecutor = requireNonNull(queryManagementExecutor, "queryManagementExecutor is null");
@@ -104,7 +104,7 @@ public class QueryTracker<T extends TrackedQuery>
             }
 
             try {
-                if (maxTotalRunningTaskCount != Integer.MAX_VALUE && maxQueryRunningTaskCount != Integer.MAX_VALUE) {
+                if (maxTotalRunningTaskCountToKillQuery != Integer.MAX_VALUE && maxQueryRunningTaskCount != Integer.MAX_VALUE) {
                     enforceTaskLimits();
                 }
             }
@@ -243,7 +243,7 @@ public class QueryTracker<T extends TrackedQuery>
 
         runningTaskCount.set(totalRunningTaskCount);
 
-        if (totalRunningTaskCount > maxTotalRunningTaskCount &&
+        if (totalRunningTaskCount > maxTotalRunningTaskCountToKillQuery &&
                 highestRunningTaskCount > maxQueryRunningTaskCount &&
                 highestRunningTaskQuery.isPresent()) {
             highestRunningTaskQuery.get().fail(new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(

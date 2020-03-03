@@ -60,8 +60,8 @@ public class TestQueryTaskLimit
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("experimental.max-total-running-task-count", "4")
-                .put("experimental.max-query-running-task-count", "4")
+                .put("max-total-running-task-count-to-kill-query", "4")
+                .put("max-query-running-task-count", "4")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(defaultSession, extraProperties)) {
