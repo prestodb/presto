@@ -17,6 +17,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -54,5 +55,11 @@ public class TestBigQueryIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Test
+    public void testDuplicatedRowCreateTable()
+    {
+        throw new SkipException("CREATE TABLE is not supported");
     }
 }
