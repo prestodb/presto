@@ -35,7 +35,7 @@ public class TestMongoClientConfig
                 .setConnectionsPerHost(100)
                 .setMaxWaitTime(120_000)
                 .setConnectionTimeout(10_000)
-                .setSocketTimeout(0)
+                .setSocketTimeout(10)
                 .setSocketKeepAlive(false)
                 .setSslEnabled(false)
                 .setCursorBatchSize(0)
