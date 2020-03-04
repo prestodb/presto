@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
+import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -42,6 +43,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
@@ -581,6 +583,23 @@ public class InternalResourceGroup
         }
     }
 
+    public int getRunningTaskCount()
+    {
+        if (subGroups().isEmpty()) {
+            return runningQueries.stream()
+                    .filter(SqlQueryExecution.class::isInstance)
+                    .mapToInt(query -> ((SqlQueryExecution) query).getRunningTaskCount())
+                    .sum();
+        }
+
+        int taskCount = 0;
+        for (InternalResourceGroup subGroup : subGroups()) {
+            taskCount += subGroup.getRunningTaskCount();
+        }
+
+        return taskCount;
+    }
+
     public void run(ManagedQueryExecution query)
     {
         synchronized (root) {
@@ -862,6 +881,10 @@ public class InternalResourceGroup
                 return false;
             }
 
+            if (((RootInternalResourceGroup) root).isTaskLimitExceeded()) {
+                return false;
+            }
+
             int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
                 // TODO: Consider whether cpu limit math should be performed on softConcurrency or hardConcurrency
@@ -916,6 +939,8 @@ public class InternalResourceGroup
     public static final class RootInternalResourceGroup
             extends InternalResourceGroup
     {
+        private AtomicBoolean taskLimitExceeded = new AtomicBoolean();
+
         public RootInternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
         {
             super(Optional.empty(), name, jmxExportListener, executor);
@@ -934,6 +959,16 @@ public class InternalResourceGroup
             if (elapsedSeconds > 0) {
                 internalGenerateCpuQuota(elapsedSeconds);
             }
+        }
+
+        public void setTaskLimitExceeded(boolean exceeded)
+        {
+            taskLimitExceeded.set(exceeded);
+        }
+
+        private boolean isTaskLimitExceeded()
+        {
+            return taskLimitExceeded.get();
         }
     }
 }
