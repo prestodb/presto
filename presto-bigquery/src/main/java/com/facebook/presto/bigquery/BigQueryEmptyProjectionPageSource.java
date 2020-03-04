@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.bigquery;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -23,6 +24,7 @@ import java.io.IOException;
 public class BigQueryEmptyProjectionPageSource
         implements ConnectorPageSource
 {
+    private static final Logger log = Logger.get(BigQueryEmptyProjectionPageSource.class);
     private final long numberOfRows;
     private boolean finished;
 
@@ -59,6 +61,7 @@ public class BigQueryEmptyProjectionPageSource
     @Override
     public Page getNextPage()
     {
+        log.warn("[%s] creating %d empty rows", Thread.currentThread(), numberOfRows);
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of());
         for (long i = 0; i < numberOfRows; i++) {
             pageBuilder.declarePosition();

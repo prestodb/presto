@@ -178,7 +178,7 @@
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
-            <outputDirectory>plugin/presto-bigqueyr</outputDirectory>
+            <outputDirectory>plugin/presto-bigquey</outputDirectory>
         </fileSet>
     </fileSets>
 </assembly>
