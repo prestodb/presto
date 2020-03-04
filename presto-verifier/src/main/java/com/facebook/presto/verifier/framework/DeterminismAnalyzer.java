@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -89,7 +90,7 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum)
+    protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {
@@ -104,7 +105,7 @@ public class DeterminismAnalyzer
             for (int i = 0; i < maxAnalysisRuns; i++) {
                 QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
                 queryBundles.add(queryBundle);
-                DeterminismAnalysisRun.Builder run = verificationContext.startDeterminismAnalysisRun().setTableName(queryBundle.getTableName().toString());
+                DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
 
                 runWithQueryStatsConsumer(() -> setupAndRun(prestoAction, queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
 
@@ -125,7 +126,7 @@ public class DeterminismAnalyzer
                     handleLimitQuery,
                     control.getQuery(),
                     controlChecksum.getRowCount(),
-                    verificationContext).analyze();
+                    determinismAnalysisDetails).analyze();
 
             switch (limitQueryAnalysis) {
                 case NON_DETERMINISTIC:

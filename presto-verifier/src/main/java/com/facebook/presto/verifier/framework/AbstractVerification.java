@@ -91,7 +91,7 @@ public abstract class AbstractVerification
         this.runTearDownOnResultMismatch = verifierConfig.isRunTeardownOnResultMismatch();
     }
 
-    protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
+    protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
 
     @Override
     public SourceQuery getSourceQuery()
@@ -111,15 +111,19 @@ public abstract class AbstractVerification
         QueryStats controlQueryStats = null;
         QueryStats testQueryStats = null;
 
+        ChecksumQueryContext controlChecksumQueryContext = new ChecksumQueryContext();
+        ChecksumQueryContext testChecksumQueryContext = new ChecksumQueryContext();
+        DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
+
         try {
             control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
             controlQueryStats = DataVerificationUtil.setupAndRun(prestoAction, control, false);
             testQueryStats = DataVerificationUtil.setupAndRun(prestoAction, test, false);
-            matchResult = verify(control, test);
+            matchResult = verify(control, test, controlChecksumQueryContext, testChecksumQueryContext);
 
             if (matchResult.isMismatchPossiblyCausedByNonDeterminism()) {
-                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control, matchResult.getControlChecksum()));
+                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control, matchResult.getControlChecksum(), determinismAnalysisDetails));
             }
             boolean maybeDeterministic = !determinismAnalysis.isPresent() ||
                     determinismAnalysis.get().isDeterministic() ||
@@ -133,7 +137,10 @@ public abstract class AbstractVerification
                     Optional.ofNullable(testQueryStats),
                     Optional.empty(),
                     Optional.of(matchResult),
-                    determinismAnalysis));
+                    determinismAnalysis,
+                    controlChecksumQueryContext,
+                    testChecksumQueryContext,
+                    determinismAnalysisDetails.build()));
         }
         catch (QueryException e) {
             if (verificationResubmitter.resubmit(this, e)) {
@@ -146,7 +153,10 @@ public abstract class AbstractVerification
                     Optional.ofNullable(testQueryStats),
                     Optional.of(e),
                     Optional.ofNullable(matchResult),
-                    determinismAnalysis));
+                    determinismAnalysis,
+                    controlChecksumQueryContext,
+                    testChecksumQueryContext,
+                    determinismAnalysisDetails.build()));
         }
         catch (Throwable t) {
             log.error(t);
@@ -165,11 +175,6 @@ public abstract class AbstractVerification
         return prestoAction;
     }
 
-    protected VerificationContext getVerificationContext()
-    {
-        return verificationContext;
-    }
-
     private VerifierQueryEvent buildEvent(
             Optional<QueryBundle> control,
             Optional<QueryBundle> test,
@@ -177,7 +182,10 @@ public abstract class AbstractVerification
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
             Optional<MatchResult> matchResult,
-            Optional<DeterminismAnalysis> determinismAnalysis)
+            Optional<DeterminismAnalysis> determinismAnalysis,
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext,
+            DeterminismAnalysisDetails determinismAnalysisDetails)
     {
         boolean succeeded = matchResult.isPresent() && matchResult.get().isMatched();
 
@@ -240,24 +248,19 @@ public abstract class AbstractVerification
                 skippedReason,
                 determinismAnalysis,
                 determinismAnalysis.isPresent() ?
-                        Optional.of(new DeterminismAnalysisDetails(
-                                verificationContext.getDeterminismAnalysisRuns(),
-                                verificationContext.getLimitQueryAnalysis(),
-                                verificationContext.getLimitQueryAnalysisQueryId())) :
+                        Optional.of(determinismAnalysisDetails) :
                         Optional.empty(),
                 resolveMessage,
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
-                        verificationContext.getControlChecksumQueryId(),
-                        verificationContext.getControlChecksumQuery(),
+                        controlChecksumQueryContext,
                         control,
                         controlStats),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
-                        verificationContext.getTestChecksumQueryId(),
-                        verificationContext.getTestChecksumQuery(),
+                        testChecksumQueryContext,
                         test,
                         testStats),
                 errorCode,
@@ -269,8 +272,7 @@ public abstract class AbstractVerification
     private static QueryInfo buildQueryInfo(
             QueryConfiguration configuration,
             String originalQuery,
-            Optional<String> checksumQueryId,
-            Optional<String> checksumQuery,
+            ChecksumQueryContext checksumQueryContext,
             Optional<QueryBundle> queryBundle,
             Optional<QueryStats> queryStats)
     {
@@ -279,11 +281,11 @@ public abstract class AbstractVerification
                 configuration.getSchema(),
                 originalQuery,
                 queryStats.map(QueryStats::getQueryId),
-                checksumQueryId,
+                checksumQueryContext.getChecksumQueryId(),
                 queryBundle.map(QueryBundle::getQuery).map(AbstractVerification::formatSql),
                 queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
-                checksumQuery,
+                checksumQueryContext.getChecksumQuery(),
                 millisToSeconds(queryStats.map(QueryStats::getCpuTimeMillis)),
                 millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)));
     }

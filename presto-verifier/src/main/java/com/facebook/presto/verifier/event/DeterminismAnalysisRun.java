@@ -21,7 +21,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 @Immutable
 @EventType("DeterminismAnalysisRun")
@@ -66,38 +65,36 @@ public class DeterminismAnalysisRun
 
     public static class Builder
     {
-        private String tableName;
-        private String queryId;
-        private String checksumQueryId;
+        private Optional<String> tableName = Optional.empty();
+        private Optional<String> queryId = Optional.empty();
+        private Optional<String> checksumQueryId = Optional.empty();
 
-        private Builder()
-        {
-        }
+        private Builder() {}
 
         public Builder setTableName(String tableName)
         {
-            checkState(this.tableName == null, "tableName is already set");
-            this.tableName = requireNonNull(tableName, "tableName is null");
+            checkState(!this.tableName.isPresent(), "tableName is already set");
+            this.tableName = Optional.of(tableName);
             return this;
         }
 
         public Builder setQueryId(String queryId)
         {
-            checkState(this.queryId == null, "queryId is already set");
-            this.queryId = requireNonNull(queryId, "queryId is null");
+            checkState(!this.queryId.isPresent(), "queryId is already set");
+            this.queryId = Optional.of(queryId);
             return this;
         }
 
         public Builder setChecksumQueryId(String checksumQueryId)
         {
-            checkState(this.checksumQueryId == null, "checksumQueryId is already set");
-            this.checksumQueryId = requireNonNull(checksumQueryId, "checksumQueryId is null");
+            checkState(!this.checksumQueryId.isPresent(), "checksumQueryId is already set");
+            this.checksumQueryId = Optional.of(checksumQueryId);
             return this;
         }
 
         public DeterminismAnalysisRun build()
         {
-            return new DeterminismAnalysisRun(Optional.ofNullable(tableName), Optional.ofNullable(queryId), Optional.ofNullable(checksumQueryId));
+            return new DeterminismAnalysisRun(tableName, queryId, checksumQueryId);
         }
     }
 }

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.TestingResultSetMetaData;
 import com.facebook.presto.verifier.TestingResultSetMetaData.ColumnInfo;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -38,8 +39,8 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestLimitQueryDeterminismAnalyzer
@@ -212,20 +213,21 @@ public class TestLimitQueryDeterminismAnalyzer
 
     private static void assertAnalysis(PrestoAction prestoAction, String query, LimitQueryDeterminismAnalysis expectedAnalysis)
     {
-        VerificationContext verificationContext = new VerificationContext();
+        DeterminismAnalysisDetails.Builder determinismAnalysisDetailsBuilder = DeterminismAnalysisDetails.builder();
         LimitQueryDeterminismAnalysis analysis = new LimitQueryDeterminismAnalyzer(
                 prestoAction,
                 true,
                 sqlParser.createStatement(query, PARSING_OPTIONS),
                 ROW_COUNT_WITH_LIMIT,
-                verificationContext).analyze();
+                determinismAnalysisDetailsBuilder).analyze();
+        DeterminismAnalysisDetails determinismAnalysisDetails = determinismAnalysisDetailsBuilder.build();
 
         assertEquals(analysis, expectedAnalysis);
         if (expectedAnalysis == NOT_RUN) {
-            assertFalse(verificationContext.getLimitQueryAnalysisQueryId().isPresent());
+            assertNull(determinismAnalysisDetails.getLimitQueryAnalysisQueryId());
         }
         else {
-            assertTrue(verificationContext.getLimitQueryAnalysisQueryId().isPresent());
+            assertNotNull(determinismAnalysisDetails.getLimitQueryAnalysisQueryId());
         }
     }
 
