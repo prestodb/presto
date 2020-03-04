@@ -67,6 +67,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -619,6 +621,7 @@ public class HashGenerationOptimizer
             newAssignments.putAll(node.getAssignments());
 
             // and all hash variables that could be translated to the source variables
+            Map<VariableReferenceExpression, RowExpression> hashAssignments = new HashMap<>();
             Map<HashComputation, VariableReferenceExpression> allHashVariables = new HashMap<>();
             for (HashComputation hashComputation : sourceContext.getHashes()) {
                 VariableReferenceExpression hashVariable = child.getHashVariables().get(hashComputation);
@@ -630,11 +633,24 @@ public class HashGenerationOptimizer
                 else {
                     hashExpression = hashVariable;
                 }
-                newAssignments.put(hashVariable, hashExpression);
+                hashAssignments.put(hashVariable, hashExpression);
                 allHashVariables.put(hashComputation, hashVariable);
             }
 
-            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashVariables);
+            if (node.getLocality().equals(REMOTE)) {
+                // if the ProjectNode is remote, created a local projection with identity projection and hash
+                Assignments.Builder localProjectionAssignments = Assignments.builder();
+                child.getNode().getOutputVariables().forEach(variable -> localProjectionAssignments.put(variable, variable));
+                localProjectionAssignments.putAll(hashAssignments);
+                ProjectNode localProjectNode = new ProjectNode(idAllocator.getNextId(), child.getNode(), localProjectionAssignments.build(), LOCAL);
+
+                // add identity projection for hash variable to remote projection
+                hashAssignments.keySet().forEach(variable -> newAssignments.put(variable, variable));
+                return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), localProjectNode, newAssignments.build(), REMOTE), allHashVariables);
+            }
+
+            newAssignments.putAll(hashAssignments);
+            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build(), node.getLocality()), allHashVariables);
         }
 
         @Override
@@ -745,7 +761,7 @@ public class HashGenerationOptimizer
                 }
             }
 
-            ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), planWithProperties.getNode(), assignments.build());
+            ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }
 

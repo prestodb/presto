@@ -47,6 +47,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -87,6 +88,11 @@ public class InlineProjections
     public Result apply(ProjectNode parent, Captures captures, Context context)
     {
         ProjectNode child = captures.get(CHILD);
+
+        // Do not inline remote projections, or if parent and child has different locality
+        if (parent.getLocality().equals(REMOTE) || child.getLocality().equals(REMOTE) || !parent.getLocality().equals(child.getLocality())) {
+            return Result.empty();
+        }
 
         Sets.SetView<VariableReferenceExpression> targets = extractInliningTargets(parent, child, context);
         if (targets.isEmpty()) {
@@ -139,8 +145,10 @@ public class InlineProjections
                         new ProjectNode(
                                 child.getId(),
                                 child.getSource(),
-                                childAssignments.build()),
-                        Assignments.copyOf(parentAssignments)));
+                                childAssignments.build(),
+                                child.getLocality()),
+                        Assignments.copyOf(parentAssignments),
+                        parent.getLocality()));
     }
 
     private RowExpression inlineReferences(RowExpression expression, Assignments assignments, TypeProvider types)

@@ -130,7 +130,7 @@ public class ExpressionRewriteRuleSet
             if (projectNode.getAssignments().equals(assignments)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
+            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments, projectNode.getLocality()));
         }
     }
 
