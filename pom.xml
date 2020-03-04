@@ -452,6 +452,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-server</artifactId>
+                <version>${project.version}</version>
+                <type>tar.gz</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-server-rpm</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -495,6 +502,24 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-launcher</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-package</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
