@@ -66,6 +66,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
+import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -305,7 +306,8 @@ public class SectionExecutionFactory
                     writerTasksProvider,
                     nodeScheduler.createNodeSelector(null),
                     scheduledExecutor,
-                    getWriterMinSize(session));
+                    getWriterMinSize(session),
+                    isOptimizedScaleWriterProducerBuffer(session));
             whenAllStages(childStageExecutions, StageExecutionState::isDone)
                     .addListener(scheduler::finish, directExecutor());
             return scheduler;

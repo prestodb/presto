@@ -83,6 +83,7 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private boolean optimizedScaleWriterProducerBuffer;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
@@ -581,6 +582,18 @@ public class FeaturesConfig
     public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
     {
         this.writerMinSize = writerMinSize;
+        return this;
+    }
+
+    public boolean isOptimizedScaleWriterProducerBuffer()
+    {
+        return optimizedScaleWriterProducerBuffer;
+    }
+
+    @Config("optimized-scale-writer-producer-buffer")
+    public FeaturesConfig setOptimizedScaleWriterProducerBuffer(boolean optimizedScaleWriterProducerBuffer)
+    {
+        this.optimizedScaleWriterProducerBuffer = optimizedScaleWriterProducerBuffer;
         return this;
     }
 

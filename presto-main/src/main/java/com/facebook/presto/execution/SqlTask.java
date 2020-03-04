@@ -283,7 +283,8 @@ public class SqlTask
             fullGcTime = taskContext.getFullGcTime();
         }
 
-        return new TaskStatus(taskStateMachine.getTaskId(),
+        return new TaskStatus(
+                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
@@ -293,6 +294,7 @@ public class SqlTask
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
+                outputBuffer.getUtilization(),
                 isOutputBufferOverutilized(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
