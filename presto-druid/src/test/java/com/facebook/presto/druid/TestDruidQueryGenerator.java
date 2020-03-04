@@ -80,16 +80,16 @@ public class TestDruidQueryGenerator
     @Test
     public void testSimpleSelectStar()
     {
-        testDQL(planBuilder -> tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch),
-                "SELECT regionId, city, fare, secondsSinceEpoch FROM realtimeOnly");
-        testDQL(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch),
-                "SELECT regionId, secondsSinceEpoch FROM realtimeOnly");
+        testDQL(planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch)),
+                "SELECT regionId, city, fare, secondsSinceEpoch FROM realtimeOnly LIMIT 50");
+        testDQL(planBuilder -> limit(planBuilder, 10L, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch)),
+                "SELECT regionId, secondsSinceEpoch FROM realtimeOnly LIMIT 10");
     }
 
     @Test
-    public void testSimpleSelectWithFilter()
+    public void testSimpleSelectWithFilterLimit()
     {
-        testDQL(planBuilder -> project(planBuilder, filter(planBuilder, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch), getRowExpression("secondssinceepoch > 20", defaultSessionHolder)), ImmutableList.of("city", "secondssinceepoch")),
-                "SELECT city, secondsSinceEpoch FROM realtimeOnly WHERE (secondsSinceEpoch > 20)");
+        testDQL(planBuilder -> limit(planBuilder, 30L, project(planBuilder, filter(planBuilder, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch), getRowExpression("secondssinceepoch > 20", defaultSessionHolder)), ImmutableList.of("city", "secondssinceepoch"))),
+                "SELECT city, secondsSinceEpoch FROM realtimeOnly WHERE (secondsSinceEpoch > 20) LIMIT 30");
     }
 }

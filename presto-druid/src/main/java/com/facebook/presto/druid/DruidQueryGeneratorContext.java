@@ -20,11 +20,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DruidQueryGeneratorContext
@@ -32,6 +33,7 @@ public class DruidQueryGeneratorContext
     private final Map<VariableReferenceExpression, Selection> selections;
     private final Optional<String> from;
     private final Optional<String> filter;
+    private final OptionalLong limit;
 
     @Override
     public String toString()
@@ -40,6 +42,7 @@ public class DruidQueryGeneratorContext
                 .add("selections", selections)
                 .add("from", from)
                 .add("filter", filter)
+                .add("limit", limit)
                 .toString();
     }
 
@@ -55,26 +58,30 @@ public class DruidQueryGeneratorContext
         this(
                 selections,
                 Optional.ofNullable(from),
-                Optional.empty());
+                Optional.empty(),
+                OptionalLong.empty());
     }
 
     private DruidQueryGeneratorContext(
             Map<VariableReferenceExpression, Selection> selections,
             Optional<String> from,
-            Optional<String> filter)
+            Optional<String> filter,
+            OptionalLong limit)
     {
         this.selections = new LinkedHashMap<>(requireNonNull(selections, "selections can't be null"));
         this.from = requireNonNull(from, "source can't be null");
         this.filter = requireNonNull(filter, "filter is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     public DruidQueryGeneratorContext withFilter(String filter)
     {
-        checkArgument(!hasFilter(), "Druid doesn't support filters at multiple levels");
+        checkState(!hasFilter(), "Druid doesn't support filters at multiple levels");
         return new DruidQueryGeneratorContext(
                 selections,
                 from,
-                Optional.of(filter));
+                Optional.of(filter),
+                limit);
     }
 
     public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
@@ -82,7 +89,26 @@ public class DruidQueryGeneratorContext
         return new DruidQueryGeneratorContext(
                 newSelections,
                 from,
-                filter);
+                filter,
+                limit);
+    }
+
+    public DruidQueryGeneratorContext withLimit(long limit)
+    {
+        if (limit <= 0 || limit > Long.MAX_VALUE) {
+            throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Invalid limit: " + limit);
+        }
+        checkState(!hasLimit(), "Limit already exists. Druid doesn't support limit on top of another limit");
+        return new DruidQueryGeneratorContext(
+                selections,
+                from,
+                filter,
+                OptionalLong.of(limit));
+    }
+
+    private boolean hasLimit()
+    {
+        return limit.isPresent();
     }
 
     private boolean hasFilter()
@@ -113,6 +139,11 @@ public class DruidQueryGeneratorContext
             query += " WHERE " + filter.get();
             pushdown = true;
         }
+
+        if (limit.isPresent()) {
+            query += " LIMIT " + limit.getAsLong();
+            pushdown = true;
+        }
         return new DruidQueryGenerator.GeneratedDql(tableName, query, pushdown);
     }
 
@@ -133,7 +164,7 @@ public class DruidQueryGeneratorContext
         Map<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
         outputColumns.forEach(o -> newSelections.put(o, requireNonNull(selections.get(o), "Cannot find the selection " + o + " in the original context " + this)));
 
-        return new DruidQueryGeneratorContext(newSelections, from, filter);
+        return new DruidQueryGeneratorContext(newSelections, from, filter, limit);
     }
 
     public enum Origin
