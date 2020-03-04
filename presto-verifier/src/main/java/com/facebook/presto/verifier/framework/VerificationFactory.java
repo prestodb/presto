@@ -28,6 +28,8 @@ import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -67,12 +69,12 @@ public class VerificationFactory
         this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
     }
 
-    public Verification get(VerificationResubmitter verificationResubmitter, SourceQuery sourceQuery)
+    public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
     {
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
-                VerificationContext verificationContext = new VerificationContext();
+                VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission).orElseGet(VerificationContext::create);
                 PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
                 QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
                 DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
@@ -88,7 +90,6 @@ public class VerificationFactory
                         prestoAction,
                         testResourceClient));
                 return new DataVerification(
-                        verificationResubmitter,
                         prestoAction,
                         sourceQuery,
                         queryRewriter,

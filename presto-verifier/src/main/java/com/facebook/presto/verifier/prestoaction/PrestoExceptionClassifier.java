@@ -141,9 +141,8 @@ public class PrestoExceptionClassifier
         if (!(queryException instanceof PrestoQueryException)) {
             return false;
         }
-        PrestoQueryException prestoException = (PrestoQueryException) queryException;
-        return prestoException.getErrorCode().isPresent()
-                && DEFAULT_REQUEUABLE_ERRORS.contains(prestoException.getErrorCode().get());
+        Optional<ErrorCodeSupplier> errorCode = ((PrestoQueryException) queryException).getErrorCode();
+        return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get());
     }
 
     public static boolean isClusterConnectionException(Throwable t)

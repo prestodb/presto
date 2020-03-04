@@ -33,7 +33,7 @@ public class TestVerificationContext
     @Test
     public void testDuplicateExceptions()
     {
-        VerificationContext context = new VerificationContext();
+        VerificationContext context = VerificationContext.create();
         QueryException queryException = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), Optional.empty());
 
         context.addException(queryException);
@@ -48,7 +48,7 @@ public class TestVerificationContext
     @Test
     public void testMultipleExceptions()
     {
-        VerificationContext context = new VerificationContext();
+        VerificationContext context = VerificationContext.create();
         context.addException(new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE));
         context.addException(new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE));
 

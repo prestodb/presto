@@ -71,7 +71,7 @@ public class TestJdbcPrestoAction
     @BeforeMethod
     public void setup()
     {
-        verificationContext = new VerificationContext();
+        verificationContext = VerificationContext.create();
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.createDefault(),
                 CONFIGURATION,

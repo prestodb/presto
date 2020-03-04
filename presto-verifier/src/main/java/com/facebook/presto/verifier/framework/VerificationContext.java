@@ -23,7 +23,29 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class VerificationContext
 {
-    private Set<QueryException> queryExceptions = new HashSet<>();
+    private final int resubmissionCount;
+    private final Set<QueryException> queryExceptions;
+
+    private VerificationContext(int resubmissionCount, Set<QueryException> queryExceptions)
+    {
+        this.resubmissionCount = resubmissionCount;
+        this.queryExceptions = new HashSet<>(queryExceptions);
+    }
+
+    public static VerificationContext create()
+    {
+        return new VerificationContext(0, new HashSet<>());
+    }
+
+    public static VerificationContext createForResubmission(VerificationContext existing)
+    {
+        return new VerificationContext(existing.resubmissionCount + 1, existing.queryExceptions);
+    }
+
+    public int getResubmissionCount()
+    {
+        return resubmissionCount;
+    }
 
     public void addException(QueryException exception)
     {

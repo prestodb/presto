@@ -45,6 +45,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier.shouldResubmit;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -58,7 +59,6 @@ public abstract class AbstractVerification
 {
     private static final Logger log = Logger.get(AbstractVerification.class);
 
-    private final VerificationResubmitter verificationResubmitter;
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
@@ -68,9 +68,9 @@ public abstract class AbstractVerification
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
+    private final int verificationResubmissionLimit;
 
     public AbstractVerification(
-            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
@@ -79,7 +79,6 @@ public abstract class AbstractVerification
             VerificationContext verificationContext,
             VerifierConfig verifierConfig)
     {
-        this.verificationResubmitter = requireNonNull(verificationResubmitter, "verificationResubmitter is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
@@ -89,6 +88,7 @@ public abstract class AbstractVerification
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
         this.runTearDownOnResultMismatch = verifierConfig.isRunTeardownOnResultMismatch();
+        this.verificationResubmissionLimit = verifierConfig.getVerificationResubmissionLimit();
     }
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
@@ -100,7 +100,13 @@ public abstract class AbstractVerification
     }
 
     @Override
-    public Optional<VerifierQueryEvent> run()
+    public VerificationContext getVerificationContext()
+    {
+        return verificationContext;
+    }
+
+    @Override
+    public VerificationResult run()
     {
         boolean resultMismatched = false;
         QueryBundle control = null;
@@ -130,7 +136,7 @@ public abstract class AbstractVerification
                     determinismAnalysis.get().isUnknown();
             resultMismatched = maybeDeterministic && !matchResult.isMatched();
 
-            return Optional.of(buildEvent(
+            return concludeVerification(
                     Optional.of(control),
                     Optional.of(test),
                     Optional.ofNullable(controlQueryStats),
@@ -140,13 +146,10 @@ public abstract class AbstractVerification
                     determinismAnalysis,
                     controlChecksumQueryContext,
                     testChecksumQueryContext,
-                    determinismAnalysisDetails.build()));
+                    determinismAnalysisDetails.build());
         }
         catch (QueryException e) {
-            if (verificationResubmitter.resubmit(this, e)) {
-                return Optional.empty();
-            }
-            return Optional.of(buildEvent(
+            return concludeVerification(
                     Optional.ofNullable(control),
                     Optional.ofNullable(test),
                     Optional.ofNullable(controlQueryStats),
@@ -156,11 +159,11 @@ public abstract class AbstractVerification
                     determinismAnalysis,
                     controlChecksumQueryContext,
                     testChecksumQueryContext,
-                    determinismAnalysisDetails.build()));
+                    determinismAnalysisDetails.build());
         }
         catch (Throwable t) {
             log.error(t);
-            return Optional.empty();
+            return new VerificationResult(this, false, Optional.empty());
         }
         finally {
             if (!resultMismatched || runTearDownOnResultMismatch) {
@@ -175,7 +178,7 @@ public abstract class AbstractVerification
         return prestoAction;
     }
 
-    private VerifierQueryEvent buildEvent(
+    private VerificationResult concludeVerification(
             Optional<QueryBundle> control,
             Optional<QueryBundle> test,
             Optional<QueryStats> controlStats,
@@ -187,6 +190,12 @@ public abstract class AbstractVerification
             ChecksumQueryContext testChecksumQueryContext,
             DeterminismAnalysisDetails determinismAnalysisDetails)
     {
+        if (queryException.isPresent()
+                && shouldResubmit(queryException.get())
+                && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
+            return new VerificationResult(this, true, Optional.empty());
+        }
+
         boolean succeeded = matchResult.isPresent() && matchResult.get().isMatched();
 
         QueryState controlState = getQueryState(controlStats, queryException, CONTROL);
@@ -240,7 +249,7 @@ public abstract class AbstractVerification
                     matchResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
-        return new VerifierQueryEvent(
+        VerifierQueryEvent event = new VerifierQueryEvent(
                 sourceQuery.getSuite(),
                 testId,
                 sourceQuery.getName(),
@@ -266,7 +275,9 @@ public abstract class AbstractVerification
                 errorCode,
                 Optional.ofNullable(errorMessage),
                 queryException.map(QueryException::toQueryFailure),
-                verificationContext.getQueryFailures());
+                verificationContext.getQueryFailures(),
+                verificationContext.getResubmissionCount());
+        return new VerificationResult(this, false, Optional.of(event));
     }
 
     private static QueryInfo buildQueryInfo(
