@@ -74,8 +74,7 @@ public class TestOrcLz4
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE,
-                DEFAULT_HIVE_FILE_CONTEXT);
+                INITIAL_BATCH_SIZE);
 
         int rows = 0;
         while (true) {

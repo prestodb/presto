@@ -215,8 +215,7 @@ public class BenchmarkBatchStreamReaders
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE,
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    INITIAL_BATCH_SIZE);
         }
 
         private static String randomAsciiString(Random random)

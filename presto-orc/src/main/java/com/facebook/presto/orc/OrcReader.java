@@ -158,11 +158,10 @@ public class OrcReader
             OrcPredicate predicate,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize,
-            HiveFileContext hiveFileContext)
+            int initialBatchSize)
             throws OrcCorruptionException
     {
-        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, hiveFileContext);
+        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
     public OrcBatchRecordReader createBatchRecordReader(
@@ -172,8 +171,7 @@ public class OrcReader
             long length,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize,
-            HiveFileContext hiveFileContext)
+            int initialBatchSize)
             throws OrcCorruptionException
     {
         return new OrcBatchRecordReader(
@@ -219,8 +217,7 @@ public class OrcReader
             boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize,
-            HiveFileContext hiveFileContext)
+            int initialBatchSize)
     {
         return new OrcSelectiveRecordReader(
                 includedColumns,
@@ -296,8 +293,7 @@ public class OrcReader
                     OrcPredicate.TRUE,
                     hiveStorageTimeZone,
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE,
-                    DEFAULT_HIVE_FILE_CONTEXT)) {
+                    INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

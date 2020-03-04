@@ -214,8 +214,7 @@ public class TestCachingOrcDataSource
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE,
-                DEFAULT_HIVE_FILE_CONTEXT);
+                INITIAL_BATCH_SIZE);
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();

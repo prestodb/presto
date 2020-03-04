@@ -175,8 +175,7 @@ public final class OrcFileRewriter
                             TRUE,
                             DEFAULT_STORAGE_TIMEZONE,
                             newSimpleAggregatedMemoryContext(),
-                            INITIAL_BATCH_SIZE,
-                            DEFAULT_HIVE_FILE_CONTEXT),
+                            INITIAL_BATCH_SIZE),
                     OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                             orcDataEnvironment.createOrcDataSink(fileSystem, output),
