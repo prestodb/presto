@@ -89,6 +89,7 @@ public final class SystemSessionProperties
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
+    public static final String OPTIMIZED_SCALE_WRITER_PRODUCER_BUFFER = "optimized_scale_writer_producer_buffer";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -299,6 +300,11 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
+                booleanProperty(
+                        OPTIMIZED_SCALE_WRITER_PRODUCER_BUFFER,
+                        "Optimize scale writer creation based on producer buffer",
+                        featuresConfig.isOptimizedScaleWriterProducerBuffer(),
+                        true),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
@@ -864,6 +870,11 @@ public final class SystemSessionProperties
     public static DataSize getWriterMinSize(Session session)
     {
         return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
+    }
+
+    public static boolean isOptimizedScaleWriterProducerBuffer(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZED_SCALE_WRITER_PRODUCER_BUFFER, Boolean.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)

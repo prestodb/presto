@@ -506,6 +506,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
+                    initialTaskStatus.getOutputBufferUtilization(),
                     initialTaskStatus.isOutputBufferOverutilized(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
