@@ -9,13 +9,14 @@ Synopsis
 
     SHOW STATS FOR table
     SHOW STATS FOR ( SELECT * FROM table [ WHERE condition ] )
+    SHOW STATS FOR ( SELECT col1, col2,... colN FROM table [ WHERE condition ] )
 
 Description
 -----------
 
 Returns approximated statistics for the named table or for the results of a (limited) query.
 
-Statistics are returned for each column, along with a summary row.
+Statistics are returned for the specified columns, along with a summary row.
 (column_name will be ``NULL`` for the summary row).
 
 =====================   ============
