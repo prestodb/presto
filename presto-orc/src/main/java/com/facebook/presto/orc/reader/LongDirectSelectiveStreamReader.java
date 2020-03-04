@@ -178,9 +178,7 @@ public class LongDirectSelectiveStreamReader
             }
             else {
                 // no nulls
-                for (int i = 0; i < positionCount; i++) {
-                    values[i] = dataStream.next();
-                }
+                dataStream.next(values, positionCount);
             }
             outputPositionCount = positionCount;
             return positionCount;
