@@ -52,7 +52,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestQueues
 {
-    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     @Test(timeOut = 240_000)
     public void testResourceGroupManager()
@@ -350,7 +350,7 @@ public class TestQueues
         return newSession("sessionWithTags", ImmutableSet.of(), resourceEstimates);
     }
 
-    private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
+    public static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
     {
         return testSessionBuilder()
                 .setCatalog("tpch")
