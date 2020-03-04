@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 
@@ -61,34 +62,34 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class LimitQueryDeterminismAnalyzer
+class LimitQueryDeterminismAnalyzer
 {
     private final PrestoAction prestoAction;
     private final boolean enabled;
 
     private final Statement statement;
     private final long rowCount;
-    private final VerificationContext verificationContext;
+    private final DeterminismAnalysisDetails.Builder determinismAnalysisDetails;
 
     public LimitQueryDeterminismAnalyzer(
             PrestoAction prestoAction,
             boolean enabled,
             Statement statement,
             long rowCount,
-            VerificationContext verificationContext)
+            DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.enabled = enabled;
         this.statement = requireNonNull(statement, "statement is null");
         checkArgument(rowCount >= 0, "rowCount is negative: %s", rowCount);
         this.rowCount = rowCount;
-        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
+        this.determinismAnalysisDetails = requireNonNull(determinismAnalysisDetails, "determinismAnalysisDetails is null");
     }
 
     public LimitQueryDeterminismAnalysis analyze()
     {
         LimitQueryDeterminismAnalysis analysis = analyzeInternal();
-        verificationContext.setLimitQueryAnalysis(analysis);
+        determinismAnalysisDetails.setLimitQueryAnalysis(analysis);
         return analysis;
     }
 
@@ -246,7 +247,7 @@ public class LimitQueryDeterminismAnalyzer
 
         QueryResult<Long> result = callWithQueryStatsConsumer(
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> Optional.of(resultSet.getLong(1))),
-                stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
 
         long rowCountHigherLimit = getOnlyElement(result.getResults());
         if (rowCountHigherLimit == rowCount) {
@@ -262,7 +263,7 @@ public class LimitQueryDeterminismAnalyzer
     {
         QueryResult<List<Object>> result = callWithQueryStatsConsumer(
                 () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS, new TieInspector(limit)),
-                stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
         if (result.getResults().isEmpty()) {
             return FAILED_DATA_CHANGED;
         }

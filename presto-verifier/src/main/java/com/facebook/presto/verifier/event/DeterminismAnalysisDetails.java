@@ -21,8 +21,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @Immutable
 @EventType("DeterminismAnalysisDetails")
@@ -59,5 +64,46 @@ public class DeterminismAnalysisDetails
     public String getLimitQueryAnalysisQueryId()
     {
         return limitQueryAnalysisQueryId;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private List<DeterminismAnalysisRun.Builder> runs = new ArrayList<>();
+        private Optional<LimitQueryDeterminismAnalysis> limitQueryAnalysis = Optional.empty();
+        private Optional<String> limitQueryAnalysisQueryId = Optional.empty();
+
+        public DeterminismAnalysisRun.Builder addRun()
+        {
+            DeterminismAnalysisRun.Builder run = DeterminismAnalysisRun.builder();
+            runs.add(run);
+            return run;
+        }
+
+        public void setLimitQueryAnalysis(LimitQueryDeterminismAnalysis limitQueryAnalysis)
+        {
+            checkState(!this.limitQueryAnalysis.isPresent(), "limitQueryAnalysis is already set");
+            this.limitQueryAnalysis = Optional.of(limitQueryAnalysis);
+        }
+
+        public void setLimitQueryAnalysisQueryId(String limitQueryAnalysisQueryId)
+        {
+            checkState(!this.limitQueryAnalysisQueryId.isPresent(), "limitQueryAnalysis is already set");
+            this.limitQueryAnalysisQueryId = Optional.of(limitQueryAnalysisQueryId);
+        }
+
+        public DeterminismAnalysisDetails build()
+        {
+            return new DeterminismAnalysisDetails(
+                    runs.stream()
+                            .map(DeterminismAnalysisRun.Builder::build)
+                            .collect(toImmutableList()),
+                    limitQueryAnalysis.orElse(NOT_RUN),
+                    limitQueryAnalysisQueryId);
+        }
     }
 }

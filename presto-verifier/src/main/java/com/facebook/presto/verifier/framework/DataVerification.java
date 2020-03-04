@@ -55,7 +55,7 @@ public class DataVerification
     }
 
     @Override
-    public MatchResult verify(QueryBundle control, QueryBundle test)
+    public MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
     {
         List<Column> controlColumns = getColumns(getPrestoAction(), typeManager, control.getTableName());
         List<Column> testColumns = getColumns(getPrestoAction(), typeManager, test.getTableName());
@@ -63,15 +63,15 @@ public class DataVerification
         Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
 
-        getVerificationContext().setControlChecksumQuery(formatSql(controlChecksumQuery));
-        getVerificationContext().setTestChecksumQuery(formatSql(testChecksumQuery));
+        controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
+        testContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
                 () -> getPrestoAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> getVerificationContext().setControlChecksumQueryId(stats.getQueryId()));
+                stats -> controlContext.setChecksumQueryId(stats.getQueryId()));
         QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
                 () -> getPrestoAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> getVerificationContext().setTestChecksumQueryId(stats.getQueryId()));
+                stats -> testContext.setChecksumQueryId(stats.getQueryId()));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }
