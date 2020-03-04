@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.ManagedQueryExecution;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -82,14 +83,23 @@ public final class InternalResourceGroupManager<C>
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
+    private final AtomicBoolean taskLimitExceeded = new AtomicBoolean();
+    private final int maxTotalRunningTaskCountToNotExecuteNewQuery;
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(
+            LegacyResourceGroupConfigurationManager legacyManager,
+            ClusterMemoryPoolManager memoryPoolManager,
+            QueryManagerConfig queryManagerConfig,
+            NodeInfo nodeInfo,
+            MBeanExporter exporter)
     {
+        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
+        this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
     }
 
     @Override
@@ -196,6 +206,11 @@ public final class InternalResourceGroupManager<C>
             // nano time has overflowed
             lastCpuQuotaGenerationNanos.set(nanoTime);
         }
+
+        if (maxTotalRunningTaskCountToNotExecuteNewQuery != Integer.MAX_VALUE) {
+            taskLimitExceeded.set(getTotalRunningTaskCount() > maxTotalRunningTaskCountToNotExecuteNewQuery);
+        }
+
         for (RootInternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
@@ -206,6 +221,7 @@ public final class InternalResourceGroupManager<C>
                 log.error(e, "Exception while generation cpu quota for %s", group);
             }
             try {
+                group.setTaskLimitExceeded(taskLimitExceeded.get());
                 group.processQueuedQueries();
             }
             catch (RuntimeException e) {
@@ -276,6 +292,29 @@ public final class InternalResourceGroupManager<C>
         }
 
         return queriesQueuedInternal;
+    }
+
+    @Managed
+    public int getTaskLimitExceeded()
+    {
+        return taskLimitExceeded.get() ? 1 : 0;
+    }
+
+    private int getTotalRunningTaskCount()
+    {
+        int taskCount = 0;
+        for (RootInternalResourceGroup rootGroup : rootGroups) {
+            synchronized (rootGroup) {
+                taskCount += rootGroup.getRunningTaskCount();
+            }
+        }
+        return taskCount;
+    }
+
+    @VisibleForTesting
+    public void setTaskLimitExceeded(boolean exceeded)
+    {
+        taskLimitExceeded.set(exceeded);
     }
 
     @SuppressWarnings("unchecked")
