@@ -13,34 +13,37 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import static java.lang.System.identityHashCode;
+import com.facebook.presto.verifier.event.VerifierQueryEvent;
+
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
-public class VerificationRef
+public class VerificationResult
 {
     private final Verification verification;
+    private final boolean shouldResubmit;
+    private final Optional<VerifierQueryEvent> event;
 
-    public VerificationRef(Verification verification)
+    public VerificationResult(Verification verification, boolean shouldResubmit, Optional<VerifierQueryEvent> event)
     {
         this.verification = requireNonNull(verification, "verification is null");
+        this.shouldResubmit = requireNonNull(shouldResubmit, "shouldResubmit is null");
+        this.event = requireNonNull(event, "event is null");
     }
 
-    @Override
-    public boolean equals(Object o)
+    public Verification getVerification()
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        VerificationRef other = (VerificationRef) o;
-        return verification == other.verification;
+        return verification;
     }
 
-    @Override
-    public int hashCode()
+    public boolean shouldResubmit()
     {
-        return identityHashCode(verification);
+        return shouldResubmit;
+    }
+
+    public Optional<VerifierQueryEvent> getEvent()
+    {
+        return event;
     }
 }

@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -57,14 +56,12 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
-import static com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier.shouldResubmit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class VerificationManager
-        implements VerificationResubmitter
 {
     private static final Logger log = Logger.get(VerificationManager.class);
 
@@ -84,13 +81,11 @@ public class VerificationManager
     private final int maxConcurrency;
     private final int suiteRepetitions;
     private final int queryRepetitions;
+    private int verificationResubmissionLimit;
 
     private ExecutorService executor;
-    private CompletionService<Optional<VerifierQueryEvent>> completionService;
+    private CompletionService<VerificationResult> completionService;
     private AtomicInteger queriesSubmitted = new AtomicInteger();
-
-    private int verificationResubmissionLimit;
-    private Map<VerificationRef, Integer> resubmittedCounts = new ConcurrentHashMap<>();
 
     @Inject
     public VerificationManager(
@@ -119,7 +114,6 @@ public class VerificationManager
         this.maxConcurrency = config.getMaxConcurrency();
         this.suiteRepetitions = config.getSuiteRepetitions();
         this.queryRepetitions = config.getQueryRepetitions();
-
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
     }
 
@@ -157,26 +151,14 @@ public class VerificationManager
         executor.shutdownNow();
     }
 
-    @Override
-    public synchronized boolean resubmit(Verification verification, QueryException queryException)
+    private void resubmit(Verification verification)
     {
-        if (!shouldResubmit(queryException)) {
-            return false;
-        }
-
-        String name = verification.getSourceQuery().getName();
-        VerificationRef ref = new VerificationRef(verification);
-        Integer resubmittedCount = resubmittedCounts.getOrDefault(ref, 0);
-        if (resubmittedCount >= verificationResubmissionLimit) {
-            log.info("Verification %s failed with %s, resubmission limit exceeded", name, queryException.getErrorCodeName());
-            return false;
-        }
-
+        SourceQuery sourceQuery = verification.getSourceQuery();
+        VerificationContext newContext = verification.getVerificationContext();
+        Verification newVerification = verificationFactory.get(sourceQuery, Optional.of(newContext));
+        completionService.submit(newVerification::run);
         queriesSubmitted.addAndGet(1);
-        resubmittedCounts.compute(ref, (key, count) -> count == null ? 1 : count + 1);
-        completionService.submit(verification::run);
-        log.info("Verification %s failed with %s, resubmitted for verification (%s/%s)", name, queryException.getErrorCodeName(), resubmittedCount, verificationResubmissionLimit);
-        return true;
+        log.info("Verification %s failed, resubmitted for verification (%s/%s)", sourceQuery.getName(), newContext.getResubmissionCount(), verificationResubmissionLimit);
     }
 
     @VisibleForTesting
@@ -280,7 +262,7 @@ public class VerificationManager
         for (int i = 0; i < suiteRepetitions; i++) {
             for (SourceQuery sourceQuery : sourceQueries) {
                 for (int j = 0; j < queryRepetitions; j++) {
-                    Verification verification = verificationFactory.get(this, sourceQuery);
+                    Verification verification = verificationFactory.get(sourceQuery, Optional.empty());
                     completionService.submit(verification::run);
                 }
             }
@@ -298,7 +280,8 @@ public class VerificationManager
 
         while (completed < queriesSubmitted.get()) {
             try {
-                Optional<VerifierQueryEvent> event = completionService.take().get();
+                VerificationResult result = completionService.take().get();
+                Optional<VerifierQueryEvent> event = result.getEvent();
                 completed++;
                 if (!event.isPresent()) {
                     statusCount.compute(SKIPPED, (status, count) -> count == null ? 1 : count + 1);
@@ -306,6 +289,10 @@ public class VerificationManager
                 else {
                     statusCount.compute(EventStatus.valueOf(event.get().getStatus()), (status, count) -> count == null ? 1 : count + 1);
                     postEvent(event.get());
+                }
+
+                if (result.shouldResubmit()) {
+                    resubmit(result.getVerification());
                 }
 
                 double progress = ((double) completed) / queriesSubmitted.get() * 100;
