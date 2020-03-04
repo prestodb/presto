@@ -51,6 +51,7 @@ public class QueryManagerConfig
     private int stageCountWarningThreshold = 50;
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
+    private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -253,6 +254,19 @@ public class QueryManagerConfig
     public int getMaxQueryRunningTaskCount()
     {
         return maxQueryRunningTaskCount;
+    }
+
+    @Config("experimental.max-total-running-task-count-to-not-execute-new-query")
+    @ConfigDescription("Keep new queries in the queue if total task count exceeds this threshold")
+    public QueryManagerConfig setMaxTotalRunningTaskCountToNotExecuteNewQuery(int maxTotalRunningTaskCountToNotExecuteNewQuery)
+    {
+        this.maxTotalRunningTaskCountToNotExecuteNewQuery = maxTotalRunningTaskCountToNotExecuteNewQuery;
+        return this;
+    }
+
+    public int getMaxTotalRunningTaskCountToNotExecuteNewQuery()
+    {
+        return maxTotalRunningTaskCountToNotExecuteNewQuery;
     }
 
     @Config("max-query-running-task-count")
