@@ -21,7 +21,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +35,7 @@ public final class ProjectNode
 
     public ProjectNode(PlanNodeId id, PlanNode source, Assignments assignments)
     {
-        this(id, source, assignments, LOCAL);
+        this(id, source, assignments, UNKNOWN);
     }
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)

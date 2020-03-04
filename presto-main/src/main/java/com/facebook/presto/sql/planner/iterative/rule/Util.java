@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -103,7 +104,8 @@ class Util
                 new ProjectNode(
                         idAllocator.getNextId(),
                         node,
-                        useRowExpression ? identityAssignments(restrictedOutputs) : identityAssignmentsAsSymbolReferences(restrictedOutputs)));
+                        useRowExpression ? identityAssignments(restrictedOutputs) : identityAssignmentsAsSymbolReferences(restrictedOutputs),
+                        LOCAL));
     }
 
     /**

@@ -128,7 +128,7 @@ public class PushProjectionThroughExchange
                 projections.put(variable, translatedExpression);
                 inputs.add(variable);
             }
-            newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build()));
+            newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build(), project.getLocality()));
             inputsBuilder.add(inputs.build());
         }
 
