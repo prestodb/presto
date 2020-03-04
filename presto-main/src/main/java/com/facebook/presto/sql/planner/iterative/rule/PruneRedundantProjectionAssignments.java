@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -65,8 +66,9 @@ public class PruneRedundantProjectionAssignments
         }
         return Result.ofPlanNode(
                 new ProjectNode(
-                    context.getIdAllocator().getNextId(),
-                    new ProjectNode(node.getId(), node.getSource(), childAssignments.build()),
-                    parentAssignments.build()));
+                        context.getIdAllocator().getNextId(),
+                        new ProjectNode(node.getId(), node.getSource(), childAssignments.build(), node.getLocality()),
+                        parentAssignments.build(),
+                        LOCAL));
     }
 }

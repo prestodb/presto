@@ -79,6 +79,9 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -141,6 +144,7 @@ public class RowExpressionPredicatePushDown
         private final LogicalRowExpressions logicalRowExpressions;
         private final TypeManager typeManager;
         private final FunctionManager functionManager;
+        private final ExternalCallExpressionChecker externalCallExpressionChecker;
 
         private Rewriter(
                 PlanVariableAllocator variableAllocator,
@@ -160,6 +164,7 @@ public class RowExpressionPredicatePushDown
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionManager()), metadata.getFunctionManager());
             this.typeManager = metadata.getTypeManager();
             this.functionManager = metadata.getFunctionManager();
+            this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionManager);
         }
 
         @Override
@@ -286,14 +291,16 @@ public class RowExpressionPredicatePushDown
             // candidate symbols for inlining are
             //   1. references to simple constants
             //   2. references to complex expressions that appear only once
-            // which come from the node, as opposed to an enclosing scope.
+            // which come from the node, as opposed to an enclosing scope,
+            // and the expression does not contain remote functions.
             Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(node.getOutputVariables());
             Map<VariableReferenceExpression, Long> dependencies = VariablesExtractor.extractAll(expression).stream()
                     .filter(childOutputSet::contains)
                     .collect(Collectors.groupingBy(identity(), Collectors.counting()));
 
             return dependencies.entrySet().stream()
-                    .allMatch(entry -> entry.getValue() == 1 || node.getAssignments().get(entry.getKey()) instanceof ConstantExpression);
+                    .allMatch(entry -> (entry.getValue() == 1 && !node.getAssignments().get(entry.getKey()).accept(new ExternalCallExpressionChecker(functionManager), null)) ||
+                            node.getAssignments().get(entry.getKey()) instanceof ConstantExpression);
         }
 
         @Override
@@ -459,6 +466,8 @@ public class RowExpressionPredicatePushDown
             Assignments.Builder rightProjections = Assignments.builder()
                     .putAll(identityAssignments(node.getRight().getOutputVariables()));
 
+            Locality leftLocality = LOCAL;
+            Locality rightLocality = LOCAL;
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
             ImmutableList.Builder<RowExpression> joinFilterBuilder = ImmutableList.builder();
@@ -471,11 +480,17 @@ public class RowExpressionPredicatePushDown
                     VariableReferenceExpression leftVariable = variableForExpression(leftExpression);
                     if (!node.getLeft().getOutputVariables().contains(leftVariable)) {
                         leftProjections.put(leftVariable, leftExpression);
+                        if (leftExpression.accept(externalCallExpressionChecker, null)) {
+                            leftLocality = REMOTE;
+                        }
                     }
 
                     VariableReferenceExpression rightVariable = variableForExpression(rightExpression);
                     if (!node.getRight().getOutputVariables().contains(rightVariable)) {
                         rightProjections.put(rightVariable, rightExpression);
+                        if (rightExpression.accept(externalCallExpressionChecker, null)) {
+                            rightLocality = REMOTE;
+                        }
                     }
 
                     equiJoinClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
@@ -507,8 +522,8 @@ public class RowExpressionPredicatePushDown
                     rightSource != node.getRight() ||
                     !filtersEquivalent ||
                     !ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()))) {
-                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
-                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
+                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
 
                 // if the distribution type is already set, make sure that changes from PredicatePushDown
                 // don't make the join node invalid.
@@ -543,7 +558,7 @@ public class RowExpressionPredicatePushDown
             }
 
             if (!node.getOutputVariables().equals(output.getOutputVariables())) {
-                output = new ProjectNode(idAllocator.getNextId(), output, identityAssignments(node.getOutputVariables()));
+                output = new ProjectNode(idAllocator.getNextId(), output, identityAssignments(node.getOutputVariables()), LOCAL);
             }
 
             return output;
@@ -635,8 +650,8 @@ public class RowExpressionPredicatePushDown
                 Assignments.Builder rightProjections = Assignments.builder()
                         .putAll(identityAssignments(node.getRight().getOutputVariables()));
 
-                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
-                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build(), LOCAL);
+                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build(), LOCAL);
 
                 output = new SpatialJoinNode(
                         node.getId(),

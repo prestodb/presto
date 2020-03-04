@@ -163,7 +163,7 @@ public class GatherAndMergeWindows
                     return Optional.empty();
                 }
 
-                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments);
+                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments, project.getLocality());
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
