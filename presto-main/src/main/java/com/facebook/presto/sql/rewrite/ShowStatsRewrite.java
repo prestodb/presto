@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -55,17 +56,20 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowStats;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -79,6 +83,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 
@@ -121,21 +126,21 @@ public class ShowStatsRewrite
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
                 Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
-                validateShowStatsSubquery(node, query, specification, plan);
+                Set<String> columns = validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint<ColumnHandle> constraint = getConstraint(plan);
-                return rewriteShowStats(node, table, constraint);
+                return rewriteShowStats(node, table, constraint, columns);
             }
             else if (node.getRelation() instanceof Table) {
                 Table table = (Table) node.getRelation();
-                return rewriteShowStats(node, table, Constraint.alwaysTrue());
+                return rewriteShowStats(node, table, Constraint.alwaysTrue(), ImmutableSet.of());
             }
             else {
                 throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
             }
         }
 
-        private void validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
+        private Set<String> validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
         {
             // The following properties of SELECT subquery are required:
             //  - only one relation in FROM
@@ -158,14 +163,32 @@ public class ShowStatsRewrite
             check(!querySpecification.getGroupBy().isPresent(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
             check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
 
+            ImmutableSet.Builder<String> columnsBuilder = ImmutableSet.builder();
+            boolean allColumns = false;
             List<SelectItem> selectItems = querySpecification.getSelect().getSelectItems();
-            check(selectItems.size() == 1 && selectItems.get(0) instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
+            for (SelectItem selectItem : selectItems) {
+                if (selectItem instanceof AllColumns) {
+                    allColumns = true;
+                    continue;
+                }
+
+                SingleColumn column = (SingleColumn) selectItem;
+                check(!column.getAlias().isPresent(), node, "Column aliases are not supported in SHOW STATS SELECT clause");
+                check(column.getExpression() instanceof Identifier, node, "Expressions are not supported in SHOW STATS SELECT clause");
+                columnsBuilder.add(((Identifier) column.getExpression()).getValue());
+            }
+            return allColumns ? ImmutableSet.of() : columnsBuilder.build();
         }
 
-        private Node rewriteShowStats(ShowStats node, Table table, Constraint<ColumnHandle> constraint)
+        private Node rewriteShowStats(ShowStats node, Table table, Constraint<ColumnHandle> constraint, Set<String> columns)
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            if (!columns.isEmpty()) {
+                columnHandles = columnHandles.entrySet().stream()
+                    .filter(entry -> columns.contains(entry.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
@@ -239,11 +262,13 @@ public class ShowStatsRewrite
                     continue;
                 }
                 String columnName = columnMetadata.getName();
-                Type columnType = columnMetadata.getType();
                 ColumnHandle columnHandle = columnHandles.get(columnName);
+                if (columnHandle == null) {
+                    continue;
+                }
                 ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
                 if (columnStatistics != null) {
-                    rowsBuilder.add(createColumnStatsRow(columnName, columnType, columnStatistics));
+                    rowsBuilder.add(createColumnStatsRow(columnName, columnMetadata.getType(), columnStatistics));
                 }
                 else {
                     rowsBuilder.add(createEmptyColumnStatsRow(columnName));
