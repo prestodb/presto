@@ -89,6 +89,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -439,7 +440,9 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new PlanRemotePojections(metadata.getFunctionManager()))));
+                ImmutableSet.of(
+                        new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionManager()),
+                        new PlanRemotePojections(metadata.getFunctionManager()))));
 
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
