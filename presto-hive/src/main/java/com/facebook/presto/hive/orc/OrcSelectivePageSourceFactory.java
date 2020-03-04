@@ -384,8 +384,7 @@ public class OrcSelectivePageSourceFactory
                     session.getSqlFunctionProperties().isLegacyMapSubscript(),
                     systemMemoryUsage,
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE,
-                    hiveFileContext);
+                    INITIAL_BATCH_SIZE);
 
             return new OrcSelectivePageSource(
                     recordReader,

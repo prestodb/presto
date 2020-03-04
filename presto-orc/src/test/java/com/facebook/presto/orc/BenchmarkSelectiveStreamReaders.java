@@ -215,8 +215,7 @@ public class BenchmarkSelectiveStreamReaders
                     true,
                     newSimpleAggregatedMemoryContext(),
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE,
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    INITIAL_BATCH_SIZE);
         }
     }
 

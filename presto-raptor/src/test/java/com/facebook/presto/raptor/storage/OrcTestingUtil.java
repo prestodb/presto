@@ -99,8 +99,7 @@ final class OrcTestingUtil
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),
-                MAX_BATCH_SIZE,
-                DEFAULT_HIVE_FILE_CONTEXT);
+                MAX_BATCH_SIZE);
     }
 
     public static byte[] octets(int... values)

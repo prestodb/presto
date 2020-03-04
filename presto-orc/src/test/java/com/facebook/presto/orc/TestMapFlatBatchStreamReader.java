@@ -412,8 +412,7 @@ public class TestMapFlatBatchStreamReader
                 createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true),
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
-                1024,
-                DEFAULT_HIVE_FILE_CONTEXT)) {
+                1024)) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;

@@ -285,8 +285,7 @@ public class TestStructBatchStreamReader
                 OrcPredicate.TRUE,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
-                OrcReader.INITIAL_BATCH_SIZE,
-                DEFAULT_HIVE_FILE_CONTEXT);
+                OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();
         RowBlock block = (RowBlock) recordReader.readBlock(0);
