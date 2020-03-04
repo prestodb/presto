@@ -61,6 +61,8 @@ public class VerifierQueryEvent
     private final QueryFailure finalQueryFailure;
     private final List<QueryFailure> queryFailures;
 
+    private final int resubmissionCount;
+
     public VerifierQueryEvent(
             String suite,
             String testId,
@@ -75,7 +77,8 @@ public class VerifierQueryEvent
             Optional<String> errorCode,
             Optional<String> errorMessage,
             Optional<QueryFailure> finalQueryFailure,
-            List<QueryFailure> queryFailures)
+            List<QueryFailure> queryFailures,
+            int resubmissionCount)
     {
         this.suite = requireNonNull(suite, "suite is null");
         this.testId = requireNonNull(testId, "testId is null");
@@ -92,6 +95,7 @@ public class VerifierQueryEvent
         this.errorMessage = errorMessage.orElse(null);
         this.finalQueryFailure = finalQueryFailure.orElse(null);
         this.queryFailures = ImmutableList.copyOf(queryFailures);
+        this.resubmissionCount = resubmissionCount;
     }
 
     public static VerifierQueryEvent skipped(
@@ -120,7 +124,8 @@ public class VerifierQueryEvent
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                0);
     }
 
     @EventField
@@ -212,5 +217,11 @@ public class VerifierQueryEvent
     public List<QueryFailure> getQueryFailures()
     {
         return queryFailures;
+    }
+
+    @EventField
+    public int getResubmissionCount()
+    {
+        return resubmissionCount;
     }
 }

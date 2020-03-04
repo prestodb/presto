@@ -76,7 +76,7 @@ public class TestRetryDriver
     @BeforeMethod
     public void setup()
     {
-        verificationContext = new VerificationContext();
+        verificationContext = VerificationContext.create();
         retryDriver = new RetryDriver<>(
                 new RetryConfig()
                         .setMaxAttempts(5)

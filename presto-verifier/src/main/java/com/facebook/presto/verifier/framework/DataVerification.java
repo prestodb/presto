@@ -38,7 +38,6 @@ public class DataVerification
     private final ChecksumValidator checksumValidator;
 
     public DataVerification(
-            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
@@ -49,7 +48,7 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, verificationContext, verifierConfig);
+        super(prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, verificationContext, verifierConfig);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
