@@ -54,6 +54,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -230,7 +231,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build());
+            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
         }
 
         @Override
@@ -390,7 +391,7 @@ public class OptimizeMixedDistinctAggregations
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
-            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build());
+            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
         }
 
         private GroupIdNode createGroupIdNode(

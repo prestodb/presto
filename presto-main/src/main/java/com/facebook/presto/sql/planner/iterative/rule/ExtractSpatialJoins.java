@@ -85,6 +85,7 @@ import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -642,7 +643,7 @@ public class ExtractSpatialJoins
         }
 
         projections.put(variable, expression);
-        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
+        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
     private static PlanNode addPartitioningNodes(Context context, FunctionManager functionManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
@@ -672,7 +673,7 @@ public class ExtractSpatialJoins
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
-                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
+                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
                 node.getOutputVariables(),
                 ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());

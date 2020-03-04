@@ -138,18 +138,24 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         checkCatalog(functionName);
-        checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
-        return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
+        if (transactionHandle.isPresent()) {
+            return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
+        }
+        return fetchFunctionsDirect(functionName);
     }
 
     @Override
     public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         checkCatalog(signature.getName());
-        checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
         SqlFunctionId functionId = new SqlFunctionId(signature.getName(), signature.getArgumentTypes());
-        return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
+        if (transactionHandle.isPresent()) {
+            return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
+        }
+        FunctionCollection collection = new FunctionCollection();
+        collection.loadAndGetFunctionsTransactional(signature.getName());
+        return collection.getFunctionHandle(functionId);
     }
 
     @Override

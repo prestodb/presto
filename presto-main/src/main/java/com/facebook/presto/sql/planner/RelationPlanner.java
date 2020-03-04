@@ -94,6 +94,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
@@ -194,7 +195,7 @@ class RelationPlanner
                 }
             }
 
-            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
+            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             mappings = newMappings.build();
         }
 

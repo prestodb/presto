@@ -449,7 +449,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
+            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()), node.getLocality());
         }
 
         @Override
