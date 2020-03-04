@@ -15,9 +15,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -34,7 +32,9 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
@@ -422,9 +422,7 @@ public class TestAddExchangesPlans
                 TestingSession.testSessionBuilder()
                         .setCatalog("local")
                         .setSchema("tiny")
-                        .setSystemProperty(
-                                SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY,
-                                FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING.toString())
+                        .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, PREFER_EXACT_PARTITIONING.toString())
                         .build(),
                 pattern);
     }
