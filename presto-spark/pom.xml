@@ -19,7 +19,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-base</artifactId>
-            <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
     </dependencies>

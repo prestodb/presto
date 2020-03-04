@@ -95,16 +95,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-launcher</artifactId>
-            <version>${project.version}</version>
-            <type>jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-package</artifactId>
-            <version>${project.version}</version>
-            <type>tar.gz</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
