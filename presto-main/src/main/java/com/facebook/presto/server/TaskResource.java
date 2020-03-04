@@ -114,12 +114,7 @@ public class TaskResource
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        if (communicationConfig.isBinaryTransportEnabled()) {
-            this.planFragmentCodec = planFragmentSmileCodec;
-        }
-        else {
-            this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
-        }
+        this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
     }
 
     @GET
