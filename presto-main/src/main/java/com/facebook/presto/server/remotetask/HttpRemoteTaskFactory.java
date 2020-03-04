@@ -117,14 +117,13 @@ public class HttpRemoteTaskFactory
             this.taskStatusCodec = taskStatusSmileCodec;
             this.taskInfoCodec = taskInfoSmileCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
-            this.planFragmentCodec = planFragmentSmileCodec;
         }
         else {
             this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
             this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
             this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
-            this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
         }
+        this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
