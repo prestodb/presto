@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -200,6 +201,15 @@ public class DruidQueryGenerator
                         new Selection(druidExpression.getDefinition(), druidExpression.getOrigin()));
             });
             return context.withProject(newSelections);
+        }
+
+        @Override
+        public DruidQueryGeneratorContext visitLimit(LimitNode node, DruidQueryGeneratorContext context)
+        {
+            checkArgument(!node.isPartial(), "Druid query generator cannot handle partial limit");
+            context = node.getSource().accept(this, context);
+            requireNonNull(context, "context is null");
+            return context.withLimit(node.getCount()).withOutputColumns(node.getOutputVariables());
         }
 
         @Override
