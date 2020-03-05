@@ -15,6 +15,8 @@ package com.facebook.presto.verifier;
 
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharSink;
 import org.jdbi.v3.core.Handle;
@@ -36,12 +38,14 @@ import static com.facebook.presto.verifier.VerifierTestUtil.insertSourceQuery;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupMySql;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.google.common.io.Files.asCharSink;
+import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createFile;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -58,7 +62,6 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
     private final Map<String, String> additionalConfigurationProperties;
 
     private File configDirectory;
-    private File configFile;
     private File jsonLogFile;
     private File humanReadableLogFile;
 
@@ -96,7 +99,7 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
             throws IOException
     {
         configDirectory = createTempDir();
-        configFile = createFile(Paths.get(configDirectory.getAbsolutePath(), "config.properties")).toFile();
+        File configFile = createFile(Paths.get(configDirectory.getAbsolutePath(), "config.properties")).toFile();
         CharSink sink = asCharSink(configFile, UTF_8);
 
         String host = queryRunner.getServer().getAddress().getHost();
@@ -114,6 +117,8 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
                 .put("source-query.database", mySqlServer.getJdbcUrl(XDB))
                 .put("source-query.suites", SUITE)
                 .put("source-query.max-queries-per-suite", "100")
+                .put("control.username-override", "verifier-test")
+                .put("test.username-override", "verifier-test")
                 .put("event-clients", "json,human-readable")
                 .put("json.log-file", jsonLogFile.getAbsolutePath())
                 .put("human-readable.log-file", humanReadableLogFile.getAbsolutePath())
@@ -134,8 +139,10 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
         deleteRecursively(configDirectory.toPath(), ALLOW_INSECURE);
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testVerifier()
+            throws IOException
     {
         assertFalse(humanReadableLogFile.exists());
         assertFalse(jsonLogFile.exists());
@@ -144,5 +151,11 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
 
         assertTrue(humanReadableLogFile.exists());
         assertTrue(jsonLogFile.exists());
+
+        ObjectMapper mapper = new ObjectMapper();
+        for (String line : asCharSource(jsonLogFile, UTF_8).readLines()) {
+            Map<String, Object> event = mapper.readValue(line, new TypeReference<Map<String, Object>>() {});
+            assertEquals(((Map<String, Object>) event.get("data")).get("status"), "SUCCEEDED");
+        }
     }
 }
