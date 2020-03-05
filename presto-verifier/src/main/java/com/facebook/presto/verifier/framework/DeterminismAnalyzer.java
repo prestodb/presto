@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -48,8 +49,8 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
-import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
-import static com.facebook.presto.verifier.framework.VerifierUtil.runWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
+import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -107,10 +108,10 @@ public class DeterminismAnalyzer
                 queryBundles.add(queryBundle);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
 
-                runWithQueryStatsConsumer(() -> setupAndRun(prestoAction, queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
+                runAndConsume(() -> setupAndRun(prestoAction, queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
 
                 Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
-                ChecksumResult testChecksum = getOnlyElement(callWithQueryStatsConsumer(
+                ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
 
@@ -148,7 +149,7 @@ public class DeterminismAnalyzer
         }
         finally {
             if (runTeardown) {
-                queryBundles.forEach(bundle -> teardownSafely(prestoAction, bundle));
+                queryBundles.forEach(bundle -> teardownSafely(prestoAction, Optional.of(bundle)));
             }
         }
     }
