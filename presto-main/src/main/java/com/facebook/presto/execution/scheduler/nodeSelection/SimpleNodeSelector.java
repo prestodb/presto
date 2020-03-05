@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -137,7 +136,7 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    candidateNodes = convertToInternalNode(nodeMap, split.getPreferredNodes(sortedCandidates));
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder().addAll(candidateNodes).addAll(randomNodeSelection.pickNodes(split)).build();
                     break;
@@ -195,13 +194,6 @@ public class SimpleNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
-    }
-
-    private static List<InternalNode> convertToInternalNode(NodeMap nodeMap, List<HostAddress> preferredNodes)
-    {
-        List<InternalNode> internalNodes = new ArrayList<>();
-        preferredNodes.forEach(node -> internalNodes.addAll(nodeMap.getNodesByHostAndPort().get(node)));
-        return ImmutableList.copyOf(internalNodes);
     }
 
     private static Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, Function<InternalNode, Integer> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount)
