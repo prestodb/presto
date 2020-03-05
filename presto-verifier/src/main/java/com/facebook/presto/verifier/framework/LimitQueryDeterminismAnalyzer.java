@@ -48,7 +48,7 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
-import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnIndices;
 import static com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
@@ -245,7 +245,7 @@ class LimitQueryDeterminismAnalyzer
                 new Select(false, ImmutableList.of(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("1")))))),
                 new TableSubquery(newLimitQuery));
 
-        QueryResult<Long> result = callWithQueryStatsConsumer(
+        QueryResult<Long> result = callAndConsume(
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> Optional.of(resultSet.getLong(1))),
                 stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
 
@@ -261,7 +261,7 @@ class LimitQueryDeterminismAnalyzer
 
     private LimitQueryDeterminismAnalysis analyzeLimitOrderBy(Query tieInspectorQuery, List<ColumnNameOrIndex> orderByKeys, long limit)
     {
-        QueryResult<List<Object>> result = callWithQueryStatsConsumer(
+        QueryResult<List<Object>> result = callAndConsume(
                 () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS, new TieInspector(limit)),
                 stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
         if (result.getResults().isEmpty()) {

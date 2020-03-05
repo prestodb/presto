@@ -25,14 +25,12 @@ import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.verifier.framework.AbstractVerification.formatSql;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
@@ -64,18 +62,18 @@ public class DataVerificationUtil
         return prestoAction.execute(bundle.getQuery(), mainStage);
     }
 
-    public static void teardownSafely(PrestoAction prestoAction, @Nullable QueryBundle bundle)
+    public static void teardownSafely(PrestoAction prestoAction, Optional<QueryBundle> bundle)
     {
-        if (bundle == null) {
+        if (!bundle.isPresent()) {
             return;
         }
 
-        for (Statement teardownQuery : bundle.getTeardownQueries()) {
+        for (Statement teardownQuery : bundle.get().getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, forTeardown(bundle.getCluster()));
+                prestoAction.execute(teardownQuery, forTeardown(bundle.get().getCluster()));
             }
             catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", bundle.getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery));
+                log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
             }
         }
     }
