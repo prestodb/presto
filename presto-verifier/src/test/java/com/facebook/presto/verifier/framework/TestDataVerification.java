@@ -206,7 +206,13 @@ public class TestDataVerification
     public void testParsingFailed()
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT", "SELECT 1");
-        assertFalse(event.isPresent());
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                SKIPPED,
+                Optional.empty(),
+                Optional.of("VERIFIER_INTERNAL_ERROR"),
+                Optional.of("Test state NOT_RUN, Control state NOT_RUN\\..*"));
     }
 
     @Test

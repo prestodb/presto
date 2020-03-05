@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -48,8 +49,8 @@ import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public class TestVerificationManager
@@ -57,17 +58,22 @@ public class TestVerificationManager
     private static class MockPrestoAction
             implements PrestoAction
     {
-        private final ErrorCodeSupplier errorCode;
+        private final Function<QueryStage, RuntimeException> exceptionGenerator;
 
         public MockPrestoAction(ErrorCodeSupplier errorCode)
         {
-            this.errorCode = requireNonNull(errorCode, "errorCode is null");
+            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+        }
+
+        public MockPrestoAction(RuntimeException exception)
+        {
+            this.exceptionGenerator = queryStage -> exception;
         }
 
         @Override
         public QueryStats execute(Statement statement, QueryStage queryStage)
         {
-            throw new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+            throw exceptionGenerator.apply(queryStage);
         }
 
         @Override
@@ -76,7 +82,7 @@ public class TestVerificationManager
                 QueryStage queryStage,
                 ResultSetConverter<R> converter)
         {
-            throw new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+            throw exceptionGenerator.apply(queryStage);
         }
     }
 
@@ -177,6 +183,19 @@ public class TestVerificationManager
         assertSkippedEvent(events.get(1), "q4", UNSUPPORTED_QUERY_TYPE);
         assertSkippedEvent(events.get(2), "q5", MISMATCHED_QUERY_TYPE);
         assertSkippedEvent(events.get(3), "q6", SYNTAX_ERROR);
+    }
+
+    @Test
+    public void testVerifierError()
+    {
+        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(new RuntimeException()), VERIFIER_CONFIG);
+        manager.start();
+
+        List<VerifierQueryEvent> events = eventClient.getEvents();
+        assertEquals(events.size(), 1);
+        assertEquals(events.get(0).getStatus(), SKIPPED.name());
+        assertEquals(events.get(0).getSkippedReason(), VERIFIER_INTERNAL_ERROR.name());
+        assertEquals(events.get(0).getErrorCode(), "VERIFIER_INTERNAL_ERROR");
     }
 
     private static SourceQuery createSourceQuery(String name, String controlQuery, String testQuery)
