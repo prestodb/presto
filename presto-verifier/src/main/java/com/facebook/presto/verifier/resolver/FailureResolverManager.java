@@ -31,10 +31,14 @@ public class FailureResolverManager
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
     }
 
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolve(QueryStats controlQueryStats, Throwable throwable, Optional<QueryBundle> test)
     {
+        if (!(throwable instanceof QueryException)) {
+            return Optional.of("Verifier Error");
+        }
+
         for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolve(controlQueryStats, queryException, test);
+            Optional<String> resolveMessage = failureResolver.resolve(controlQueryStats, (QueryException) throwable, test);
             if (resolveMessage.isPresent()) {
                 return resolveMessage;
             }
