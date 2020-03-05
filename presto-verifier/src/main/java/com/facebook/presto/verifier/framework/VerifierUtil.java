@@ -35,9 +35,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class VerifierUtil
 {
-    private VerifierUtil()
-    {
-    }
+    private VerifierUtil() {}
 
     public static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
 
@@ -46,17 +44,26 @@ public class VerifierUtil
         return new Identifier(name, true);
     }
 
-    public static void runWithQueryStatsConsumer(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer)
     {
-        callWithQueryStatsConsumer(callable, identity(), queryStatsConsumer);
+        runAndConsume(callable, queryStatsConsumer, e -> {});
     }
 
-    public static <V> QueryResult<V> callWithQueryStatsConsumer(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
     {
-        return callWithQueryStatsConsumer(callable, QueryResult::getQueryStats, queryStatsConsumer);
+        callAndConsume(callable, identity(), queryStatsConsumer, queryExceptionConsumer);
     }
 
-    private static <V> V callWithQueryStatsConsumer(Callable<V> callable, Function<V, QueryStats> queryStatsTransformer, Consumer<QueryStats> queryStatsConsumer)
+    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
+    {
+        return callAndConsume(callable, QueryResult::getQueryStats, queryStatsConsumer, e -> {});
+    }
+
+    private static <V> V callAndConsume(
+            Callable<V> callable,
+            Function<V, QueryStats> queryStatsTransformer,
+            Consumer<QueryStats> queryStatsConsumer,
+            Consumer<QueryException> queryExceptionConsumer)
     {
         try {
             V result = callable.call();
@@ -65,6 +72,7 @@ public class VerifierUtil
         }
         catch (PrestoQueryException e) {
             e.getQueryStats().ifPresent(queryStatsConsumer);
+            queryExceptionConsumer.accept(e);
             throw e;
         }
     }

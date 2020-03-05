@@ -27,7 +27,7 @@ import static com.facebook.presto.verifier.framework.DataVerificationUtil.getCol
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
-import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -65,10 +65,10 @@ public class DataVerification
         controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
         testContext.setChecksumQuery(formatSql(testChecksumQuery));
 
-        QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
+        QueryResult<ChecksumResult> controlChecksum = callAndConsume(
                 () -> getPrestoAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> controlContext.setChecksumQueryId(stats.getQueryId()));
-        QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
+        QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getPrestoAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> testContext.setChecksumQueryId(stats.getQueryId()));
 
