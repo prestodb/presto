@@ -40,7 +40,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
-                .setRunTeardownOnResultMismatch(false)
+                .setSmartTeardown(false)
                 .setVerificationResubmissionLimit(2));
     }
 
@@ -60,7 +60,7 @@ public class TestVerifierConfig
                 .put("query-repetitions", "3")
                 .put("relative-error-margin", "2e-5")
                 .put("absolute-error-margin", "1e-14")
-                .put("run-teardown-on-result-mismatch", "true")
+                .put("smart-teardown", "true")
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -76,7 +76,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
-                .setRunTeardownOnResultMismatch(true)
+                .setSmartTeardown(true)
                 .setVerificationResubmissionLimit(1);
 
         assertFullMapping(properties, expected);
