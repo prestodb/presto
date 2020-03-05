@@ -53,7 +53,8 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
-                .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2));
+                .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setUseStreamingExchangeForMarkDistinct(false));
     }
 
     @Test
@@ -83,6 +84,7 @@ public class TestQueryManagerConfig
                 .put("query.max-run-time", "2h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
+                .put("query.use-streaming-exchange-for-mark-distinct", "true")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("query-manager.query-submission-max-threads", "5")
@@ -114,7 +116,8 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
-                .setQuerySubmissionMaxThreads(5);
+                .setQuerySubmissionMaxThreads(5)
+                .setUseStreamingExchangeForMarkDistinct(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

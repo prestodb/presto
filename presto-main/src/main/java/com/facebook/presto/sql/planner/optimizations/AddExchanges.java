@@ -107,6 +107,7 @@ import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPre
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
+import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -321,7 +322,9 @@ public class AddExchanges
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
-                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
+                                isUseStreamingExchangeForMarkDistinctEnabled(session) ?
+                                        REMOTE_STREAMING :
+                                        selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
                                 child.getNode(),
                                 createPartitioning(node.getDistinctVariables()),
                                 node.getHashVariable()),
