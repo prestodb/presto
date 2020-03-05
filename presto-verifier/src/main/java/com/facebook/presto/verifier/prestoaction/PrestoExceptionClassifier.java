@@ -136,12 +136,12 @@ public class PrestoExceptionClassifier
         return new PrestoQueryException(cause, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStage, errorCode, queryStats);
     }
 
-    public static boolean shouldResubmit(QueryException queryException)
+    public static boolean shouldResubmit(Throwable throwable)
     {
-        if (!(queryException instanceof PrestoQueryException)) {
+        if (!(throwable instanceof PrestoQueryException)) {
             return false;
         }
-        Optional<ErrorCodeSupplier> errorCode = ((PrestoQueryException) queryException).getErrorCode();
+        Optional<ErrorCodeSupplier> errorCode = ((PrestoQueryException) throwable).getErrorCode();
         return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get());
     }
 
