@@ -30,23 +30,33 @@ import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGE
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestQueryTaskLimit
 {
     private ExecutorService executor;
+    private Session defaultSession;
 
     @BeforeClass
     public void setUp()
     {
         executor = newCachedThreadPool();
+        defaultSession = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf1000")
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
     public void shutdown()
+            throws Exception
     {
         executor.shutdownNow();
+        assertTrue(executor.awaitTermination(10, SECONDS));
         executor = null;
     }
 
@@ -54,11 +64,6 @@ public class TestQueryTaskLimit
     public void testExceedTaskLimit()
             throws Exception
     {
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf1000")
-                .build();
-
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("max-total-running-task-count-to-kill-query", "4")
                 .put("max-query-running-task-count", "4")
