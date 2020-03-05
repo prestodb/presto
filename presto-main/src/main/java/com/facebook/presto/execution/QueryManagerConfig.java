@@ -44,6 +44,7 @@ public class QueryManagerConfig
     private int hashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
+    private boolean useStreamingExchangeForMarkDistinct;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -157,6 +158,20 @@ public class QueryManagerConfig
     public ExchangeMaterializationStrategy getExchangeMaterializationStrategy()
     {
         return exchangeMaterializationStrategy;
+    }
+
+    @Config("query.use-streaming-exchange-for-mark-distinct")
+    @ConfigDescription("Use streaming instead of materialization with mark distinct when materialized exchange is enabled")
+    public QueryManagerConfig setUseStreamingExchangeForMarkDistinct(boolean useStreamingExchangeForMarkDistinct)
+    {
+        this.useStreamingExchangeForMarkDistinct = useStreamingExchangeForMarkDistinct;
+        return this;
+    }
+
+    @NotNull
+    public boolean getUseStreamingExchangeForMarkDistinct()
+    {
+        return useStreamingExchangeForMarkDistinct;
     }
 
     @Config("query.exchange-materialization-strategy")

@@ -66,6 +66,7 @@ public final class SystemSessionProperties
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
+    public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS = "grouped_execution_for_eligible_table_scans";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
@@ -228,6 +229,11 @@ public final class SystemSessionProperties
                         false,
                         value -> ExchangeMaterializationStrategy.valueOf(((String) value).toUpperCase()),
                         ExchangeMaterializationStrategy::name),
+                booleanProperty(
+                        USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT,
+                        "Use streaming instead of materialization for mark distinct with materialized exchange enabled",
+                        queryManagerConfig.getUseStreamingExchangeForMarkDistinct(),
+                        false),
                 booleanProperty(
                         GROUPED_EXECUTION_FOR_AGGREGATION,
                         "Use grouped execution for aggregation when possible",
@@ -806,6 +812,11 @@ public final class SystemSessionProperties
     public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session)
     {
         return session.getSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.class);
+    }
+
+    public static boolean isUseStreamingExchangeForMarkDistinctEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT, Boolean.class);
     }
 
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)
