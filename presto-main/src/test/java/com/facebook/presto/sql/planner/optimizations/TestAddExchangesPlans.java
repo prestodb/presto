@@ -32,10 +32,13 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
+import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
+import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -49,6 +52,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -413,6 +417,49 @@ public class TestAddExchangesPlans
                                                                                 "orderkey", "orderkey",
                                                                                 "clerk", "clerk",
                                                                                 "orderdate", "orderdate"))))))))));
+    }
+
+    @Test
+    public void testMarkDistinctStreamingExchange()
+    {
+        assertMaterializedWithStreamingMarkDistinctDistributedPlan(
+                "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus,\n" +
+                        "        COUNT(DISTINCT orderdate),\n" +
+                        "        COUNT(DISTINCT clerk)\n" +
+                        "    FROM orders\n" +
+                        "    WHERE\n" +
+                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
+                        "    GROUP BY\n" +
+                        "        orderkey,\n" +
+                        "        orderstatus\n",
+                anyTree(
+                        exchange(REMOTE_MATERIALIZED, REPARTITION,
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                                anyTree(
+                                                                        tableScan("orders", ImmutableMap.of(
+                                                                                "orderstatus", "orderstatus",
+                                                                                "orderkey", "orderkey",
+                                                                                "clerk", "clerk",
+                                                                                "orderdate", "orderdate"))))))))));
+    }
+
+    void assertMaterializedWithStreamingMarkDistinctDistributedPlan(String sql, PlanMatchPattern pattern)
+    {
+        assertDistributedPlan(
+                sql,
+                TestingSession.testSessionBuilder()
+                        .setCatalog("local")
+                        .setSchema("tiny")
+                        .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, PREFER_EXACT_PARTITIONING.toString())
+                        .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ALL.toString())
+                        .setSystemProperty(USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT, "true")
+                        .build(),
+                pattern);
     }
 
     void assertExactDistributedPlan(String sql, PlanMatchPattern pattern)
