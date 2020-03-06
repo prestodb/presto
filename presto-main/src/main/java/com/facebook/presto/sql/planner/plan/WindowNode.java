@@ -394,6 +394,7 @@ public class WindowNode
                     Objects.equals(this.ignoreNulls, other.ignoreNulls);
         }
 
+        @JsonProperty
         public boolean isIgnoreNulls()
         {
             return ignoreNulls;
