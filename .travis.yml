@@ -11,29 +11,22 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - WEBUI_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-tpch-distributed-queries"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-local-queries"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-queries"
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-aggregation-queries"
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-plan-determinism"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-aggregation-and-plan-determinism"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra TEST_FLAGS="-P test-cassandra-integration-smoke-test"
     - TEST_SPECIFIC_MODULES=presto-hive
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized-queries"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized-aggregations"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-execution"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-execution -P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-basic"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced" 
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced -P test-hive-repartitioning"
     - TEST_SPECIFIC_MODULES=presto-main
-    - TEST_SPECIFIC_MODULES=presto-mongodb TEST_FLAGS="-P test-mongo-distributed-queries"
-    - TEST_SPECIFIC_MODULES=presto-redis TEST_FLAGS="-P test-redis-integration-smoke-test"
-    - TEST_SPECIFIC_MODULES=presto-elasticsearch
+    - TEST_SPECIFIC_MODULES=presto-elasticsearch,presto-redis,presto-mongodb TEST_FLAGS="-P test-redis-integration-smoke-test -P test-mongo-distributed-queries"
     - TEST_SPECIFIC_MODULES=presto-orc
     - TEST_SPECIFIC_MODULES=presto-thrift-connector
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-redis,!presto-elasticsearch,!presto-orc,!presto-thrift-connector
