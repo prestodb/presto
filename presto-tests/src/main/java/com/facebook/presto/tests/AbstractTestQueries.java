@@ -8272,6 +8272,31 @@ public abstract class AbstractTestQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test
+    public void testLastValueIgnoreNulls()
+    {
+        assertQuery(
+                "WITH T AS (" +
+                        "    SELECT" +
+                        "        p," +
+                        "        v" +
+                        "    FROM (" +
+                        "        VALUES" +
+                        "            (2, 2)," +
+                        "            (1, 1)," +
+                        "            (3, NULL)" +
+                        "    ) T(p, v)" +
+                        ")" +
+                        "SELECT" +
+                        "    LAST_VALUE(v) IGNORE NULLS OVER (" +
+                        "        PARTITION BY 1" +
+                        "        ORDER BY" +
+                        "            p ASC" +
+                        "    )" +
+                        "FROM T",
+                "Values 1, 2, 2");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
