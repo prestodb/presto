@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
@@ -29,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -55,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
@@ -71,12 +74,15 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 @Path("/")
 public class ExecutingStatementResource
 {
+    private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
@@ -90,6 +96,7 @@ public class ExecutingStatementResource
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
 
     @Inject
     public ExecutingStatementResource(
@@ -104,6 +111,34 @@ public class ExecutingStatementResource
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+
+        queryPurger.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        for (Entry<QueryId, Query> entry : queries.entrySet()) {
+                            // forget about this query if the query manager is no longer tracking it
+                            try {
+                                queryManager.getQueryState(entry.getKey());
+                            }
+                            catch (NoSuchElementException e) {
+                                // query is no longer registered
+                                queries.remove(entry.getKey());
+                            }
+                        }
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error removing old queries");
+                    }
+                },
+                200,
+                200,
+                MILLISECONDS);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryPurger.shutdownNow();
     }
 
     @GET
