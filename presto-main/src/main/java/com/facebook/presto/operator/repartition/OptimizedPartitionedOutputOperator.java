@@ -61,8 +61,10 @@ import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.facebook.presto.array.Arrays.ExpansionFactor.MEDIUM;
 import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -434,8 +436,11 @@ public class OptimizedPartitionedOutputOperator
             // Populate positions to copy for each destination partition.
             int positionCount = page.getPositionCount();
 
+            // We initialize the size of the positions array in each partitionBuffers to be at most the incoming page's positionCount, or roughly two times of positionCount
+            // divided by the number of partitions. This is because the latter could be greater than the positionCount when the number of partitions is 1 or positionCount is 1.
+            int initialPositionCountForEachBuffer = min(positionCount, (positionCount / partitionFunction.getPartitionCount() + 1) * 2);
             for (int i = 0; i < partitionBuffers.length; i++) {
-                partitionBuffers[i].resetPositions(positionCount);
+                partitionBuffers[i].resetPositions(initialPositionCountForEachBuffer);
             }
 
             Block nullBlock = nullChannel.isPresent() ? page.getBlock(nullChannel.getAsInt()) : null;
@@ -559,14 +564,15 @@ public class OptimizedPartitionedOutputOperator
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
         }
 
-        private void resetPositions(int positionCount)
+        private void resetPositions(int estimatedPositionCount)
         {
-            positions = ensureCapacity(positions, positionCount);
+            positions = ensureCapacity(positions, estimatedPositionCount);
             this.positionCount = 0;
         }
 
         private void addPosition(int position)
         {
+            positions = ensureCapacity(positions, positionCount + 1, MEDIUM, PRESERVE);
             positions[positionCount++] = position;
         }
 
