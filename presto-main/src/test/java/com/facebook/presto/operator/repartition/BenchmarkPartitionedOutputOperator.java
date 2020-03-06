@@ -57,6 +57,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -123,6 +124,22 @@ public class BenchmarkPartitionedOutputOperator
             operator.addInput(data.dataPage);
         }
         operator.finish();
+    }
+
+    @Test
+    public void verifyAddPage()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        new BenchmarkPartitionedOutputOperator().addPage(data);
+    }
+
+    @Test
+    public void verifyOptimizedAddPage()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        new BenchmarkPartitionedOutputOperator().optimizedAddPage(data);
     }
 
     @State(Scope.Thread)
@@ -368,10 +385,6 @@ public class BenchmarkPartitionedOutputOperator
     public static void main(String[] args)
             throws RunnerException
     {
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        new BenchmarkPartitionedOutputOperator().optimizedAddPage(data);
-
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .jvmArgs("-Xmx10g")
