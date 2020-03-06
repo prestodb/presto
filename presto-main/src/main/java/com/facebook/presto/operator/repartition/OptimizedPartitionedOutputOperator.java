@@ -618,10 +618,11 @@ public class OptimizedPartitionedOutputOperator
         {
             // Create buffers has to be done after seeing the first page.
             if (blockEncodingBuffers == null) {
-                blockEncodingBuffers = new BlockEncodingBuffer[channelCount];
+                BlockEncodingBuffer[] buffers = new BlockEncodingBuffer[channelCount];
                 for (int i = 0; i < channelCount; i++) {
-                    blockEncodingBuffers[i] = createBlockEncodingBuffers(decodedBlocks[i]);
+                    buffers[i] = createBlockEncodingBuffers(decodedBlocks[i]);
                 }
+                blockEncodingBuffers = buffers;
             }
         }
 
