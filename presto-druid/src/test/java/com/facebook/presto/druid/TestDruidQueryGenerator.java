@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -80,16 +81,61 @@ public class TestDruidQueryGenerator
     @Test
     public void testSimpleSelectStar()
     {
-        testDQL(planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch)),
+        testDQL(
+                planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch)),
                 "SELECT regionId, city, fare, secondsSinceEpoch FROM realtimeOnly LIMIT 50");
-        testDQL(planBuilder -> limit(planBuilder, 10L, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch)),
+        testDQL(
+                planBuilder -> limit(planBuilder, 10L, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch)),
                 "SELECT regionId, secondsSinceEpoch FROM realtimeOnly LIMIT 10");
     }
 
     @Test
     public void testSimpleSelectWithFilterLimit()
     {
-        testDQL(planBuilder -> limit(planBuilder, 30L, project(planBuilder, filter(planBuilder, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch), getRowExpression("secondssinceepoch > 20", defaultSessionHolder)), ImmutableList.of("city", "secondssinceepoch"))),
+        testDQL(
+                planBuilder -> limit(
+                                    planBuilder,
+                                    30L,
+                                    project(
+                                            planBuilder,
+                                            filter(
+                                                    planBuilder,
+                                                    tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch),
+                                                    getRowExpression("secondssinceepoch > 20", defaultSessionHolder)),
+                                            ImmutableList.of("city", "secondssinceepoch"))),
                 "SELECT city, secondsSinceEpoch FROM realtimeOnly WHERE (secondsSinceEpoch > 20) LIMIT 30");
+    }
+
+    @Test
+    public void testCountStar()
+    {
+        BiConsumer<PlanBuilder, PlanBuilder.AggregationBuilder> aggregationFunctionBuilder = (planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder));
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        PlanNode filter = buildPlan(planBuilder -> filter(planBuilder, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare), getRowExpression("fare > 3", defaultSessionHolder)));
+        PlanNode anotherFilter = buildPlan(planBuilder -> filter(planBuilder, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare), getRowExpression("secondssinceepoch between 200 and 300 and regionid >= 40", defaultSessionHolder)));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).globalGrouping())),
+                "SELECT count(*) FROM realtimeOnly");
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).globalGrouping())),
+                "SELECT count(*) FROM realtimeOnly WHERE (fare > 3)");
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(v("regionid")))),
+                "SELECT regionId, count(*) FROM realtimeOnly WHERE (fare > 3) GROUP BY regionId");
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(v("regionid")))),
+                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(v("regionid"), v("city")))),
+                "SELECT regionId, city, count(*) FROM realtimeOnly WHERE ((secondsSinceEpoch BETWEEN 200 AND 300) AND (regionId >= 40)) GROUP BY regionId, city");
+    }
+
+    @Test
+    public void testDistinctSelection()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(v("regionid"))),
+                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
     }
 }
