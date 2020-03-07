@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -72,6 +73,11 @@ public class DruidColumnHandle
     public DruidColumnType getType()
     {
         return type;
+    }
+
+    public ColumnMetadata getColumnMetadata()
+    {
+        return new ColumnMetadata(getColumnName(), getColumnType());
     }
 
     @Override

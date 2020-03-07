@@ -16,11 +16,14 @@ package com.facebook.presto.druid;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
@@ -31,18 +34,26 @@ import static java.util.Objects.requireNonNull;
 public class DruidQueryGeneratorContext
 {
     private final Map<VariableReferenceExpression, Selection> selections;
+    private final Set<VariableReferenceExpression> groupByColumns;
+    private final Set<VariableReferenceExpression> hiddenColumnSet;
+    private final Set<VariableReferenceExpression> variablesInAggregation;
     private final Optional<String> from;
     private final Optional<String> filter;
     private final OptionalLong limit;
+    private final int aggregations;
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("selections", selections)
+                .add("groupByColumns", groupByColumns)
+                .add("hiddenColumnSet", hiddenColumnSet)
+                .add("variablesInAggregation", variablesInAggregation)
                 .add("from", from)
                 .add("filter", filter)
                 .add("limit", limit)
+                .add("aggregations", aggregations)
                 .toString();
     }
 
@@ -59,19 +70,31 @@ public class DruidQueryGeneratorContext
                 selections,
                 Optional.ofNullable(from),
                 Optional.empty(),
-                OptionalLong.empty());
+                OptionalLong.empty(),
+                0,
+                new HashSet<>(),
+                new HashSet<>(),
+                new HashSet<>());
     }
 
     private DruidQueryGeneratorContext(
             Map<VariableReferenceExpression, Selection> selections,
             Optional<String> from,
             Optional<String> filter,
-            OptionalLong limit)
+            OptionalLong limit,
+            int aggregations,
+            Set<VariableReferenceExpression> groupByColumns,
+            Set<VariableReferenceExpression> variablesInAggregation,
+            Set<VariableReferenceExpression> hiddenColumnSet)
     {
         this.selections = new LinkedHashMap<>(requireNonNull(selections, "selections can't be null"));
         this.from = requireNonNull(from, "source can't be null");
         this.filter = requireNonNull(filter, "filter is null");
         this.limit = requireNonNull(limit, "limit is null");
+        this.aggregations = aggregations;
+        this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
+        this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
+        this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
     }
 
     public DruidQueryGeneratorContext withFilter(String filter)
@@ -81,7 +104,11 @@ public class DruidQueryGeneratorContext
                 selections,
                 from,
                 Optional.of(filter),
-                limit);
+                limit,
+                aggregations,
+                groupByColumns,
+                variablesInAggregation,
+                hiddenColumnSet);
     }
 
     public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
@@ -90,7 +117,11 @@ public class DruidQueryGeneratorContext
                 newSelections,
                 from,
                 filter,
-                limit);
+                limit,
+                aggregations,
+                groupByColumns,
+                variablesInAggregation,
+                hiddenColumnSet);
     }
 
     public DruidQueryGeneratorContext withLimit(long limit)
@@ -103,7 +134,44 @@ public class DruidQueryGeneratorContext
                 selections,
                 from,
                 filter,
-                OptionalLong.of(limit));
+                OptionalLong.of(limit),
+                aggregations,
+                groupByColumns,
+                variablesInAggregation,
+                hiddenColumnSet);
+    }
+
+    public DruidQueryGeneratorContext withAggregation(
+            Map<VariableReferenceExpression, Selection> newSelections,
+            Set<VariableReferenceExpression> newGroupByColumns,
+            int newAggregations,
+            Set<VariableReferenceExpression> newHiddenColumnSet)
+    {
+        checkState(!hasAggregation(), "Druid doesn't support aggregation on top of the aggregated data");
+        checkState(!hasLimit(), "Druid doesn't support aggregation on top of the limit");
+        checkState(newAggregations > 0, "Invalid number of aggregations");
+        return new DruidQueryGeneratorContext(
+                newSelections,
+                from,
+                filter,
+                limit,
+                newAggregations,
+                newGroupByColumns,
+                variablesInAggregation,
+                newHiddenColumnSet);
+    }
+
+    public DruidQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
+    {
+        return new DruidQueryGeneratorContext(
+                selections,
+                from,
+                filter,
+                limit,
+                aggregations,
+                groupByColumns,
+                newVariablesInAggregation,
+                hiddenColumnSet);
     }
 
     private boolean hasLimit()
@@ -116,13 +184,32 @@ public class DruidQueryGeneratorContext
         return filter.isPresent();
     }
 
+    private boolean hasAggregation()
+    {
+        return aggregations > 0;
+    }
+
     public Map<VariableReferenceExpression, Selection> getSelections()
     {
         return selections;
     }
 
+    public Set<VariableReferenceExpression> getHiddenColumnSet()
+    {
+        return hiddenColumnSet;
+    }
+
+    Set<VariableReferenceExpression> getVariablesInAggregation()
+    {
+        return variablesInAggregation;
+    }
+
     public DruidQueryGenerator.GeneratedDql toQuery()
     {
+        if (hasLimit() && aggregations > 1 && !groupByColumns.isEmpty()) {
+            throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Could not pushdown multiple aggregates in the presence of group by and limit");
+        }
+
         String expressions = selections.entrySet().stream()
                 .map(s -> s.getValue().getDefinition())
                 .collect(Collectors.joining(", "));
@@ -140,7 +227,13 @@ public class DruidQueryGeneratorContext
             pushdown = true;
         }
 
-        if (limit.isPresent()) {
+        if (!groupByColumns.isEmpty()) {
+            String groupByExpression = groupByColumns.stream().map(x -> selections.get(x).getDefinition()).collect(Collectors.joining(", "));
+            query = query + " GROUP BY " + groupByExpression;
+            pushdown = true;
+        }
+
+        if (!hasAggregation() && limit.isPresent()) {
             query += " LIMIT " + limit.getAsLong();
             pushdown = true;
         }
@@ -150,7 +243,7 @@ public class DruidQueryGeneratorContext
     public Map<VariableReferenceExpression, DruidColumnHandle> getAssignments()
     {
         Map<VariableReferenceExpression, DruidColumnHandle> result = new LinkedHashMap<>();
-        selections.entrySet().forEach(entry -> {
+        selections.entrySet().stream().filter(e -> !hiddenColumnSet.contains(e.getKey())).forEach(entry -> {
             VariableReferenceExpression variable = entry.getKey();
             Selection selection = entry.getValue();
             DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) : new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
@@ -163,8 +256,17 @@ public class DruidQueryGeneratorContext
     {
         Map<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
         outputColumns.forEach(o -> newSelections.put(o, requireNonNull(selections.get(o), "Cannot find the selection " + o + " in the original context " + this)));
+        selections.entrySet().stream().filter(e -> hiddenColumnSet.contains(e.getKey())).forEach(e -> newSelections.put(e.getKey(), e.getValue()));
 
-        return new DruidQueryGeneratorContext(newSelections, from, filter, limit);
+        return new DruidQueryGeneratorContext(
+                newSelections,
+                from,
+                filter,
+                limit,
+                aggregations,
+                groupByColumns,
+                variablesInAggregation,
+                hiddenColumnSet);
     }
 
     public enum Origin
