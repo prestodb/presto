@@ -16,12 +16,20 @@ package com.facebook.presto.plugin.jdbc;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.*;
-import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.*;
-import static org.testng.Assert.assertEquals;
-
 import java.util.Optional;
 
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.integerReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.tinyintReadMapping;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_INTEGER;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_INTEGER_UNSIGNED;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_SMALLINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_SMALLINT_UNSIGNED;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TINYINT;
+import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TINYINT_UNSIGNED;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestJdbcTypeToPrestoType
@@ -30,14 +38,14 @@ public class TestJdbcTypeToPrestoType
     public void testUnsignedType()
     {
         ImmutableMap<JdbcTypeHandle, ReadMapping> jdbcTypeHandleTypeAndPrestoType = ImmutableMap.<JdbcTypeHandle, ReadMapping>builder()
-            .put(JDBC_TINYINT, tinyintReadMapping())
-            .put(JDBC_TINYINT_UNSIGNED, smallintReadMapping())
-            .put(JDBC_SMALLINT, smallintReadMapping())
-            .put(JDBC_SMALLINT_UNSIGNED, integerReadMapping())
-            .put(JDBC_INTEGER, integerReadMapping())
-            .put(JDBC_INTEGER_UNSIGNED, bigintReadMapping())
-            .put(JDBC_BIGINT, bigintReadMapping())
-            .build();
+                .put(JDBC_TINYINT, tinyintReadMapping())
+                .put(JDBC_TINYINT_UNSIGNED, smallintReadMapping())
+                .put(JDBC_SMALLINT, smallintReadMapping())
+                .put(JDBC_SMALLINT_UNSIGNED, integerReadMapping())
+                .put(JDBC_INTEGER, integerReadMapping())
+                .put(JDBC_INTEGER_UNSIGNED, bigintReadMapping())
+                .put(JDBC_BIGINT, bigintReadMapping())
+                .build();
         jdbcTypeHandleTypeAndPrestoType.forEach((jdbcTypeHandle, expectReadMapping) -> {
             Optional<ReadMapping> actualReadMapping = StandardReadMappings.jdbcTypeToPrestoType(jdbcTypeHandle);
             assertTrue(actualReadMapping.isPresent());
