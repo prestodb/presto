@@ -22,8 +22,11 @@ public final class TestingJdbcTypeHandle
     public static final JdbcTypeHandle JDBC_BOOLEAN = new JdbcTypeHandle(Types.BOOLEAN, false, 1, 0);
 
     public static final JdbcTypeHandle JDBC_SMALLINT = new JdbcTypeHandle(Types.SMALLINT, false, 1, 0);
+    public static final JdbcTypeHandle JDBC_SMALLINT_UNSIGNED = new JdbcTypeHandle(Types.SMALLINT, true, 1, 0);
     public static final JdbcTypeHandle JDBC_TINYINT = new JdbcTypeHandle(Types.TINYINT, false, 2, 0);
+    public static final JdbcTypeHandle JDBC_TINYINT_UNSIGNED = new JdbcTypeHandle(Types.TINYINT, true, 2, 0);
     public static final JdbcTypeHandle JDBC_INTEGER = new JdbcTypeHandle(Types.INTEGER, false, 4, 0);
+    public static final JdbcTypeHandle JDBC_INTEGER_UNSIGNED = new JdbcTypeHandle(Types.INTEGER, true, 4, 0);
     public static final JdbcTypeHandle JDBC_BIGINT = new JdbcTypeHandle(Types.BIGINT, false, 8, 0);
 
     public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, false, 8, 0);
