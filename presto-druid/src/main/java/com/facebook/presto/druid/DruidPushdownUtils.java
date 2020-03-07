@@ -14,7 +14,9 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -26,12 +28,16 @@ import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.util.List;
 
+import static com.facebook.presto.druid.DruidAggregationColumnNode.AggregationFunctionColumnNode;
+import static com.facebook.presto.druid.DruidAggregationColumnNode.GroupByColumnNode;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,6 +47,32 @@ import static java.lang.String.format;
 public class DruidPushdownUtils
 {
     private DruidPushdownUtils() {}
+
+    public static List<DruidAggregationColumnNode> computeAggregationNodes(AggregationNode aggregationNode)
+    {
+        int groupByKeyIndex = 0;
+        ImmutableList.Builder<DruidAggregationColumnNode> nodeBuilder = ImmutableList.builder();
+        for (VariableReferenceExpression outputColumn : aggregationNode.getOutputVariables()) {
+            AggregationNode.Aggregation aggregation = aggregationNode.getAggregations().get(outputColumn);
+
+            if (aggregation != null) {
+                if (aggregation.getFilter().isPresent()
+                        || aggregation.isDistinct()
+                        || aggregation.getOrderBy().isPresent()
+                        || aggregation.getMask().isPresent()) {
+                    throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Unsupported aggregation node " + aggregationNode);
+                }
+                nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, aggregation.getCall()));
+            }
+            else {
+                // group by output
+                VariableReferenceExpression inputColumn = aggregationNode.getGroupingKeys().get(groupByKeyIndex);
+                nodeBuilder.add(new GroupByColumnNode(inputColumn, outputColumn));
+                groupByKeyIndex++;
+            }
+        }
+        return nodeBuilder.build();
+    }
 
     private static Number decodeDecimal(BigInteger unscaledValue, DecimalType type)
     {

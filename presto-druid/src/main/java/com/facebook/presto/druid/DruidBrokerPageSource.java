@@ -122,10 +122,17 @@ public class DruidBrokerPageSource
                 Iterator<JsonNode> iterator = arrayNode.elements();
                 while (iterator.hasNext()) {
                     JsonNode node = iterator.next();
+                    Iterator<String> fieldNamesIterator = node.fieldNames();
                     for (int i = 0; i < columnHandles.size(); i++) {
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                        JsonNode value = node.get(handles.get(i).getColumnName());
+
+                        String fieldName = fieldNamesIterator.next();
+                        JsonNode value = node.get(fieldName);
+                        if (value == null) {
+                            blockBuilder.appendNull();
+                            continue;
+                        }
                         if (type instanceof BigintType) {
                             type.writeLong(blockBuilder, value.longValue());
                         }

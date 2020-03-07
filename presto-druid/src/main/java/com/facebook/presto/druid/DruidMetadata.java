@@ -132,14 +132,7 @@ public class DruidMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        DruidTableHandle druidTable = (DruidTableHandle) tableHandle;
-        DruidColumnHandle druidColumn = (DruidColumnHandle) columnHandle;
-
-        return druidClient.getColumnDataType(druidTable.getTableName()).stream()
-                .filter(column -> column.getColumnName().equals(druidColumn.getColumnName()))
-                .map(DruidMetadata::toColumnMetadata)
-                .findFirst()
-                .orElse(null);
+        return ((DruidColumnHandle) columnHandle).getColumnMetadata();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
