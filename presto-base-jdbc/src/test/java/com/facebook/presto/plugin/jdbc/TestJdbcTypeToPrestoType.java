@@ -35,7 +35,7 @@ import static org.testng.Assert.assertTrue;
 public class TestJdbcTypeToPrestoType
 {
     @Test
-    public void testUnsignedType()
+    public void testUnsignedNumberType()
     {
         ImmutableMap<JdbcTypeHandle, ReadMapping> jdbcTypeHandleTypeAndPrestoType = ImmutableMap.<JdbcTypeHandle, ReadMapping>builder()
                 .put(JDBC_TINYINT, tinyintReadMapping())
