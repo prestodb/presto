@@ -48,7 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class DruidConnectorPlanOptimizer
+public class DruidPlanOptimizer
         implements ConnectorPlanOptimizer
 {
     private final DruidQueryGenerator druidQueryGenerator;
@@ -58,7 +58,7 @@ public class DruidConnectorPlanOptimizer
     private final StandardFunctionResolution standardFunctionResolution;
 
     @Inject
-    public DruidConnectorPlanOptimizer(
+    public DruidPlanOptimizer(
             DruidQueryGenerator druidQueryGenerator,
             TypeManager typeManager,
             DeterminismEvaluator determinismEvaluator,
