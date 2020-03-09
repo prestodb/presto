@@ -213,7 +213,7 @@ public class SimpleNodeSelector
                     nodeSelectionStats.incrementPrimaryPreferredNodeSelectedCount();
                 }
                 else {
-                    nodeSelectionStats.incrementNonPrimaryPrederredNodeSelectedCount();
+                    nodeSelectionStats.incrementNonPrimaryPreferredNodeSelectedCount();
                 }
                 return Optional.of(new InternalNodeInfo(node, true));
             }
