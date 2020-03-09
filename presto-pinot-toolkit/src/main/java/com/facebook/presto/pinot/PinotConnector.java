@@ -55,7 +55,7 @@ public class PinotConnector
             PinotPageSourceProvider pageSourceProvider,
             PinotNodePartitioningProvider partitioningProvider,
             PinotSessionProperties pinotSessionProperties,
-            PinotConnectorPlanOptimizer planOptimizer)
+            PinotPlanOptimizer planOptimizer)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

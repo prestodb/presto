@@ -60,7 +60,7 @@ public class PinotModule
         configBinder(binder).bindConfig(PinotConfig.class);
         binder.bind(PinotConnector.class).in(Scopes.SINGLETON);
         binder.bind(PinotMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(PinotConnectorPlanOptimizer.class).in(Scopes.SINGLETON);
+        binder.bind(PinotPlanOptimizer.class).in(Scopes.SINGLETON);
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClusterInfoFetcher.class).in(Scopes.SINGLETON);

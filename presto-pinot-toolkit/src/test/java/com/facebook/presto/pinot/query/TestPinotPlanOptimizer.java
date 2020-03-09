@@ -20,7 +20,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.pinot.PinotConfig;
-import com.facebook.presto.pinot.PinotConnectorPlanOptimizer;
+import com.facebook.presto.pinot.PinotPlanOptimizer;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
 import com.facebook.presto.pinot.TestPinotSplitManager;
@@ -61,7 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
-public class TestPinotConnectorPlanOptimizer
+public class TestPinotPlanOptimizer
         extends TestPinotQueryBase
 {
     private static final SessionHolder defaultSessionHolder = new SessionHolder(false);
@@ -227,7 +227,7 @@ public class TestPinotConnectorPlanOptimizer
     {
         PinotConfig pinotConfig = new PinotConfig();
         PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution);
-        PinotConnectorPlanOptimizer optimizer = new PinotConnectorPlanOptimizer(pinotQueryGenerator, typeManager, functionMetadataManager, logicalRowExpressions, standardFunctionResolution);
+        PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, typeManager, functionMetadataManager, logicalRowExpressions, standardFunctionResolution);
         return optimizer.optimize(originalPlan, defaultSessionHolder.getConnectorSession(), new PlanVariableAllocator(), planBuilder.getIdAllocator());
     }
 }
