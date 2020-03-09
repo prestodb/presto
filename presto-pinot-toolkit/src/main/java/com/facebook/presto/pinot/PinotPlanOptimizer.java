@@ -51,7 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class PinotConnectorPlanOptimizer
+public class PinotPlanOptimizer
         implements ConnectorPlanOptimizer
 {
     private final PinotQueryGenerator pinotQueryGenerator;
@@ -61,7 +61,7 @@ public class PinotConnectorPlanOptimizer
     private final StandardFunctionResolution standardFunctionResolution;
 
     @Inject
-    public PinotConnectorPlanOptimizer(
+    public PinotPlanOptimizer(
             PinotQueryGenerator pinotQueryGenerator,
             TypeManager typeManager,
             FunctionMetadataManager functionMetadataManager,
