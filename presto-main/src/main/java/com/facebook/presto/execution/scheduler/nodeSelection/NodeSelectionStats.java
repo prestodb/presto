@@ -31,7 +31,7 @@ public class NodeSelectionStats
         primaryPreferredNodeSelectedCount.update(1);
     }
 
-    public void incrementNonPrimaryPrederredNodeSelectedCount()
+    public void incrementNonPrimaryPreferredNodeSelectedCount()
     {
         nonPrimaryPreferredNodeSelectedCount.update(1);
     }
