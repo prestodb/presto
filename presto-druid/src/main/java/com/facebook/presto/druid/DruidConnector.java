@@ -46,7 +46,7 @@ public class DruidConnector
             DruidMetadata metadata,
             DruidSplitManager splitManager,
             DruidPageSourceProvider pageSourceProvider,
-            DruidConnectorPlanOptimizer planOptimizer)
+            DruidPlanOptimizer planOptimizer)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

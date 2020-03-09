@@ -34,7 +34,7 @@ public class DruidModule
         binder.bind(DruidMetadata.class).in(Scopes.SINGLETON);
         binder.bind(DruidHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(DruidClient.class).in(Scopes.SINGLETON);
-        binder.bind(DruidConnectorPlanOptimizer.class).in(Scopes.SINGLETON);
+        binder.bind(DruidPlanOptimizer.class).in(Scopes.SINGLETON);
         binder.bind(DruidSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(DruidPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(DruidQueryGenerator.class).in(Scopes.SINGLETON);
