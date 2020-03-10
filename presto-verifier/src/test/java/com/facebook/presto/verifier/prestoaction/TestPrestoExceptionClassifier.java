@@ -38,8 +38,13 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
+import static com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier.shouldResubmit;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoExceptionClassifier
@@ -99,6 +104,17 @@ public class TestPrestoExceptionClassifier
                 false,
                 Optional.of(QUERY_STATS),
                 QUERY_STAGE);
+    }
+
+    @Test
+    public void testTargetTableAlreadyExists()
+    {
+        String message = "Table 'a.b.c' already exists";
+        SQLException sqlException = new SQLException(message, "", SYNTAX_ERROR.toErrorCode().getCode(), new PrestoException(SYNTAX_ERROR, message));
+
+        assertTrue(shouldResubmit(classifier.createException(CONTROL_SETUP, Optional.of(QUERY_STATS), sqlException)));
+        assertTrue(shouldResubmit(classifier.createException(TEST_SETUP, Optional.of(QUERY_STATS), sqlException)));
+        assertFalse(shouldResubmit(classifier.createException(CONTROL_MAIN, Optional.of(QUERY_STATS), sqlException)));
     }
 
     private void assertClusterConnectionException(QueryException queryException, QueryStage queryStage)
