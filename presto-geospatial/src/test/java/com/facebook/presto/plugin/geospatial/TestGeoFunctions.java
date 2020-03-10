@@ -13,17 +13,28 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.Point;
+import com.esri.core.geometry.Polygon;
+import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.esri.core.geometry.ogc.OGCGeometryCollection;
+import com.esri.core.geometry.ogc.OGCLineString;
+import com.esri.core.geometry.ogc.OGCMultiLineString;
+import com.esri.core.geometry.ogc.OGCMultiPoint;
+import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
+import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -33,6 +44,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stCentroid;
+import static com.facebook.presto.plugin.geospatial.GeoFunctions.stTransform;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -53,6 +65,239 @@ public class TestGeoFunctions
         GeoPlugin plugin = new GeoPlugin();
         registerTypes(plugin);
         registerFunctions(plugin);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void stTransformTest1()
+    {
+        stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("POINT(20 54)")), 12345, 56789);
+    }
+
+    @Test
+    public void stTransformTest2()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("POINT(20.505209 54.712288)")), 4326, 3857);
+        OGCPoint point = (OGCPoint) EsriGeometrySerde.deserialize(slice);
+        assertEquals((int) point.X(), 2282629);
+        assertEquals((int) point.Y(), 7306226);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("POINT(2282629.4244896504 7306226.11985208)")), 3857, 4326);
+        point = (OGCPoint) EsriGeometrySerde.deserialize(slice);
+        assertEquals((int) point.X(), 20);
+        assertEquals((int) point.Y(), 54);
+    }
+
+    @Test
+    public void stTransformTest3()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "POLYGON((20.503348 54.710305, 20.503852 54.712772, 20.509163 54.713218, 20.510954 54.711879, 20.508390 54.710739, 20.503348 54.710305), " +
+                        "(20.505912 54.711297, 20.506040 54.712319, 20.507918 54.712183, 20.505912 54.711297))")), 4326, 3857);
+        OGCPolygon ogcPolygon = (OGCPolygon) EsriGeometrySerde.deserialize(slice);
+        Polygon polygon = (Polygon) ogcPolygon.getEsriGeometry();
+        assertEquals((int) polygon.getPoint(0).getX(), 2282422);
+        assertEquals((int) polygon.getPoint(0).getY(), 7305844);
+        assertEquals((int) polygon.getPoint(1).getX(), 2282478);
+        assertEquals((int) polygon.getPoint(1).getY(), 7306319);
+        assertEquals((int) polygon.getPoint(2).getX(), 2283069);
+        assertEquals((int) polygon.getPoint(2).getY(), 7306405);
+        assertEquals((int) polygon.getPoint(3).getX(), 2283268);
+        assertEquals((int) polygon.getPoint(3).getY(), 7306147);
+        assertEquals((int) polygon.getPoint(4).getX(), 2282983);
+        assertEquals((int) polygon.getPoint(4).getY(), 7305927);
+
+        assertEquals((int) polygon.getPoint(5).getX(), 2282707);
+        assertEquals((int) polygon.getPoint(5).getY(), 7306035);
+        assertEquals((int) polygon.getPoint(6).getX(), 2282930);
+        assertEquals((int) polygon.getPoint(6).getY(), 7306205);
+        assertEquals((int) polygon.getPoint(7).getX(), 2282721);
+        assertEquals((int) polygon.getPoint(7).getY(), 7306232);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "POLYGON((2282422.258917284 7305844.004895696, 2282478.3639406436 7306319.387257428, 2283069.581756247 7306405.33300085, 2283268.954964258 7306147.305908389, 2282422.258917284 7305844.004895696, 2282422.258917284 7305844.004895696), " +
+                        "(2282707.682091678 7306035.156385824, 2282930.9889902095 7306205.88636771, 2282721.9309864994 7306232.093557483, 2282707.682091678 7306035.156385824))")), 3857, 4326);
+        ogcPolygon = (OGCPolygon) EsriGeometrySerde.deserialize(slice);
+        polygon = (Polygon) ogcPolygon.getEsriGeometry();
+        assertEquals((int) polygon.getPoint(0).getX(), 20);
+        assertEquals((int) polygon.getPoint(0).getY(), 54);
+        assertEquals((int) polygon.getPoint(1).getX(), 20);
+        assertEquals((int) polygon.getPoint(1).getY(), 54);
+        assertEquals((int) polygon.getPoint(2).getX(), 20);
+        assertEquals((int) polygon.getPoint(2).getY(), 54);
+        assertEquals((int) polygon.getPoint(3).getX(), 20);
+        assertEquals((int) polygon.getPoint(3).getY(), 54);
+        assertEquals((int) polygon.getPoint(4).getX(), 20);
+        assertEquals((int) polygon.getPoint(4).getY(), 54);
+
+        assertEquals((int) polygon.getPoint(5).getX(), 20);
+        assertEquals((int) polygon.getPoint(5).getY(), 54);
+        assertEquals((int) polygon.getPoint(6).getX(), 20);
+        assertEquals((int) polygon.getPoint(6).getY(), 54);
+        assertEquals((int) polygon.getPoint(7).getX(), 20);
+        assertEquals((int) polygon.getPoint(7).getY(), 54);
+    }
+
+    @Test
+    public void stTransformTest4()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("LINESTRING (20.504825 54.712133, 20.507486 54.712784, 20.510222 54.711879)")), 4326, 3857);
+        OGCLineString ogcLineString = (OGCLineString) EsriGeometrySerde.deserialize(slice);
+        Polyline lineString = (Polyline) ogcLineString.getEsriGeometry();
+        assertEquals((int) lineString.getPoint(0).getX(), 2282586);
+        assertEquals((int) lineString.getPoint(0).getY(), 7306196);
+        assertEquals((int) lineString.getPoint(1).getX(), 2282882);
+        assertEquals((int) lineString.getPoint(1).getY(), 7306321);
+        assertEquals((int) lineString.getPoint(2).getX(), 2283187);
+        assertEquals((int) lineString.getPoint(2).getY(), 7306147);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("LINESTRING (2282586.677805186 7306196.251393569, 2282882.8989701867 7306321.69968658, 2283187.469096997 7306147.305908389)")), 3857, 4326);
+        ogcLineString = (OGCLineString) EsriGeometrySerde.deserialize(slice);
+        lineString = (Polyline) ogcLineString.getEsriGeometry();
+        assertEquals((int) lineString.getPoint(0).getX(), 20);
+        assertEquals((int) lineString.getPoint(0).getY(), 54);
+        assertEquals((int) lineString.getPoint(1).getX(), 20);
+        assertEquals((int) lineString.getPoint(1).getY(), 54);
+        assertEquals((int) lineString.getPoint(2).getX(), 20);
+        assertEquals((int) lineString.getPoint(2).getY(), 54);
+    }
+
+    @Test
+    public void stTransformTest5()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("MULTIPOINT ((20.504825 54.712133), (20.507486 54.712784), (20.510222 54.711879))")), 4326, 3857);
+        OGCMultiPoint ogcMultiPoint = (OGCMultiPoint) EsriGeometrySerde.deserialize(slice);
+        MultiPoint multiPoint = (MultiPoint) ogcMultiPoint.getEsriGeometry();
+        assertEquals((int) multiPoint.getPoint(0).getX(), 2282586);
+        assertEquals((int) multiPoint.getPoint(0).getY(), 7306196);
+        assertEquals((int) multiPoint.getPoint(1).getX(), 2282882);
+        assertEquals((int) multiPoint.getPoint(1).getY(), 7306321);
+        assertEquals((int) multiPoint.getPoint(2).getX(), 2283187);
+        assertEquals((int) multiPoint.getPoint(2).getY(), 7306147);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText("MULTIPOINT ((2282586.677805186 7306196.251393569), (2282882.8989701867 7306321.69968658), (2283187.469096997 7306147.305908389))")), 3857, 4326);
+        ogcMultiPoint = (OGCMultiPoint) EsriGeometrySerde.deserialize(slice);
+        multiPoint = (MultiPoint) ogcMultiPoint.getEsriGeometry();
+        assertEquals((int) multiPoint.getPoint(0).getX(), 20);
+        assertEquals((int) multiPoint.getPoint(0).getY(), 54);
+        assertEquals((int) multiPoint.getPoint(1).getX(), 20);
+        assertEquals((int) multiPoint.getPoint(1).getY(), 54);
+        assertEquals((int) multiPoint.getPoint(2).getX(), 20);
+        assertEquals((int) multiPoint.getPoint(2).getY(), 54);
+    }
+
+    @Test
+    public void stTransformTest6()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "MULTIPOLYGON(((20.4588749570784 54.71718430352643,20.46087052058548 54.717295851411535,20.462479845994416 54.716502615337454,20.4588749570784 54.71718430352643))," +
+                        "((20.45790936183304 54.71639106526983,20.461020724290314 54.71605641322539,20.459797636979523 54.714631012467976,20.45790936183304 54.71639106526983)))")), 4326, 3857);
+        OGCMultiPolygon ogcPolygon = (OGCMultiPolygon) EsriGeometrySerde.deserialize(slice);
+        Polygon polygon = (Polygon) ogcPolygon.getEsriGeometry();
+        assertEquals((int) polygon.getPoint(0).getX(), 2277471);
+        assertEquals((int) polygon.getPoint(0).getY(), 7307169);
+        assertEquals((int) polygon.getPoint(1).getX(), 2277693);
+        assertEquals((int) polygon.getPoint(1).getY(), 7307191);
+        assertEquals((int) polygon.getPoint(2).getX(), 2277872);
+        assertEquals((int) polygon.getPoint(2).getY(), 7307038);
+        assertEquals((int) polygon.getPoint(3).getX(), 2277364);
+        assertEquals((int) polygon.getPoint(3).getY(), 7307016);
+        assertEquals((int) polygon.getPoint(4).getX(), 2277710);
+        assertEquals((int) polygon.getPoint(4).getY(), 7306952);
+        assertEquals((int) polygon.getPoint(5).getX(), 2277574);
+        assertEquals((int) polygon.getPoint(5).getY(), 7306677);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "MULTIPOLYGON(((2277471.542425224 7307169.695004959, 2277693.6875386783 7307191.192919161, 2277872.8368237214 7307038.318862593, 2277471.542425224 7307169.695004959))," +
+                        "((2277364.0528541985 7307016.820948389, 2277710.408138615 7306952.327205773, 2277574.2546819826 7306677.631635374, 2277364.0528541985 7307016.820948389)))")), 3857, 4326);
+        ogcPolygon = (OGCMultiPolygon) EsriGeometrySerde.deserialize(slice);
+        polygon = (Polygon) ogcPolygon.getEsriGeometry();
+        assertEquals((int) polygon.getPoint(0).getX(), 20);
+        assertEquals((int) polygon.getPoint(0).getY(), 54);
+        assertEquals((int) polygon.getPoint(1).getX(), 20);
+        assertEquals((int) polygon.getPoint(1).getY(), 54);
+        assertEquals((int) polygon.getPoint(2).getX(), 20);
+        assertEquals((int) polygon.getPoint(2).getY(), 54);
+        assertEquals((int) polygon.getPoint(3).getX(), 20);
+        assertEquals((int) polygon.getPoint(3).getY(), 54);
+        assertEquals((int) polygon.getPoint(4).getX(), 20);
+        assertEquals((int) polygon.getPoint(4).getY(), 54);
+        assertEquals((int) polygon.getPoint(5).getX(), 20);
+        assertEquals((int) polygon.getPoint(5).getY(), 54);
+    }
+
+    @Test
+    public void stTransformTest7()
+    {
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "MULTILINESTRING ((20.459926383012238 54.716316698387566,20.4623510999617 54.717258668817266), " +
+                        "(20.464432494157258 54.71724627461162,20.464496867173615 54.716217542332316))")), 4326, 3857);
+        OGCMultiLineString ogcLineString = (OGCMultiLineString) EsriGeometrySerde.deserialize(slice);
+        Polyline lineString = (Polyline) ogcLineString.getEsriGeometry();
+        assertEquals((int) lineString.getPoint(0).getX(), 2277588);
+        assertEquals((int) lineString.getPoint(0).getY(), 7307002);
+        assertEquals((int) lineString.getPoint(1).getX(), 2277858);
+        assertEquals((int) lineString.getPoint(1).getY(), 7307184);
+        assertEquals((int) lineString.getPoint(2).getX(), 2278090);
+        assertEquals((int) lineString.getPoint(2).getY(), 7307181);
+        assertEquals((int) lineString.getPoint(3).getX(), 2278097);
+        assertEquals((int) lineString.getPoint(3).getY(), 7306983);
+
+        slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(
+                "MULTILINESTRING ((2277588.586624786 7307002.489005588, 2277858.504880918 7307184.026947761), " +
+                        "(2278090.2046229076 7307181.638290631, 2278097.370594309 7306983.37974851))")), 3857, 4326);
+        ogcLineString = (OGCMultiLineString) EsriGeometrySerde.deserialize(slice);
+        lineString = (Polyline) ogcLineString.getEsriGeometry();
+        assertEquals((int) lineString.getPoint(0).getX(), 20);
+        assertEquals((int) lineString.getPoint(0).getY(), 54);
+        assertEquals((int) lineString.getPoint(1).getX(), 20);
+        assertEquals((int) lineString.getPoint(1).getY(), 54);
+        assertEquals((int) lineString.getPoint(2).getX(), 20);
+        assertEquals((int) lineString.getPoint(2).getY(), 54);
+        assertEquals((int) lineString.getPoint(3).getX(), 20);
+        assertEquals((int) lineString.getPoint(3).getY(), 54);
+    }
+
+    @Test
+    public void stTransformTest8()
+    {
+        String wkt = "GEOMETRYCOLLECTION(" +
+                "POINT(20.505209 54.712288)," +
+                "POLYGON((20.503348 54.710305, 20.503852 54.712772, 20.509163 54.713218, 20.510954 54.711879, 20.508390 54.710739, 20.503348 54.710305)," +
+                "        (20.505912 54.711297, 20.506040 54.712319, 20.507918 54.712183, 20.505912 54.711297))," +
+                "LINESTRING (20.504825 54.712133, 20.507486 54.712784, 20.510222 54.711879))" +
+                ")";
+        Slice slice = stTransform(EsriGeometrySerde.serialize(OGCGeometry.fromText(wkt)), 4326, 3857);
+        OGCGeometryCollection ogcGeometryCollection = (OGCGeometryCollection) EsriGeometrySerde.deserialize(slice);
+        Point point = (Point) ogcGeometryCollection.geometryN(0).getEsriGeometry();
+        assertEquals((int) point.getX(), 2282629);
+        assertEquals((int) point.getY(), 7306226);
+
+        Polygon polygon = (Polygon) ogcGeometryCollection.geometryN(1).getEsriGeometry();
+        assertEquals((int) polygon.getPoint(0).getX(), 2282422);
+        assertEquals((int) polygon.getPoint(0).getY(), 7305844);
+        assertEquals((int) polygon.getPoint(1).getX(), 2282478);
+        assertEquals((int) polygon.getPoint(1).getY(), 7306319);
+        assertEquals((int) polygon.getPoint(2).getX(), 2283069);
+        assertEquals((int) polygon.getPoint(2).getY(), 7306405);
+        assertEquals((int) polygon.getPoint(3).getX(), 2283268);
+        assertEquals((int) polygon.getPoint(3).getY(), 7306147);
+        assertEquals((int) polygon.getPoint(4).getX(), 2282983);
+        assertEquals((int) polygon.getPoint(4).getY(), 7305927);
+
+        assertEquals((int) polygon.getPoint(5).getX(), 2282707);
+        assertEquals((int) polygon.getPoint(5).getY(), 7306035);
+        assertEquals((int) polygon.getPoint(6).getX(), 2282930);
+        assertEquals((int) polygon.getPoint(6).getY(), 7306205);
+        assertEquals((int) polygon.getPoint(7).getX(), 2282721);
+        assertEquals((int) polygon.getPoint(7).getY(), 7306232);
+
+        Polyline lineString = (Polyline) ogcGeometryCollection.geometryN(2).getEsriGeometry();
+        assertEquals((int) lineString.getPoint(0).getX(), 2282586);
+        assertEquals((int) lineString.getPoint(0).getY(), 7306196);
+        assertEquals((int) lineString.getPoint(1).getX(), 2282882);
+        assertEquals((int) lineString.getPoint(1).getY(), 7306321);
+        assertEquals((int) lineString.getPoint(2).getX(), 2283187);
+        assertEquals((int) lineString.getPoint(2).getY(), 7306147);
     }
 
     @Test

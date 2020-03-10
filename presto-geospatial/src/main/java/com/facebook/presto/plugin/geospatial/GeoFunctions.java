@@ -18,6 +18,7 @@ import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryException;
 import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
+import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.NonSimpleResult;
 import com.esri.core.geometry.NonSimpleResult.Reason;
@@ -30,6 +31,11 @@ import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
 import com.esri.core.geometry.ogc.OGCLineString;
+import com.esri.core.geometry.ogc.OGCMultiLineString;
+import com.esri.core.geometry.ogc.OGCMultiPoint;
+import com.esri.core.geometry.ogc.OGCMultiPolygon;
+import com.esri.core.geometry.ogc.OGCPoint;
+import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.Rectangle;
@@ -51,6 +57,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import org.cts.CRSFactory;
+import org.cts.Identifiable;
+import org.cts.crs.CoordinateReferenceSystem;
+import org.cts.crs.GeodeticCRS;
+import org.cts.op.CoordinateOperation;
+import org.cts.op.CoordinateOperationFactory;
+import org.cts.registry.EPSGRegistry;
+import org.cts.registry.RegistryManager;
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
@@ -69,6 +83,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.esri.core.geometry.Geometry.Type;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
@@ -101,6 +116,7 @@ import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
@@ -153,7 +169,149 @@ public final class GeoFunctions
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
 
-    private GeoFunctions() {}
+    private static Map<String, CoordinateOperation> operations = new ConcurrentHashMap<>();
+    private static CRSFactory crsFactory = new CRSFactory();
+    private static final String EMPTY_OPERATION = "EMPTY_OPERATION";
+
+    static {
+        try {
+            RegistryManager registryManager = crsFactory.getRegistryManager();
+            registryManager.addRegistry(new EPSGRegistry());
+        }
+        catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private GeoFunctions()
+    {
+    }
+
+    @Description("Transforms geometry from input srid to output srid")
+    @ScalarFunction("ST_Transform")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stTransform(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(INTEGER) long inSrid, @SqlType(INTEGER) long outSrid)
+    {
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
+        if (geometry.isEmpty()) {
+            return input;
+        }
+
+        CoordinateOperation operation = operations.computeIfAbsent(format("%d_%d", inSrid, outSrid), s -> {
+            try {
+                CoordinateReferenceSystem inCrs = crsFactory.getCRS("EPSG:" + inSrid);
+                CoordinateReferenceSystem outCrs = crsFactory.getCRS("EPSG:" + outSrid);
+                return CoordinateOperationFactory.createCoordinateOperations((GeodeticCRS) inCrs, (GeodeticCRS) outCrs).get(0);
+            }
+            catch (Exception e) {
+                System.out.println(e.getMessage());
+                return new EmptyOperation();
+            }
+        });
+
+        if (EMPTY_OPERATION.equals(operation.getName())) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unknown srid");
+        }
+
+        try {
+            return stTransformGeometry(geometry, operation);
+        }
+        catch (Exception e) {
+            System.out.println(e.getMessage());
+            throw new PrestoException(GENERIC_USER_ERROR, String.format("Cannot transform geometry from %d to %d", inSrid, outSrid));
+        }
+    }
+
+    private static Slice stTransformGeometry(OGCGeometry geometry, CoordinateOperation operation) throws Exception
+    {
+        switch (GeometryType.getForEsriGeometryType(geometry.geometryType())) {
+            case POINT:
+                return stTransformPoint((OGCPoint) geometry, operation);
+            case POLYGON:
+                return stTransformPolygon((OGCPolygon) geometry, operation);
+            case LINE_STRING:
+                return stTransformLineString((OGCLineString) geometry, operation);
+            case MULTI_POINT:
+                return stTransformMultiPoint((OGCMultiPoint) geometry, operation);
+            case MULTI_POLYGON:
+                return stTransformMultiPolygon((OGCMultiPolygon) geometry, operation);
+            case MULTI_LINE_STRING:
+                return stTransformMultiLineString((OGCMultiLineString) geometry, operation);
+            case GEOMETRY_COLLECTION:
+                return stTransformGeometryCollection((OGCGeometryCollection) geometry, operation);
+            default:
+                return EsriGeometrySerde.serialize(geometry);
+        }
+    }
+
+    private static Slice stTransformPoint(OGCPoint geometry, CoordinateOperation operation) throws Exception
+    {
+        Point point = (Point) geometry.getEsriGeometry();
+        Point newPoint = transformPoint(point, operation);
+        point.setX(newPoint.getX());
+        point.setY(newPoint.getY());
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformPolygon(OGCPolygon geometry, CoordinateOperation operation) throws Exception
+    {
+        Polygon polygon = (Polygon) geometry.getEsriGeometry();
+        stTransformMultiVertex(polygon, operation);
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformLineString(OGCLineString geometry, CoordinateOperation operation) throws Exception
+    {
+        Polyline polyline = (Polyline) geometry.getEsriGeometry();
+        stTransformMultiVertex(polyline, operation);
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformMultiPoint(OGCMultiPoint geometry, CoordinateOperation operation) throws Exception
+    {
+        MultiPoint multiPoint = (MultiPoint) geometry.getEsriGeometry();
+        stTransformMultiVertex(multiPoint, operation);
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformMultiPolygon(OGCMultiPolygon geometry, CoordinateOperation operation) throws Exception
+    {
+        Polygon polygon = (Polygon) geometry.getEsriGeometry();
+        stTransformMultiVertex(polygon, operation);
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformMultiLineString(OGCMultiLineString geometry, CoordinateOperation operation) throws Exception
+    {
+        Polyline polyline = (Polyline) geometry.getEsriGeometry();
+        stTransformMultiVertex(polyline, operation);
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static Slice stTransformGeometryCollection(OGCGeometryCollection geometry, CoordinateOperation operation) throws Exception
+    {
+        for (int i = 0; i < geometry.numGeometries(); i++) {
+            stTransformGeometry(geometry.geometryN(i), operation);
+        }
+        return EsriGeometrySerde.serialize(geometry);
+    }
+
+    private static void stTransformMultiVertex(MultiVertexGeometry multiVertex, CoordinateOperation operation) throws Exception
+    {
+        for (int i = 0; i < multiVertex.getPointCount(); i++) {
+            Point point = multiVertex.getPoint(i);
+            Point newPoint = transformPoint(point, operation);
+            point.setX(newPoint.getX());
+            point.setY(newPoint.getY());
+            multiVertex.setPoint(i, point);
+        }
+    }
+
+    private static Point transformPoint(Point point, CoordinateOperation operation) throws Exception
+    {
+        double[] transformed = operation.transform(new double[]{point.getX(), point.getY()});
+        return new Point(transformed[0], transformed[1]);
+    }
 
     @Description("Returns a Geometry type LineString object from Well-Known Text representation (WKT)")
     @ScalarFunction("ST_LineFromText")
@@ -1659,6 +1817,91 @@ public final class GeoFunctions
                 throw new NoSuchElementException("Geometries have been consumed");
             }
             return geometriesDeque.pop();
+        }
+    }
+
+    private static class EmptyOperation
+            implements CoordinateOperation
+    {
+        @Override
+        public double[] transform(double[] doubles)
+        {
+            return new double[0];
+        }
+
+        @Override
+        public CoordinateOperation inverse()
+        {
+            return null;
+        }
+
+        @Override
+        public double getPrecision()
+        {
+            return 0;
+        }
+
+        @Override
+        public String getAuthorityName()
+        {
+            return null;
+        }
+
+        @Override
+        public String getAuthorityKey()
+        {
+            return null;
+        }
+
+        @Override
+        public String getCode()
+        {
+            return null;
+        }
+
+        @Override
+        public String getName()
+        {
+            return EMPTY_OPERATION;
+        }
+
+        @Override
+        public String getShortName()
+        {
+            return null;
+        }
+
+        @Override
+        public void setShortName(String s)
+        {
+        }
+
+        @Override
+        public String getRemarks()
+        {
+            return null;
+        }
+
+        @Override
+        public void setRemarks(String s)
+        {
+        }
+
+        @Override
+        public void addRemark(String s)
+        {
+        }
+
+        @Override
+        public List<Identifiable> getAliases()
+        {
+            return null;
+        }
+
+        @Override
+        public boolean addAlias(Identifiable identifiable)
+        {
+            return false;
         }
     }
 }
