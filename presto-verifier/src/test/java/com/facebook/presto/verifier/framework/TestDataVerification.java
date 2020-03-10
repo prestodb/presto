@@ -26,6 +26,7 @@ import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.resolver.ChecksumExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -131,6 +132,7 @@ public class TestDataVerification
                 new FailureResolverManager(ImmutableSet.of(
                         new ExceededGlobalMemoryLimitFailureResolver(),
                         new ExceededTimeLimitFailureResolver(),
+                        new ChecksumExceededTimeLimitFailureResolver(),
                         new VerifierLimitationFailureResolver())),
                 verificationContext,
                 verifierConfig,
