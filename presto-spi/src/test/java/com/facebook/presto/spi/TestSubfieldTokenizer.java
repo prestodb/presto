@@ -34,6 +34,7 @@ public class TestSubfieldTokenizer
         List<PathElement> elements = ImmutableList.of(
                 new NestedField("b"),
                 new Subfield.LongSubscript(2),
+                new Subfield.LongSubscript(-1),
                 new Subfield.StringSubscript("z"),
                 Subfield.allSubscripts(),
                 new Subfield.StringSubscript("34"),

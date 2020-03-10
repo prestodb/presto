@@ -180,7 +180,7 @@ class SubfieldTokenizer
 
     private static boolean isUnquotedSubscriptCharacter(char c)
     {
-        return c == '_' || isLetterOrDigit(c);
+        return c == '-' || c == '_' || isLetterOrDigit(c);
     }
 
     private Subfield.PathElement matchQuotedSubscript()
