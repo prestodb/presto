@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -57,11 +58,13 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
+import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public class PrestoExceptionClassifier
         implements SqlExceptionClassifier
@@ -103,6 +106,8 @@ public class PrestoExceptionClassifier
             HIVE_PARTITION_DROPPED_DURING_QUERY,
             HIVE_TABLE_DROPPED_DURING_QUERY);
 
+    private static final Pattern TABLE_ALREADY_EXISTS_PATTERN = Pattern.compile("table.*already exists", CASE_INSENSITIVE);
+
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
 
@@ -141,8 +146,10 @@ public class PrestoExceptionClassifier
         if (!(throwable instanceof PrestoQueryException)) {
             return false;
         }
-        Optional<ErrorCodeSupplier> errorCode = ((PrestoQueryException) throwable).getErrorCode();
-        return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get());
+        PrestoQueryException queryException = (PrestoQueryException) throwable;
+        Optional<ErrorCodeSupplier> errorCode = queryException.getErrorCode();
+        return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get())
+                || isTargetTableAlreadyExistsException(queryException);
     }
 
     public static boolean isClusterConnectionException(Throwable t)
@@ -164,5 +171,12 @@ public class PrestoExceptionClassifier
             t = t.getCause();
         }
         return Optional.empty();
+    }
+
+    private static boolean isTargetTableAlreadyExistsException(PrestoQueryException queryException)
+    {
+        return queryException.getErrorCode().equals(Optional.of(SYNTAX_ERROR))
+                && queryException.getQueryStage().isSetup()
+                && TABLE_ALREADY_EXISTS_PATTERN.matcher(queryException.getMessage()).find();
     }
 }
