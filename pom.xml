@@ -66,7 +66,7 @@
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-
+        <dep.hudi.version>0.5.3</dep.hudi.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -1002,7 +1002,7 @@
             <dependency>
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-hadoop-mr</artifactId>
-                <version>0.5.1-incubating</version>
+                <version>${dep.hudi.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.objenesis</groupId>
