@@ -26,15 +26,10 @@ for scheduler to pick.
 
 
 The scheduler will respect the preference if the strategy is 
-HARD_AFFINITY.
-
-Otherwise, the scheduler will prioritize the provided nodes
-if the strategy is SOFT_AFFINITY.
-
+HARD_AFFINITY. Otherwise, the scheduler will prioritize the provided 
+nodes if the strategy is SOFT_AFFINITY.
 But there is no guarantee that the scheduler will pick them
-if the provided nodes are busy.
-
-Empty list indicates no preference.
+if the provided nodes are busy. Empty list indicates no preference.
 
 ConnectorFactory
 ----------------
