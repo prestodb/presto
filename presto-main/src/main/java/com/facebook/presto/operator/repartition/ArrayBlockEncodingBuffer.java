@@ -155,7 +155,8 @@ public class ArrayBlockEncodingBuffer
                 sizeOf(offsetsBuffer) +
                 sizeOf(offsets) +
                 sizeOf(offsetsCopy) +
-                getNullsBufferRetainedSizeInBytes();
+                getNullsBufferRetainedSizeInBytes() +
+                valuesBuffers.getRetainedSizeInBytes();
     }
 
     @Override
