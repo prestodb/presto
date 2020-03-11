@@ -60,6 +60,7 @@ public class HiveSplit
     private final Optional<byte[]> extraFileInfo;
     private final CacheQuotaRequirement cacheQuotaRequirement;
     private final Optional<EncryptionInformation> encryptionInformation;
+    private final Map<String, String> customSplitInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -82,7 +83,8 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
-            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation)
+            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -123,6 +125,7 @@ public class HiveSplit
         this.extraFileInfo = extraFileInfo;
         this.cacheQuotaRequirement = cacheQuotaRequirement;
         this.encryptionInformation = encryptionInformation;
+        this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
     }
 
     @JsonProperty
@@ -263,6 +266,12 @@ public class HiveSplit
     public Optional<EncryptionInformation> getEncryptionInformation()
     {
         return encryptionInformation;
+    }
+
+    @JsonProperty
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     @Override

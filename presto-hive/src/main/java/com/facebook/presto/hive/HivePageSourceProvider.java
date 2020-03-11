@@ -184,7 +184,8 @@ public class HivePageSourceProvider
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
-                encryptionInformation);
+                encryptionInformation,
+                hiveSplit.getCustomSplitInfo());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -318,7 +319,8 @@ public class HivePageSourceProvider
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Map<String, String> customSplitInfo)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -422,7 +424,8 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    customSplitInfo);
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
