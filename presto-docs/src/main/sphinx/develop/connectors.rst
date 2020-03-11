@@ -7,6 +7,19 @@ your data source doesn't have underlying tables backing it, as long as
 you adapt your data source to the API expected by Presto, you can write
 queries against this data.
 
+ConnectorSplit
+----------------
+Instances of your connecor splits. 
+The ``getNodeSelectionStrategy`` method indicates the node affinity of a Split, it has three options:
+``HARD_AFFINITY``: Split is NOT remotely accessible and has to be on specific nodes
+``SOFT_AFFINITY``: Connector split provides a list of preferred nodes for engine to pick from but not mandatory.
+``NO_PREFERENCE``: Split is remotely accessible and can be on any nodes
+The ``getPreferredNodes`` method provides a list of preferred nodes for scheduler to pick.
+The scheduler will respect the preference if the strategy is HARD_AFFINITY.
+Otherwise, the scheduler will prioritize the provided nodes if the strategy is SOFT_AFFINITY.
+But there is no guarantee that the scheduler will pick them if the provided nodes are busy.
+Empty list indicates no preference.
+
 ConnectorFactory
 ----------------
 
