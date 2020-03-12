@@ -53,6 +53,7 @@ public final class PlanSanityChecker
                         new VerifyNoOriginalExpression())
                 .putAll(
                         Stage.FINAL,
+                        new CheckUnsupportedExternalFunctions(),
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),

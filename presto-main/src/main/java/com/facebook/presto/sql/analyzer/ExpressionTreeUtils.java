@@ -48,6 +48,11 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
+    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionManager functionManager)
+    {
+        return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionManager));
+    }
+
     public static <T extends Expression> List<T> extractExpressions(
             Iterable<? extends Node> nodes,
             Class<T> clazz)
@@ -65,6 +70,11 @@ public final class ExpressionTreeUtils
     private static boolean isWindowFunction(FunctionCall functionCall)
     {
         return functionCall.getWindow().isPresent();
+    }
+
+    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
+    {
+        return ((functionCall) -> (functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal()));
     }
 
     private static <T extends Expression> List<T> extractExpressions(
