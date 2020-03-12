@@ -19,11 +19,13 @@ import static java.util.Objects.requireNonNull;
 public class TableNotFoundException
         extends NotFoundException
 {
+    public static final String TABLE_NOT_FOUND_FORMAT_STRING = "Table '%s' not found";
+
     private final SchemaTableName tableName;
 
     public TableNotFoundException(SchemaTableName tableName)
     {
-        this(tableName, format("Table '%s' not found", tableName));
+        this(tableName, format(TABLE_NOT_FOUND_FORMAT_STRING, tableName));
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message)
@@ -34,7 +36,7 @@ public class TableNotFoundException
 
     public TableNotFoundException(SchemaTableName tableName, Throwable cause)
     {
-        this(tableName, format("Table '%s' not found", tableName), cause);
+        this(tableName, format(TABLE_NOT_FOUND_FORMAT_STRING, tableName), cause);
     }
 
     public TableNotFoundException(SchemaTableName tableName, String message, Throwable cause)
