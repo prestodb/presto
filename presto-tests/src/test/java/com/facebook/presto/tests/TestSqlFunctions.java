@@ -367,4 +367,11 @@ public class TestSqlFunctions
 
         assertQuery("SELECT testing.test.array_sum(array[1, 2, 3])", "VALUES 6L");
     }
+
+    @Test
+    void testUnsupportedRemoteFunctions()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQueryFails("SELECT reduce(a, '', (s, x) -> s || testing.test.foo(x), s -> s) from (VALUES (array['a', 'b'])) t(a)", ".*External functions in Lambda expression is not supported:.*");
+    }
 }

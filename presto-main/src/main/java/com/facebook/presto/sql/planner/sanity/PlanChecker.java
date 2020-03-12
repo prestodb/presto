@@ -60,6 +60,7 @@ public final class PlanChecker
                         new VerifyNoOriginalExpression())
                 .putAll(
                         Stage.FINAL,
+                        new CheckUnsupportedExternalFunctions(),
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
