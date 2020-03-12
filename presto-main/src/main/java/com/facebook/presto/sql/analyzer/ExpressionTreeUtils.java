@@ -19,8 +19,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +46,11 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
+    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionManager functionManager)
+    {
+        return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionManager));
+    }
+
     public static <T extends Expression> List<T> extractExpressions(
             Iterable<? extends Node> nodes,
             Class<T> clazz)
@@ -57,14 +60,19 @@ public final class ExpressionTreeUtils
 
     private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
     {
-        return ((functionCall) -> (functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
+        return functionCall -> (functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
                 && !functionCall.getWindow().isPresent()
-                || functionCall.getOrderBy().isPresent());
+                || functionCall.getOrderBy().isPresent();
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)
     {
         return functionCall.getWindow().isPresent();
+    }
+
+    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
+    {
+        return functionCall -> functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal();
     }
 
     private static <T extends Expression> List<T> extractExpressions(
@@ -103,10 +111,5 @@ public final class ExpressionTreeUtils
     public static boolean isEqualComparisonExpression(Expression expression)
     {
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
-    }
-
-    public static boolean isInValuesComparisonExpression(Expression expression)
-    {
-        return expression instanceof InPredicate && ((InPredicate) expression).getValueList() instanceof InListExpression;
     }
 }
