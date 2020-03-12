@@ -136,6 +136,7 @@ import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -896,6 +897,7 @@ public class ExpressionAnalyzer
                                 Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types));
                                 if (expression instanceof LambdaExpression) {
                                     verifyNoAggregateWindowOrGroupingFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
+                                    verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
                                 }
                                 return type.getTypeSignature();
                             }));
