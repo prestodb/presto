@@ -23,6 +23,7 @@ import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -95,5 +96,15 @@ public class SimpleArrayAllocator
     public long getEstimatedSizeInBytes()
     {
         return estimatedSizeInBytes;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("intArraysSize", intArrays.size())
+                .add("borrowedIntArraysSize", borrowedIntArrays.size())
+                .add("estimatedSizeInBytes", estimatedSizeInBytes)
+                .toString();
     }
 }
