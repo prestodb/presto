@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
@@ -62,6 +63,20 @@ public class TestBlockFlattenner
     public void testNestedDictionaryRLELongArray()
     {
         DictionaryBlock block = createTestDictionaryBlock(createTestRleBlock(createLongArrayBlock(4), 3));
+        assertFlattenNumericTypeBlock(BIGINT, block, 1, LongArrayBlock.class);
+    }
+
+    @Test
+    public void testNestedDictionaryDictionaryLongArray()
+    {
+        DictionaryBlock block = createTestDictionaryBlock(createTestDictionaryBlock(createLongArrayBlock(1, 2, 3, 4, 5)));
+        assertFlattenNumericTypeBlock(BIGINT, block, 5, LongArrayBlock.class);
+    }
+
+    @Test
+    public void testNestedDictionaryRleDictionaryLongArray()
+    {
+        DictionaryBlock block = createTestDictionaryBlock(createTestRleBlock(createTestDictionaryBlock(createLongArrayBlock(1)), 5));
         assertFlattenNumericTypeBlock(BIGINT, block, 1, LongArrayBlock.class);
     }
 
@@ -265,8 +280,9 @@ public class TestBlockFlattenner
 
     private static DictionaryBlock createTestDictionaryBlock(Block block)
     {
-        int[] dictionaryIndexes = createTestDictionaryIndexes(block.getPositionCount());
-        return new DictionaryBlock(dictionaryIndexes.length, block, dictionaryIndexes);
+        int idsOffset = ThreadLocalRandom.current().nextInt(block.getPositionCount()) + 1;
+        int[] dictionaryIndexes = createTestDictionaryIndexes(block.getPositionCount() + idsOffset);
+        return new DictionaryBlock(idsOffset, block.getPositionCount(), block, dictionaryIndexes, false, randomDictionaryId());
     }
 
     private static int[] createTestDictionaryIndexes(int valueCount)
