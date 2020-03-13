@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
 import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
@@ -65,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -685,8 +687,18 @@ public final class BlockAssertions
 
     public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount)
     {
-        int[] ids = IntStream.range(0, positionCount).map(i -> ThreadLocalRandom.current().nextInt(dictionary.getPositionCount() / 10)).toArray();
-        return new DictionaryBlock(dictionary, ids);
+        return createRandomDictionaryBlock(dictionary, positionCount, false);
+    }
+
+    public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount, boolean isView)
+    {
+        int idsOffset = 0;
+        if (isView) {
+            idsOffset = min(ThreadLocalRandom.current().nextInt(dictionary.getPositionCount()), 1);
+        }
+
+        int[] ids = IntStream.range(0, positionCount + idsOffset).map(i -> ThreadLocalRandom.current().nextInt(dictionary.getPositionCount() / 10)).toArray();
+        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
     }
 
     public static Block createRandomBlockForType(Type type, int positionCount, boolean allowNulls, boolean createView, List<Encoding> wrappings)
@@ -785,7 +797,7 @@ public final class BlockAssertions
         for (int i = wrappings.size() - 1; i >= 0; i--) {
             switch (wrappings.get(i)) {
                 case DICTIONARY:
-                    wrappedBlock = createRandomDictionaryBlock(wrappedBlock, positionCount);
+                    wrappedBlock = createRandomDictionaryBlock(wrappedBlock, positionCount, true);
                     break;
                 case RUN_LENGTH:
                     wrappedBlock = createRleBlockWithRandomValue(wrappedBlock, positionCount);
