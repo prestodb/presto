@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -45,7 +44,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.joda.time.DateTimeZone;
@@ -88,7 +86,6 @@ public class OrcBatchPageSourceFactory
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
-    private final FileOpener fileOpener;
 
     @Inject
     public OrcBatchPageSourceFactory(
@@ -97,8 +94,7 @@ public class OrcBatchPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener)
+            StripeMetadataSource stripeMetadataSource)
     {
         this(
                 typeManager,
@@ -107,8 +103,7 @@ public class OrcBatchPageSourceFactory
                 stats,
                 config.getDomainCompactionThreshold(),
                 orcFileTailSource,
-                stripeMetadataSource,
-                fileOpener);
+                stripeMetadataSource);
     }
 
     public OrcBatchPageSourceFactory(
@@ -118,8 +113,7 @@ public class OrcBatchPageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener)
+            StripeMetadataSource stripeMetadataSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
@@ -128,7 +122,6 @@ public class OrcBatchPageSourceFactory
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -178,7 +171,6 @@ public class OrcBatchPageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 hiveFileContext,
-                fileOpener,
                 new OrcReaderOptions(
                         getOrcMaxMergeDistance(session),
                         getOrcTinyStripeThreshold(session),
@@ -209,15 +201,14 @@ public class OrcBatchPageSourceFactory
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             HiveFileContext hiveFileContext,
-            FileOpener fileOpener,
             OrcReaderOptions orcReaderOptions)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
+            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(sessionUser, path, configuration).openFile(path, hiveFileContext);
+
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,

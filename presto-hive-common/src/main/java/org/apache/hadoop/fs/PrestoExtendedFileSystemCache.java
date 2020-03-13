@@ -11,21 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package org.apache.hadoop.fs;
 
-import javax.inject.Qualifier;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@Qualifier
-public @interface ForCachingFileOpener
+public class PrestoExtendedFileSystemCache
+        extends PrestoFileSystemCache
 {
+    @Override
+    protected FileSystem createPrestoFileSystemWrapper(FileSystem original)
+    {
+        return new HadoopExtendedFileSystem(original);
+    }
 }

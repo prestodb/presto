@@ -160,9 +160,6 @@ public class HiveClientModule
         newExporter(binder).export(CacheStats.class).withGeneratedName();
         configBinder(binder).bindConfig(CacheConfig.class);
 
-        binder.bind(FileOpener.class).to(CachingFileOpener.class).in(Scopes.SINGLETON);
-        binder.bind(FileOpener.class).annotatedWith(ForCachingFileOpener.class).to(HadoopFileOpener.class).in(Scopes.SINGLETON);
-
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);

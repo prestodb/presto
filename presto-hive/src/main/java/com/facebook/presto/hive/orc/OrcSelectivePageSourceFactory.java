@@ -16,7 +16,6 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
@@ -68,7 +67,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -138,7 +136,6 @@ public class OrcSelectivePageSourceFactory
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
-    private final FileOpener fileOpener;
     private final TupleDomainFilterCache tupleDomainFilterCache;
 
     @Inject
@@ -151,7 +148,6 @@ public class OrcSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         this(
@@ -164,7 +160,6 @@ public class OrcSelectivePageSourceFactory
                 config.getDomainCompactionThreshold(),
                 orcFileTailSource,
                 stripeMetadataSource,
-                fileOpener,
                 tupleDomainFilterCache);
     }
 
@@ -178,7 +173,6 @@ public class OrcSelectivePageSourceFactory
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -190,7 +184,6 @@ public class OrcSelectivePageSourceFactory
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
         this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
     }
 
@@ -249,7 +242,6 @@ public class OrcSelectivePageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 hiveFileContext,
-                fileOpener,
                 tupleDomainFilterCache));
     }
 
@@ -280,7 +272,6 @@ public class OrcSelectivePageSourceFactory
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             HiveFileContext hiveFileContext,
-            FileOpener fileOpener,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
@@ -295,8 +286,7 @@ public class OrcSelectivePageSourceFactory
 
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
+            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
