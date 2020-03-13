@@ -111,7 +111,8 @@ public final class HttpRequestSessionContext
                 user,
                 Optional.ofNullable(servletRequest.getUserPrincipal()),
                 parseRoleHeaders(servletRequest),
-                parseExtraCredentials(servletRequest));
+                parseExtraCredentials(servletRequest),
+                ImmutableMap.of());
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));

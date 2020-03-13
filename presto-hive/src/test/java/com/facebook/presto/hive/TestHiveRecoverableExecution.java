@@ -482,6 +482,7 @@ public class TestHiveRecoverableExecution
                 Optional.of(new SelectedRole(ROLE, Optional.of("admin")))
                         .map(selectedRole -> ImmutableMap.of("hive", selectedRole))
                         .orElse(ImmutableMap.of()),
+                ImmutableMap.of(),
                 ImmutableMap.of());
 
         return testSessionBuilder()

@@ -28,18 +28,25 @@ public class ConnectorIdentity
     private final Optional<Principal> principal;
     private final Optional<SelectedRole> role;
     private final Map<String, String> extraCredentials;
+    private final Map<String, TokenAuthenticator> extraAuthenticators;
 
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
-        this(user, principal, role, emptyMap());
+        this(user, principal, role, emptyMap(), emptyMap());
     }
 
-    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role, Map<String, String> extraCredentials)
+    public ConnectorIdentity(
+            String user,
+            Optional<Principal> principal,
+            Optional<SelectedRole> role,
+            Map<String, String> extraCredentials,
+            Map<String, TokenAuthenticator> extraAuthenticators)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.role = requireNonNull(role, "role is null");
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
     }
 
     public String getUser()
@@ -60,6 +67,11 @@ public class ConnectorIdentity
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
+    }
+
+    public Map<String, TokenAuthenticator> getExtraAuthenticators()
+    {
+        return extraAuthenticators;
     }
 
     @Override
@@ -84,6 +96,7 @@ public class ConnectorIdentity
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         role.ifPresent(role -> sb.append(", role=").append(role));
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
+        sb.append(", extraAuthenticators=").append(extraAuthenticators.keySet());
         sb.append('}');
         return sb.toString();
     }
