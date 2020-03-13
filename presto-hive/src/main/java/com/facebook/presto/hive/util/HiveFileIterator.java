@@ -16,6 +16,7 @@ package com.facebook.presto.hive.util;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
+import com.facebook.presto.hive.NestedDirectoryPolicy;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
@@ -37,13 +38,6 @@ import static java.util.Objects.requireNonNull;
 public class HiveFileIterator
         extends AbstractIterator<HiveFileInfo>
 {
-    public enum NestedDirectoryPolicy
-    {
-        IGNORED,
-        RECURSE,
-        FAIL
-    }
-
     private final Deque<Path> paths = new ArrayDeque<>();
     private final ListDirectoryOperation listDirectoryOperation;
     private final NamenodeStats namenodeStats;

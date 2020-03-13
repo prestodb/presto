@@ -11,21 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.filesystem;
 
+import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileInfo;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 
-public class HadoopFileOpener
-        implements FileOpener
+public abstract class ExtendedFileSystem
+        extends FileSystem
 {
-    @Override
-    public FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
+    public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
+            throws Exception
+    {
+        return open(path);
+    }
+
+    public RemoteIterator<HiveFileInfo> listFiles(Path path)
             throws IOException
     {
-        return fileSystem.open(path);
+        throw new UnsupportedOperationException();
+    }
+
+    public RemoteIterator<LocatedFileStatus> listDirectory(Path path)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
     }
 }

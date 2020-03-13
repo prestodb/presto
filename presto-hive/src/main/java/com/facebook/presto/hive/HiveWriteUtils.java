@@ -46,7 +46,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FilterFileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -396,8 +396,8 @@ public final class HiveWriteUtils
 
     private static FileSystem getRawFileSystem(FileSystem fileSystem)
     {
-        if (fileSystem instanceof FilterFileSystem) {
-            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
+        if (fileSystem instanceof HadoopExtendedFileSystem) {
+            return getRawFileSystem(((HadoopExtendedFileSystem) fileSystem).getRawFileSystem());
         }
         return fileSystem;
     }

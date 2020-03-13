@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
-import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.HadoopExtendedFileSystemCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 import org.apache.hadoop.net.DNSToSwitchMapping;
@@ -51,7 +51,7 @@ public class RaptorHiveHdfsConfiguration
 {
     static {
         HadoopNative.requireHadoopNative();
-        HadoopFileSystemCache.initialize();
+        HadoopExtendedFileSystemCache.initialize();
     }
 
     private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();

@@ -13,14 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-import java.io.IOException;
-
-public interface FileOpener
+public enum NestedDirectoryPolicy
 {
-    FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
-            throws IOException;
+    IGNORED,
+    RECURSE,
+    FAIL
 }
