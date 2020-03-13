@@ -739,7 +739,8 @@ public final class HttpRemoteTask
 
         // cancel pending request
         if (currentRequest != null) {
-            currentRequest.cancel(true);
+            // do not terminate if the request is already running to avoid closing pooled connections
+            currentRequest.cancel(false);
             currentRequest = null;
             currentRequestStartNanos = 0;
         }
