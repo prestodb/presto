@@ -144,7 +144,14 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
         String testQuery = "test_query";
 
-        accessControlManager.checkQueryIntegrity(new Identity(USER_NAME, Optional.of(PRINCIPAL), ImmutableMap.of(), ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery)), testQuery);
+        accessControlManager.checkQueryIntegrity(
+                new Identity(
+                        USER_NAME,
+                        Optional.of(PRINCIPAL),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery),
+                        ImmutableMap.of()),
+                testQuery);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
         assertEquals(accessControlFactory.getCheckedQuery(), testQuery);
@@ -152,7 +159,12 @@ public class TestAccessControlManager
         assertThrows(
                 AccessDeniedException.class,
                 () -> accessControlManager.checkQueryIntegrity(
-                        new Identity(USER_NAME, Optional.of(PRINCIPAL), ImmutableMap.of(), ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery + " modified")),
+                        new Identity(
+                                USER_NAME,
+                                Optional.of(PRINCIPAL),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery + " modified"),
+                                ImmutableMap.of()),
                         testQuery));
     }
 
