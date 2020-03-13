@@ -211,7 +211,8 @@ public final class PageBufferClient
         }
 
         if (future != null && !future.isDone()) {
-            future.cancel(true);
+            // do not terminate if the request is already running to avoid closing pooled connections
+            future.cancel(false);
         }
 
         // abort the output buffer on the remote node; response of delete is ignored
