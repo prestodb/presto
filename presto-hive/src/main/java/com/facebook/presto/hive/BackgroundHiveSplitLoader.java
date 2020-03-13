@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
@@ -36,7 +37,6 @@ import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
@@ -78,14 +78,14 @@ import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStr
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.FAIL;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.S3SelectPushdown.shouldEnablePushdownForTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -295,7 +295,7 @@ public class BackgroundHiveSplitLoader
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
-        FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
@@ -310,7 +310,7 @@ public class BackgroundHiveSplitLoader
                 TextInputFormat targetInputFormat = new TextInputFormat();
                 // the splits must be generated using the file system for the target path
                 // get the configuration for the target path -- it may be a different hdfs instance
-                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
+                ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
                 JobConf targetJob = toJobConf(targetFilesystem.getConf());
                 targetJob.setInputFormat(TextInputFormat.class);
                 targetInputFormat.configure(targetJob);
@@ -428,7 +428,7 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
     {
         return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
@@ -439,7 +439,7 @@ public class BackgroundHiveSplitLoader
 
     private List<InternalHiveSplit> getBucketedSplits(
             Path path,
-            FileSystem fileSystem,
+            ExtendedFileSystem fileSystem,
             InternalHiveSplitFactory splitFactory,
             BucketSplitInfo bucketSplitInfo,
             Optional<BucketConversion> bucketConversion,
@@ -521,7 +521,7 @@ public class BackgroundHiveSplitLoader
         return splitList;
     }
 
-    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, PathFilter pathFilter)
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, PathFilter pathFilter)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
         return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
@@ -534,7 +534,7 @@ public class BackgroundHiveSplitLoader
                 .collect(toImmutableList());
     }
 
-    private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
+    private static List<Path> getTargetPathsFromSymlink(ExtendedFileSystem fileSystem, Path symlinkDir)
     {
         try {
             FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, HIDDEN_FILES_PATH_FILTER);

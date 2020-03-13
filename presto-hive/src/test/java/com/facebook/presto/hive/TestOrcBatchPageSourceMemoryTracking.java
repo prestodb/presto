@@ -482,8 +482,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     stats,
                     100,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource(),
-                    new HadoopFileOpener());
+                    new StorageStripeMetadataSource());
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),

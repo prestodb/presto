@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
@@ -42,7 +41,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -111,15 +109,13 @@ public class ParquetPageSourceFactory
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
-    private final FileOpener fileOpener;
 
     @Inject
-    public ParquetPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, FileOpener fileOpener)
+    public ParquetPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -156,8 +152,7 @@ public class ParquetPageSourceFactory
                 typeManager,
                 effectivePredicate,
                 stats,
-                hiveFileContext,
-                fileOpener));
+                hiveFileContext));
     }
 
     public static ParquetPageSource createParquetPageSource(
@@ -175,15 +170,13 @@ public class ParquetPageSourceFactory
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats,
-            HiveFileContext hiveFileContext,
-            FileOpener fileOpener)
+            HiveFileContext hiveFileContext)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, hiveFileContext);
+            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -307,9 +300,9 @@ public class ParquetPageSourceFactory
                 parquetTypeName = builder.toString();
             }
             throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("The column %s is declared as type %s, but the Parquet file declares the column as type %s",
-                                            column.getName(),
-                                            column.getHiveType(),
-                                            parquetTypeName));
+                    column.getName(),
+                    column.getHiveType(),
+                    parquetTypeName));
         }
         return Optional.of(type);
     }
@@ -338,23 +331,23 @@ public class ParquetPageSourceFactory
                     if (mapKeyType instanceof GroupType) {
                         GroupType mapGroupType = mapKeyType.asGroupType();
                         return mapGroupType.getFields().size() == 2 &&
-                            checkSchemaMatch(mapGroupType.getFields().get(0), type.getTypeParameters().get(0)) &&
-                            checkSchemaMatch(mapGroupType.getFields().get(1), type.getTypeParameters().get(1));
+                                checkSchemaMatch(mapGroupType.getFields().get(0), type.getTypeParameters().get(0)) &&
+                                checkSchemaMatch(mapGroupType.getFields().get(1), type.getTypeParameters().get(1));
                     }
                     return false;
                 case ARRAY:
                     /* array has a standard 3-level structure with middle level repeated group with a single field:
-                    *  optional group my_list (LIST) {
-                    *     repeated group element {
-                    *        required type field;
-                    *     };
-                    *  }
-                    *  Backward-compatibility support for 2-level arrays:
-                    *   optional group my_list (LIST) {
-                    *      repeated type field;
-                    *   }
-                    *  field itself could be primitive or group
-                    */
+                     *  optional group my_list (LIST) {
+                     *     repeated group element {
+                     *        required type field;
+                     *     };
+                     *  }
+                     *  Backward-compatibility support for 2-level arrays:
+                     *   optional group my_list (LIST) {
+                     *      repeated type field;
+                     *   }
+                     *  field itself could be primitive or group
+                     */
                     if (groupType.getFields().size() != 1) {
                         return false;
                     }
@@ -364,7 +357,7 @@ public class ParquetPageSourceFactory
                     }
                     GroupType bagGroupType = bagType.asGroupType();
                     return checkSchemaMatch(bagGroupType, type.getTypeParameters().get(0)) ||
-                        (bagGroupType.getFields().size() == 1 && checkSchemaMatch(bagGroupType.getFields().get(0), type.getTypeParameters().get(0)));
+                            (bagGroupType.getFields().size() == 1 && checkSchemaMatch(bagGroupType.getFields().get(0), type.getTypeParameters().get(0)));
                 default:
                     return false;
             }

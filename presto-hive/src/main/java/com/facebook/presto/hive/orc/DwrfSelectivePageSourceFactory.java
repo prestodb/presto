@@ -16,7 +16,6 @@ package com.facebook.presto.hive.orc;
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
@@ -61,7 +60,6 @@ public class DwrfSelectivePageSourceFactory
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
-    private final FileOpener fileOpener;
     private final TupleDomainFilterCache tupleDomainFilterCache;
 
     @Inject
@@ -74,7 +72,6 @@ public class DwrfSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener,
             TupleDomainFilterCache tupleDomainFilterCache)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -85,7 +82,6 @@ public class DwrfSelectivePageSourceFactory
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
         this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
     }
 
@@ -143,7 +139,6 @@ public class DwrfSelectivePageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 hiveFileContext,
-                fileOpener,
                 tupleDomainFilterCache));
     }
 }

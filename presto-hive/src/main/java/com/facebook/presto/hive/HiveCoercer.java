@@ -355,6 +355,7 @@ public interface HiveCoercer
             checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return filter;
         }
+
         @Override
         public Type getToType()
         {
