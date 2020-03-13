@@ -54,6 +54,8 @@ public class BlockFlattener
         Block dictionary = dictionaryBlock.getDictionary();
         int positionCount = dictionaryBlock.getPositionCount();
         int[] currentRemappedIds = dictionaryBlock.getRawIds();
+        int currentIdsOffset = dictionaryBlock.getOffsetBase();
+
         // Initially, the below variable is null.  After the first pass of the loop, it will be a borrowed array from the allocator,
         // and it will have reference equality with currentRemappedIds
         int[] newRemappedIds = null;
@@ -68,10 +70,11 @@ public class BlockFlattener
                 }
 
                 for (int i = 0; i < positionCount; ++i) {
-                    newRemappedIds[i] = ids[currentRemappedIds[i] + dictionaryBlock.getOffsetBase()];
+                    newRemappedIds[i] = ids[currentRemappedIds[i + currentIdsOffset] + dictionaryBlock.getOffsetBase()];
                 }
 
                 currentRemappedIds = newRemappedIds;
+                currentIdsOffset = 0;
                 dictionary = dictionaryBlock.getDictionary();
             }
             else if (dictionary instanceof RunLengthEncodedBlock) {
@@ -81,7 +84,7 @@ public class BlockFlattener
                 }
                 Arrays.fill(newRemappedIds, 0, positionCount, 0);
                 currentRemappedIds = newRemappedIds;
-
+                currentIdsOffset = 0;
                 dictionary = rle.getValue();
             }
             else {
