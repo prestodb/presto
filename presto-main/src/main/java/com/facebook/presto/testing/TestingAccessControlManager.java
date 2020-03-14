@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -102,188 +103,188 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
             denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetUser(principal, userName);
+            super.checkCanSetUser(context, principal, userName);
         }
     }
 
     @Override
-    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateSchema(transactionId, identity, schemaName);
+            super.checkCanCreateSchema(transactionId, identity, context, schemaName);
         }
     }
 
     @Override
-    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanDropSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), DROP_SCHEMA)) {
             denyDropSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanDropSchema(transactionId, identity, schemaName);
+            super.checkCanDropSchema(transactionId, identity, context, schemaName);
         }
     }
 
     @Override
-    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), RENAME_SCHEMA)) {
             denyRenameSchema(schemaName.toString(), newSchemaName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanRenameSchema(transactionId, identity, schemaName, newSchemaName);
+            super.checkCanRenameSchema(transactionId, identity, context, schemaName, newSchemaName);
         }
     }
 
     @Override
-    public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_TABLE)) {
             denyCreateTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateTable(transactionId, identity, tableName);
+            super.checkCanCreateTable(transactionId, identity, context, tableName);
         }
     }
 
     @Override
-    public void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_TABLE)) {
             denyDropTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanDropTable(transactionId, identity, tableName);
+            super.checkCanDropTable(transactionId, identity, context, tableName);
         }
     }
 
     @Override
-    public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    public void checkCanRenameTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), RENAME_TABLE)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanRenameTable(transactionId, identity, tableName, newTableName);
+            super.checkCanRenameTable(transactionId, identity, context, tableName, newTableName);
         }
     }
 
     @Override
-    public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanAddColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), ADD_COLUMN)) {
             denyAddColumn(tableName.toString());
         }
-        super.checkCanAddColumns(transactionId, identity, tableName);
+        super.checkCanAddColumns(transactionId, identity, context, tableName);
     }
 
     @Override
-    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_COLUMN)) {
             denyDropColumn(tableName.toString());
         }
-        super.checkCanDropColumn(transactionId, identity, tableName);
+        super.checkCanDropColumn(transactionId, identity, context, tableName);
     }
 
     @Override
-    public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanRenameColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), RENAME_COLUMN)) {
             denyRenameColumn(tableName.toString());
         }
-        super.checkCanRenameColumn(transactionId, identity, tableName);
+        super.checkCanRenameColumn(transactionId, identity, context, tableName);
     }
 
     @Override
-    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), INSERT_TABLE)) {
             denyInsertTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanInsertIntoTable(transactionId, identity, tableName);
+            super.checkCanInsertIntoTable(transactionId, identity, context, tableName);
         }
     }
 
     @Override
-    public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DELETE_TABLE)) {
             denyDeleteTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanDeleteFromTable(transactionId, identity, tableName);
+            super.checkCanDeleteFromTable(transactionId, identity, context, tableName);
         }
     }
 
     @Override
-    public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
         if (shouldDenyPrivilege(identity.getUser(), viewName.getObjectName(), CREATE_VIEW)) {
             denyCreateView(viewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateView(transactionId, identity, viewName);
+            super.checkCanCreateView(transactionId, identity, context, viewName);
         }
     }
 
     @Override
-    public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanDropView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
         if (shouldDenyPrivilege(identity.getUser(), viewName.getObjectName(), DROP_VIEW)) {
             denyDropView(viewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanDropView(transactionId, identity, viewName);
+            super.checkCanDropView(transactionId, identity, context, viewName);
         }
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, AccessControlContext context, String propertyName)
     {
         if (shouldDenyPrivilege(identity.getUser(), propertyName, SET_SESSION)) {
             denySetSystemSessionProperty(propertyName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetSystemSessionProperty(identity, propertyName);
+            super.checkCanSetSystemSessionProperty(identity, context, propertyName);
         }
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
+            super.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnNames);
         }
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, String propertyName)
     {
         if (shouldDenyPrivilege(identity.getUser(), catalogName + "." + propertyName, SET_SESSION)) {
             denySetCatalogSessionProperty(catalogName, propertyName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, propertyName);
+            super.checkCanSetCatalogSessionProperty(transactionId, identity, context, catalogName, propertyName);
         }
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columns)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
             denySelectColumns(tableName.toString(), columns);
@@ -294,7 +295,7 @@ public class TestingAccessControlManager
             }
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSelectFromColumns(transactionId, identity, tableName, columns);
+            super.checkCanSelectFromColumns(transactionId, identity, context, tableName, columns);
         }
     }
 

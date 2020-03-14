@@ -45,7 +45,7 @@ public class DropRoleTask
         Session session = stateMachine.getSession();
         String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
-        accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), role, catalog);
+        accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), role, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);
         if (!existingRoles.contains(role)) {
             throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", role);

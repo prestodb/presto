@@ -50,6 +50,7 @@ public class SetRoleTask
             accessControl.checkCanSetRole(
                     session.getRequiredTransactionId(),
                     session.getIdentity(),
+                    session.getAccessControlContext(),
                     statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
                     catalog);
         }

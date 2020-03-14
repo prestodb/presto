@@ -84,6 +84,7 @@ public class Analyzer
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
                                 accessControlInfo.getIdentity(),
+                                session.getAccessControlContext(),
                                 tableName,
                                 columns)));
         return analysis;
