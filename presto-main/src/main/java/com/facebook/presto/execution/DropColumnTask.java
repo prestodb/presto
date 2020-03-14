@@ -53,7 +53,7 @@ public class DropColumnTask
 
         String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
-        accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
         if (columnHandle == null) {

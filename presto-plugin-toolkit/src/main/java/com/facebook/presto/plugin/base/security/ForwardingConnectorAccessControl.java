@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.base.security;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -45,182 +46,182 @@ public abstract class ForwardingConnectorAccessControl
     protected abstract ConnectorAccessControl delegate();
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        delegate().checkCanCreateSchema(transactionHandle, identity, schemaName);
+        delegate().checkCanCreateSchema(transactionHandle, identity, context, schemaName);
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        delegate().checkCanDropSchema(transactionHandle, identity, schemaName);
+        delegate().checkCanDropSchema(transactionHandle, identity, context, schemaName);
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName, String newSchemaName)
     {
-        delegate().checkCanRenameSchema(transactionHandle, identity, schemaName, newSchemaName);
+        delegate().checkCanRenameSchema(transactionHandle, identity, context, schemaName, newSchemaName);
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context)
     {
-        delegate().checkCanShowSchemas(transactionHandle, identity);
+        delegate().checkCanShowSchemas(transactionHandle, identity, context);
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<String> schemaNames)
     {
-        return delegate().filterSchemas(transactionHandle, identity, schemaNames);
+        return delegate().filterSchemas(transactionHandle, identity, context, schemaNames);
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanCreateTable(transactionHandle, identity, tableName);
+        delegate().checkCanCreateTable(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDropTable(transactionHandle, identity, tableName);
+        delegate().checkCanDropTable(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        delegate().checkCanRenameTable(transactionHandle, identity, tableName, newTableName);
+        delegate().checkCanRenameTable(transactionHandle, identity, context, tableName, newTableName);
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        delegate().checkCanShowTablesMetadata(transactionHandle, identity, schemaName);
+        delegate().checkCanShowTablesMetadata(transactionHandle, identity, context, schemaName);
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<SchemaTableName> tableNames)
     {
-        return delegate().filterTables(transactionHandle, identity, tableNames);
+        return delegate().filterTables(transactionHandle, identity, context, tableNames);
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanAddColumn(transactionHandle, identity, tableName);
+        delegate().checkCanAddColumn(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDropColumn(transactionHandle, identity, tableName);
+        delegate().checkCanDropColumn(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanRenameColumn(transactionHandle, identity, tableName);
+        delegate().checkCanRenameColumn(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        delegate().checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+        delegate().checkCanSelectFromColumns(transactionHandle, identity, context, tableName, columnNames);
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanInsertIntoTable(transactionHandle, identity, tableName);
+        delegate().checkCanInsertIntoTable(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDeleteFromTable(transactionHandle, identity, tableName);
+        delegate().checkCanDeleteFromTable(transactionHandle, identity, context, tableName);
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
-        delegate().checkCanCreateView(transactionHandle, identity, viewName);
+        delegate().checkCanCreateView(transactionHandle, identity, context, viewName);
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
-        delegate().checkCanDropView(transactionHandle, identity, viewName);
+        delegate().checkCanDropView(transactionHandle, identity, context, viewName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        delegate().checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+        delegate().checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, context, tableName, columnNames);
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String propertyName)
     {
-        delegate().checkCanSetCatalogSessionProperty(transactionHandle, identity, propertyName);
+        delegate().checkCanSetCatalogSessionProperty(transactionHandle, identity, context, propertyName);
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
-        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, grantee, withGrantOption);
+        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, context, privilege, tableName, grantee, withGrantOption);
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
-        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, context, privilege, tableName, revokee, grantOptionFor);
     }
 
     @Override
-    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String role, Optional<PrestoPrincipal> grantor)
     {
-        delegate().checkCanCreateRole(transactionHandle, identity, role, grantor);
+        delegate().checkCanCreateRole(transactionHandle, identity, context, role, grantor);
     }
 
     @Override
-    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String role)
     {
-        delegate().checkCanDropRole(transactionHandle, identity, role);
+        delegate().checkCanDropRole(transactionHandle, identity, context, role);
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanGrantRoles(transactionHandle, identity, roles, grantees, withAdminOption, grantor, catalogName);
+        delegate().checkCanGrantRoles(transactionHandle, identity, context, roles, grantees, withAdminOption, grantor, catalogName);
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        delegate().checkCanRevokeRoles(transactionHandle, identity, roles, grantees, adminOptionFor, grantor, catalogName);
+        delegate().checkCanRevokeRoles(transactionHandle, identity, context, roles, grantees, adminOptionFor, grantor, catalogName);
     }
 
     @Override
-    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String role, String catalogName)
     {
-        delegate().checkCanSetRole(transactionHandle, identity, role, catalogName);
+        delegate().checkCanSetRole(transactionHandle, identity, context, role, catalogName);
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
-        delegate().checkCanShowRoles(transactionHandle, identity, catalogName);
+        delegate().checkCanShowRoles(transactionHandle, identity, context, catalogName);
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
-        delegate().checkCanShowCurrentRoles(transactionHandle, identity, catalogName);
+        delegate().checkCanShowCurrentRoles(transactionHandle, identity, context, catalogName);
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
-        delegate().checkCanShowRoleGrants(transactionHandle, identity, catalogName);
+        delegate().checkCanShowRoleGrants(transactionHandle, identity, context, catalogName);
     }
 }

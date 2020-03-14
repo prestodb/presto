@@ -76,7 +76,7 @@ public class RevokeRolesTask
             }
         }
 
-        accessControl.checkCanRevokeRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, adminOptionFor, grantor, catalog);
+        accessControl.checkCanRevokeRoles(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), roles, grantees, adminOptionFor, grantor, catalog);
         metadata.revokeRoles(session, roles, grantees, adminOptionFor, grantor, catalog);
 
         return immediateFuture(null);

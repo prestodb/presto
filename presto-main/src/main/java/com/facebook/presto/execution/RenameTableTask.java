@@ -63,7 +63,7 @@ public class RenameTableTask
         if (!tableName.getCatalogName().equals(target.getCatalogName())) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
-        accessControl.checkCanRenameTable(session.getRequiredTransactionId(), session.getIdentity(), tableName, target);
+        accessControl.checkCanRenameTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, target);
 
         metadata.renameTable(session, tableHandle.get(), target);
 

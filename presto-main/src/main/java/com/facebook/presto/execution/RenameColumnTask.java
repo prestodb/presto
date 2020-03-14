@@ -56,7 +56,7 @@ public class RenameColumnTask
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
-        accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -80,6 +81,7 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final AccessControlContext context;
 
     public Session(
             QueryId queryId,
@@ -139,6 +141,7 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
+        this.context = new AccessControlContext(queryId, clientInfo, source);
     }
 
     public QueryId getQueryId()
@@ -274,6 +277,11 @@ public final class Session
         return sql;
     }
 
+    public AccessControlContext getAccessControlContext()
+    {
+        return context;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -283,7 +291,7 @@ public final class Session
 
         for (Entry<String, String> property : systemProperties.entrySet()) {
             // verify permissions
-            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+            accessControl.checkCanSetSystemSessionProperty(identity, context, property.getKey());
 
             // validate session property value
             sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
@@ -303,7 +311,7 @@ public final class Session
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
                 // verify permissions
-                accessControl.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, property.getKey());
+                accessControl.checkCanSetCatalogSessionProperty(transactionId, identity, context, catalogName, property.getKey());
 
                 // validate session property value
                 sessionPropertyManager.validateCatalogSessionProperty(connectorId, catalogName, property.getKey(), property.getValue());
@@ -321,7 +329,7 @@ public final class Session
                     .getConnectorId();
 
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get(), catalogName);
+                accessControl.checkCanSetRole(transactionId, identity, context, role.getRole().get(), catalogName);
             }
             roles.put(connectorId.getCatalogName(), role);
 

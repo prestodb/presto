@@ -58,7 +58,7 @@ public class CreateSchemaTask
 
         // TODO: validate that catalog exists
 
-        accessControl.checkCanCreateSchema(session.getRequiredTransactionId(), session.getIdentity(), schema);
+        accessControl.checkCanCreateSchema(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
         if (metadata.schemaExists(session, schema)) {
             if (!statement.isNotExists()) {
