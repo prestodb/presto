@@ -76,7 +76,7 @@ public class GrantRolesTask
             }
         }
 
-        accessControl.checkCanGrantRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, withAdminOption, grantor, catalog);
+        accessControl.checkCanGrantRoles(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), roles, grantees, withAdminOption, grantor, catalog);
         metadata.grantRoles(session, roles, grantees, withAdminOption, grantor, catalog);
 
         return immediateFuture(null);

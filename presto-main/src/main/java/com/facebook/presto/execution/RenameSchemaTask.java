@@ -55,7 +55,7 @@ public class RenameSchemaTask
             throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
-        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget().getValue());
+        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), source, statement.getTarget().getValue());
 
         metadata.renameSchema(session, source, statement.getTarget().getValue());
 

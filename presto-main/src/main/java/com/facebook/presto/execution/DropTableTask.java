@@ -54,7 +54,7 @@ public class DropTableTask
             return immediateFuture(null);
         }
 
-        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         metadata.dropTable(session, tableHandle.get());
 
