@@ -179,8 +179,6 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
-    private final LocalMemoryContext systemMemoryContext;
-    private final long partitionsInitialRetainedSize;
     private boolean finished;
 
     public PartitionedOutputOperator(
@@ -211,9 +209,6 @@ public class PartitionedOutputOperator
                 operatorContext);
 
         operatorContext.setInfoSupplier(this::getInfo);
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
-        this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
-        this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
     }
 
     @Override
@@ -264,14 +259,6 @@ public class PartitionedOutputOperator
 
         page = pagePreprocessor.apply(page);
         partitionFunction.partitionPage(page);
-
-        // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
-        // the amount of memory used by the pageBuilders, because calculating the retained
-        // size can be expensive especially for complex types.
-        long partitionsSizeInBytes = partitionFunction.getSizeInBytes();
-
-        // We also add partitionsInitialRetainedSize as an approximation of the object overhead of the partitions.
-        systemMemoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
     }
 
     @Override
@@ -295,6 +282,7 @@ public class PartitionedOutputOperator
         private final AtomicLong pagesAdded = new AtomicLong();
         private boolean hasAnyRowBeenReplicated;
         private final OperatorContext operatorContext;
+        private final LocalMemoryContext systemMemoryContext;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
@@ -319,6 +307,8 @@ public class PartitionedOutputOperator
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
+            this.systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
             int partitionCount = partitionFunction.getPartitionCount();
             int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
@@ -340,8 +330,10 @@ public class PartitionedOutputOperator
             // We use a foreach loop instead of streams
             // as it has much better performance.
             long sizeInBytes = serde.getSizeInBytes();
-            for (PageBuilder pageBuilder : pageBuilders) {
-                sizeInBytes += pageBuilder.getSizeInBytes();
+            if (pageBuilders != null) {
+                for (PageBuilder pageBuilder : pageBuilders) {
+                    sizeInBytes += pageBuilder.getSizeInBytes();
+                }
             }
             return sizeInBytes;
         }
@@ -352,8 +344,10 @@ public class PartitionedOutputOperator
         public long getRetainedSizeInBytes()
         {
             long sizeInBytes = serde.getRetainedSizeInBytes();
-            for (PageBuilder pageBuilder : pageBuilders) {
-                sizeInBytes += pageBuilder.getRetainedSizeInBytes();
+            if (pageBuilders != null) {
+                for (PageBuilder pageBuilder : pageBuilders) {
+                    sizeInBytes += pageBuilder.getRetainedSizeInBytes();
+                }
             }
             return sizeInBytes;
         }
@@ -382,6 +376,10 @@ public class PartitionedOutputOperator
                     appendRow(pageBuilders[partition], page, position);
                 }
             }
+
+            // We track the memory before it's flushed to avoid under counting when the page size is large.
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
+
             flush(false);
         }
 
