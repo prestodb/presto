@@ -26,17 +26,15 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -94,32 +92,6 @@ public class DynamicCatalogController
         }
     }
 
-    @Path("delete")
-    @DELETE
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteCatalog(@QueryParam("catalogName") String catalogName)
-    {
-        log.info("deleteCatalog(): Deleting catalog: " + catalogName);
-        String responseMessage = "";
-        if (catalogManager.getCatalog(catalogName).isPresent()) {
-            log.info("deleteCatalog() : Catalog exists so deleting catalog " + catalogName);
-            connectorManager.dropConnection(catalogName);
-            responseMessage = (deletePropertyFile(catalogName) == true) ? "Successfully deleted" : "Error deleting catalog";
-        }
-        else {
-            log.info("deleteCatalog() : Catalog doesn't exists, Can't be deleted " + catalogName);
-            return failedResponse(responseParser.build("Catalog doesn't exists: " + catalogName, 500));
-        }
-        log.info("deleteCatalog() : successfully deleted catalog " + catalogName);
-        return successResponse(responseParser.build(responseMessage + " : " + catalogName, 200));
-    }
-
-    private boolean deletePropertyFile(String catalogName)
-    {
-        return new File(getPropertyFilePath(catalogName)).delete();
-    }
-
     private void writeToFile(CatalogVo catalogVo)
             throws Exception
     {
@@ -129,7 +101,7 @@ public class DynamicCatalogController
         String filePath = getPropertyFilePath(catalogVo.getCatalogName());
         log.info("filepath: " + filePath);
         File propertiesFile = new File(filePath);
-        try (OutputStream out = new FileOutputStream(propertiesFile)) {
+        try (OutputStream out = Files.newOutputStream(propertiesFile.toPath())) {
             properties.store(out, "adding catalog using endpoint");
         }
         catch (Exception ex) {

@@ -25,6 +25,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static org.testng.Assert.assertEquals;
@@ -82,25 +82,6 @@ public class TestDynamicCatalogController
         assertEquals(executeAddCatalogCall(catalogVo).getStatusCode(), 500);
     }
 
-    @Test
-    public void testDeleteCatalog()
-    {
-        testAddCatalog();
-        assertEquals(deleteCatalogCall().getStatusCode(), 200);
-    }
-
-    @Test
-    public void testDeleteCatalogFailed()
-    {
-        String catalogName = getFakeCatalogObject("invalidConnector", "invalidCatalog").getCatalogName();
-        testAddCatalog();
-        Request request = prepareDelete().setHeader(PRESTO_USER, "user")
-                .setUri(uriForDelete(catalogName))
-                .build();
-        StatusResponseHandler.StatusResponse response = client.execute(request, createStatusResponseHandler());
-        assertEquals(response.getStatusCode(), 500);
-    }
-
     private URI uriFor(String path)
     {
         return uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
@@ -127,7 +108,7 @@ public class TestDynamicCatalogController
 
     private void cleanUpCatalog()
     {
-        if (deleteCatalogCall().getStatusCode() == 200) {
+        if (deleteCatalog()) {
             log.debug("TestDynamicCatalogController:cleanUpCatalog() Successfully deleted catalog");
         }
         else {
@@ -135,14 +116,21 @@ public class TestDynamicCatalogController
         }
     }
 
-    private StatusResponseHandler.StatusResponse deleteCatalogCall()
+    private boolean deleteCatalog()
     {
         String catalogName = getFakeCatalogObject("system", "testing").getCatalogName();
-        Request request = prepareDelete().setHeader(PRESTO_USER, "user")
-                .setUri(uriForDelete(catalogName))
-                .build();
-        StatusResponseHandler.StatusResponse response = client.execute(request, createStatusResponseHandler());
-        return response;
+        return deletePropertyFile(catalogName);
+    }
+
+    private boolean deletePropertyFile(String catalogName)
+    {
+        return new File(getPropertyFilePath(catalogName)).delete();
+    }
+
+    private String getPropertyFilePath(String catalogName)
+    {
+        File catalogConfigurationDir = new File("etc/catalog/");
+        return catalogConfigurationDir.getPath() + File.separator + catalogName + ".properties";
     }
 
     private StatusResponseHandler.StatusResponse executeAddCatalogCall(CatalogVo catalogVo)
