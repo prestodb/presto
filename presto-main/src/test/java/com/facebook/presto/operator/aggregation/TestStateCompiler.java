@@ -21,6 +21,7 @@ import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.array.ReferenceCountMap;
 import com.facebook.presto.array.SliceBigArray;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
@@ -37,7 +38,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
@@ -235,8 +235,8 @@ public class TestStateCompiler
         assertEquals(deserializedState.getSlice(), singleState.getSlice());
         assertEquals(deserializedState.getAnotherSlice(), singleState.getAnotherSlice());
         assertEquals(deserializedState.getYetAnotherSlice(), singleState.getYetAnotherSlice());
-        assertEquals(deserializedState.getBlock().getLong(0, 0), singleState.getBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getLong(0, 0), singleState.getAnotherBlock().getLong(0, 0));
+        assertEquals(deserializedState.getBlock().getLong(0), singleState.getBlock().getLong(0));
+        assertEquals(deserializedState.getAnotherBlock().getLong(0), singleState.getAnotherBlock().getLong(0));
         assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
     }
 

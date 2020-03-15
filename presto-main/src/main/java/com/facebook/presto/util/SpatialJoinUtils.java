@@ -13,31 +13,52 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static com.google.common.base.Verify.verify;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 
 public class SpatialJoinUtils
 {
-    public static final String ST_CONTAINS = "st_contains";
-    public static final String ST_WITHIN = "st_within";
-    public static final String ST_INTERSECTS = "st_intersects";
-    public static final String ST_DISTANCE = "st_distance";
+    public static final QualifiedFunctionName ST_CONTAINS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_contains");
+    public static final QualifiedFunctionName ST_CROSSES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_crosses");
+    public static final QualifiedFunctionName ST_EQUALS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_equals");
+    public static final QualifiedFunctionName ST_INTERSECTS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_intersects");
+    public static final QualifiedFunctionName ST_OVERLAPS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_overlaps");
+    public static final QualifiedFunctionName ST_TOUCHES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_touches");
+    public static final QualifiedFunctionName ST_WITHIN = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_within");
+    public static final QualifiedFunctionName ST_DISTANCE = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_distance");
+
+    private static final Set<String> ALLOWED_SPATIAL_JOIN_FUNCTIONS = Stream.of(
+            ST_CONTAINS, ST_CROSSES, ST_EQUALS, ST_INTERSECTS, ST_OVERLAPS, ST_TOUCHES, ST_WITHIN)
+            .map(QualifiedFunctionName::getFunctionName)
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
 
     private SpatialJoinUtils() {}
 
@@ -49,20 +70,19 @@ public class SpatialJoinUtils
      * <p>
      * Doesn't check or guarantee anything about function arguments.
      */
-    public static List<FunctionCall> extractSupportedSpatialFunctions(Expression filterExpression)
+    public static List<CallExpression> extractSupportedSpatialFunctions(RowExpression filterExpression, FunctionManager functionManager)
     {
-        return extractConjuncts(filterExpression).stream()
-                .filter(FunctionCall.class::isInstance)
-                .map(FunctionCall.class::cast)
-                .filter(SpatialJoinUtils::isSupportedSpatialFunction)
+        return LogicalRowExpressions.extractConjuncts(filterExpression).stream()
+                .filter(CallExpression.class::isInstance)
+                .map(CallExpression.class::cast)
+                .filter(call -> isSupportedSpatialFunction(call, functionManager))
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
+    private static boolean isSupportedSpatialFunction(CallExpression call, FunctionManager functionManager)
     {
-        String functionName = functionCall.getName().toString();
-        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_WITHIN)
-                || functionName.equalsIgnoreCase(ST_INTERSECTS);
+        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getFunctionName().toLowerCase(ENGLISH);
+        return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 
     /**
@@ -75,90 +95,68 @@ public class SpatialJoinUtils
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
      */
-    public static List<ComparisonExpression> extractSupportedSpatialComparisons(Expression filterExpression)
+    public static List<CallExpression> extractSupportedSpatialComparisons(RowExpression filterExpression, FunctionManager functionManager)
     {
-        return extractConjuncts(filterExpression).stream()
-                .filter(ComparisonExpression.class::isInstance)
-                .map(ComparisonExpression.class::cast)
-                .filter(SpatialJoinUtils::isSupportedSpatialComparison)
+        return LogicalRowExpressions.extractConjuncts(filterExpression).stream()
+                .filter(CallExpression.class::isInstance)
+                .map(CallExpression.class::cast)
+                .filter(call -> new FunctionResolution(functionManager).isComparisonFunction(call.getFunctionHandle()))
+                .filter(call -> isSupportedSpatialComparison(call, functionManager))
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialComparison(ComparisonExpression expression)
+    private static boolean isSupportedSpatialComparison(CallExpression expression, FunctionManager functionManager)
     {
-        switch (expression.getOperator()) {
+        FunctionMetadata metadata = functionManager.getFunctionMetadata(expression.getFunctionHandle());
+        checkArgument(metadata.getOperatorType().isPresent() && metadata.getOperatorType().get().isComparisonOperator());
+        switch (metadata.getOperatorType().get()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getLeft());
+                return isSTDistance(expression.getArguments().get(0), functionManager);
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getRight());
+                return isSTDistance(expression.getArguments().get(1), functionManager);
             default:
                 return false;
         }
     }
 
-    private static boolean isSTDistance(Expression expression)
+    private static boolean isSTDistance(RowExpression expression, FunctionManager functionManager)
     {
-        if (expression instanceof FunctionCall) {
-            return ((FunctionCall) expression).getName().toString().equalsIgnoreCase(ST_DISTANCE);
-        }
-
-        return false;
+        return expression instanceof CallExpression && functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(ST_DISTANCE);
     }
 
-    public static boolean isSpatialJoinFilter(PlanNode left, PlanNode right, Expression filterExpression)
+    public static FunctionHandle getFlippedFunctionHandle(CallExpression callExpression, FunctionManager functionManager)
     {
-        List<FunctionCall> functionCalls = extractSupportedSpatialFunctions(filterExpression);
-        for (FunctionCall functionCall : functionCalls) {
-            if (isSpatialJoinFilter(left, right, functionCall)) {
-                return true;
-            }
-        }
-
-        List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
-        for (ComparisonExpression spatialComparison : spatialComparisons) {
-            if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
-                // ST_Distance(a, b) <= r
-                Expression radius = spatialComparison.getRight();
-                if (radius instanceof Literal || (radius instanceof SymbolReference && getSymbolReferences(right.getOutputSymbols()).contains(radius))) {
-                    if (isSpatialJoinFilter(left, right, (FunctionCall) spatialComparison.getLeft())) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
+        FunctionMetadata callExpressionMetadata = functionManager.getFunctionMetadata(callExpression.getFunctionHandle());
+        checkArgument(callExpressionMetadata.getOperatorType().isPresent());
+        OperatorType operatorType = flip(callExpressionMetadata.getOperatorType().get());
+        List<TypeSignatureProvider> typeProviderList = fromTypes(callExpression.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()));
+        checkArgument(typeProviderList.size() == 2, "Expected there to be only two arguments in type provider");
+        return functionManager.resolveOperator(
+                operatorType,
+                ImmutableList.of(typeProviderList.get(1), typeProviderList.get(0)));
     }
 
-    private static boolean isSpatialJoinFilter(PlanNode left, PlanNode right, FunctionCall spatialFunction)
+    public static OperatorType flip(OperatorType operatorType)
     {
-        List<Expression> arguments = spatialFunction.getArguments();
-        verify(arguments.size() == 2);
-        if (!(arguments.get(0) instanceof SymbolReference) || !(arguments.get(1) instanceof SymbolReference)) {
-            return false;
+        switch (operatorType) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + operatorType);
         }
-
-        SymbolReference firstSymbol = (SymbolReference) arguments.get(0);
-        SymbolReference secondSymbol = (SymbolReference) arguments.get(1);
-
-        Set<SymbolReference> probeSymbols = getSymbolReferences(left.getOutputSymbols());
-        Set<SymbolReference> buildSymbols = getSymbolReferences(right.getOutputSymbols());
-
-        if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
-            return true;
-        }
-
-        if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
-    {
-        return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
     }
 }

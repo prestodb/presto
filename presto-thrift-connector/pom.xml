@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.219-SNAPSHOT</version>
+        <version>0.234-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-connector</artifactId>
@@ -23,27 +23,27 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -59,12 +59,12 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -74,7 +74,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -89,7 +89,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -99,13 +99,13 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -155,13 +155,13 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>

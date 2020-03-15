@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -41,8 +41,8 @@ public class MergeLimitWithDistinct
     private static boolean isDistinct(AggregationNode node)
     {
         return node.getAggregations().isEmpty() &&
-                node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                node.getOutputSymbols().containsAll(node.getGroupingKeys());
+                node.getOutputVariables().size() == node.getGroupingKeys().size() &&
+                node.getOutputVariables().containsAll(node.getGroupingKeys());
     }
 
     @Override
@@ -63,6 +63,6 @@ public class MergeLimitWithDistinct
                         parent.getCount(),
                         false,
                         child.getGroupingKeys(),
-                        child.getHashSymbol()));
+                        child.getHashVariable()));
     }
 }

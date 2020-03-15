@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -31,7 +32,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
@@ -40,6 +40,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -57,7 +58,6 @@ import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -66,10 +66,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -346,7 +346,7 @@ public class TestAnalyzer
     @Test
     public void testWindowsNotAllowed()
     {
-        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 WHERE foo() over () > 1");
+        assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 WHERE pi() over () > 1");
         assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 GROUP BY rank() over ()");
         assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a");
         assertFails(NESTED_WINDOW, "SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1");
@@ -538,7 +538,8 @@ public class TestAnalyzer
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
-                new FeaturesConfig().setMaxGroupingSets(2048)))).build();
+                new FeaturesConfig().setMaxGroupingSets(2048),
+                new NodeMemoryConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
@@ -922,6 +923,13 @@ public class TestAnalyzer
         // row type
         assertFails(TYPE_MISMATCH, "SELECT t.x.f1 FROM (VALUES 1) t(x)");
         assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
+
+        // subscript on Row
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript expression on ROW requires a constant index", "SELECT ROW(1, 'a')[x]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript expression on ROW requires a constant index", "SELECT ROW(1, 'a')[-1]");
+        assertFails(TYPE_MISMATCH, "line 1:20: Subscript expression on ROW requires integer index, found bigint", "SELECT ROW(1, 'a')[9999999999]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Invalid subscript index: 0. ROW indices start at 1", "SELECT ROW(1, 'a')[0]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript index out of bounds: 5, max value is 2", "SELECT ROW(1, 'a')[5]");
     }
 
     @Test
@@ -1555,7 +1563,7 @@ public class TestAnalyzer
                 new AnalyzePropertyManager(),
                 transactionManager);
 
-        metadata.getFunctionManager().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);
@@ -1631,7 +1639,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
+        ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v1"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata1, viewData1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1641,7 +1652,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v2"),
+                ImmutableList.of(new ColumnMetadata("a", VARCHAR)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata2, viewData2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1651,17 +1665,23 @@ public class TestAnalyzer
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
+        ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
+                new SchemaTableName("s3", "v3"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, THIRD_CATALOG, viewMetadata3, viewData3, false));
 
         // valid view with uppercase column name
         String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select A from t1",
-                        Optional.of("tpch"),
+                        Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+        ConnectorTableMetadata viewMetadata4 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v4"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata4, viewData4, false));
 
         // recursive view referencing to itself
         String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1671,7 +1691,10 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+        ConnectorTableMetadata viewMetadata5 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v5"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)

@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.password;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
-import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LdapAuthenticatorFactory
         implements PasswordAuthenticatorFactory

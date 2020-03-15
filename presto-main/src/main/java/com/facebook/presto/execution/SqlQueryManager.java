@@ -13,40 +13,22 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.QueryMonitor;
-import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.server.SessionContext;
-import com.facebook.presto.server.SessionPropertyDefaults;
-import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.SqlEnvironmentConfig;
-import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -58,33 +40,22 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.QueryStateMachine.QUERY_STATE_LOG;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
-import static com.facebook.presto.util.Failures.toFailure;
-import static com.facebook.presto.util.StatementUtils.getQueryType;
-import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
 public class SqlQueryManager
@@ -92,96 +63,29 @@ public class SqlQueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
-    private final QueryPreparer queryPreparer;
-
-    private final EmbedVersion embedVersion;
-    private final ExecutorService queryExecutor;
-    private final ThreadPoolExecutorMBean queryExecutorMBean;
-    private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
-
-    private final Optional<String> path;
-    private final int maxQueryLength;
-    private final Duration maxQueryCpuTime;
-
+    private final QueryMonitor queryMonitor;
+    private final EmbedVersion embedVersion;
     private final QueryTracker<QueryExecution> queryTracker;
+
+    private final Duration maxQueryCpuTime;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
 
-    private final QueryMonitor queryMonitor;
-    private final LocationFactory locationFactory;
-
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-
-    private final QueryIdGenerator queryIdGenerator;
-
-    private final SessionSupplier sessionSupplier;
-    private final SessionPropertyDefaults sessionPropertyDefaults;
-
-    private final ClusterSizeMonitor clusterSizeMonitor;
-
-    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
-
-    private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
-
-    private final WarningCollectorFactory warningCollectorFactory;
+    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
-    public SqlQueryManager(
-            QueryPreparer queryPreparer,
-            EmbedVersion embedVersion,
-            NodeSchedulerConfig nodeSchedulerConfig,
-            QueryManagerConfig queryManagerConfig,
-            SqlEnvironmentConfig sqlEnvironmentConfig,
-            QueryMonitor queryMonitor,
-            ResourceGroupManager<?> resourceGroupManager,
-            ClusterMemoryManager memoryManager,
-            LocationFactory locationFactory,
-            TransactionManager transactionManager,
-            AccessControl accessControl,
-            QueryIdGenerator queryIdGenerator,
-            SessionSupplier sessionSupplier,
-            SessionPropertyDefaults sessionPropertyDefaults,
-            ClusterSizeMonitor clusterSizeMonitor,
-            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            WarningCollectorFactory warningCollectorFactory)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory)
     {
-        this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
-
-        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
-        this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
-
-        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
-        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
-
-        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
-
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
-        this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
 
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
-
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
-
-        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
-        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-
-        this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
-
-        this.path = sqlEnvironmentConfig.getPath();
-        this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
 
-        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
-
-        queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
-        queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
+        this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
+        this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
     }
@@ -212,7 +116,6 @@ public class SqlQueryManager
     {
         queryTracker.stop();
         queryManagementExecutor.shutdownNow();
-        queryExecutor.shutdownNow();
     }
 
     @Override
@@ -263,8 +166,22 @@ public class SqlQueryManager
 
     @Override
     public QueryInfo getFullQueryInfo(QueryId queryId)
+            throws NoSuchElementException
     {
         return queryTracker.getQuery(queryId).getQueryInfo();
+    }
+
+    @Override
+    public Session getQuerySession(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getSession();
+    }
+
+    @Override
+    public boolean isQuerySlugValid(QueryId queryId, String slug)
+    {
+        return queryTracker.getQuery(queryId).getSlug().equals(slug);
     }
 
     public Plan getQueryPlan(QueryId queryId)
@@ -291,158 +208,27 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryId createQueryId()
+    public void createQuery(QueryExecution queryExecution)
     {
-        return queryIdGenerator.createNextQueryId();
-    }
+        requireNonNull(queryExecution, "queryExecution is null");
 
-    @Override
-    public ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query)
-    {
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(embedVersion.embedVersion(() -> {
-            try {
-                createQueryInternal(queryId, sessionContext, query, resourceGroupManager);
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
-        }));
-        return queryCreationFuture;
-    }
-
-    private <C> void createQueryInternal(QueryId queryId, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(sessionContext, "sessionFactory is null");
-        requireNonNull(query, "query is null");
-        checkArgument(!query.isEmpty(), "query must not be empty string");
-        checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
-
-        Session session = null;
-        SelectionContext<C> selectionContext = null;
-        QueryExecution queryExecution;
-        PreparedQuery preparedQuery;
-        Optional<QueryType> queryType = Optional.empty();
-        try {
-            clusterSizeMonitor.verifyInitialMinimumWorkersRequirement();
-
-            if (query.length() > maxQueryLength) {
-                int queryLength = query.length();
-                query = query.substring(0, maxQueryLength);
-                throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
-            }
-
-            // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext);
-
-            WarningCollector warningCollector = warningCollectorFactory.create();
-
-            // prepare query
-            preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
-
-            // select resource group
-            queryType = getQueryType(preparedQuery.getStatement().getClass());
-            selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
-                    sessionContext.getIdentity().getPrincipal().isPresent(),
-                    sessionContext.getIdentity().getUser(),
-                    Optional.ofNullable(sessionContext.getSource()),
-                    sessionContext.getClientTags(),
-                    sessionContext.getResourceEstimates(),
-                    queryType.map(Enum::name)));
-
-            // apply system defaults for query
-            session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), selectionContext.getResourceGroupId());
-
-            // mark existing transaction as active
-            transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
-
-            // create query execution
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
-            if (queryExecutionFactory == null) {
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
-            }
-            queryExecution = queryExecutionFactory.createQueryExecution(
-                    query,
-                    session,
-                    preparedQuery,
-                    selectionContext.getResourceGroupId(),
-                    warningCollector,
-                    queryType);
+        if (!queryTracker.addQuery(queryExecution)) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
         }
-        catch (RuntimeException e) {
-            // This is intentionally not a method, since after the state change listener is registered
-            // it's not safe to do any of this, and we had bugs before where people reused this code in a method
-
-            // if session creation failed, create a minimal session object
-            if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
-                        .setQueryId(queryId)
-                        .setIdentity(sessionContext.getIdentity())
-                        .setPath(new SqlPath(Optional.empty()))
-                        .build();
-            }
-            QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
-
-            // query failure fails the transaction
-            session.getTransactionId().ifPresent(transactionManager::fail);
-
-            QueryExecution execution = new FailedQueryExecution(
-                    session,
-                    query,
-                    locationFactory.createQueryLocation(queryId),
-                    Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
-                    queryType,
-                    queryExecutor,
-                    e);
-
-            try {
-                queryTracker.addQuery(execution);
-
-                BasicQueryInfo queryInfo = execution.getBasicQueryInfo();
-                queryMonitor.queryCreatedEvent(queryInfo);
-                queryMonitor.queryImmediateFailureEvent(queryInfo, toFailure(e));
-                stats.queryQueued();
-                stats.queryStarted();
-                stats.queryStopped();
-                stats.queryFinished(execution.getQueryInfo());
-            }
-            finally {
-                // execution MUST be added to the expiration queue or there will be a leak
-                queryTracker.expireQuery(queryId);
-            }
-
-            return;
-        }
-
-        queryMonitor.queryCreatedEvent(queryExecution.getBasicQueryInfo());
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
             try {
-                stats.queryFinished(finalQueryInfo);
                 queryMonitor.queryCompletedEvent(finalQueryInfo);
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
-                queryTracker.expireQuery(queryId);
+                queryTracker.expireQuery(queryExecution.getQueryId());
             }
         });
 
-        addStatsListeners(queryExecution);
+        stats.trackQueryStats(queryExecution);
 
-        if (!queryTracker.addQuery(queryExecution)) {
-            // query already created, so just exit
-            return;
-        }
-
-        // start the query in the background
-        try {
-            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
-        }
-        catch (Throwable e) {
-            failQuery(queryId, e);
-        }
+        embedVersion.embedVersion(queryExecution::start).run();
     }
 
     @Override
@@ -477,23 +263,28 @@ public class SqlQueryManager
     @Override
     @Managed
     @Flatten
-    public SqlQueryManagerStats getStats()
+    public QueryManagerStats getStats()
     {
         return stats;
     }
 
-    @Managed(description = "Query scheduler executor")
-    @Nested
-    public ThreadPoolExecutorMBean getExecutor()
-    {
-        return queryExecutorMBean;
-    }
-
-    @Managed(description = "Query query management executor")
+    @Managed(description = "Query management executor")
     @Nested
     public ThreadPoolExecutorMBean getManagementExecutor()
     {
         return queryManagementExecutorMBean;
+    }
+
+    @Managed
+    public long getRunningTaskCount()
+    {
+        return queryTracker.getRunningTaskCount();
+    }
+
+    @Managed
+    public long getQueriesKilledDueToTooManyTask()
+    {
+        return queryTracker.getQueriesKilledDueToTooManyTask();
     }
 
     /**
@@ -519,55 +310,6 @@ public class SqlQueryManager
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
             }
-        }
-    }
-
-    private void addStatsListeners(QueryExecution queryExecution)
-    {
-        Object lock = new Object();
-
-        // QUEUED is the initial state, the counter can be incremented immediately
-        stats.queryQueued();
-
-        AtomicBoolean started = new AtomicBoolean();
-        queryExecution.addStateChangeListener(newValue -> {
-            synchronized (lock) {
-                if (newValue == RUNNING && !started.getAndSet(true)) {
-                    stats.queryStarted();
-                }
-            }
-        });
-
-        AtomicBoolean stopped = new AtomicBoolean();
-        queryExecution.addStateChangeListener(newValue -> {
-            synchronized (lock) {
-                if (newValue.isDone() && !stopped.getAndSet(true) && started.get()) {
-                    stats.queryStopped();
-                }
-            }
-        });
-    }
-
-    private static class QueryCreationFuture
-            extends AbstractFuture<QueryInfo>
-    {
-        @Override
-        protected boolean set(QueryInfo value)
-        {
-            return super.set(value);
-        }
-
-        @Override
-        protected boolean setException(Throwable throwable)
-        {
-            return super.setException(throwable);
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            // query submission can not be canceled
-            return false;
         }
     }
 }

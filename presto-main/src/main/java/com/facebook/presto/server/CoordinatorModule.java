@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
@@ -23,12 +26,20 @@ import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.dynamicCatalog.DynamicCatalogController;
 import com.facebook.presto.dynamicCatalog.ResponseParser;
+import com.facebook.presto.dispatcher.DispatchExecutor;
+import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.dispatcher.DispatchQueryFactory;
+import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
+import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
+import com.facebook.presto.dispatcher.QueuedStatementResource;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
+import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.CommitTask;
+import com.facebook.presto.execution.CreateFunctionTask;
 import com.facebook.presto.execution.CreateRoleTask;
 import com.facebook.presto.execution.CreateSchemaTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -36,6 +47,7 @@ import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropColumnTask;
+import com.facebook.presto.execution.DropFunctionTask;
 import com.facebook.presto.execution.DropRoleTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
@@ -60,7 +72,6 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeRolesTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
-import com.facebook.presto.execution.SetPathTask;
 import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
@@ -74,6 +85,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
+import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -86,7 +98,8 @@ import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.server.protocol.StatementResource;
+import com.facebook.presto.server.protocol.ExecutingStatementResource;
+import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -95,14 +108,17 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -117,7 +133,6 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
@@ -133,9 +148,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
-import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -146,21 +158,21 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
+import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -188,8 +200,8 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
-        jaxrsBinder(binder).bind(StatementResource.class);
-        newExporter(binder).export(StatementResource.class).withGeneratedName();
+        jaxrsBinder(binder).bind(QueuedStatementResource.class);
+        jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
         jaxrsBinder(binder).bind(DynamicCatalogController.class);
@@ -216,13 +228,21 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryManager.class).withGeneratedName();
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(QueryManager.class).withGeneratedName();
+
+        // dispatcher
+        binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+
+        // local dispatcher
+        binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
@@ -294,6 +314,7 @@ public class CoordinatorModule
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
         getAllQueryTypes().entrySet().stream()
                 .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
@@ -310,6 +331,9 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateFunction.class, CreateFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, AlterFunction.class, AlterFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropFunction.class, DropFunctionTask.class);
         bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
@@ -326,7 +350,6 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
         bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
         bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
-        bindDataDefinitionTask(binder, executionBinder, SetPath.class, SetPathTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);

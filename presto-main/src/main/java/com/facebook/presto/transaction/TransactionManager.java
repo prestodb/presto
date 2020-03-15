@@ -14,10 +14,12 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,14 +32,9 @@ public interface TransactionManager
     IsolationLevel DEFAULT_ISOLATION = IsolationLevel.READ_UNCOMMITTED;
     boolean DEFAULT_READ_ONLY = false;
 
-    boolean transactionExists(TransactionId transactionId);
-
-    default boolean isAutoCommit(TransactionId transactionId)
-    {
-        return getTransactionInfo(transactionId).isAutoCommitContext();
-    }
-
     TransactionInfo getTransactionInfo(TransactionId transactionId);
+
+    Optional<TransactionInfo> getOptionalTransactionInfo(TransactionId transactionId);
 
     List<TransactionInfo> getAllTransactionInfos();
 
@@ -56,6 +53,10 @@ public interface TransactionManager
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName);
 
     ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId);
+
+    void registerFunctionNamespaceManager(String catalogNames, FunctionNamespaceManager<?> functionNamespaceManager);
+
+    FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String catalogName);
 
     void checkAndSetActive(TransactionId transactionId);
 

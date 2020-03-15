@@ -13,12 +13,26 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.WindowIndex;
@@ -28,19 +42,6 @@ import com.facebook.presto.sql.gen.Binding;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.airlift.bytecode.FieldDefinition;
-import io.airlift.bytecode.MethodDefinition;
-import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.Scope;
-import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.ForLoop;
-import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -50,6 +51,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -61,19 +76,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PRIVATE;
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.Parameter.arg;
-import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -218,7 +220,7 @@ public class AccumulatorCompiler
         }
         else {
             methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, RowType.anonymous(type)))
+                    .append(constantType(callSiteBinder, RowType.withDefaultFieldNames(type)))
                     .retObject();
         }
 
@@ -543,14 +545,32 @@ public class AccumulatorCompiler
                         .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
                 .ifTrue(loopBody);
 
-        block.append(new ForLoop()
+        BytecodeNode forLoop = new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
                 .condition(new BytecodeBlock()
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
-                .body(loopBody));
+                .body(loopBody);
+
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            if (!nullable.get(i)) {
+                Variable variableDefinition = parameterVariables.get(i);
+                forLoop = new IfStatement("if(!(%s instanceof RunLengthEncodedBlock && %s.isNull(0)))", variableDefinition.getName(), variableDefinition.getName())
+                        .condition(and(
+                                variableDefinition.instanceOf(RunLengthEncodedBlock.class),
+                                variableDefinition.invoke("isNull", boolean.class, constantInt(0))))
+                        .ifFalse(forLoop);
+            }
+        }
+
+        block.append(new IfStatement("if(%s > 0)", rowsVariable.getName())
+                .condition(new BytecodeBlock()
+                        .getVariable(rowsVariable)
+                        .push(0)
+                        .invokeStatic(CompilerOperations.class, "greaterThan", boolean.class, int.class, int.class))
+                .ifTrue(forLoop));
 
         return block;
     }

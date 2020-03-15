@@ -13,21 +13,22 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -45,6 +46,7 @@ public class TestJsonHiveHandles
             .put("hiveColumnIndex", -1)
             .put("columnType", PARTITION_KEY.toString())
             .put("comment", "comment")
+            .put("requiredSubfields", ImmutableList.of())
             .build();
 
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();

@@ -25,6 +25,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
@@ -33,8 +35,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 
 public class TestPageSplitterUtil
 {

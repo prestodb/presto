@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Plugin;
@@ -39,13 +39,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -98,7 +97,7 @@ public abstract class AbstractTestFunctions
 
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
-        functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
+        functionAssertions.assertFunction(format("\"%s\"(%s)", operator.getFunctionName().getFunctionName(), value), expectedType, expected);
     }
 
     protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
@@ -187,30 +186,30 @@ public abstract class AbstractTestFunctions
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().addFunctions(ImmutableList.of(sqlScalarFunction));
+        metadata.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalars(clazz)
                 .getFunctions();
-        metadata.getFunctionManager().addFunctions(functions);
+        metadata.getFunctionManager().registerBuiltInFunctions(functions);
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalar(clazz)
                 .getFunctions();
-        metadata.getFunctionManager().addFunctions(functions);
+        metadata.getFunctionManager().registerBuiltInFunctions(functions);
     }
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)

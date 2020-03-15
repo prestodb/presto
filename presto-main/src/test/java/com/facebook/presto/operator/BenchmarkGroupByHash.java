@@ -151,7 +151,7 @@ public class BenchmarkGroupByHash
             Block block = page.getBlock(0);
             int positionCount = block.getPositionCount();
             for (int position = 0; position < positionCount; position++) {
-                long value = block.getLong(position, 0);
+                long value = block.getLong(position);
 
                 int tablePosition = (int) (value & mask);
                 while (table[tablePosition] != -1 && table[tablePosition] != value) {

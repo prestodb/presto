@@ -18,9 +18,9 @@ import com.facebook.presto.verifier.framework.Column;
 
 import java.util.List;
 
-interface ColumnValidator
+public interface ColumnValidator
 {
     List<SingleColumn> generateChecksumColumns(Column column);
 
-    ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult);
+    List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult);
 }

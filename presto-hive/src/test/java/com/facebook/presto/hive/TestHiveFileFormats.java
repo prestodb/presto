@@ -13,19 +13,27 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcPageSourceFactory;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriterOptions;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,10 +61,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
@@ -67,19 +78,35 @@ import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.google.common.base.Predicates.not;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -176,7 +203,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCTEXT)
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -197,7 +224,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -228,7 +255,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -251,7 +278,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -261,7 +288,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -287,7 +314,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -301,7 +328,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withReadColumns(Lists.reverse(TEST_COLUMNS))
                 .withSession(session)
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -333,7 +360,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -356,7 +383,7 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
 
         // test name-based access
         readColumns = Lists.reverse(writeColumns);
@@ -364,7 +391,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSessionUseName)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()
@@ -392,7 +419,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(DWRF)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -420,7 +447,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
     }
 
     @Test
@@ -433,25 +460,25 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCTEXT)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(RCBINARY)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
 
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -478,27 +505,27 @@ public class TestHiveFileFormats
 
         List<TestColumn> columns = ImmutableList.of(partitionColumn, varcharColumn);
 
-        HiveErrorCode expectedErrorCode = HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+        HiveErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE;
         String expectedMessage = "Invalid partition value 'test' for varchar(3) partition key: partition_column";
 
         assertThatFileFormat(RCTEXT)
                 .withColumns(columns)
-                .isFailingForPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage)
+                .isFailingForPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessage)
                 .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(columns)
-                .isFailingForPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage)
+                .isFailingForPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessage)
                 .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(ORC)
                 .withColumns(columns)
-                .isFailingForPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(columns)
@@ -509,6 +536,179 @@ public class TestHiveFileFormats
                 .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
     }
 
+    @Test
+    public void testSchemaMismatch()
+            throws Exception
+    {
+        TestColumn floatColumn = new TestColumn("column_name", javaFloatObjectInspector, 5.1f, 5.1f);
+        TestColumn doubleColumn = new TestColumn("column_name", javaDoubleObjectInspector, 5.1, 5.1);
+        TestColumn booleanColumn = new TestColumn("column_name", javaBooleanObjectInspector, true, true);
+        TestColumn stringColumn = new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"));
+        TestColumn intColumn = new TestColumn("column_name", javaIntObjectInspector, 3, 3);
+        TestColumn longColumn = new TestColumn("column_name", javaLongObjectInspector, 4L, 4L);
+        TestColumn timestampColumn = new TestColumn("column_name", javaTimestampObjectInspector, 4L, 4L);
+        TestColumn mapLongColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
+                ImmutableMap.of(4L, 4L),
+                mapBlockOf(BIGINT, BIGINT, 4L, 4L));
+        TestColumn mapDoubleColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(javaDoubleObjectInspector, javaDoubleObjectInspector),
+                ImmutableMap.of(5.1, 5.2),
+                mapBlockOf(DOUBLE, DOUBLE, 5.1, 5.2));
+        TestColumn arrayStringColumn = new TestColumn("column_name",
+                getStandardListObjectInspector(javaStringObjectInspector),
+                ImmutableList.of("test"),
+                arrayBlockOf(createUnboundedVarcharType(), "test"));
+        TestColumn arrayBooleanColumn = new TestColumn("column_name",
+                getStandardListObjectInspector(javaBooleanObjectInspector),
+                ImmutableList.of(true),
+                arrayBlockOf(BOOLEAN, true));
+        TestColumn rowLongColumn = new TestColumn("column_name",
+                getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
+                new Long[] {1L},
+                rowBlockOf(ImmutableList.of(BIGINT), 1));
+        TestColumn nestColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                    javaStringObjectInspector,
+                    getStandardListObjectInspector(
+                        getStandardStructObjectInspector(
+                            ImmutableList.of("s_int"),
+                            ImmutableList.of(javaIntObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                    "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L))));
+
+        HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
+        String expectedMessageFloatDouble = "The column column_name is declared as type double, but the Parquet file declares the column as type FLOAT";
+
+        // Make sure INT64 is still readable as Timestamp see https://github.com/prestodb/presto/issues/13855
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(timestampColumn))
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(floatColumn))
+                .withReadColumns(ImmutableList.of(doubleColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageFloatDouble);
+
+        String expectedMessageDoubleLong = "The column column_name is declared as type bigint, but the Parquet file declares the column as type DOUBLE";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(doubleColumn))
+                .withReadColumns(ImmutableList.of(longColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageDoubleLong);
+
+        String expectedMessageFloatInt = "The column column_name is declared as type int, but the Parquet file declares the column as type FLOAT";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(floatColumn))
+                .withReadColumns(ImmutableList.of(intColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageFloatInt);
+
+        String expectedMessageIntBoolean = "The column column_name is declared as type boolean, but the Parquet file declares the column as type INT32";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(intColumn))
+                .withReadColumns(ImmutableList.of(booleanColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageIntBoolean);
+
+        String expectedMessageStringLong = "The column column_name is declared as type string, but the Parquet file declares the column as type INT64";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(stringColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageStringLong);
+
+        String expectedMessageIntString = "The column column_name is declared as type int, but the Parquet file declares the column as type BINARY";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(stringColumn))
+                .withReadColumns(ImmutableList.of(intColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageIntString);
+
+        String expectedMessageMapLongLong = "The column column_name is declared as type map<bigint,bigint>, but the Parquet file declares the column as type INT64";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(mapLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageMapLongLong);
+
+        String expectedMessageMapLongMapDouble = "The column column_name is declared as type map<bigint,bigint>, but the Parquet file declares the column as type optional group column_name (MAP) {\n"
+                + "  repeated group map (MAP_KEY_VALUE) {\n"
+                + "    required double key;\n"
+                + "    optional double value;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(mapDoubleColumn))
+                .withReadColumns(ImmutableList.of(mapLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageMapLongMapDouble);
+
+        String expectedMessageArrayStringArrayBoolean = "The column column_name is declared as type array<string>, but the Parquet file declares the column as type optional group column_name (LIST) {\n"
+                + "  repeated group bag {\n"
+                + "    optional boolean array_element;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(arrayBooleanColumn))
+                .withReadColumns(ImmutableList.of(arrayStringColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageArrayStringArrayBoolean);
+
+        String expectedMessageBooleanArrayBoolean = "The column column_name is declared as type array<boolean>, but the Parquet file declares the column as type BOOLEAN";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(booleanColumn))
+                .withReadColumns(ImmutableList.of(arrayBooleanColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageBooleanArrayBoolean);
+
+        String expectedMessageRowLongLong = "The column column_name is declared as type bigint, but the Parquet file declares the column as type optional group column_name {\n"
+                + "  optional int64 s_bigint;\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowLongColumn))
+                .withReadColumns(ImmutableList.of(longColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageRowLongLong);
+
+        String expectedMessageMapLongRowLong = "The column column_name is declared as type struct<s_bigint:bigint>, but the Parquet file declares the column as type optional group column_name (MAP) {\n"
+                + "  repeated group map (MAP_KEY_VALUE) {\n"
+                + "    required int64 key;\n"
+                + "    optional int64 value;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(mapLongColumn))
+                .withReadColumns(ImmutableList.of(rowLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageMapLongRowLong);
+
+        String expectedMessageRowLongNest = "The column column_name is declared as type map<string,array<struct<s_int:int>>>, but the Parquet file declares the column as type optional group column_name {\n"
+                + "  optional int64 s_bigint;\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowLongColumn))
+                .withReadColumns(ImmutableList.of(nestColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageRowLongNest);
+    }
+
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             HiveStorageFormat storageFormat,
@@ -516,16 +716,16 @@ public class TestHiveFileFormats
             ConnectorSession session,
             int rowCount)
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
-
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
+
+        List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
+        List<Column> tableDataColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .collect(toImmutableList());
 
         Configuration configuration = new Configuration();
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
@@ -539,22 +739,37 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                splitProperties,
+                new Storage(
+                        StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 TupleDomain.all(),
                 getColumnHandles(testColumns),
+                ImmutableMap.of(),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                new SchemaTableName("schema", "table"),
+                partitionKeyColumnHandles,
+                tableDataColumns,
+                ImmutableMap.of(),
+                tableDataColumns.size(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                DEFAULT_HIVE_FILE_CONTEXT,
+                TRUE_CONSTANT,
+                false,
+                ROW_EXPRESSION_SERVICE);
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
         checkCursor(cursor, testColumns, rowCount);
     }
 
-    private void testPageSourceFactory(HivePageSourceFactory sourceFactory,
+    private void testPageSourceFactory(HiveBatchPageSourceFactory sourceFactory,
             FileSplit split,
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
@@ -562,16 +777,16 @@ public class TestHiveFileFormats
             int rowCount)
             throws IOException
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
-
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
+
+        List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
+        List<Column> tableDataColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .collect(toImmutableList());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
@@ -585,15 +800,30 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                splitProperties,
+                new Storage(
+                        StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 TupleDomain.all(),
                 columnHandles,
+                ImmutableMap.of(),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                new SchemaTableName("schema", "table"),
+                partitionKeyColumnHandles,
+                tableDataColumns,
+                ImmutableMap.of(),
+                tableDataColumns.size(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                false);
+                false,
+                DEFAULT_HIVE_FILE_CONTEXT,
+                TRUE_CONSTANT,
+                false,
+                ROW_EXPRESSION_SERVICE);
 
         assertTrue(pageSource.isPresent());
 
@@ -718,7 +948,7 @@ public class TestHiveFileFormats
             return this;
         }
 
-        public FileFormatAssertion isReadableByPageSource(HivePageSourceFactory pageSourceFactory)
+        public FileFormatAssertion isReadableByPageSource(HiveBatchPageSourceFactory pageSourceFactory)
                 throws Exception
         {
             assertRead(Optional.of(pageSourceFactory), Optional.empty());
@@ -732,21 +962,21 @@ public class TestHiveFileFormats
             return this;
         }
 
-        public FileFormatAssertion isFailingForPageSource(HivePageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
+        public FileFormatAssertion isFailingForPageSource(HiveBatchPageSourceFactory pageSourceFactory, ErrorCodeSupplier expectedErrorCode, String expectedMessage)
                 throws Exception
         {
             assertFailure(Optional.of(pageSourceFactory), Optional.empty(), expectedErrorCode, expectedMessage);
             return this;
         }
 
-        public FileFormatAssertion isFailingForRecordCursor(HiveRecordCursorProvider cursorProvider, HiveErrorCode expectedErrorCode, String expectedMessage)
+        public FileFormatAssertion isFailingForRecordCursor(HiveRecordCursorProvider cursorProvider, ErrorCodeSupplier expectedErrorCode, String expectedMessage)
                 throws Exception
         {
             assertFailure(Optional.empty(), Optional.of(cursorProvider), expectedErrorCode, expectedMessage);
             return this;
         }
 
-        private void assertRead(Optional<HivePageSourceFactory> pageSourceFactory, Optional<HiveRecordCursorProvider> cursorProvider)
+        private void assertRead(Optional<HiveBatchPageSourceFactory> pageSourceFactory, Optional<HiveRecordCursorProvider> cursorProvider)
                 throws Exception
         {
             assertNotNull(storageFormat, "storageFormat must be specified");
@@ -790,9 +1020,9 @@ public class TestHiveFileFormats
         }
 
         private void assertFailure(
-                Optional<HivePageSourceFactory> pageSourceFactory,
+                Optional<HiveBatchPageSourceFactory> pageSourceFactory,
                 Optional<HiveRecordCursorProvider> cursorProvider,
-                HiveErrorCode expectedErrorCode,
+                ErrorCodeSupplier expectedErrorCode,
                 String expectedMessage)
                 throws Exception
         {

@@ -56,10 +56,10 @@ import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -117,10 +117,10 @@ public class BenchmarkJsonToMapCast
             }
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, mapType(VARCHAR, valueType), ImmutableList.of(field(0, JSON))));
+                    new CallExpression(CAST.name(), functionHandle, mapType(VARCHAR, valueType), ImmutableList.of(field(0, JSON))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
                     .get();
 
             page = new Page(createChannel(POSITION_COUNT, MAP_SIZE, valueType));

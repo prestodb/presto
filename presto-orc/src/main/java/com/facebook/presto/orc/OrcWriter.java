@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriterStats.FlushReason;
@@ -36,9 +37,9 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -68,6 +69,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -143,7 +146,7 @@ public class OrcWriter
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
         this.stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
-        this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
+        this.chunkMaxLogicalBytes = max(1, stripeMaxBytes / 2);
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
@@ -238,16 +241,18 @@ public class OrcWriter
             validationBuilder.addPage(page);
         }
 
-        while (page != null) {
-            // align page to row group boundaries
-            int chunkRows = min(page.getPositionCount(), min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount));
-            Page chunk = page.getRegion(0, chunkRows);
+        // avoid chunk with huge logical size
+        int averageLogicalSizePerRow = estimateAverageLogicalSizePerRow(page);
+        int maxChunkRowCount = max(1, chunkMaxLogicalBytes / max(1, averageLogicalSizePerRow));
 
-            // avoid chunk with huge logical size
-            while (chunkRows > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
-                chunkRows /= 2;
-                chunk = chunk.getRegion(0, chunkRows);
-            }
+        while (page != null) {
+            // logical size and row group boundaries
+            int chunkRows = min(maxChunkRowCount, min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount));
+
+            // align page to max size per chunk
+            chunkRows = min(page.getPositionCount(), chunkRows);
+
+            Page chunk = page.getRegion(0, chunkRows);
 
             if (chunkRows < page.getPositionCount()) {
                 page = page.getRegion(chunkRows, page.getPositionCount() - chunkRows);
@@ -325,22 +330,26 @@ public class OrcWriter
             outputData.add(createDataOutput(MAGIC));
             stripeStartOffset += MAGIC.length();
         }
-        // add stripe data
-        outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
-        // if the file is being closed, add the file footer
-        if (flushReason == CLOSED) {
-            outputData.addAll(bufferFileFooter());
+
+        try {
+            // add stripe data
+            outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
+            // if the file is being closed, add the file footer
+            if (flushReason == CLOSED) {
+                outputData.addAll(bufferFileFooter());
+            }
+
+            // write all data
+            orcDataSink.write(outputData);
         }
-
-        // write all data
-        orcDataSink.write(outputData);
-
-        // open next stripe
-        columnWriters.forEach(ColumnWriter::reset);
-        dictionaryCompressionOptimizer.reset();
-        rowGroupRowCount = 0;
-        stripeRowCount = 0;
-        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        finally {
+            // open next stripe
+            columnWriters.forEach(ColumnWriter::reset);
+            dictionaryCompressionOptimizer.reset();
+            rowGroupRowCount = 0;
+            stripeRowCount = 0;
+            bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        }
     }
 
     /**
@@ -512,7 +521,16 @@ public class OrcWriter
                 input,
                 types,
                 hiveStorageTimeZone,
-                orcEncoding);
+                orcEncoding,
+                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false));
+    }
+
+    private int estimateAverageLogicalSizePerRow(Page page)
+    {
+        checkArgument(page.getPositionCount() > 0, "page is empty");
+        // sample at most 100 rows to estimate average row logical size
+        Page chunk = page.getRegion(0, min(page.getPositionCount(), 100));
+        return toIntExact(chunk.getLogicalSizeInBytes() / chunk.getPositionCount());
     }
 
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)

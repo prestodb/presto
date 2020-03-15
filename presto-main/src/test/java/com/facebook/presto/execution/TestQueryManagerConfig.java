@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -33,6 +33,9 @@ public class TestQueryManagerConfig
                 .setMaxQueryLength(1_000_000)
                 .setMaxStageCount(100)
                 .setStageCountWarningThreshold(50)
+                .setMaxTotalRunningTaskCountToKillQuery(Integer.MAX_VALUE)
+                .setMaxQueryRunningTaskCount(Integer.MAX_VALUE)
+                .setMaxTotalRunningTaskCountToNotExecuteNewQuery(Integer.MAX_VALUE)
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
                 .setMinScheduleSplitBatchSize(100)
@@ -49,10 +52,10 @@ public class TestQueryManagerConfig
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
-                .setInitializationRequiredWorkers(1)
-                .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setRequiredWorkers(1)
-                .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES)));
+                .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
+                .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setUseStreamingExchangeForMarkDistinct(false));
     }
 
     @Test
@@ -65,6 +68,9 @@ public class TestQueryManagerConfig
                 .put("query.max-length", "10000")
                 .put("query.max-stage-count", "12345")
                 .put("query.stage-count-warning-threshold", "12300")
+                .put("max-total-running-task-count-to-kill-query", "60000")
+                .put("max-query-running-task-count", "10000")
+                .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
@@ -80,10 +86,10 @@ public class TestQueryManagerConfig
                 .put("query.max-run-time", "2h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
-                .put("query-manager.initialization-required-workers", "200")
-                .put("query-manager.initialization-timeout", "1m")
+                .put("query.use-streaming-exchange-for-mark-distinct", "true")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
+                .put("query-manager.query-submission-max-threads", "5")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -92,6 +98,9 @@ public class TestQueryManagerConfig
                 .setMaxQueryLength(10000)
                 .setMaxStageCount(12345)
                 .setStageCountWarningThreshold(12300)
+                .setMaxTotalRunningTaskCountToKillQuery(60000)
+                .setMaxQueryRunningTaskCount(10000)
+                .setMaxTotalRunningTaskCountToNotExecuteNewQuery(50000)
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
                 .setMinScheduleSplitBatchSize(9)
@@ -108,10 +117,10 @@ public class TestQueryManagerConfig
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
-                .setInitializationRequiredWorkers(200)
-                .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setRequiredWorkers(333)
-                .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES));
+                .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
+                .setQuerySubmissionMaxThreads(5)
+                .setUseStreamingExchangeForMarkDistinct(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

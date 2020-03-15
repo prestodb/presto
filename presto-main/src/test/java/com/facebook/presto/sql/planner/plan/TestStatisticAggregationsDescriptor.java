@@ -15,15 +15,9 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
 import static com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -41,37 +35,5 @@ public class TestStatisticAggregationsDescriptor
                 assertEquals(deserialize(serialize(expected)), expected);
             }
         }
-    }
-
-    @Test
-    public void testSerializationRoundTrip()
-    {
-        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = JsonCodec.jsonCodec(new TypeToken<StatisticAggregationsDescriptor<Symbol>>() {});
-        assertSerializationRoundTrip(codec, StatisticAggregationsDescriptor.<Symbol>builder().build());
-        assertSerializationRoundTrip(codec, createTestDescriptor());
-    }
-
-    private static void assertSerializationRoundTrip(JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec, StatisticAggregationsDescriptor<Symbol> descriptor)
-    {
-        assertEquals(codec.fromJson(codec.toJson(descriptor)), descriptor);
-    }
-
-    private static StatisticAggregationsDescriptor<Symbol> createTestDescriptor()
-    {
-        StatisticAggregationsDescriptor.Builder<Symbol> builder = StatisticAggregationsDescriptor.builder();
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
-        for (String column : COLUMNS) {
-            for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
-            }
-            builder.addGrouping(column, testSymbol(symbolAllocator));
-        }
-        builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));
-        return builder.build();
-    }
-
-    private static Symbol testSymbol(SymbolAllocator allocator)
-    {
-        return allocator.newSymbol("test_symbol", BIGINT);
     }
 }

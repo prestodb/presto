@@ -38,7 +38,7 @@ public class ListEncoding
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block list = block.getObject(position, Block.class);
+        Block list = block.getBlock(position);
         writeVInt(output, list.getPositionCount());
 
         // write null bits

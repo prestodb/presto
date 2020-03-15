@@ -63,6 +63,7 @@ public class TableStatsSystemTable
                     .add(new ColumnMetadata("update_time", TIMESTAMP))
                     .add(new ColumnMetadata("table_version", BIGINT))
                     .add(new ColumnMetadata("shard_count", BIGINT))
+                    .add(new ColumnMetadata("delta_count", BIGINT))
                     .add(new ColumnMetadata("row_count", BIGINT))
                     .add(new ColumnMetadata("compressed_size", BIGINT))
                     .add(new ColumnMetadata("uncompressed_size", BIGINT))
@@ -112,6 +113,7 @@ public class TableStatsSystemTable
             TIMESTAMP.writeLong(pageBuilder.nextBlockBuilder(), row.getUpdateTime());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getTableVersion());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getShardCount());
+            BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getDeltaCount());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getRowCount());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getCompressedSize());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getUncompressedSize());

@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.Variable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 
 public class FunctionCallCodeGenerator
 {
@@ -34,12 +34,12 @@ public class FunctionCallCodeGenerator
     {
         FunctionManager functionManager = context.getFunctionManager();
 
-        ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
+        BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
 
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             RowExpression argument = arguments.get(i);
-            ScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
+            BuiltInScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
                 argumentsBytecode.add(context.generate(argument, Optional.empty()));
             }
@@ -49,7 +49,7 @@ public class FunctionCallCodeGenerator
         }
 
         return context.generateCall(
-                functionHandle.getSignature().getName(),
+                functionManager.getFunctionMetadata(functionHandle).getName().getFunctionName(),
                 function,
                 argumentsBytecode,
                 outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));

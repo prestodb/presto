@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.base;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
 
 import java.io.IOException;
 import java.nio.file.Files;

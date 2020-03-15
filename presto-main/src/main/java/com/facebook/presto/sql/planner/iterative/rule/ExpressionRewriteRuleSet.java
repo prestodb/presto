@@ -15,19 +15,21 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
@@ -46,6 +49,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -122,7 +126,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ProjectNode projectNode, Captures captures, Context context)
         {
-            Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            Assignments assignments = AssignmentUtils.rewrite(projectNode.getAssignments(), x -> rewriter.rewrite(x, context));
             if (projectNode.getAssignments().equals(assignments)) {
                 return Result.empty();
             }
@@ -150,14 +154,25 @@ public class ExpressionRewriteRuleSet
         public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
         {
             boolean anyRewritten = false;
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
-                aggregations.put(
-                        entry.getKey(),
-                        new Aggregation(call, aggregation.getFunctionHandle(), aggregation.getMask()));
-                if (!aggregation.getCall().equals(call)) {
+                Aggregation rewritten = new Aggregation(
+                        new CallExpression(aggregation.getCall().getDisplayName(),
+                                aggregation.getCall().getFunctionHandle(),
+                                aggregation.getCall().getType(),
+                                aggregation.getCall().getArguments()
+                                        .stream()
+                                        .map(argument -> castToRowExpression(rewriter.rewrite(castToExpression(argument), context)))
+                                        .collect(toImmutableList())),
+                        aggregation.getFilter()
+                                .map(filter -> castToRowExpression(rewriter.rewrite(castToExpression(filter), context))),
+                        aggregation.getOrderBy(),
+                        aggregation.isDistinct(),
+                        aggregation.getMask());
+
+                aggregations.put(entry.getKey(), rewritten);
+                if (!aggregation.equals(rewritten)) {
                     anyRewritten = true;
                 }
             }
@@ -167,10 +182,10 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getSource(),
                         aggregations.build(),
                         aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
+                        aggregationNode.getPreGroupedVariables(),
                         aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getHashVariable(),
+                        aggregationNode.getGroupIdVariable()));
             }
             return Result.empty();
         }
@@ -195,7 +210,13 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
-            Expression rewritten = rewriter.rewrite(filterNode.getPredicate(), context);
+            RowExpression rewritten;
+            if (isExpression(filterNode.getPredicate())) {
+                rewritten = castToRowExpression(rewriter.rewrite(castToExpression(filterNode.getPredicate()), context));
+            }
+            else {
+                rewritten = filterNode.getPredicate();
+            }
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }
@@ -222,18 +243,18 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
-            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
-            if (!joinNode.getFilter().equals(filter)) {
+            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(castToExpression(x), context));
+            if (!joinNode.getFilter().map(OriginalExpressionUtils::castToExpression).equals(filter)) {
                 return Result.ofPlanNode(new JoinNode(
                         joinNode.getId(),
                         joinNode.getType(),
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        joinNode.getOutputSymbols(),
-                        filter,
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
+                        joinNode.getOutputVariables(),
+                        filter.map(OriginalExpressionUtils::castToRowExpression),
+                        joinNode.getLeftHashVariable(),
+                        joinNode.getRightHashVariable(),
                         joinNode.getDistributionType()));
             }
             return Result.empty();
@@ -280,7 +301,7 @@ public class ExpressionRewriteRuleSet
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputVariables(), rows.build()));
             }
             return Result.empty();
         }
@@ -305,17 +326,18 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ApplyNode applyNode, Captures captures, Context context)
         {
-            Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            Assignments subqueryAssignments = AssignmentUtils.rewrite(applyNode.getSubqueryAssignments(), x -> rewriter.rewrite(x, context));
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
                 return Result.empty();
             }
+            verifySubquerySupported(subqueryAssignments);
             return Result.ofPlanNode(new ApplyNode(
                     applyNode.getId(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),
                     subqueryAssignments,
                     applyNode.getCorrelation(),
-                    applyNode.getOriginSubquery()));
+                    applyNode.getOriginSubqueryError()));
         }
     }
 }

@@ -16,15 +16,17 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -32,12 +34,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -60,9 +68,8 @@ public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final String NAME = "spatial_partitioning";
-    private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
+    private static final QualifiedFunctionName NAME = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "spatial_partitioning");
+    private final Pattern<AggregationNode> pattern = aggregation().matching(this::hasSpatialPartitioningAggregation);
 
     private final Metadata metadata;
 
@@ -71,43 +78,50 @@ public class RewriteSpatialPartitioningAggregation
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregation)
+    private boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(call -> call.getName().toString().equals(NAME) && call.getArguments().size() == 1);
+        return aggregationNode.getAggregations().values().stream().anyMatch(
+                aggregation -> metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals(NAME)
+                        && aggregation.getArguments().size() == 1);
     }
 
     @Override
     public Pattern<AggregationNode> getPattern()
     {
-        return PATTERN;
+        return pattern;
     }
 
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
-        ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+        VariableReferenceExpression partitionCountVariable = context.getVariableAllocator().newVariable("partition_count", INTEGER);
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FunctionCall call = aggregation.getCall();
-            QualifiedName name = call.getName();
+            QualifiedFunctionName name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
-            if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(call.getArguments());
-                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
-                if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
-                    envelopeAssignments.put(envelopeSymbol, geometry);
+            if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
+                RowExpression geometry = getOnlyElement(aggregation.getArguments());
+                VariableReferenceExpression envelopeVariable = context.getVariableAllocator().newVariable("envelope", geometryType);
+                if (isFunctionNameMatch(geometry, "ST_Envelope")) {
+                    envelopeAssignments.put(envelopeVariable, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeVariable, castToRowExpression(new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(castToExpression(geometry)))));
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
-                                metadata.getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(geometryType, INTEGER)),
+                                new CallExpression(
+                                        name.getFunctionName(),
+                                        metadata.getFunctionManager().lookupFunction(NAME.getFunctionName(), fromTypes(geometryType, INTEGER)),
+                                        entry.getKey().getType(),
+                                        ImmutableList.of(
+                                                castToRowExpression(asSymbolReference(envelopeVariable)),
+                                                castToRowExpression(asSymbolReference(partitionCountVariable)))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false,
                                 aggregation.getMask()));
             }
             else {
@@ -117,20 +131,28 @@ public class RewriteSpatialPartitioningAggregation
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                    node.getId(),
+                        node.getId(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
-                                        .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
+                                        .putAll(identitiesAsSymbolReferences(node.getSource().getOutputVariables()))
+                                        .put(partitionCountVariable, castToRowExpression(new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession())))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
-                    aggregations.build(),
-                    node.getGroupingSets(),
-                    node.getPreGroupedSymbols(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol()));
+                        aggregations.build(),
+                        node.getGroupingSets(),
+                        node.getPreGroupedVariables(),
+                        node.getStep(),
+                        node.getHashVariable(),
+                        node.getGroupIdVariable()));
+    }
+
+    private static boolean isFunctionNameMatch(RowExpression rowExpression, String expectedName)
+    {
+        if (castToExpression(rowExpression) instanceof FunctionCall) {
+            return ((FunctionCall) castToExpression(rowExpression)).getName().toString().equalsIgnoreCase(expectedName);
+        }
+        return false;
     }
 }

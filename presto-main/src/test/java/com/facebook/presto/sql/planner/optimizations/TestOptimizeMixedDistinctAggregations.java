@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -42,7 +44,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestOptimizeMixedDistinctAggregations
         extends BasePlanTest
@@ -114,7 +115,7 @@ public class TestOptimizeMixedDistinctAggregations
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
@@ -123,6 +124,11 @@ public class TestOptimizeMixedDistinctAggregations
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
                                 new MultipleDistinctAggregationToMarkDistinct())),
+                new IterativeOptimizer(
+                        new RuleStatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        new TranslateExpressions(getQueryRunner().getMetadata(), getQueryRunner().getSqlParser()).rules()),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
         assertPlan(sql, pattern, optimizers);

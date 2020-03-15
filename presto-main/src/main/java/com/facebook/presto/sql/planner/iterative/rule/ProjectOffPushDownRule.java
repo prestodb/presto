@@ -16,11 +16,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -30,6 +31,7 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * @param <N> The node type to look for under the ProjectNode
@@ -60,12 +62,15 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     {
         N targetNode = captures.get(targetCapture);
 
-        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions())
-                .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), targetNode, prunedOutputs))
+        return pruneInputs(
+                targetNode.getOutputVariables(),
+                parent.getAssignments().getExpressions().stream().collect(toImmutableList()),
+                context.getVariableAllocator().getTypes())
+                .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), context.getVariableAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, N targetNode, Set<Symbol> referencedOutputs);
+    protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, N targetNode, Set<VariableReferenceExpression> referencedOutputs);
 }

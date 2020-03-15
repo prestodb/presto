@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -33,7 +33,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDbSourceExactMatchSelector
 {
     private static final JsonCodec<ResourceGroupId> CODEC = JsonCodec.jsonCodec(ResourceGroupId.class);
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     private H2ResourceGroupsDao dao;
 
     @BeforeClass

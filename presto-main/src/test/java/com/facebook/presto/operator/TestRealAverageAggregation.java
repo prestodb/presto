@@ -20,7 +20,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,7 +43,7 @@ public class TestRealAverageAggregation
     {
         FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
         avgFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(REAL)));
+                functionManager.lookupFunction("avg", fromTypes(REAL)));
     }
 
     @Test

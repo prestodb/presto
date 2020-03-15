@@ -29,7 +29,7 @@ public class QueryResult<R>
     public QueryResult(List<R> results, List<String> columnNames, QueryStats queryStats)
     {
         this.results = ImmutableList.copyOf(results);
-        this.columnNames = requireNonNull(columnNames, "columnNames is null");
+        this.columnNames = ImmutableList.copyOf(columnNames);
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
     }
 

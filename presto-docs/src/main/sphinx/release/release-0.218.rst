@@ -2,6 +2,12 @@
 Release 0.218
 =============
 
+.. warning::
+
+    This release has the potential to produce incorrect results for three way joins where one of the joins is a ``FULL OUTER JOIN`` and one subquery
+    of the ``FULL OUTER JOIN`` has a ``GROUP BY`` on the join key and some expression that could be evaluated to a constant. For details, please
+    refer to :issue:`12577`.
+
 General Changes
 ---------------
 

@@ -13,26 +13,29 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_MAX_HITS_EXCEEDED;
 import static com.facebook.presto.elasticsearch.ElasticsearchUtils.serializeObject;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
@@ -43,7 +46,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -250,11 +252,86 @@ public class ElasticsearchRecordCursor
 
     private void extractFromSource(SearchHit hit)
     {
-        Map<String, Object> map = hit.getSourceAsMap();
-        for (Map.Entry<String, Object> entry : map.entrySet()) {
-            String jsonPath = entry.getKey();
-            Object entryValue = entry.getValue();
-            setFieldIfExists(jsonPath, entryValue);
+        List<Field> fields = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : hit.getSourceAsMap().entrySet()) {
+            fields.add(new Field(entry.getKey(), entry.getValue()));
+        }
+        Collections.sort(fields, Comparator.comparing(Field::getName));
+
+        for (Map.Entry<String, Object> entry : unflatten(fields).entrySet()) {
+            setFieldIfExists(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static Map<String, Object> unflatten(List<Field> fields)
+    {
+        return unflatten(fields, 0, 0, fields.size());
+    }
+
+    private static Map<String, Object> unflatten(List<Field> fields, int level, int start, int length)
+    {
+        checkArgument(length > 0, "length must be > 0");
+
+        int limit = start + length;
+
+        Map<String, Object> result = new HashMap<>();
+        int anchor = start;
+        int current = start;
+
+        do {
+            Field field = fields.get(anchor);
+            String name = field.getPathElement(level);
+
+            current++;
+            if (current == limit || !name.equals(fields.get(current).getPathElement(level))) {
+                // We assume that fields can't be both leaves and intermediate nodes
+                Object value;
+                if (level < field.getDepth() - 1) {
+                    value = unflatten(fields, level + 1, anchor, current - anchor);
+                }
+                else {
+                    value = field.getValue();
+                }
+                result.put(name, value);
+                anchor = current;
+            }
+        }
+        while (current < limit);
+
+        return result;
+    }
+
+    private static final class Field
+    {
+        private final String name;
+        private final List<String> path;
+        private final Object value;
+
+        public Field(String name, Object value)
+        {
+            this.name = name;
+            this.path = Arrays.asList(name.split("\\."));
+            this.value = value;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public int getDepth()
+        {
+            return path.size();
+        }
+
+        public String getPathElement(int level)
+        {
+            return path.get(level);
+        }
+
+        public Object getValue()
+        {
+            return value;
         }
     }
 }

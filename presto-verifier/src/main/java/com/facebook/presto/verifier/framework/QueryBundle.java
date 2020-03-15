@@ -18,34 +18,34 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class QueryBundle
 {
-    private final Optional<QualifiedName> tableName;
+    private final QualifiedName tableName;
     private final List<Statement> setupQueries;
     private final Statement query;
     private final List<Statement> teardownQueries;
+    private final ClusterType cluster;
 
     public QueryBundle(
-            Optional<QualifiedName> tableName,
+            QualifiedName tableName,
             List<Statement> setupQueries,
             Statement query,
-            List<Statement> teardownQueries)
+            List<Statement> teardownQueries,
+            ClusterType cluster)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.setupQueries = ImmutableList.copyOf(setupQueries);
-        this.query = requireNonNull(query, "mainQueries is null");
+        this.query = requireNonNull(query, "query is null");
         this.teardownQueries = ImmutableList.copyOf(teardownQueries);
+        this.cluster = requireNonNull(cluster, "cluster is null");
     }
 
     public QualifiedName getTableName()
     {
-        checkState(tableName.isPresent(), "tableName is missing");
-        return tableName.get();
+        return tableName;
     }
 
     public List<Statement> getSetupQueries()
@@ -61,5 +61,10 @@ public class QueryBundle
     public List<Statement> getTeardownQueries()
     {
         return teardownQueries;
+    }
+
+    public ClusterType getCluster()
+    {
+        return cluster;
     }
 }

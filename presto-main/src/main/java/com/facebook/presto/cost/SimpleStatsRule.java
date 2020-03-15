@@ -15,9 +15,9 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
@@ -37,7 +37,7 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         return doCalculate(node, sourceStats, lookup, session, types)
-                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), types));
+                .map(estimate -> normalizer.normalize(estimate, node.getOutputVariables()));
     }
 
     protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);

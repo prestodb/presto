@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.aggregation.TypedSet;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -22,23 +21,16 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 
 @ScalarFunction("array_intersect")
 @Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {
-    private final PageBuilder pageBuilder;
-
-    @TypeParameter("E")
-    public ArrayIntersectFunction(@TypeParameter("E") Type elementType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
-    }
+    private ArrayIntersectFunction() {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block intersect(
+    public static Block intersect(
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
@@ -56,16 +48,12 @@ public final class ArrayIntersectFunction
             return rightArray;
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
         TypedSet rightTypedSet = new TypedSet(type, rightPositionCount, "array_intersect");
         for (int i = 0; i < rightPositionCount; i++) {
             rightTypedSet.add(rightArray, i);
         }
 
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, Math.min(leftPositionCount, rightPositionCount));
 
         // The intersected set can have at most rightPositionCount elements
         TypedSet intersectTypedSet = new TypedSet(type, blockBuilder, rightPositionCount, "array_intersect");
@@ -75,8 +63,6 @@ public final class ArrayIntersectFunction
             }
         }
 
-        pageBuilder.declarePositions(intersectTypedSet.size());
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - intersectTypedSet.size(), intersectTypedSet.size());
+        return blockBuilder.build();
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.219-SNAPSHOT</version>
+        <version>0.234-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -27,7 +27,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-server</artifactId>
-            <version>${project.version}</version>
             <type>tar.gz</type>
             <scope>runtime</scope>
         </dependency>
@@ -51,7 +50,6 @@
                                 <artifactItem>
                                     <groupId>com.facebook.presto</groupId>
                                     <artifactId>presto-server</artifactId>
-                                    <version>${project.version}</version>
                                     <type>tar.gz</type>
                                     <outputDirectory>${project.build.outputDirectory}
                                     </outputDirectory>

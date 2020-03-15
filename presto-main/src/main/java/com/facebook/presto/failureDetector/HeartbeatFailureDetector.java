@@ -13,6 +13,18 @@
  */
 package com.facebook.presto.failureDetector;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceSelector;
+import com.facebook.airlift.discovery.client.ServiceType;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.stats.DecayCounter;
+import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.HostAddress;
@@ -21,18 +33,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.ServiceType;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.ResponseHandler;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
-import io.airlift.stats.DecayCounter;
-import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
@@ -62,6 +62,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.http.client.Request.Builder.prepareHead;
 import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.failureDetector.FailureDetector.State.UNKNOWN;
@@ -70,8 +72,6 @@ import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.http.client.Request.Builder.prepareHead;
 import static java.util.Objects.requireNonNull;
 
 public class HeartbeatFailureDetector
@@ -94,6 +94,7 @@ public class HeartbeatFailureDetector
     private final boolean isEnabled;
     private final Duration warmupInterval;
     private final Duration gcGraceInterval;
+    private final int exponentialDecaySeconds;
     private final boolean httpsRequired;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -120,6 +121,7 @@ public class HeartbeatFailureDetector
         this.heartbeat = failureDetectorConfig.getHeartbeatInterval();
         this.warmupInterval = failureDetectorConfig.getWarmupInterval();
         this.gcGraceInterval = failureDetectorConfig.getExpirationGraceInterval();
+        this.exponentialDecaySeconds = failureDetectorConfig.getExponentialDecaySeconds();
 
         this.isEnabled = failureDetectorConfig.isEnabled();
 
@@ -301,7 +303,7 @@ public class HeartbeatFailureDetector
         {
             this.uri = uri;
             this.service = service;
-            this.stats = new Stats(uri);
+            this.stats = new Stats(uri, exponentialDecaySeconds);
         }
 
         public Stats getStats()
@@ -404,9 +406,9 @@ public class HeartbeatFailureDetector
         private final long start = System.nanoTime();
         private final URI uri;
 
-        private final DecayCounter recentRequests = new DecayCounter(ExponentialDecay.oneMinute());
-        private final DecayCounter recentFailures = new DecayCounter(ExponentialDecay.oneMinute());
-        private final DecayCounter recentSuccesses = new DecayCounter(ExponentialDecay.oneMinute());
+        private final DecayCounter recentRequests;
+        private final DecayCounter recentFailures;
+        private final DecayCounter recentSuccesses;
         private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
         private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
         private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
@@ -414,9 +416,12 @@ public class HeartbeatFailureDetector
         @GuardedBy("this")
         private final Map<Class<? extends Throwable>, DecayCounter> failureCountByType = new HashMap<>();
 
-        public Stats(URI uri)
+        public Stats(URI uri, int exponentialDecaySeconds)
         {
             this.uri = uri;
+            this.recentRequests = new DecayCounter(ExponentialDecay.seconds(exponentialDecaySeconds));
+            this.recentFailures = new DecayCounter(ExponentialDecay.seconds(exponentialDecaySeconds));
+            this.recentSuccesses = new DecayCounter(ExponentialDecay.seconds(exponentialDecaySeconds));
         }
 
         public void recordStart()

@@ -17,13 +17,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.mysql.MySqlOptions;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -36,6 +40,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -43,12 +48,16 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
+            .setCommandTimeout(new Duration(90, SECONDS))
+            .build();
+
     private final TestingMySqlServer mysqlServer;
 
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch", "test_database"));
+        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS));
     }
 
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
@@ -59,6 +68,7 @@ public class TestMySqlIntegrationSmokeTest
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws IOException
     {
         mysqlServer.close();
     }

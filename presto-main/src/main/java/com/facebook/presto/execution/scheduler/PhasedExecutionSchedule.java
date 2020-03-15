@@ -14,18 +14,18 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -47,8 +47,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -58,14 +58,17 @@ import static java.util.function.Function.identity;
 public class PhasedExecutionSchedule
         implements ExecutionSchedule
 {
-    private final List<Set<SqlStageExecution>> schedulePhases;
-    private final Set<SqlStageExecution> activeSources = new HashSet<>();
+    private final List<Set<StageExecutionAndScheduler>> schedulePhases;
+    private final Set<StageExecutionAndScheduler> activeSources = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<SqlStageExecution> stages)
+    public PhasedExecutionSchedule(Collection<StageExecutionAndScheduler> stages)
     {
-        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(SqlStageExecution::getFragment).collect(toImmutableList()));
+        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream()
+                .map(StageExecutionAndScheduler::getStageExecution)
+                .map(SqlStageExecution::getFragment)
+                .collect(toImmutableList()));
 
-        Map<PlanFragmentId, SqlStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+        Map<PlanFragmentId, StageExecutionAndScheduler> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getStageExecution().getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -77,7 +80,7 @@ public class PhasedExecutionSchedule
     }
 
     @Override
-    public Set<SqlStageExecution> getStagesToSchedule()
+    public Set<StageExecutionAndScheduler> getStagesToSchedule()
     {
         removeCompletedStages();
         addPhasesIfNecessary();
@@ -89,8 +92,8 @@ public class PhasedExecutionSchedule
 
     private void removeCompletedStages()
     {
-        for (Iterator<SqlStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            StageState state = stageIterator.next().getState();
+        for (Iterator<StageExecutionAndScheduler> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
+            StageExecutionState state = stageIterator.next().getStageExecution().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 stageIterator.remove();
             }
@@ -105,7 +108,7 @@ public class PhasedExecutionSchedule
         }
 
         while (!schedulePhases.isEmpty()) {
-            Set<SqlStageExecution> phase = schedulePhases.remove(0);
+            Set<StageExecutionAndScheduler> phase = schedulePhases.remove(0);
             activeSources.addAll(phase);
             if (hasSourceDistributedStage(phase)) {
                 return;
@@ -113,9 +116,9 @@ public class PhasedExecutionSchedule
         }
     }
 
-    private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
+    private static boolean hasSourceDistributedStage(Set<StageExecutionAndScheduler> phase)
     {
-        return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
+        return phase.stream().anyMatch(stage -> !stage.getStageExecution().getFragment().getTableScanSchedulingOrder().isEmpty());
     }
 
     @Override
@@ -169,7 +172,7 @@ public class PhasedExecutionSchedule
     }
 
     private static class Visitor
-            extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
+            extends InternalPlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
@@ -305,7 +308,7 @@ public class PhasedExecutionSchedule
         }
 
         @Override
-        protected Set<PlanFragmentId> visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
+        public Set<PlanFragmentId> visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
         {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {

@@ -14,16 +14,18 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -36,7 +38,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -67,19 +69,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean isAggregationFunction(QualifiedName name)
+    public List<SqlFunction> listFunctions(Session session)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<SqlFunction> listFunctions()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
     {
         throw new UnsupportedOperationException();
     }
@@ -115,25 +111,37 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public TableLayout getLayout(Session session, TableLayoutHandle handle)
+    public TableLayout getLayout(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
+    public TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isLegacyGetLayoutSupported(Session session, TableHandle tableHandle)
+    {
+        return true;
     }
 
     @Override
     public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b)
     {
         throw new UnsupportedOperationException();
     }
@@ -145,7 +153,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(Session session, TableLayoutHandle handle)
+    public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
     }
@@ -157,7 +165,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         throw new UnsupportedOperationException();
     }
@@ -247,6 +255,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         throw new UnsupportedOperationException();
@@ -260,6 +274,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target)
     {
         throw new UnsupportedOperationException();
     }
@@ -319,13 +339,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    public OptionalLong metadataDelete(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -373,7 +393,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
+    public void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         throw new UnsupportedOperationException();
     }
@@ -452,6 +472,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type;
 import com.facebook.presto.sql.tree.Expression;
@@ -25,6 +25,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -60,8 +62,15 @@ public class SpatialJoinMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SpatialJoinNode joinNode = (SpatialJoinNode) node;
-        if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter(), filter)) {
-            return NO_MATCH;
+        if (isExpression(joinNode.getFilter())) {
+            if (!new ExpressionVerifier(symbolAliases).process(castToExpression(joinNode.getFilter()), filter)) {
+                return NO_MATCH;
+            }
+        }
+        else {
+            if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter, joinNode.getFilter())) {
+                return NO_MATCH;
+            }
         }
         if (!joinNode.getKdbTree().equals(kdbTree)) {
             return NO_MATCH;

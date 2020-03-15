@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.Futures;
@@ -58,6 +58,12 @@ public class BufferingSplitSource
     {
         checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
         return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize, partitionHandle, lifespan);
+    }
+
+    @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        source.rewind(partitionHandle);
     }
 
     @Override

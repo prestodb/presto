@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import org.jdbi.v3.core.JdbiException;
 
 import java.util.Optional;

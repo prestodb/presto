@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.google.common.util.concurrent.AtomicDouble;
-import io.airlift.stats.DistributionStat;
+import com.facebook.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -26,7 +25,8 @@ public class RemoteTaskStats
     private final IncrementalAverage infoRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage statusRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage responseSizeBytes = new IncrementalAverage();
-    private final DistributionStat updateWithPlanBytes = new DistributionStat();
+    private final DistributionStat updateWithPlanSize = new DistributionStat();
+    private final DistributionStat updateWithoutPlanSize = new DistributionStat();
 
     private long requestSuccess;
     private long requestFailure;
@@ -61,33 +61,56 @@ public class RemoteTaskStats
         requestFailure++;
     }
 
-    public void updateWithPlanBytes(long bytes)
+    public void updateWithPlanSize(long bytes)
     {
-        updateWithPlanBytes.add(bytes);
+        updateWithPlanSize.add(bytes);
+    }
+
+    public void updateWithoutPlanSize(long bytes)
+    {
+        updateWithoutPlanSize.add(bytes);
     }
 
     @Managed
     public double getResponseSizeBytes()
     {
-        return responseSizeBytes.get();
+        return responseSizeBytes.getAverage();
     }
 
     @Managed
     public double getStatusRoundTripMillis()
     {
-        return statusRoundTripMillis.get();
+        return statusRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getStatusRoundTripCount()
+    {
+        return statusRoundTripMillis.getCount();
     }
 
     @Managed
     public double getUpdateRoundTripMillis()
     {
-        return updateRoundTripMillis.get();
+        return updateRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getUpdateRoundTripCount()
+    {
+        return updateRoundTripMillis.getCount();
     }
 
     @Managed
     public double getInfoRoundTripMillis()
     {
-        return infoRoundTripMillis.get();
+        return infoRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getInfoRoundTripCount()
+    {
+        return infoRoundTripMillis.getCount();
     }
 
     @Managed
@@ -104,27 +127,38 @@ public class RemoteTaskStats
 
     @Managed
     @Nested
-    public DistributionStat getUpdateWithPlanBytes()
+    public DistributionStat getUpdateWithPlanSize()
     {
-        return updateWithPlanBytes;
+        return updateWithPlanSize;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getUpdateWithoutPlanSize()
+    {
+        return updateWithoutPlanSize;
     }
 
     @ThreadSafe
     private static class IncrementalAverage
     {
-        private long count;
-        private final AtomicDouble average = new AtomicDouble();
+        private volatile long count;
+        private volatile double average;
 
         synchronized void add(long value)
         {
             count++;
-            double oldAverage = average.get();
-            average.set(oldAverage + ((value - oldAverage) / count));
+            average = average + (value - average) / count;
         }
 
-        double get()
+        double getAverage()
         {
-            return average.get();
+            return average;
+        }
+
+        long getCount()
+        {
+            return count;
         }
     }
 }

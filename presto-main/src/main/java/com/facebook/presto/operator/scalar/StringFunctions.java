@@ -195,14 +195,85 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
     {
+        return stringPositionFromStart(string, substring, 1);
+    }
+
+    @Description("returns index of n-th occurrence of a substring (or 0 if not found)")
+    @ScalarFunction("strpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringPosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    {
+        return stringPositionFromStart(string, substring, instance);
+    }
+
+    @Description("returns index of last occurrence of a substring (or 0 if not found)")
+    @ScalarFunction("strrpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring)
+    {
+        return stringPositionFromEnd(string, substring, 1);
+    }
+
+    @Description("returns index of n-th occurrence of a substring from the end of the string (or 0 if not found)")
+    @ScalarFunction("strrpos")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long stringReversePosition(@SqlType("varchar(x)") Slice string, @SqlType("varchar(y)") Slice substring, @SqlType(StandardTypes.BIGINT) long instance)
+    {
+        return stringPositionFromEnd(string, substring, instance);
+    }
+
+    private static long stringPositionFromStart(Slice string, Slice substring, long instance)
+    {
+        if (instance <= 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive number.");
+        }
         if (substring.length() == 0) {
             return 1;
         }
 
-        int index = string.indexOf(substring);
-        if (index < 0) {
-            return 0;
+        int foundInstances = 0;
+        // set the initial index just before the start of the string
+        // this is to allow for the initial index increment
+        int index = -1;
+        do {
+            // step forwards through string
+            index = string.indexOf(substring, index + 1);
+            if (index < 0) {
+                return 0;
+            }
+            foundInstances++;
         }
+        while (foundInstances < instance);
+
+        return countCodePoints(string, 0, index) + 1;
+    }
+
+    private static long stringPositionFromEnd(Slice string, Slice substring, long instance)
+    {
+        if (instance <= 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive number.");
+        }
+        if (substring.length() == 0) {
+            return 1;
+        }
+
+        int foundInstances = 0;
+        // set the initial index just after the end of the string
+        // this is to allow for the initial index decrement
+        int index = string.length();
+        do {
+            // step backwards through string
+            index = string.toStringUtf8().lastIndexOf(substring.toStringUtf8(), index - 1);
+            if (index < 0) {
+                return 0;
+            }
+            foundInstances++;
+        }
+        while (foundInstances < instance);
+
         return countCodePoints(string, 0, index) + 1;
     }
 

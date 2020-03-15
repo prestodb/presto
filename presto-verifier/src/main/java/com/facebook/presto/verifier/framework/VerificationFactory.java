@@ -13,51 +13,91 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
+import com.facebook.presto.verifier.resolver.FailureResolverFactoryContext;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
+import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
+import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class VerificationFactory
 {
     private final SqlParser sqlParser;
-    private final PrestoAction prestoAction;
-    private final QueryRewriter queryRewriter;
+    private final PrestoActionFactory prestoActionFactory;
+    private final QueryRewriterFactory queryRewriterFactory;
+    private final FailureResolverManagerFactory failureResolverManagerFactory;
+    private final NodeResourceClient testResourceClient;
     private final ChecksumValidator checksumValidator;
-    private final List<FailureResolver> failureResolvers;
-    private final VerifierConfig config;
+    private final VerifierConfig verifierConfig;
+    private final TypeManager typeManager;
+    private final DeterminismAnalyzerConfig determinismAnalyzerConfig;
 
     @Inject
     public VerificationFactory(
             SqlParser sqlParser,
-            PrestoAction prestoAction,
-            QueryRewriter queryRewriter,
+            PrestoActionFactory prestoActionFactory,
+            QueryRewriterFactory queryRewriterFactory,
+            FailureResolverManagerFactory failureResolverManagerFactory,
+            @ForTest NodeResourceClient testResourceClient,
             ChecksumValidator checksumValidator,
-            List<FailureResolver> failureResolvers,
-            VerifierConfig config)
+            VerifierConfig verifierConfig,
+            TypeManager typeManager,
+            DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
-        this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
+        this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
+        this.queryRewriterFactory = requireNonNull(queryRewriterFactory, "queryRewriterFactory is null");
+        this.failureResolverManagerFactory = requireNonNull(failureResolverManagerFactory, "failureResolverManagerFactory is null");
+        this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
-        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
-        this.config = requireNonNull(config, "config is null");
+        this.verifierConfig = requireNonNull(verifierConfig, "config is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
     }
 
-    public Verification get(SourceQuery sourceQuery)
+    public Verification get(VerificationResubmitter verificationResubmitter, SourceQuery sourceQuery)
     {
-        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), new ParsingOptions(AS_DOUBLE)));
+        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
-                return new DataVerification(prestoAction, sourceQuery, queryRewriter, failureResolvers, config, checksumValidator);
+                VerificationContext verificationContext = new VerificationContext();
+                PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
+                QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+                DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
+                        sourceQuery,
+                        prestoAction,
+                        queryRewriter,
+                        checksumValidator,
+                        typeManager,
+                        verificationContext,
+                        determinismAnalyzerConfig);
+                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
+                        sqlParser,
+                        prestoAction,
+                        testResourceClient));
+                return new DataVerification(
+                        verificationResubmitter,
+                        prestoAction,
+                        sourceQuery,
+                        queryRewriter,
+                        determinismAnalyzer,
+                        failureResolverManager,
+                        verificationContext,
+                        verifierConfig,
+                        typeManager,
+                        checksumValidator);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }

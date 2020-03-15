@@ -57,6 +57,12 @@ public class TestShowStats
                         "   ('comment', 1857.0, 5.0, 0.0, null, null, null), " +
                         "   (null, null, null, null, 25.0, null, null))");
 
+        assertQuery("SHOW STATS FOR (SELECT regionkey, name FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 25.0, null, null))");
+
         assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey IS NOT NULL)",
                 "SELECT * FROM (VALUES " +
                         "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
@@ -155,11 +161,14 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsSelectNonStarFails()
+    public void testShowStatsSelectWithExpressionsFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT orderkey, custkey FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT *, * FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey + 1 FROM orders)", ".*Expressions are not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey + custkey FROM orders)", ".*Expressions are not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT *, 'abc' FROM orders)", ".*Expressions are not supported in SHOW STATS SELECT clause");
+
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Expressions are not supported in SHOW STATS SELECT clause");
+        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Expressions are not supported in SHOW STATS SELECT clause");
     }
 
     @Test
@@ -169,18 +178,17 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsWithSelectFunctionCallFails()
-    {
-        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Only SELECT \\* is supported in SHOW STATS SELECT clause");
-    }
-
-    @Test
     public void testShowStatsWithNonPushDownFilterFails()
     {
         assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey + 100 < 200)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
         assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 0 and nationkey > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
         assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE nationkey = 1 and name is not null)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
         assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+    }
+
+    @Test
+    public void testShowStatsWithNonExistentColumns()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT foo FROM orders)", ".*Column 'foo' cannot be resolved.*");
     }
 }

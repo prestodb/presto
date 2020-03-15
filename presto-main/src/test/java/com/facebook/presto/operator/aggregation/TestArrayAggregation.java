@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
@@ -224,6 +223,6 @@ public class TestArrayAggregation
 
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("array_agg", fromTypes(arguments)));
     }
 }

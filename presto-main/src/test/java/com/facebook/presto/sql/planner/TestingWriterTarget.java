@@ -14,11 +14,28 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
 {
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("test-schema", "test-table");
+
+    @Override
+    public ConnectorId getConnectorId()
+    {
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    public SchemaTableName getSchemaTableName()
+    {
+        return SCHEMA_TABLE_NAME;
+    }
+
     @Override
     public String toString()
     {

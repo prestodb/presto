@@ -13,25 +13,29 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.node.NodeInfo;
-import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -40,10 +44,10 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
@@ -61,7 +65,7 @@ import static org.testng.Assert.assertNull;
 @Test
 public class TestSqlTaskManager
 {
-    private static final TaskId TASK_ID = new TaskId("query", 0, 1);
+    private static final TaskId TASK_ID = new TaskId("query", 0, 0, 1);
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
     private final TaskExecutor taskExecutor;
@@ -73,7 +77,7 @@ public class TestSqlTaskManager
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
-        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
     }
@@ -244,8 +248,11 @@ public class TestSqlTaskManager
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
+                new MockExchangeClientSupplier(),
                 new NodeSpillConfig(),
-                new TestingGcMonitor());
+                new TestingGcMonitor(),
+                new BlockEncodingManager(new TypeRegistry()),
+                new OrderingCompiler());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
@@ -255,7 +262,7 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                OptionalInt.empty());
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -266,7 +273,8 @@ public class TestSqlTaskManager
                         testSessionBuilder().build(),
                         false,
                         false,
-                        OptionalInt.empty(),
+                        false,
+                        false,
                         false);
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
@@ -274,7 +282,7 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                OptionalInt.empty());
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
     public static class MockExchangeClientSupplier
@@ -309,13 +317,19 @@ public class TestSqlTaskManager
         }
 
         @Override
-        public URI createTaskLocation(Node node, TaskId taskId)
+        public URI createLegacyTaskLocation(InternalNode node, TaskId taskId)
         {
             return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
         }
 
         @Override
-        public URI createMemoryInfoLocation(Node node)
+        public URI createTaskLocation(InternalNode node, TaskId taskId)
+        {
+            return createLegacyTaskLocation(node, taskId);
+        }
+
+        @Override
+        public URI createMemoryInfoLocation(InternalNode node)
         {
             return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }

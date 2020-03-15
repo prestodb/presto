@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.re2j.Matcher;
 import com.google.re2j.Options;
 import com.google.re2j.Pattern;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

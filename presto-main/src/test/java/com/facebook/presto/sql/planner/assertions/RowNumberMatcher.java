@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 
 import java.util.List;
@@ -47,7 +49,7 @@ public class RowNumberMatcher
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -66,8 +68,9 @@ public class RowNumberMatcher
         if (!partitionBy
                 .map(expectedPartitionBy -> expectedPartitionBy.stream()
                         .map(alias -> alias.toSymbol(symbolAliases))
+                        .map(Symbol::getName)
                         .collect(toImmutableList())
-                        .equals(rowNumberNode.getPartitionBy()))
+                        .equals(rowNumberNode.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -80,8 +83,8 @@ public class RowNumberMatcher
 
         if (!rowNumberSymbol
                 .map(expectedRowNumberSymbol ->
-                        expectedRowNumberSymbol.toSymbol(symbolAliases)
-                                .equals(rowNumberNode.getRowNumberSymbol()))
+                        expectedRowNumberSymbol.toSymbol(symbolAliases).getName()
+                                .equals(rowNumberNode.getRowNumberVariable().getName()))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -90,7 +93,8 @@ public class RowNumberMatcher
                 .map(expectedHashSymbol ->
                         expectedHashSymbol
                                 .map(symbolAlias -> symbolAlias.toSymbol(symbolAliases))
-                                .equals(rowNumberNode.getHashSymbol()))
+                                .map(Symbol::getName)
+                                .equals(rowNumberNode.getHashVariable().map(VariableReferenceExpression::getName)))
                 .orElse(true)) {
             return NO_MATCH;
         }

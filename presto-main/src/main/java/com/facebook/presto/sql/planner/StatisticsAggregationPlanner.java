@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -50,94 +52,103 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
 {
-    private final Session session;
-    private final SymbolAllocator symbolAllocator;
+    private final PlanVariableAllocator variableAllocator;
     private final Metadata metadata;
 
-    public StatisticsAggregationPlanner(Session session, SymbolAllocator symbolAllocator, Metadata metadata)
+    public StatisticsAggregationPlanner(PlanVariableAllocator variableAllocator, Metadata metadata)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, Symbol> columnToSymbolMap)
+    public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
     {
-        StatisticAggregationsDescriptor.Builder<Symbol> descriptor = StatisticAggregationsDescriptor.builder();
+        StatisticAggregationsDescriptor.Builder<VariableReferenceExpression> descriptor = StatisticAggregationsDescriptor.builder();
 
         List<String> groupingColumns = statisticsMetadata.getGroupingColumns();
-        List<Symbol> groupingSymbols = groupingColumns.stream()
-                .map(columnToSymbolMap::get)
+        List<VariableReferenceExpression> groupingVariables = groupingColumns.stream()
+                .map(columnToVariableMap::get)
                 .collect(toImmutableList());
 
-        for (int i = 0; i < groupingSymbols.size(); i++) {
-            descriptor.addGrouping(groupingColumns.get(i), groupingSymbols.get(i));
+        for (int i = 0; i < groupingVariables.size(); i++) {
+            descriptor.addGrouping(groupingColumns.get(i), groupingVariables.get(i));
         }
 
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
+        StandardFunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionManager());
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
-            QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    new FunctionCall(count, ImmutableList.of()),
-                    functionManager.lookupFunction(count, ImmutableList.of()),
+                    new CallExpression(
+                            "count",
+                            functionResolution.countFunction(),
+                            BIGINT,
+                            ImmutableList.of()),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
                     Optional.empty());
-            Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
-            aggregations.put(symbol, aggregation);
-            descriptor.addTableStatistic(ROW_COUNT, symbol);
+            VariableReferenceExpression variable = variableAllocator.newVariable("rowCount", BIGINT);
+            aggregations.put(variable, aggregation);
+            descriptor.addTableStatistic(ROW_COUNT, variable);
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
-            Symbol inputSymbol = columnToSymbolMap.get(columnName);
-            verify(inputSymbol != null, "inputSymbol is null");
-            Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            verify(inputType != null, "inputType is null for symbol: %s", inputSymbol);
-            ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
-            Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
-            aggregations.put(symbol, aggregation.getAggregation());
-            descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
+            VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
+            verify(inputVariable != null, "inputVariable is null");
+            ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputVariable);
+            VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
+            aggregations.put(variable, aggregation.getAggregation());
+            descriptor.addColumnStatistic(columnStatisticMetadata, variable);
         }
 
-        StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingSymbols);
+        StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingVariables);
         return new TableStatisticAggregation(aggregation, descriptor.build());
     }
 
-    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, Symbol input, Type inputType)
+    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, VariableReferenceExpression input)
     {
+        SymbolReference symbolReference = new SymbolReference(input.getName());
         switch (statisticType) {
             case MIN_VALUE:
-                return createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation("min", symbolReference, input.getType(), input.getType());
             case MAX_VALUE:
-                return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation("max", symbolReference, input.getType(), input.getType());
             case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("approx_distinct", symbolReference, input.getType(), BIGINT);
             case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("count", symbolReference, input.getType(), BIGINT);
             case NUMBER_OF_TRUE_VALUES:
-                return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
+                return createAggregation("count_if", symbolReference, BOOLEAN, BIGINT);
             case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(SumDataSizeForStats.NAME, symbolReference, input.getType(), BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(MaxDataSizeForStats.NAME, symbolReference, input.getType(), BIGINT);
             default:
                 throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }
     }
 
-    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
+    private ColumnStatisticsAggregation createAggregation(String functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(functionHandle.getSignature().getArgumentTypes()));
+        FunctionManager functionManager = metadata.getFunctionManager();
+        FunctionHandle functionHandle = functionManager.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
+        Type resolvedType = metadata.getType(getOnlyElement(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        new FunctionCall(functionName, ImmutableList.of(input)),
-                        functionHandle,
+                        new CallExpression(
+                                functionName,
+                                functionHandle,
+                                outputType,
+                                ImmutableList.of(castToRowExpression(input))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty()),
                 outputType);
     }
@@ -145,11 +156,11 @@ public class StatisticsAggregationPlanner
     public static class TableStatisticAggregation
     {
         private final StatisticAggregations aggregations;
-        private final StatisticAggregationsDescriptor<Symbol> descriptor;
+        private final StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor;
 
         private TableStatisticAggregation(
                 StatisticAggregations aggregations,
-                StatisticAggregationsDescriptor<Symbol> descriptor)
+                StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
         {
             this.aggregations = requireNonNull(aggregations, "statisticAggregations is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
@@ -160,7 +171,7 @@ public class StatisticsAggregationPlanner
             return aggregations;
         }
 
-        public StatisticAggregationsDescriptor<Symbol> getDescriptor()
+        public StatisticAggregationsDescriptor<VariableReferenceExpression> getDescriptor()
         {
             return descriptor;
         }

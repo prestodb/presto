@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.OptionalDouble;

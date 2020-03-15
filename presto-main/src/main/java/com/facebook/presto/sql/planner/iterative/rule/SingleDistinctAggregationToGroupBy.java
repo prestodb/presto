@@ -15,12 +15,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -33,8 +33,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
@@ -80,16 +80,14 @@ public class SingleDistinctAggregationToGroupBy
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .allMatch(FunctionCall::isDistinct);
+                .allMatch(Aggregation::isDistinct);
     }
 
     private static boolean noFilters(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .noneMatch(call -> call.getFilter().isPresent());
+                .noneMatch(instance -> instance.getFilter().isPresent());
     }
 
     private static boolean noMasks(AggregationNode aggregation)
@@ -99,14 +97,13 @@ public class SingleDistinctAggregationToGroupBy
                 .noneMatch(e -> e.getMask().isPresent());
     }
 
-    private static Stream<Set<Expression>> extractArgumentSets(AggregationNode aggregation)
+    private static Stream<Set<RowExpression>> extractArgumentSets(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .filter(FunctionCall::isDistinct)
-                .map(FunctionCall::getArguments)
-                .<Set<Expression>>map(HashSet::new)
+                .filter(Aggregation::isDistinct)
+                .map(Aggregation::getArguments)
+                .<Set<RowExpression>>map(HashSet::new)
                 .distinct();
     }
 
@@ -119,11 +116,12 @@ public class SingleDistinctAggregationToGroupBy
     @Override
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        List<Set<Expression>> argumentSets = extractArgumentSets(aggregation)
+        List<Set<RowExpression>> argumentSets = extractArgumentSets(aggregation)
                 .collect(Collectors.toList());
 
-        Set<Symbol> symbols = Iterables.getOnlyElement(argumentSets).stream()
-                .map(Symbol::from)
+        Set<VariableReferenceExpression> variables = Iterables.getOnlyElement(argumentSets).stream()
+                .map(OriginalExpressionUtils::castToExpression)
+                .map(context.getVariableAllocator()::toVariableReference)
                 .collect(Collectors.toSet());
 
         return Result.ofPlanNode(
@@ -133,9 +131,9 @@ public class SingleDistinctAggregationToGroupBy
                                 context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 ImmutableMap.of(),
-                                singleGroupingSet(ImmutableList.<Symbol>builder()
+                                singleGroupingSet(ImmutableList.<VariableReferenceExpression>builder()
                                         .addAll(aggregation.getGroupingKeys())
-                                        .addAll(symbols)
+                                        .addAll(variables)
                                         .build()),
                                 ImmutableList.of(),
                                 SINGLE,
@@ -150,24 +148,19 @@ public class SingleDistinctAggregationToGroupBy
                         aggregation.getGroupingSets(),
                         emptyList(),
                         aggregation.getStep(),
-                        aggregation.getHashSymbol(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregation.getHashVariable(),
+                        aggregation.getGroupIdVariable()));
     }
 
     private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
     {
-        checkArgument(aggregation.getCall().isDistinct(), "Expected aggregation to have DISTINCT input");
+        checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
 
-        FunctionCall call = aggregation.getCall();
         return new AggregationNode.Aggregation(
-                new FunctionCall(
-                        call.getName(),
-                        call.getWindow(),
-                        call.getFilter(),
-                        call.getOrderBy(),
-                        false,
-                        call.getArguments()),
-                aggregation.getFunctionHandle(),
+                aggregation.getCall(),
+                aggregation.getFilter(),
+                aggregation.getOrderBy(),
+                false,
                 aggregation.getMask());
     }
 }

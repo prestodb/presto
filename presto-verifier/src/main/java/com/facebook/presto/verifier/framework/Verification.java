@@ -19,5 +19,7 @@ import java.util.Optional;
 
 public interface Verification
 {
+    SourceQuery getSourceQuery();
+
     Optional<VerifierQueryEvent> run();
 }

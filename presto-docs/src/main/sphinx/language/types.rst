@@ -88,8 +88,8 @@ Fixed-Precision
     .. note::
 
         For compatibility reasons decimal literals without explicit type specifier (e.g. ``1.2``)
-        are treated as the values of the ``DOUBLE`` type by default, but this is subject to change
-        in future releases. This behavior is controlled by:
+        are treated as values of the ``DOUBLE`` type by default up to version 0.198. 
+        After 0.198 they are parsed as DECIMAL.
 
           - System wide property: ``parse-decimal-literals-as-double``
           - Session wide property: ``parse_decimal_literals_as_double``
@@ -225,15 +225,37 @@ Network Address
 ``IPADDRESS``
 ^^^^^^^^^^^^^
 
-    An IP address that can represent either an IPv4 or IPv6 address. Internally,
-    the type is a pure IPv6 address. Support for IPv4 is handled using the
-    *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
+    An IP address that can represent either an IPv4 or IPv6 address.
+
+    Internally, the type is a pure IPv6 address. Support for IPv4 is handled
+    using the *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
     When creating an ``IPADDRESS``, IPv4 addresses will be mapped into that range.
+
     When formatting an ``IPADDRESS``, any address within the mapped range will
     be formatted as an IPv4 address. Other addresses will be formatted as IPv6
     using the canonical format defined in :rfc:`5952`.
 
     Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
+
+.. _ipprefix_type:
+
+``IPPREFIX``
+^^^^^^^^^^^^
+
+    An IP routing prefix that can represent either an IPv4 or IPv6 address.
+
+    Internally, an address is a pure IPv6 address. Support for IPv4 is handled
+    using the *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
+    When creating an ``IPPREFIX``, IPv4 addresses will be mapped into that range.
+    Additionally, addresses will be reduced to the first address of a network.
+
+    ``IPPREFIX`` values will be formatted in CIDR notation, written as an IP
+    address, a slash ('/') character, and the bit-length of the prefix. Any
+    address within the IPv4-mapped IPv6 address range will be formatted as an
+    IPv4 address. Other addresses will be formatted as IPv6 using the canonical
+    format defined in :rfc:`5952`.
+
+    Examples: ``IPPREFIX '10.0.1.0/24'``, ``IPPREFIX '2001:db8::/48'``
 
 HyperLogLog
 -----------

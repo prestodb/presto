@@ -61,7 +61,10 @@ public class TaskStatus
 
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
+
+    private final double outputBufferUtilization;
     private final boolean outputBufferOverutilized;
+
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
@@ -83,6 +86,7 @@ public class TaskStatus
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("outputBufferUtilization") double outputBufferUtilization,
             @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -106,6 +110,7 @@ public class TaskStatus
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
 
+        this.outputBufferUtilization = outputBufferUtilization;
         this.outputBufferOverutilized = outputBufferOverutilized;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
@@ -186,6 +191,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public double getOutputBufferUtilization()
+    {
+        return outputBufferUtilization;
+    }
+
+    @JsonProperty
     public boolean isOutputBufferOverutilized()
     {
         return outputBufferOverutilized;
@@ -237,6 +248,7 @@ public class TaskStatus
                 ImmutableList.of(),
                 0,
                 0,
+                0.0,
                 false,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -258,6 +270,7 @@ public class TaskStatus
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
+                taskStatus.getOutputBufferUtilization(),
                 taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),

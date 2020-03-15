@@ -157,7 +157,7 @@ public class TestEventListener
 
         // Sum of row count processed by all leaf stages is equal to the number of rows in the table
         long actualCompletedPositions = splitCompletedEvents.stream()
-                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
+                .filter(e -> !e.getStageExecutionId().endsWith(".0.0"))    // filter out the root stage
                 .mapToLong(e -> e.getStatistics().getCompletedPositions())
                 .sum();
 
@@ -178,7 +178,7 @@ public class TestEventListener
         MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        QueryStats queryStats = queryRunner.getQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        QueryStats queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
@@ -188,7 +188,7 @@ public class TestEventListener
         runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem", expectedEvents);
         queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        queryStats = queryRunner.getQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);

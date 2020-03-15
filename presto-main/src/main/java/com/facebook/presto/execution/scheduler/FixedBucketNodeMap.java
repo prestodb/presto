@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,18 +27,27 @@ import static java.util.Objects.requireNonNull;
 public class FixedBucketNodeMap
         extends BucketNodeMap
 {
-    private final List<Node> bucketToNode;
+    private final List<InternalNode> bucketToNode;
+    private final boolean cacheable;
 
-    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<Node> bucketToNode)
+    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<InternalNode> bucketToNode, boolean cacheable)
     {
         super(splitToBucket);
+        requireNonNull(bucketToNode, "bucketToNode is null");
         this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
+        this.cacheable = cacheable;
     }
 
     @Override
-    public Optional<Node> getAssignedNode(int bucketedId)
+    public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
         return Optional.of(bucketToNode.get(bucketedId));
+    }
+
+    @Override
+    public boolean isBucketCacheable(int bucketedId)
+    {
+        return cacheable;
     }
 
     @Override
@@ -48,7 +57,7 @@ public class FixedBucketNodeMap
     }
 
     @Override
-    public void assignBucketToNode(int bucketedId, Node node)
+    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node, boolean cacheable)
     {
         throw new UnsupportedOperationException();
     }
@@ -57,5 +66,17 @@ public class FixedBucketNodeMap
     public boolean isDynamic()
     {
         return false;
+    }
+
+    @Override
+    public boolean hasInitialMap()
+    {
+        return true;
+    }
+
+    @Override
+    public Optional<List<InternalNode>> getBucketToNode()
+    {
+        return Optional.of(bucketToNode);
     }
 }

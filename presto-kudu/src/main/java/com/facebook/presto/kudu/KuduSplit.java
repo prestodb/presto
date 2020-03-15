@@ -15,12 +15,14 @@ package com.facebook.presto.kudu;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public class KuduSplit
@@ -59,13 +61,13 @@ public class KuduSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return true;
+        return NO_PREFERENCE;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of();
     }

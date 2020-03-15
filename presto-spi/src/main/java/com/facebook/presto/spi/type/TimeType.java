@@ -40,10 +40,10 @@ public final class TimeType
         }
 
         if (session.isLegacyTimestamp()) {
-            return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
+            return new SqlTime(block.getLong(position), session.getTimeZoneKey());
         }
         else {
-            return new SqlTime(block.getLong(position, 0));
+            return new SqlTime(block.getLong(position));
         }
     }
 

@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -208,7 +209,7 @@ public class TestAddExchanges
     public void testPickLayoutPartitionedOnSingle()
     {
         Comparator<ActualProperties> preference = streamingExecutionPreference(
-                PreferredProperties.partitioned(ImmutableSet.of(symbol("a"))));
+                PreferredProperties.partitioned(ImmutableSet.of(variable("a"))));
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()
@@ -270,7 +271,7 @@ public class TestAddExchanges
     public void testPickLayoutPartitionedOnMultiple()
     {
         Comparator<ActualProperties> preference = streamingExecutionPreference(
-                PreferredProperties.partitioned(ImmutableSet.of(symbol("a"), symbol("b"))));
+                PreferredProperties.partitioned(ImmutableSet.of(variable("a"), variable("b"))));
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()
@@ -679,7 +680,7 @@ public class TestAddExchanges
     {
         Comparator<ActualProperties> preference = streamingExecutionPreference
                 (PreferredProperties.partitionedWithLocal(
-                        ImmutableSet.of(symbol("a")),
+                        ImmutableSet.of(variable("a")),
                         ImmutableList.of(grouped("a"))));
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
@@ -766,30 +767,30 @@ public class TestAddExchanges
         return Global.streamPartitionedOn(arguments(columnNames));
     }
 
-    private static ConstantProperty<Symbol> constant(String column)
+    private static ConstantProperty<VariableReferenceExpression> constant(String column)
     {
-        return new ConstantProperty<>(symbol(column));
+        return new ConstantProperty<>(variable(column));
     }
 
-    private static GroupingProperty<Symbol> grouped(String... columns)
+    private static GroupingProperty<VariableReferenceExpression> grouped(String... columns)
     {
-        return new GroupingProperty<>(Lists.transform(Arrays.asList(columns), Symbol::new));
+        return new GroupingProperty<>(Lists.transform(Arrays.asList(columns), column -> new VariableReferenceExpression(column, BIGINT)));
     }
 
-    private static SortingProperty<Symbol> sorted(String column, SortOrder order)
+    private static SortingProperty<VariableReferenceExpression> sorted(String column, SortOrder order)
     {
-        return new SortingProperty<>(symbol(column), order);
+        return new SortingProperty<>(variable(column), order);
     }
 
-    private static Symbol symbol(String name)
+    private static VariableReferenceExpression variable(String name)
     {
-        return new Symbol(name);
+        return new VariableReferenceExpression(name, BIGINT);
     }
 
-    private static List<Symbol> arguments(String[] columnNames)
+    private static List<VariableReferenceExpression> arguments(String[] columnNames)
     {
         return Arrays.asList(columnNames).stream()
-                .map(Symbol::new)
+                .map(column -> new VariableReferenceExpression(column, BIGINT))
                 .collect(toImmutableList());
     }
 }

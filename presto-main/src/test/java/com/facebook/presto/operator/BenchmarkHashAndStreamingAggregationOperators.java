@@ -21,12 +21,11 @@ import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggreg
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -52,6 +51,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
@@ -59,7 +59,6 @@ import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationO
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -84,9 +83,9 @@ public class BenchmarkHashAndStreamingAggregationOperators
     private static final FunctionManager functionManager = metadata.getFunctionManager();
 
     private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
+            functionManager.lookupFunction("sum", fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
+            functionManager.lookupFunction("count", ImmutableList.of()));
 
     @State(Thread)
     public static class Context

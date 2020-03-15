@@ -14,8 +14,12 @@
 package com.facebook.presto.spi.security;
 
 import java.security.Principal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorIdentity
@@ -23,12 +27,19 @@ public class ConnectorIdentity
     private final String user;
     private final Optional<Principal> principal;
     private final Optional<SelectedRole> role;
+    private final Map<String, String> extraCredentials;
 
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
+    {
+        this(user, principal, role, emptyMap());
+    }
+
+    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.role = requireNonNull(role, "role is null");
+        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
     }
 
     public String getUser()
@@ -44,6 +55,11 @@ public class ConnectorIdentity
     public Optional<SelectedRole> getRole()
     {
         return role;
+    }
+
+    public Map<String, String> getExtraCredentials()
+    {
+        return extraCredentials;
     }
 
     @Override
@@ -67,6 +83,7 @@ public class ConnectorIdentity
         sb.append("user='").append(user).append('\'');
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         role.ifPresent(role -> sb.append(", role=").append(role));
+        sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append('}');
         return sb.toString();
     }

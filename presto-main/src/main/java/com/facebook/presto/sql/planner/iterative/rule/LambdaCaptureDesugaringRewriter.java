@@ -14,9 +14,8 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -33,15 +32,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter
 {
-    public static Expression rewrite(Expression expression, TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, PlanVariableAllocator variableAllocator)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(variableAllocator), expression, new Context());
     }
 
     private LambdaCaptureDesugaringRewriter() {}
@@ -49,64 +49,59 @@ public class LambdaCaptureDesugaringRewriter
     private static class Visitor
             extends ExpressionRewriter<Context>
     {
-        private final TypeProvider symbolTypes;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
 
-        public Visitor(TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+        public Visitor(PlanVariableAllocator variableAllocator)
         {
-            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
             // Use linked hash set to guarantee deterministic iteration order
-            LinkedHashSet<Symbol> referencedSymbols = new LinkedHashSet<>();
-            Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedSymbols(referencedSymbols));
+            LinkedHashSet<VariableReferenceExpression> referencedVariables = new LinkedHashSet<>();
+            Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedVariables(referencedVariables));
 
-            List<Symbol> lambdaArguments = node.getArguments().stream()
+            List<String> lambdaArgumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
                     .map(Identifier::getValue)
-                    .map(Symbol::new)
                     .collect(toImmutableList());
 
-            // referenced symbols - lambda arguments = capture symbols
-            // referencedSymbols no longer contains what its name suggests after this line
-            referencedSymbols.removeAll(lambdaArguments);
-            Set<Symbol> captureSymbols = referencedSymbols;
+            // referenced variables - lambda arguments = capture variables
+            Set<VariableReferenceExpression> captureVariables = referencedVariables.stream().filter(variable -> !lambdaArgumentNames.contains(variable.getName())).collect(toImmutableSet());
 
-            // x -> f(x, captureSymbol)    will be rewritten into
-            // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
+            // x -> f(x, captureVariable)    will be rewritten into
+            // "$internal$bind"(captureVariable, (extraVariable, x) -> f(x, extraVariable))
 
-            ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> captureVariableToExtraVariable = ImmutableMap.builder();
             ImmutableList.Builder<LambdaArgumentDeclaration> newLambdaArguments = ImmutableList.builder();
-            for (Symbol captureSymbol : captureSymbols) {
-                Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
-                captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
-                newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraSymbol.getName())));
+            for (VariableReferenceExpression captureVariable : captureVariables) {
+                VariableReferenceExpression extraVariable = variableAllocator.newVariable(captureVariable);
+                captureVariableToExtraVariable.put(captureVariable, extraVariable);
+                newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraVariable.getName())));
             }
             newLambdaArguments.addAll(node.getArguments());
 
-            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
-            Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
+            ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> variablesMap = captureVariableToExtraVariable.build();
+            Function<VariableReferenceExpression, Expression> variableMapping = variable -> new SymbolReference(variablesMap.getOrDefault(variable, variable).getName());
+            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, variableAllocator.getTypes()));
 
-            if (captureSymbols.size() != 0) {
-                List<Expression> capturedValues = captureSymbols.stream()
-                        .map(symbol -> new SymbolReference(symbol.getName()))
+            if (captureVariables.size() != 0) {
+                List<Expression> capturedValues = captureVariables.stream()
+                        .map(variable -> new SymbolReference(variable.getName()))
                         .collect(toImmutableList());
                 rewrittenExpression = new BindExpression(capturedValues, rewrittenExpression);
             }
 
-            context.getReferencedSymbols().addAll(captureSymbols);
+            context.getReferencedVariables().addAll(captureVariables);
             return rewrittenExpression;
         }
 
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedSymbols().add(new Symbol(node.getName()));
+            context.getReferencedVariables().add(variableAllocator.toVariableReference(node));
             return null;
         }
     }
@@ -114,26 +109,26 @@ public class LambdaCaptureDesugaringRewriter
     private static class Context
     {
         // Use linked hash set to guarantee deterministic iteration order
-        final LinkedHashSet<Symbol> referencedSymbols;
+        final LinkedHashSet<VariableReferenceExpression> referencedVariables;
 
         public Context()
         {
             this(new LinkedHashSet<>());
         }
 
-        private Context(LinkedHashSet<Symbol> referencedSymbols)
+        private Context(LinkedHashSet<VariableReferenceExpression> referencedVariables)
         {
-            this.referencedSymbols = referencedSymbols;
+            this.referencedVariables = referencedVariables;
         }
 
-        public LinkedHashSet<Symbol> getReferencedSymbols()
+        public LinkedHashSet<VariableReferenceExpression> getReferencedVariables()
         {
-            return referencedSymbols;
+            return referencedVariables;
         }
 
-        public Context withReferencedSymbols(LinkedHashSet<Symbol> symbols)
+        public Context withReferencedVariables(LinkedHashSet<VariableReferenceExpression> variables)
         {
-            return new Context(symbols);
+            return new Context(variables);
         }
     }
 }

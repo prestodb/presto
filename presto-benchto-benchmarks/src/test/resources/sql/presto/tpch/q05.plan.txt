@@ -3,7 +3,7 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (name_15)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["name_15"])
+                    remote exchange (REPARTITION, HASH, [name_15])
                         partial aggregation over (name_15)
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
@@ -11,10 +11,10 @@ remote exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["custkey_0"])
+                                                remote exchange (REPARTITION, HASH, [custkey_0])
                                                     scan orders
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["custkey"])
+                                                    remote exchange (REPARTITION, HASH, [custkey])
                                                         join (INNER, REPLICATED):
                                                             scan customer
                                                             local exchange (GATHER, SINGLE, [])

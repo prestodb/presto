@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.operator.ForExchange;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

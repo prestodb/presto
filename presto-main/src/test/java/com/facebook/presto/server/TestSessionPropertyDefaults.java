@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.node.NodeInfo;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

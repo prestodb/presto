@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -24,6 +25,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
@@ -118,36 +120,27 @@ public class LongArrayBlock
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return values[position + arrayOffset];
+        return getLongUnchecked(position + arrayOffset);
     }
 
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return toIntExact(values[position + arrayOffset]);
     }
 
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
 
         short value = (short) (values[position + arrayOffset]);
         if (value != values[position + arrayOffset]) {
@@ -159,12 +152,9 @@ public class LongArrayBlock
     @Override
     @Deprecated
     // TODO: Remove when we fix intermediate types on aggregations.
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
 
         byte value = (byte) (values[position + arrayOffset]);
         if (value != values[position + arrayOffset]) {
@@ -183,7 +173,7 @@ public class LongArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull != null && isNullUnchecked(position + arrayOffset);
     }
 
     @Override
@@ -192,6 +182,18 @@ public class LongArrayBlock
         checkReadablePosition(position);
         blockBuilder.writeLong(values[position + arrayOffset]);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            output.writeLong(values[position + arrayOffset]);
+        }
     }
 
     @Override
@@ -269,5 +271,26 @@ public class LongArrayBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return arrayOffset;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return valueIsNull[internalPosition];
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return values[internalPosition];
     }
 }

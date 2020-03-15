@@ -14,21 +14,25 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -44,6 +48,7 @@ import org.testng.annotations.Test;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -54,14 +59,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -73,6 +79,12 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestDriver
 {
+    private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(
+            new ConnectorId("test"),
+            new ConnectorTableHandle() {},
+            new ConnectorTransactionHandle() {},
+            Optional.empty());
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
@@ -172,13 +184,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(types);
@@ -270,13 +283,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -298,13 +312,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
@@ -482,9 +497,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
         }
 
         @Override
@@ -506,9 +522,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
         }
 
         @Override
@@ -522,13 +539,13 @@ public class TestDriver
             implements ConnectorSplit
     {
         @Override
-        public boolean isRemotelyAccessible()
+        public NodeSelectionStrategy getNodeSelectionStrategy()
         {
-            return false;
+            return HARD_AFFINITY;
         }
 
         @Override
-        public List<HostAddress> getAddresses()
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of();
         }

@@ -13,6 +13,18 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.CachingStripeMetadataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeReader.StripeId;
+import com.facebook.presto.orc.StripeReader.StripeStreamId;
+import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
+import com.facebook.presto.orc.cache.OrcCacheConfig;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.AssignmentLimiter;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
@@ -30,11 +42,20 @@ import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.slice.Slice;
+import org.weakref.jmx.MBeanExporter;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import javax.inject.Singleton;
+
+import java.util.concurrent.TimeUnit;
+
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -56,11 +77,11 @@ public class StorageModule
         configBinder(binder).bindConfig(BucketBalancerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
+        configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
 
         binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
-        binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecorder.class).to(DatabaseShardRecorder.class).in(Scopes.SINGLETON);
         binder.bind(DatabaseShardManager.class).in(Scopes.SINGLETON);
@@ -79,6 +100,7 @@ public class StorageModule
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
         binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
+        newExporter(binder).export(DatabaseShardManager.class).as(generatedNameOf(DatabaseShardManager.class, connectorId));
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
         newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
@@ -89,5 +111,51 @@ public class StorageModule
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
         newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
         newExporter(binder).export(JobFactory.class).withGeneratedName();
+    }
+
+    @Singleton
+    @Provides
+    public OrcFileTailSource createOrcFileTailSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+        if (orcCacheConfig.isFileTailCacheEnabled()) {
+            Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
+                    .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                    .expireAfterAccess(orcCacheConfig.getFileTailCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean cacheStatsMBean = new CacheStatsMBean(cache);
+            orcFileTailSource = new CachingOrcFileTailSource(orcFileTailSource, cache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
+        }
+        return orcFileTailSource;
+    }
+
+    @Singleton
+    @Provides
+    public StripeMetadataSource createStripeMetadataSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
+        if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
+            Cache<StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
+                    .weigher((id, footer) -> ((Slice) footer).length())
+                    .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            Cache<StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
+                    .weigher((id, stream) -> ((Slice) stream).length())
+                    .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
+            CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+        }
+        return stripeMetadataSource;
     }
 }

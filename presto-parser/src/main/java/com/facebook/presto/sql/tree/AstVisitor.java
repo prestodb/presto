@@ -582,6 +582,26 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateFunction(CreateFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitAlterFunction(AlterFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropFunction(CreateFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropFunction(DropFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitInsert(Insert node, C context)
     {
         return visitStatement(node, context);
@@ -650,21 +670,6 @@ public abstract class AstVisitor<R, C>
     protected R visitShowRoleGrants(ShowRoleGrants node, C context)
     {
         return visitStatement(node, context);
-    }
-
-    protected R visitSetPath(SetPath node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
-    protected R visitPathSpecification(PathSpecification node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitPathElement(PathElement node, C context)
-    {
-        return visitNode(node, context);
     }
 
     protected R visitTransactionMode(TransactionMode node, C context)
@@ -757,8 +762,8 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitCurrentPath(CurrentPath node, C context)
+    protected R visitReturn(Return node, C context)
     {
-        return visitExpression(node, context);
+        return visitStatement(node, context);
     }
 }

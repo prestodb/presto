@@ -14,6 +14,7 @@
 
 package com.facebook.presto.session;
 
+import com.facebook.airlift.testing.TempFile;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.TempFile;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

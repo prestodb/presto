@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spi.predicate;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.spi.type.TestingTypeDeserializer;
 import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 

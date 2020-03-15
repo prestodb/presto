@@ -15,6 +15,7 @@ package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.time.Instant.ofEpochSecond;
 import static java.util.Objects.requireNonNull;
@@ -77,13 +79,13 @@ public class AtopSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         // discard the port number
         return ImmutableList.of(HostAddress.fromString(host.getHostText()));

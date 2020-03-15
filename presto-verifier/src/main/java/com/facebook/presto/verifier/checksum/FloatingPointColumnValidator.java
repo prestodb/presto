@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
@@ -44,17 +45,19 @@ public class FloatingPointColumnValidator
         implements ColumnValidator
 {
     private final double relativeErrorMargin;
+    private final double absoluteErrorMargin;
 
     @Inject
     public FloatingPointColumnValidator(VerifierConfig config)
     {
         this.relativeErrorMargin = config.getRelativeErrorMargin();
+        this.absoluteErrorMargin = config.getAbsoluteErrorMargin();
     }
 
     @Override
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
-        Expression doubleColumn = column.getType().equals(DOUBLE) ? column.getIdentifier() : new Cast(column.getIdentifier(), DOUBLE.getDisplayName());
+        Expression doubleColumn = column.getType().equals(DOUBLE) ? column.getExpression() : new Cast(column.getExpression(), DOUBLE.getDisplayName());
         Expression positiveInfinity = new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of());
         Expression negativeInfinity = new ArithmeticUnaryExpression(MINUS, positiveInfinity);
 
@@ -63,7 +66,7 @@ public class FloatingPointColumnValidator
                         new FunctionCall(
                                 QualifiedName.of("sum"),
                                 Optional.empty(),
-                                Optional.of(new FunctionCall(QualifiedName.of("is_finite"), ImmutableList.of(column.getIdentifier()))),
+                                Optional.of(new FunctionCall(QualifiedName.of("is_finite"), ImmutableList.of(column.getExpression()))),
                                 Optional.empty(),
                                 false,
                                 ImmutableList.of(doubleColumn)),
@@ -72,34 +75,40 @@ public class FloatingPointColumnValidator
                         new FunctionCall(
                                 QualifiedName.of("count"),
                                 Optional.empty(),
-                                Optional.of(new FunctionCall(QualifiedName.of("is_nan"), ImmutableList.of(column.getIdentifier()))),
+                                Optional.of(new FunctionCall(QualifiedName.of("is_nan"), ImmutableList.of(column.getExpression()))),
                                 Optional.empty(),
                                 false,
-                                ImmutableList.of(column.getIdentifier())),
+                                ImmutableList.of(column.getExpression())),
                         Optional.of(delimitedIdentifier(getNanCountColumnAlias(column)))),
                 new SingleColumn(
                         new FunctionCall(
                                 QualifiedName.of("count"),
                                 Optional.empty(),
-                                Optional.of(new ComparisonExpression(EQUAL, column.getIdentifier(), positiveInfinity)),
+                                Optional.of(new ComparisonExpression(EQUAL, column.getExpression(), positiveInfinity)),
                                 Optional.empty(),
                                 false,
-                                ImmutableList.of(column.getIdentifier())),
+                                ImmutableList.of(column.getExpression())),
                         Optional.of(delimitedIdentifier(getPositiveInfinityCountColumnAlias(column)))),
                 new SingleColumn(
                         new FunctionCall(
                                 QualifiedName.of("count"),
                                 Optional.empty(),
-                                Optional.of(new ComparisonExpression(EQUAL, column.getIdentifier(), negativeInfinity)),
+                                Optional.of(new ComparisonExpression(EQUAL, column.getExpression(), negativeInfinity)),
                                 Optional.empty(),
                                 false,
-                                ImmutableList.of(column.getIdentifier())),
+                                ImmutableList.of(column.getExpression())),
                         Optional.of(delimitedIdentifier(getNegativeInfinityCountColumnAlias(column)))));
     }
 
     @Override
-    public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
+        checkArgument(
+                controlResult.getRowCount() == testResult.getRowCount(),
+                "Test row count (%s) does not match control row count (%s)",
+                testResult.getRowCount(),
+                controlResult.getRowCount());
+
         String sumColumnAlias = getSumColumnAlias(column);
         String nanCountColumnAlias = getNanCountColumnAlias(column);
         String positiveInfinityCountColumnAlias = getPositiveInfinityCountColumnAlias(column);
@@ -114,24 +123,26 @@ public class FloatingPointColumnValidator
         if (!Objects.equals(controlNanCount, testNanCount) ||
                 !Objects.equals(controlPositiveInfinityCount, testPositiveInfinityCount) ||
                 !Objects.equals(controlNegativeInfinityCount, testNegativeInfinityCount)) {
-            return new ColumnMatchResult(
+            return ImmutableList.of(new ColumnMatchResult(
                     false,
+                    column,
                     format(
                             "control(NaN: %s, +infinity: %s, -infinity: %s) test(NaN: %s, +infinity: %s, -infinity: %s)",
                             controlNanCount,
-                            testNanCount,
                             controlPositiveInfinityCount,
-                            testPositiveInfinityCount,
                             controlNegativeInfinityCount,
-                            testNanCount));
+                            testNanCount,
+                            testPositiveInfinityCount,
+                            testNegativeInfinityCount)));
         }
 
         Object controlSumObject = controlResult.getChecksum(sumColumnAlias);
         Object testSumObject = testResult.getChecksum(sumColumnAlias);
         if (controlSumObject == null || testSumObject == null) {
-            return new ColumnMatchResult(
+            return ImmutableList.of(new ColumnMatchResult(
                     controlSumObject == null && testSumObject == null,
-                    format("control(sum: %s) test(sum: %s)", controlSumObject, testSumObject));
+                    column,
+                    format("control(sum: %s) test(sum: %s)", controlSumObject, testSumObject)));
         }
 
         // Implementation according to http://floating-point-gui.de/errors/comparison/
@@ -140,43 +151,49 @@ public class FloatingPointColumnValidator
 
         // Fail if either sum is NaN or Infinity
         if (isNaN(controlSum) || isNaN(testSum) || isInfinite(controlSum) || isInfinite(testSum)) {
-            return new ColumnMatchResult(
+            return ImmutableList.of(new ColumnMatchResult(
                     false,
-                    format("control(sum: %s) test(sum: %s)", controlSum, testSum));
+                    column,
+                    format("control(sum: %s) test(sum: %s)", controlSum, testSum)));
         }
 
-        // Handles small values and small differences
+        // Use absolute error margin if either control sum or test sum is 0.
+        // Row count won't be zero since otherwise controlSum and testSum will both be null, and this has already been handled above.
+        double controlMean = controlSum / controlResult.getRowCount();
+        double testMean = testSum / controlResult.getRowCount();
+        if (abs(controlMean) < absoluteErrorMargin || abs(testMean) < absoluteErrorMargin) {
+            return ImmutableList.of(new ColumnMatchResult(
+                    abs(controlMean) < absoluteErrorMargin && abs(testMean) < absoluteErrorMargin,
+                    column,
+                    format("control(mean: %s) test(mean: %s)", controlMean, testMean)));
+        }
+
+        // Use relative error margin for the common cases
         double difference = abs(controlSum - testSum);
-        if (controlSum == 0 || testSum == 0 || difference < Double.MIN_NORMAL) {
-            return new ColumnMatchResult(
-                    difference < relativeErrorMargin * Double.MIN_NORMAL,
-                    format("control(sum: %s) test(sum: %s) difference: %s", controlSum, testSum, difference));
-        }
-
-        // Use safe relative error
         double relativeError = difference / min((abs(controlSum) + abs(testSum)) / 2, Double.MAX_VALUE);
-        return new ColumnMatchResult(
+        return ImmutableList.of(new ColumnMatchResult(
                 relativeError < relativeErrorMargin,
-                format("control(sum: %s) test(sum: %s) relative error: %s", controlSum, testSum, relativeError));
+                column,
+                format("control(sum: %s) test(sum: %s) relative error: %s", controlSum, testSum, relativeError)));
     }
 
     private static String getSumColumnAlias(Column column)
     {
-        return column.getName() + "_sum";
+        return column.getName() + "$sum";
     }
 
     private static String getNanCountColumnAlias(Column column)
     {
-        return column.getName() + "_nan_count";
+        return column.getName() + "$nan_count";
     }
 
     private static String getPositiveInfinityCountColumnAlias(Column column)
     {
-        return column.getName() + "_pos_inf_count";
+        return column.getName() + "$pos_inf_count";
     }
 
     private static String getNegativeInfinityCountColumnAlias(Column column)
     {
-        return column.getName() + "_neg_inf_count";
+        return column.getName() + "$neg_inf_count";
     }
 }

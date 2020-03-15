@@ -2,7 +2,7 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         final aggregation over (i_item_id)
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["i_item_id"])
+                remote exchange (REPARTITION, HASH, [i_item_id])
                     partial aggregation over (i_item_id)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):

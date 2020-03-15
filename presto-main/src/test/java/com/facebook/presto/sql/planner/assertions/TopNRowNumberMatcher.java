@@ -17,7 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
@@ -28,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.SpecificationProvider.matchSpecification;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +55,7 @@ public class TopNRowNumberMatcher
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.partial = requireNonNull(partial, "partial is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -69,17 +72,15 @@ public class TopNRowNumberMatcher
         TopNRowNumberNode topNRowNumberNode = (TopNRowNumberNode) node;
 
         if (!specification
-                .map(expectedSpecification ->
-                        expectedSpecification.getExpectedValue(symbolAliases)
-                                .equals(topNRowNumberNode.getSpecification()))
+                .map(expectedSpecification -> matchSpecification(topNRowNumberNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)))
                 .orElse(true)) {
             return NO_MATCH;
         }
 
         if (!rowNumberSymbol
                 .map(expectedRowNumberSymbol ->
-                        expectedRowNumberSymbol.toSymbol(symbolAliases)
-                                .equals(topNRowNumberNode.getRowNumberSymbol()))
+                        expectedRowNumberSymbol.toSymbol(symbolAliases).getName()
+                                .equals(topNRowNumberNode.getRowNumberVariable().getName()))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -100,7 +101,8 @@ public class TopNRowNumberMatcher
                 .map(expectedHashSymbol ->
                         expectedHashSymbol
                                 .map(symbolAlias -> symbolAlias.toSymbol(symbolAliases))
-                                .equals(topNRowNumberNode.getHashSymbol()))
+                                .map(Symbol::getName)
+                                .equals(topNRowNumberNode.getHashVariable().map(VariableReferenceExpression::getName)))
                 .orElse(true)) {
             return NO_MATCH;
         }

@@ -30,9 +30,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.constant;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -117,7 +117,7 @@ public class DecimalInequalityOperators
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return SqlScalarFunction.builder(DecimalInequalityOperators.class, operatorType)
                 .signature(signature)
                 .deterministic(true);
     }
@@ -202,8 +202,8 @@ public class DecimalInequalityOperators
 
         long leftLow = left.getLong(leftPosition, 0);
         long leftHigh = left.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = left.getLong(rightPosition, 0);
-        long rightHigh = left.getLong(rightPosition, SIZE_OF_LONG);
+        long rightLow = right.getLong(rightPosition, 0);
+        long rightHigh = right.getLong(rightPosition, SIZE_OF_LONG);
         return UnscaledDecimal128Arithmetic.compare(leftLow, leftHigh, rightLow, rightHigh) != 0;
     }
 
@@ -217,8 +217,8 @@ public class DecimalInequalityOperators
             return false;
         }
 
-        long leftValue = left.getLong(leftPosition, 0);
-        long rightValue = right.getLong(rightPosition, 0);
+        long leftValue = left.getLong(leftPosition);
+        long rightValue = right.getLong(rightPosition);
         return Long.compare(leftValue, rightValue) != 0;
     }
 
@@ -266,7 +266,7 @@ public class DecimalInequalityOperators
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return SqlScalarFunction.builder(DecimalInequalityOperators.class, BETWEEN)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

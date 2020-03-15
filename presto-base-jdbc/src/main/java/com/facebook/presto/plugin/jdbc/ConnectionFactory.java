@@ -20,7 +20,7 @@ import java.sql.SQLException;
 public interface ConnectionFactory
         extends AutoCloseable
 {
-    Connection openConnection()
+    Connection openConnection(JdbcIdentity identity)
             throws SQLException;
 
     @Override

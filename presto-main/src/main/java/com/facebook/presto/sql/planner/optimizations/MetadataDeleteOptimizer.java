@@ -16,16 +16,16 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -58,7 +58,7 @@ public class MetadataDeleteOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
@@ -89,10 +89,14 @@ public class MetadataDeleteOptimizer
                 return context.defaultRewrite(node);
             }
             TableScanNode tableScanNode = tableScan.get();
-            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable(), tableScanNode.getLayout().get())) {
+            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable())) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
+
+            return new MetadataDeleteNode(
+                    idAllocator.getNextId(),
+                    tableScanNode.getTable(),
+                    Iterables.getOnlyElement(node.getOutputVariables()));
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)

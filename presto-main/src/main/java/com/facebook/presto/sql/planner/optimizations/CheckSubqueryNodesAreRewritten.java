@@ -16,48 +16,48 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Node;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
+import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public class CheckSubqueryNodesAreRewritten
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         searchFrom(plan).where(ApplyNode.class::isInstance)
                 .findFirst()
                 .ifPresent(node -> {
                     ApplyNode applyNode = (ApplyNode) node;
-                    throw error(applyNode.getCorrelation(), applyNode.getOriginSubquery());
+                    error(applyNode.getCorrelation(), applyNode.getOriginSubqueryError());
                 });
 
         searchFrom(plan).where(LateralJoinNode.class::isInstance)
                 .findFirst()
                 .ifPresent(node -> {
                     LateralJoinNode lateralJoinNode = (LateralJoinNode) node;
-                    throw error(lateralJoinNode.getCorrelation(), lateralJoinNode.getOriginSubquery());
+                    error(lateralJoinNode.getCorrelation(), lateralJoinNode.getOriginSubqueryError());
                 });
 
         return plan;
     }
 
-    private SemanticException error(List<Symbol> correlation, Node originSubquery)
+    private void error(List<VariableReferenceExpression> correlation, String originSubqueryError)
     {
         checkState(!correlation.isEmpty(), "All the non correlated subqueries should be rewritten at this point");
-        throw notSupportedException(originSubquery, "Given correlated subquery");
+        throw new PrestoException(UNSUPPORTED_SUBQUERY, format(originSubqueryError, "Given correlated subquery is not supported"));
     }
 }

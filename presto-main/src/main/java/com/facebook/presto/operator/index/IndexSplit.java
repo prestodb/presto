@@ -16,6 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 
@@ -32,13 +33,13 @@ public class IndexSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         throw new UnsupportedOperationException();
     }

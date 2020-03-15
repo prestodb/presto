@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.smile;
 
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -43,5 +43,11 @@ public class JsonCodecWrapper<T>
     public byte[] toBytes(T instance)
     {
         return jsonCodec.toJsonBytes(instance);
+    }
+
+    @Override
+    public T fromBytes(byte[] bytes)
+    {
+        return jsonCodec.fromJson(bytes);
     }
 }

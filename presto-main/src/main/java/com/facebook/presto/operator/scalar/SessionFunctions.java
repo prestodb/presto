@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -21,26 +20,18 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class SessionFunctions
 {
     private SessionFunctions() {}
 
-    @ScalarFunction(value = "$current_user", hidden = true)
+    @ScalarFunction(value = "$current_user", visibility = HIDDEN)
     @Description("current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)
     {
         return utf8Slice(session.getUser());
-    }
-
-    @ScalarFunction(value = "$current_path", hidden = true)
-    @Description("retrieve current path")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice currentPath(ConnectorSession session)
-    {
-        // this function is a language construct and has special access to internals
-        return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
     }
 }

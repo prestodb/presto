@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.node.NodeModule;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -21,9 +24,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.inject.Injector;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
-import io.airlift.node.NodeModule;
 
 import java.util.Map;
 

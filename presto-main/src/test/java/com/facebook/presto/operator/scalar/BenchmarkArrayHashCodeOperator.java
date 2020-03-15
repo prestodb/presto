@@ -34,7 +34,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -62,7 +61,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
@@ -106,7 +104,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = mangleOperatorName(HASH_CODE);
+        private String name = HASH_CODE.getFunctionName().getFunctionName();
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
@@ -119,8 +117,8 @@ public class BenchmarkArrayHashCodeOperator
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
-            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
+            metadata.registerBuiltInFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
+            metadata.registerBuiltInFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[1];
@@ -142,12 +140,12 @@ public class BenchmarkArrayHashCodeOperator
                     throw new UnsupportedOperationException();
             }
             ArrayType arrayType = new ArrayType(elementType);
-            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
-            projectionsBuilder.add(new CallExpression(functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
+            FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypes(arrayType));
+            projectionsBuilder.add(new CallExpression(name, functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -24,6 +26,7 @@ import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 
@@ -180,12 +183,9 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return values[position];
     }
 
@@ -208,6 +208,32 @@ public class ShortArrayBlockBuilder
         checkReadablePosition(position);
         blockBuilder.writeShort(values[position]);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            output.writeShort(values[position]);
+        }
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            writeShort(input.readShort());
+            closeEntry();
+        }
+        return this;
     }
 
     @Override
@@ -292,5 +318,26 @@ public class ShortArrayBlockBuilder
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return values[internalPosition];
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return valueIsNull[internalPosition];
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return 0;
     }
 }

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -123,14 +125,59 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Experimental: if true, the engine will invoke getLayout otherwise, getLayout will not be called.
+     */
+    @Deprecated
+    @Experimental
+    default boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return true;
+    }
+
+    /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
+    @Deprecated
     default Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
     {
         if (left.equals(right)) {
             return Optional.of(left);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Partitioning <code>a = {a_1, ... a_n}</code> is considered as a refined partitioning over
+     * partitioning <code>b = {b_1, ... b_m}</code> if:
+     * <ul>
+     * <li> n >= m </li>
+     * <li> For every partition <code>b_i</code> in partitioning <code>b</code>,
+     * the rows it contains is the same as union of a set of partitions <code>a_{i_1}, a_{i_2}, ... a_{i_k}</code>
+     * in partitioning <code>a</code>, i.e.
+     * <p>
+     * <code>b_i = a_{i_1} + a_{i_2} + ... + a_{i_k}</code>
+     * <li> Connector can transparently convert partitioning <code>a</code> to partitioning <code>b</code>
+     * associated with the provided table layout handle.
+     * </ul>
+     *
+     * <p>
+     * For example, consider two partitioning over <code>order</code> table:
+     * <ul>
+     * <li> partitioning <code>a</code> has 256 partitions by <code>orderkey % 256</code>
+     * <li> partitioning <code>b</code> has 128 partitions by <code>orderkey % 128</code>
+     * </ul>
+     *
+     * <p>
+     * Partitioning <code>a</code> is a refined partitioning over <code>b</code> if Connector supports
+     * transparently convert <code>a</code> to <code>b</code>.
+     * <p>
+     * Refined-over relation is reflexive.
+     * <p>
+     * This SPI is unstable and subject to change in the future.
+     */
+    default boolean isRefinedPartitioningOver(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        return left.equals(right);
     }
 
     /**
@@ -197,9 +244,9 @@ public interface ConnectorMetadata
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
-     * Get statistics for table for given filtering constraint.
+     * Get statistics for table for given columns and filtering constraint.
      */
-    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         return TableStatistics.empty();
     }
@@ -244,7 +291,7 @@ public interface ConnectorMetadata
      * Creates a temporary table with optional partitioning requirements.
      * Temporary table might have different default storage format, compression scheme, replication factor, etc,
      * and gets automatically dropped when the transaction ends.
-     *
+     * <p>
      * This SPI is unstable and subject to change in the future.
      */
     default ConnectorTableHandle createTemporaryTable(ConnectorSession session, List<ColumnMetadata> columns, Optional<ConnectorPartitioningMetadata> partitioningMetadata)
@@ -303,6 +350,19 @@ public interface ConnectorMetadata
     }
 
     /**
+     * A connector can have preferred shuffle layout for table write.
+     * For example, Hive connector might prefer to shuffle on partitioned columns for partitioned unbucketed table.
+     *
+     * @apiNote this method and {@link #getNewTableLayout} cannot both return non-empty table layout.
+     * @see #getPreferredShuffleLayoutForInsert
+     */
+    @Experimental
+    default Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForNewTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Get the physical layout for a inserting into an existing table.
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -330,6 +390,19 @@ public interface ConnectorMetadata
                 .collect(toList());
 
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+    }
+
+    /**
+     * A connector can have preferred shuffle layout for table write.
+     * For example, Hive connector might prefer to shuffle on partitioned columns for partitioned unbucketed table.
+     *
+     * @apiNote this method and {@link #getInsertLayout} cannot both return non-empty table layout.
+     * @see #getPreferredShuffleLayoutForNewTable
+     */
+    @Experimental
+    default Optional<ConnectorNewTableLayout> getPreferredShuffleLayoutForInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
     }
 
     /**
@@ -438,7 +511,7 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The data for the view is opaque to the connector.
      */
-    default void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    default void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
@@ -478,7 +551,7 @@ public interface ConnectorMetadata
     /**
      * @return whether delete without table scan is supported
      */
-    default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
@@ -593,5 +666,27 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * Commits partition for table creation.
+     * To enable recoverable grouped execution, it is required that output connector supports partition commit.
+     * This method is unstable and subject to change in the future.
+     */
+    @Experimental
+    default CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
+    }
+
+    /**
+     * Commits partition for table insertion.
+     * To enable recoverable grouped execution, it is required that output connector supports partition commit.
+     * This method is unstable and subject to change in the future.
+     */
+    @Experimental
+    default CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }
 }

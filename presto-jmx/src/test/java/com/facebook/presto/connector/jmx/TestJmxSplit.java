@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.jmx.MetadataUtil.SPLIT_CODEC;
 import static com.facebook.presto.connector.jmx.TestJmxTableHandle.TABLE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 
@@ -33,7 +34,7 @@ public class TestJmxSplit
         assertEquals(SPLIT.getTableHandle(), TABLE);
         assertEquals(SPLIT.getAddresses(), ADDRESSES);
         assertSame(SPLIT.getInfo(), SPLIT);
-        assertEquals(SPLIT.isRemotelyAccessible(), false);
+        assertEquals(SPLIT.getNodeSelectionStrategy(), HARD_AFFINITY);
     }
 
     @Test
@@ -45,6 +46,6 @@ public class TestJmxSplit
         assertEquals(copy.getTableHandle(), SPLIT.getTableHandle());
         assertEquals(copy.getAddresses(), SPLIT.getAddresses());
         assertSame(copy.getInfo(), copy);
-        assertEquals(copy.isRemotelyAccessible(), false);
+        assertEquals(copy.getNodeSelectionStrategy(), HARD_AFFINITY);
     }
 }

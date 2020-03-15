@@ -22,9 +22,9 @@ import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 

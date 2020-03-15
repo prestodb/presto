@@ -127,7 +127,7 @@ public class TestStringStatisticsBuilder
     {
         assertMinMaxValuesWithLimit(MEDIUM_TOP_VALUE, null, ImmutableList.of(MEDIUM_TOP_VALUE, HIGH_BOTTOM_VALUE), 7);
         assertMinMaxValuesWithLimit(null, MEDIUM_TOP_VALUE, ImmutableList.of(LONG_BOTTOM_VALUE, MEDIUM_TOP_VALUE), 7);
-        assertMinMaxValuesWithLimit(null, null, ImmutableList.of(LONG_BOTTOM_VALUE), 6);
+        assertMinMaxValuesWithLimit(null, null, ImmutableList.of(LONG_BOTTOM_VALUE), 6, 20);
     }
 
     @Test
@@ -141,9 +141,9 @@ public class TestStringStatisticsBuilder
         statisticsList.add(stringColumnStatistics(null, MEDIUM_TOP_VALUE));
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, MEDIUM_TOP_VALUE);
         statisticsList.add(stringColumnStatistics(MEDIUM_TOP_VALUE, null));
-        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null);
+        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null, 400);
         statisticsList.add(stringColumnStatistics(MEDIUM_BOTTOM_VALUE, MEDIUM_BOTTOM_VALUE));
-        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null);
+        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null, 500);
     }
 
     @Test
@@ -275,6 +275,16 @@ public class TestStringStatisticsBuilder
         assertMinMax(builder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax);
     }
 
+    private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit, long expectedSum)
+    {
+        checkArgument(values != null && values.size() > 0);
+        StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
+        for (Slice value : values) {
+            builder.addValue(value);
+        }
+        assertMinMax(builder.buildColumnStatistics().getStringStatistics(), expectedMin, expectedMax, expectedSum);
+    }
+
     private static void assertMinMax(StringStatistics actualStringStatistics, Slice expectedMin, Slice expectedMax)
     {
         if (expectedMax == null && expectedMin == null) {
@@ -285,6 +295,14 @@ public class TestStringStatisticsBuilder
         assertNotNull(actualStringStatistics);
         assertEquals(actualStringStatistics.getMin(), expectedMin);
         assertEquals(actualStringStatistics.getMax(), expectedMax);
+    }
+
+    private static void assertMinMax(StringStatistics actualStringStatistics, Slice expectedMin, Slice expectedMax, long expectedSum)
+    {
+        assertNotNull(actualStringStatistics);
+        assertEquals(actualStringStatistics.getMin(), expectedMin);
+        assertEquals(actualStringStatistics.getMax(), expectedMax);
+        assertEquals(actualStringStatistics.getSum(), expectedSum);
     }
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)

@@ -13,22 +13,27 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.TimeDistribution;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.SetThreadName;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeDistribution;
-import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -59,15 +64,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
+import java.util.function.Function;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -119,6 +125,11 @@ public class TaskExecutor
     private final MultilevelSplitQueue waitingSplits;
 
     /**
+     * Per query priority trackers
+     */
+    private final Function<QueryId, TaskPriorityTracker> taskPriorityTrackerFactory;
+
+    /**
      * Splits running on a thread.
      */
     private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
@@ -162,21 +173,10 @@ public class TaskExecutor
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
+                config.getTaskPriorityTracking(),
                 embedVersion,
                 splitQueue,
                 Ticker.systemTicker());
-    }
-
-    @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
-    {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
-    }
-
-    @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
-    {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -185,6 +185,47 @@ public class TaskExecutor
             int minDrivers,
             int guaranteedNumberOfDriversPerTask,
             int maximumNumberOfDriversPerTask,
+            TaskPriorityTracking taskPriorityTracking,
+            Ticker ticker)
+    {
+        this(
+                runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                taskPriorityTracking,
+                new EmbedVersion(new ServerConfig()),
+                new MultilevelSplitQueue(2), ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            TaskPriorityTracking taskPriorityTracking,
+            MultilevelSplitQueue splitQueue,
+            Ticker ticker)
+    {
+        this(
+                runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                taskPriorityTracking,
+                new EmbedVersion(new ServerConfig()),
+                splitQueue,
+                ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            TaskPriorityTracking taskPriorityTracking,
             EmbedVersion embedVersion,
             MultilevelSplitQueue splitQueue,
             Ticker ticker)
@@ -206,6 +247,21 @@ public class TaskExecutor
         this.guaranteedNumberOfDriversPerTask = guaranteedNumberOfDriversPerTask;
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
+        Function<QueryId, TaskPriorityTracker> taskPriorityTrackerFactory;
+        switch (taskPriorityTracking) {
+            case TASK_FAIR:
+                taskPriorityTrackerFactory = (queryId) -> new TaskPriorityTracker(splitQueue);
+                break;
+            case QUERY_FAIR:
+                LoadingCache<QueryId, TaskPriorityTracker> cache = CacheBuilder.newBuilder()
+                        .weakValues()
+                        .build(CacheLoader.from(queryId -> new TaskPriorityTracker(splitQueue)));
+                taskPriorityTrackerFactory = cache::getUnchecked;
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected taskPriorityTracking: " + taskPriorityTracking);
+        }
+        this.taskPriorityTrackerFactory = taskPriorityTrackerFactory;
         this.tasks = new LinkedList<>();
     }
 
@@ -262,7 +318,13 @@ public class TaskExecutor
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
+        TaskHandle taskHandle = new TaskHandle(
+                taskId,
+                taskPriorityTrackerFactory.apply(taskId.getQueryId()),
+                utilizationSupplier,
+                initialSplitConcurrency,
+                splitConcurrencyAdjustFrequency,
+                maxDriversPerTask);
 
         tasks.add(taskHandle);
         return taskHandle;

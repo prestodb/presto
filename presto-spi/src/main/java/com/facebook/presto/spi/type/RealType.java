@@ -41,14 +41,14 @@ public final class RealType
         if (block.isNull(position)) {
             return null;
         }
-        return intBitsToFloat(block.getInt(position, 0));
+        return intBitsToFloat(block.getInt(position));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
 
         // direct equality is correct here
         // noinspection FloatingPointEquality
@@ -59,7 +59,7 @@ public final class RealType
     public long hash(Block block, int position)
     {
         // convert to canonical NaN if necessary
-        return hash(floatToIntBits(intBitsToFloat(block.getInt(position, 0))));
+        return hash(floatToIntBits(intBitsToFloat(block.getInt(position))));
     }
 
     @Override
@@ -67,8 +67,8 @@ public final class RealType
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
         // function being the equivalence of internal long representation.
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
+        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
+        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
         return Float.compare(leftValue, rightValue);
     }
 

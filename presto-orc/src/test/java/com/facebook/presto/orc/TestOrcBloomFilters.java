@@ -273,8 +273,8 @@ public class TestOrcBloomFilters
                 .add(new ColumnReference<>(COLUMN_1, 1, BIGINT))
                 .build();
 
-        TupleDomainOrcPredicate<String> predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, true);
-        TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true);
+        TupleDomainOrcPredicate<String> predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences, true, Optional.empty());
+        TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true, Optional.empty());
 
         // assemble a matching and a non-matching bloom filter
         HiveBloomFilter hiveBloomFilter = new HiveBloomFilter(new BloomFilter(1000, 0.01));

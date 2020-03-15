@@ -15,8 +15,10 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Objects;
 
@@ -37,6 +39,11 @@ public final class OriginalExpressionUtils
     public static RowExpression castToRowExpression(Expression expression)
     {
         return new OriginalExpression(expression);
+    }
+
+    public static SymbolReference asSymbolReference(VariableReferenceExpression variable)
+    {
+        return new SymbolReference(variable.getName());
     }
 
     /**

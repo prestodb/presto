@@ -54,7 +54,7 @@ public class DriverConnectionFactory
     }
 
     @Override
-    public Connection openConnection()
+    public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
         Connection connection = driver.connect(connectionUrl, connectionProperties);

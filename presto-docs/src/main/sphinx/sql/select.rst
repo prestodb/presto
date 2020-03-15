@@ -663,13 +663,13 @@ is added to the end.
 ``UNNEST`` is normally used with a ``JOIN`` and can reference columns
 from relations on the left side of the join.
 
-Using a single column::
+Using a single array column::
 
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
 
-Using multiple columns::
+Using multiple array columns::
 
     SELECT numbers, animals, n, a
     FROM (
@@ -711,6 +711,29 @@ Using multiple columns::
      [7, 8, 9] | 8 | 2
      [7, 8, 9] | 9 | 3
     (5 rows)
+
+Using a single map column::
+
+    SELECT
+        animals, a, n
+    FROM (
+        VALUES
+            (MAP(ARRAY['dog', 'cat', 'bird'], ARRAY[1, 2, 0])),
+            (MAP(ARRAY['dog', 'cat'], ARRAY[4, 5]))
+    ) AS x (animals)
+    CROSS JOIN UNNEST(animals) AS t (a, n);
+
+.. code-block:: none
+
+               animals          |  a   | n
+    ----------------------------+------+---
+     {"cat":2,"bird":0,"dog":1} | dog  | 1 
+     {"cat":2,"bird":0,"dog":1} | cat  | 2 
+     {"cat":2,"bird":0,"dog":1} | bird | 0 
+     {"cat":5,"dog":4}          | dog  | 4 
+     {"cat":5,"dog":4}          | cat  | 5 
+    (5 rows)
+
 
 Joins
 -----
@@ -780,6 +803,76 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     SELECT name
     FROM nation
     CROSS JOIN region;
+
+
+USING
+^^^^^
+The ``USING`` clause allows you to write shorter queries when both tables you 
+are joining have the same name for the join key.
+
+For example::
+
+    SELECT *
+    FROM table_1 
+    JOIN table_2
+    ON table_1.key_A = table_2.key_A AND table_1.key_B = table_2.key_B
+
+can be rewritten to::
+
+    SELECT *
+    FROM table_1
+    JOIN table_2
+    USING (key_A, key_B)
+
+
+The output of doing ``JOIN`` with ``USING`` will be one copy of the join key 
+columns (``key_A`` and ``key_B`` in the example above) followed by the remaining columns
+in ``table_1`` and then the remaining columns in ``table_2``. Note that the join keys are not
+included in the list of columns from the origin tables for the purpose of
+referencing them in the query. You cannot access them with a table prefix and 
+if you run ``SELECT table_1.*, table_2.*``, the join columns are not included in the output.
+
+The following two queries are equivalent::
+
+    SELECT *
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+    -----------------------------
+
+    SELECT key_A, key_B, table_1.*, table_2.*
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+And produce the output:
+
+.. code-block:: none
+
+     key_A | key_B | y1 | y2  
+    -------+-------+----+-----
+         1 |     3 | 10 | 100 
+         2 |     4 | 20 | 200 
+    (2 rows)
+
+
 
 Subqueries
 ----------

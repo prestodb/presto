@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.spi.QueryId;
-import io.airlift.http.server.HttpServerInfo;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.OptionalInt;
 
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
 
 public class HttpLocationFactory
@@ -34,17 +37,19 @@ public class HttpLocationFactory
 {
     private final InternalNodeManager nodeManager;
     private final URI baseUri;
+    private final CommunicationProtocol taskCommunicationProtocol;
 
     @Inject
     public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo, InternalCommunicationConfig config)
     {
-        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri());
+        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(), config.getTaskCommunicationProtocol());
     }
 
-    public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri)
+    public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri, CommunicationProtocol taskCommunicationProtocol)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.baseUri = requireNonNull(baseUri, "baseUri is null");
+        this.taskCommunicationProtocol = requireNonNull(taskCommunicationProtocol, "taskCommunicationProtocol is null");
     }
 
     @Override
@@ -70,25 +75,54 @@ public class HttpLocationFactory
     @Override
     public URI createLocalTaskLocation(TaskId taskId)
     {
-        return createTaskLocation(nodeManager.getCurrentNode(), taskId);
+        return createHttpTaskLocation(nodeManager.getCurrentNode(), taskId);
     }
 
     @Override
-    public URI createTaskLocation(Node node, TaskId taskId)
+    public URI createLegacyTaskLocation(InternalNode node, TaskId taskId)
+    {
+        return createHttpTaskLocation(node, taskId);
+    }
+
+    @Override
+    public URI createTaskLocation(InternalNode node, TaskId taskId)
     {
         requireNonNull(node, "node is null");
         requireNonNull(taskId, "taskId is null");
-        return uriBuilderFrom(node.getHttpUri())
-                .appendPath("/v1/task")
-                .appendPath(taskId.toString())
-                .build();
+
+        if (taskCommunicationProtocol.equals(CommunicationProtocol.HTTP)) {
+            return createLegacyTaskLocation(node, taskId);
+        }
+
+        OptionalInt thriftPort = node.getThriftPort();
+
+        HttpUriBuilder builder = uriBuilderFrom(node.getInternalUri());
+        if (taskCommunicationProtocol.equals(CommunicationProtocol.THRIFT) && thriftPort.isPresent()) {
+            builder.scheme("thrift");
+            builder.port(thriftPort.getAsInt());
+        }
+        else {
+            // fall back to http case
+        }
+
+        return builder.appendPath("/v1/task").appendPath(taskId.toString()).build();
     }
 
     @Override
-    public URI createMemoryInfoLocation(Node node)
+    public URI createMemoryInfoLocation(InternalNode node)
     {
         requireNonNull(node, "node is null");
-        return uriBuilderFrom(node.getHttpUri())
+        return uriBuilderFrom(node.getInternalUri())
                 .appendPath("/v1/memory").build();
+    }
+
+    private URI createHttpTaskLocation(InternalNode node, TaskId taskId)
+    {
+        requireNonNull(node, "node is null");
+        requireNonNull(taskId, "taskId is null");
+        return uriBuilderFrom(node.getInternalUri())
+                .appendPath("/v1/task")
+                .appendPath(taskId.toString())
+                .build();
     }
 }

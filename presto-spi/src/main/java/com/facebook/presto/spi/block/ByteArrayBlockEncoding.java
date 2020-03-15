@@ -40,7 +40,7 @@ public class ByteArrayBlockEncoding
 
         for (int position = 0; position < positionCount; position++) {
             if (!block.isNull(position)) {
-                sliceOutput.writeByte(block.getByte(position, 0));
+                sliceOutput.writeByte(block.getByte(position));
             }
         }
     }

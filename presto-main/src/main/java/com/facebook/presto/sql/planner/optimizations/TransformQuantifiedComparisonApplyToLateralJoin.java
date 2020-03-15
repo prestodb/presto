@@ -16,34 +16,36 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,10 +55,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -74,39 +79,32 @@ import static java.util.Objects.requireNonNull;
 public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
-    private final FunctionManager functionManager;
+    private final StandardFunctionResolution functionResolution;
 
     public TransformQuantifiedComparisonApplyToLateralJoin(FunctionManager functionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(functionManager, session, idAllocator, types, symbolAllocator), plan, null);
+        return rewriteWith(new Rewriter(functionResolution, idAllocator, variableAllocator), plan, null);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
     {
-        private static final QualifiedName MIN = QualifiedName.of("min");
-        private static final QualifiedName MAX = QualifiedName.of("max");
-        private static final QualifiedName COUNT = QualifiedName.of("count");
-
-        private final FunctionManager functionManager;
-        private final Session session;
+        private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
-        private final TypeProvider types;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
 
-        public Rewriter(FunctionManager functionManager, Session session, PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator)
+        public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
         {
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
-            this.session = requireNonNull(session, "session is null");
+            this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.types = requireNonNull(types, "types is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
         @Override
@@ -116,7 +114,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
+            Expression expression = castToExpression(getOnlyElement(node.getSubqueryAssignments().getExpressions()));
             if (!(expression instanceof QuantifiedComparisonExpression)) {
                 return context.defaultRewrite(node);
             }
@@ -130,37 +128,60 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
-            Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
-            Type outputColumnType = types.get(outputColumn);
+            VariableReferenceExpression outputColumn = getOnlyElement(subqueryPlan.getOutputVariables());
+            Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            Symbol minValue = symbolAllocator.newSymbol(MIN.toString(), outputColumnType);
-            Symbol maxValue = symbolAllocator.newSymbol(MAX.toString(), outputColumnType);
-            Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
-            Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
+            VariableReferenceExpression minValue = variableAllocator.newVariable("min", outputColumnType);
+            VariableReferenceExpression maxValue = variableAllocator.newVariable("max", outputColumnType);
+            VariableReferenceExpression countAllValue = variableAllocator.newVariable("count_all", BigintType.BIGINT);
+            VariableReferenceExpression countNonNullValue = variableAllocator.newVariable("count_non_null", BigintType.BIGINT);
 
-            List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
-            List<TypeSignatureProvider> outputColumnTypeSignatures = fromTypes(outputColumnType);
+            List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(toSymbolReference(outputColumn)));
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    new FunctionCall(MIN, outputColumnReferences),
-                                    functionManager.lookupFunction(MIN, outputColumnTypeSignatures),
+                                    new CallExpression(
+                                            "min",
+                                            functionResolution.minFunction(outputColumnType),
+                                            outputColumnType,
+                                            outputColumnReferences),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    new FunctionCall(MAX, outputColumnReferences),
-                                    functionManager.lookupFunction(MAX, outputColumnTypeSignatures),
+                                    new CallExpression(
+                                            "max",
+                                            functionResolution.maxFunction(outputColumnType),
+                                            outputColumnType,
+                                            outputColumnReferences),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    new FunctionCall(COUNT, emptyList()),
-                                    functionManager.lookupFunction(COUNT, emptyList()),
+                                    new CallExpression(
+                                            "count",
+                                            functionResolution.countFunction(),
+                                            BIGINT,
+                                            emptyList()),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    new FunctionCall(COUNT, outputColumnReferences),
-                                    functionManager.lookupFunction(COUNT, outputColumnTypeSignatures),
+                                    new CallExpression(
+                                            "count",
+                                            functionResolution.countFunction(outputColumnType),
+                                            BIGINT,
+                                            outputColumnReferences),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),
@@ -174,16 +195,26 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     subqueryPlan,
                     node.getCorrelation(),
                     LateralJoinNode.Type.INNER,
-                    node.getOriginSubquery());
+                    node.getOriginSubqueryError());
 
-            Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
+            Expression valueComparedToSubquery = rewriteUsingBounds(
+                    quantifiedComparison,
+                    minValue,
+                    maxValue,
+                    countAllValue,
+                    countNonNullValue);
 
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
+            VariableReferenceExpression quantifiedComparisonVariable = getOnlyElement(node.getSubqueryAssignments().getVariables());
 
-            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonVariable, castToRowExpression(valueComparedToSubquery)));
         }
 
-        public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
+        public Expression rewriteUsingBounds(
+                QuantifiedComparisonExpression quantifiedComparison,
+                VariableReferenceExpression minValue,
+                VariableReferenceExpression maxValue,
+                VariableReferenceExpression countAllValue,
+                VariableReferenceExpression countNonNullValue)
         {
             BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
             Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
@@ -191,7 +222,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
             return new SimpleCaseExpression(
-                    countAllValue.toSymbolReference(),
+                    toSymbolReference(countAllValue),
                     ImmutableList.of(new WhenClause(
                             new GenericLiteral("bigint", "0"),
                             emptySetResult)),
@@ -200,18 +231,18 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                             new SearchedCaseExpression(
                                     ImmutableList.of(
                                             new WhenClause(
-                                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
+                                                    new ComparisonExpression(NOT_EQUAL, toSymbolReference(countAllValue), toSymbolReference(countNonNullValue)),
                                                     new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
                                     Optional.of(emptySetResult))))));
         }
 
-        private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
+        private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, VariableReferenceExpression minValue, VariableReferenceExpression maxValue)
         {
             if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
-                        new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
+                        new ComparisonExpression(EQUAL, toSymbolReference(minValue), toSymbolReference(maxValue)),
+                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), toSymbolReference(maxValue)));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
@@ -219,8 +250,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 // A > ALL B <=> A > max B
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
-                Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
+                VariableReferenceExpression boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
+                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), toSymbolReference(boundValue));
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
@@ -256,13 +287,18 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(input.getOutputSymbols())
+                    .putAll(identitiesAsSymbolReferences(input.getOutputVariables()))
                     .putAll(subqueryAssignments)
                     .build();
             return new ProjectNode(
                     idAllocator.getNextId(),
                     input,
                     assignments);
+        }
+
+        private SymbolReference toSymbolReference(VariableReferenceExpression variable)
+        {
+            return new SymbolReference(variable.getName());
         }
     }
 }

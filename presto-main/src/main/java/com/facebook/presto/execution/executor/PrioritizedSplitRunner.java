@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.CpuTimer;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.SplitRunner;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.CpuTimer;
-import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.TimeUnit;

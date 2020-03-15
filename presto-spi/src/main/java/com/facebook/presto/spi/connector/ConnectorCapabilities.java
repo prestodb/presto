@@ -16,4 +16,6 @@ package com.facebook.presto.spi.connector;
 public enum ConnectorCapabilities
 {
     NOT_NULL_COLUMN_CONSTRAINT,
+    SUPPORTS_REWINDABLE_SPLIT_SOURCE,
+    SUPPORTS_PARTITION_COMMIT,
 }

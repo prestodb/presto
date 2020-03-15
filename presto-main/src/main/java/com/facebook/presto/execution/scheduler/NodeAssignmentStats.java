@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +27,8 @@ import static java.util.Objects.requireNonNull;
 public final class NodeAssignmentStats
 {
     private final NodeTaskMap nodeTaskMap;
-    private final Map<Node, Integer> assignmentCount = new HashMap<>();
-    private final Map<Node, Integer> splitCountByNode = new HashMap<>();
+    private final Map<InternalNode, Integer> assignmentCount = new HashMap<>();
+    private final Map<InternalNode, Integer> splitCountByNode = new HashMap<>();
     private final Map<String, Integer> queuedSplitCountByNode = new HashMap<>();
 
     public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
@@ -36,7 +36,7 @@ public final class NodeAssignmentStats
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
 
         // pre-populate the assignment counts with zeros. This makes getOrDefault() faster
-        for (Node node : nodeMap.getNodesByHostAndPort().values()) {
+        for (InternalNode node : nodeMap.getNodesByHostAndPort().values()) {
             assignmentCount.put(node, 0);
         }
 
@@ -45,17 +45,17 @@ public final class NodeAssignmentStats
         }
     }
 
-    public int getTotalSplitCount(Node node)
+    public int getTotalSplitCount(InternalNode node)
     {
         return assignmentCount.getOrDefault(node, 0) + splitCountByNode.computeIfAbsent(node, nodeTaskMap::getPartitionedSplitsOnNode);
     }
 
-    public int getQueuedSplitCountForStage(Node node)
+    public int getQueuedSplitCountForStage(InternalNode node)
     {
         return queuedSplitCountByNode.getOrDefault(node.getNodeIdentifier(), 0) + assignmentCount.getOrDefault(node, 0);
     }
 
-    public void addAssignedSplit(Node node)
+    public void addAssignedSplit(InternalNode node)
     {
         assignmentCount.merge(node, 1, (x, y) -> x + y);
     }

@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -49,7 +50,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -90,6 +90,7 @@ public class TestFilterAndProjectOperator
         MetadataManager metadata = createTestMetadataManager();
         FunctionManager functionManager = metadata.getFunctionManager();
         RowExpression filter = call(
+                BETWEEN.name(),
                 functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
@@ -98,13 +99,14 @@ public class TestFilterAndProjectOperator
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
+                ADD.name(),
                 functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 field(1, BIGINT),
                 constant(5L, BIGINT));
 
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field0, add5));
 
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 0,
@@ -142,13 +144,14 @@ public class TestFilterAndProjectOperator
         MetadataManager metadata = createTestMetadataManager();
 
         RowExpression filter = call(
+                EQUAL.name(),
                 metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT));
 
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
 
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 0,

@@ -39,6 +39,7 @@ public class TestRaptorFileBasedSecurity
                 ImmutableMap.of(),
                 true,
                 false,
+                false,
                 ImmutableMap.of("security.config-file", path, "raptor.security", "file"));
     }
 

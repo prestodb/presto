@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.accumulo;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
@@ -25,8 +27,6 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 

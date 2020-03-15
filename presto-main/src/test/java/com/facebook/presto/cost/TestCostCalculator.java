@@ -14,52 +14,54 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
+import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -74,16 +76,18 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchTransactionHandle.INSTANCE;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -128,9 +132,11 @@ public class TestCostCalculator
         nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
+                new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
+        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser());
     }
 
@@ -156,12 +162,12 @@ public class TestCostCalculator
         TableScanNode tableScan = tableScan("ts", "orderkey");
         Map<String, Type> types = ImmutableMap.of("orderkey", BIGINT);
 
-        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
@@ -171,14 +177,14 @@ public class TestCostCalculator
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(tableScan, types);
+        assertCostHasUnknownComponentsForUnknownStats(tableScan);
     }
 
     @Test
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        PlanNode project = project("project", tableScan, "string", new Cast(new SymbolReference("orderkey"), "VARCHAR"));
+        PlanNode project = project("project", tableScan, new VariableReferenceExpression("string", VARCHAR), new Cast(new SymbolReference("orderkey"), "VARCHAR"));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -187,12 +193,12 @@ public class TestCostCalculator
                 "orderkey", BIGINT,
                 "string", VARCHAR);
 
-        assertCost(project, costs, stats, types)
+        assertCost(project, costs, stats)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(project, costs, stats, types)
+        assertCostEstimatedExchanges(project, costs, stats)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
@@ -202,7 +208,7 @@ public class TestCostCalculator
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(project, types);
+        assertCostHasUnknownComponentsForUnknownStats(project);
     }
 
     @Test
@@ -229,12 +235,12 @@ public class TestCostCalculator
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
 
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000 + 6000 + 1000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network((6000 + 1000) * IS_NULL_OVERHEAD);
@@ -244,7 +250,7 @@ public class TestCostCalculator
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(join, types);
+        assertCostHasUnknownComponentsForUnknownStats(join);
     }
 
     @Test
@@ -272,12 +278,12 @@ public class TestCostCalculator
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
 
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * NUMBER_OF_NODES) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD);
@@ -287,7 +293,7 @@ public class TestCostCalculator
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(join, types);
+        assertCostHasUnknownComponentsForUnknownStats(join);
     }
 
     @Test
@@ -331,7 +337,7 @@ public class TestCostCalculator
 
         Map<String, Type> types = ImmutableMap.of("key1", BIGINT, "key2", BIGINT, "key3", BIGINT);
 
-        assertCost(join23, costs, stats, types)
+        assertCost(join23, costs, stats)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -339,7 +345,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -348,7 +354,7 @@ public class TestCostCalculator
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 128); // ts1 memory footprint
 
-        assertCostEstimatedExchanges(join23, costs, stats, types)
+        assertCostEstimatedExchanges(join23, costs, stats)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -356,7 +362,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -397,12 +403,12 @@ public class TestCostCalculator
                 "orderkey", BIGINT,
                 "count", BIGINT);
 
-        assertCost(aggregation, costs, stats, types)
+        assertCost(aggregation, costs, stats)
                 .cpu(6000 * IS_NULL_OVERHEAD + 6000)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(aggregation, costs, stats, types)
+        assertCostEstimatedExchanges(aggregation, costs, stats)
                 .cpu((6000 + 6000 + 6000) * IS_NULL_OVERHEAD + 6000)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(6000 * IS_NULL_OVERHEAD);
@@ -412,7 +418,7 @@ public class TestCostCalculator
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0 * IS_NULL_OVERHEAD);
 
-        assertCostHasUnknownComponentsForUnknownStats(aggregation, types);
+        assertCostHasUnknownComponentsForUnknownStats(aggregation);
     }
 
     @Test
@@ -420,15 +426,31 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ExchangeNode remoteExchange1 = systemPartitionedExchange(new PlanNodeId("re1"), REMOTE_STREAMING, ts1, ImmutableList.of(new Symbol("orderkey")), Optional.empty());
-        ExchangeNode remoteExchange2 = systemPartitionedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
-        ExchangeNode localExchange = systemPartitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), new SymbolReference("orderkey"));
+        ExchangeNode remoteExchange1 = systemPartitionedExchange(
+                new PlanNodeId("re1"),
+                REMOTE_STREAMING,
+                p1,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
+                Optional.empty());
+        ExchangeNode remoteExchange2 = systemPartitionedExchange(
+                new PlanNodeId("re2"),
+                REMOTE_STREAMING,
+                ts2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
+                Optional.empty());
+        ExchangeNode localExchange = systemPartitionedExchange(
+                new PlanNodeId("le"),
+                LOCAL,
+                remoteExchange2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
+                Optional.empty());
 
         JoinNode join = join("join",
                 remoteExchange1,
                 localExchange,
                 JoinNode.DistributionType.PARTITIONED,
-                "orderkey",
+                "orderkey_1",
                 "orderkey_0");
 
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.<String, PlanNodeStatsEstimate>builder()
@@ -436,11 +458,13 @@ public class TestCostCalculator
                 .put("re1", statsEstimate(remoteExchange1, 10000))
                 .put("re2", statsEstimate(remoteExchange2, 10000))
                 .put("le", statsEstimate(localExchange, 6000))
+                .put("p1", statsEstimate(p1, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
                 .build();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
+                "orderkey_1", BIGINT,
                 "orderkey_0", BIGINT);
 
         assertFragmentedEqualsUnfragmented(join, stats, types);
@@ -449,10 +473,15 @@ public class TestCostCalculator
     @Test
     public void testReplicatedJoinWithExchange()
     {
-        TableScanNode ts1 = tableScan("ts1", "orderkey");
-        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
+        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
+        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
         ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2);
-        ExchangeNode localExchange = systemPartitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        ExchangeNode localExchange = systemPartitionedExchange(
+                new PlanNodeId("le"),
+                LOCAL,
+                remoteExchange2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
+                Optional.empty());
 
         JoinNode join = join("join",
                 ts1,
@@ -480,10 +509,13 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ImmutableListMultimap.Builder<Symbol, Symbol> outputMappings = ImmutableListMultimap.builder();
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey"));
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey_0"));
-        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build(), ImmutableList.of(new Symbol("orderkey_1")));
+        UnionNode union = new UnionNode(
+                new PlanNodeId("union"),
+                ImmutableList.of(ts1, ts2),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
+                ImmutableMap.of(
+                        new VariableReferenceExpression("orderkey_1", BIGINT),
+                        ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT))));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),
@@ -495,11 +527,11 @@ public class TestCostCalculator
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT,
                 "orderkey_1", BIGINT);
-        assertCost(union, costs, stats, types)
+        assertCost(union, costs, stats)
                 .cpu(2000)
                 .memory(0)
                 .network(0);
-        assertCostEstimatedExchanges(union, costs, stats, types)
+        assertCostEstimatedExchanges(union, costs, stats)
                 .cpu(2000)
                 .memory(0)
                 .network(5000 * IS_NULL_OVERHEAD);
@@ -508,19 +540,17 @@ public class TestCostCalculator
     private CostAssertionBuilder assertCost(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
-        return assertCost(costCalculatorUsingExchanges, node, costs, stats, types);
+        return assertCost(costCalculatorUsingExchanges, node, costs, stats);
     }
 
     private CostAssertionBuilder assertCostEstimatedExchanges(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
-        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats, types);
+        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats);
     }
 
     private CostAssertionBuilder assertCostFragmentedPlan(
@@ -529,12 +559,18 @@ public class TestCostCalculator
             Map<String, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
-        CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
-        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
+        PlanNode plan = translateExpression(node, statsCalculator(stats), typeProvider);
+        SubPlan subPlan = fragment(new Plan(plan, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
+    }
+
+    private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
+    {
+        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
+        return optimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private static class TestingCostProvider
@@ -544,15 +580,13 @@ public class TestCostCalculator
         private final CostCalculator costCalculator;
         private final StatsProvider statsProvider;
         private final Session session;
-        private final TypeProvider types;
 
-        private TestingCostProvider(Map<String, PlanCostEstimate> costs, CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+        private TestingCostProvider(Map<String, PlanCostEstimate> costs, CostCalculator costCalculator, StatsProvider statsProvider, Session session)
         {
             this.costs = ImmutableMap.copyOf(requireNonNull(costs, "costs is null"));
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -561,7 +595,7 @@ public class TestCostCalculator
             if (costs.containsKey(node.getId().toString())) {
                 return costs.get(node.getId().toString());
             }
-            return costCalculator.calculateCost(node, statsProvider, this, session, types);
+            return costCalculator.calculateCost(node, statsProvider, this, session);
         }
     }
 
@@ -569,24 +603,21 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
         Function<PlanNode, PlanNodeStatsEstimate> statsProvider = planNode -> stats.get(planNode.getId().toString());
         PlanCostEstimate cost = calculateCost(
                 costCalculator,
                 node,
-                sourceCostProvider(costCalculator, costs, statsProvider, types),
-                statsProvider,
-                types);
+                sourceCostProvider(costCalculator, costs, statsProvider),
+                statsProvider);
         return new CostAssertionBuilder(cost);
     }
 
     private Function<PlanNode, PlanCostEstimate> sourceCostProvider(
             CostCalculator costCalculator,
             Map<String, PlanCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> statsProvider,
-            Map<String, Type> types)
+            Function<PlanNode, PlanNodeStatsEstimate> statsProvider)
     {
         return node -> {
             PlanCostEstimate providedCost = costs.get(node.getId().toString());
@@ -596,27 +627,24 @@ public class TestCostCalculator
             return calculateCost(
                     costCalculator,
                     node,
-                    sourceCostProvider(costCalculator, costs, statsProvider, types),
-                    statsProvider,
-                    types);
+                    sourceCostProvider(costCalculator, costs, statsProvider),
+                    statsProvider);
         };
     }
 
-    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node, Map<String, Type> types)
+    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node)
     {
         new CostAssertionBuilder(calculateCost(
                 costCalculatorUsingExchanges,
                 node,
                 planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown(),
-                types))
+                planNode -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
                 planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown(),
-                types))
+                planNode -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
     }
 
@@ -638,33 +666,29 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Function<PlanNode, PlanCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Function<PlanNode, PlanNodeStatsEstimate> stats)
     {
         return costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
                 source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
-                session,
-                TypeProvider.copyOf(types.entrySet().stream()
-                        .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
+                session);
     }
 
     private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
         return costProvider.getCost(node);
     }
 
     private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator, Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
+        node = translateExpression(node, statsCalculator, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
     }
@@ -711,22 +735,22 @@ public class TestCostCalculator
 
     private static PlanNodeStatsEstimate statsEstimate(PlanNode node, double outputSizeInBytes)
     {
-        return statsEstimate(node.getOutputSymbols(), outputSizeInBytes);
+        return statsEstimate(node.getOutputVariables(), outputSizeInBytes);
     }
 
-    private static PlanNodeStatsEstimate statsEstimate(Collection<Symbol> symbols, double outputSizeInBytes)
+    private static PlanNodeStatsEstimate statsEstimate(Collection<VariableReferenceExpression> variables, double outputSizeInBytes)
     {
-        checkArgument(symbols.size() > 0, "No symbols");
-        checkArgument(ImmutableSet.copyOf(symbols).size() == symbols.size(), "Duplicate symbols");
+        checkArgument(variables.size() > 0, "No variables");
+        checkArgument(ImmutableSet.copyOf(variables).size() == variables.size(), "Duplicate variables");
 
-        double rowCount = outputSizeInBytes / symbols.size() / AVERAGE_ROW_SIZE;
+        double rowCount = outputSizeInBytes / variables.size() / AVERAGE_ROW_SIZE;
 
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount);
-        for (Symbol symbol : symbols) {
-            builder.addSymbolStatistics(
-                    symbol,
-                    SymbolStatsEstimate.builder()
+        for (VariableReferenceExpression variable : variables) {
+            builder.addVariableStatistics(
+                    variable,
+                    VariableStatsEstimate.builder()
                             .setNullsFraction(0)
                             .setAverageRowSize(AVERAGE_ROW_SIZE)
                             .build());
@@ -736,44 +760,51 @@ public class TestCostCalculator
 
     private TableScanNode tableScan(String id, String... symbols)
     {
-        List<Symbol> symbolsList = Arrays.stream(symbols).map(Symbol::new).collect(toImmutableList());
-        ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
+        List<VariableReferenceExpression> variables = Arrays.stream(symbols)
+                .map(symbol -> new VariableReferenceExpression(symbol, BIGINT))
+                .collect(toImmutableList());
+        return tableScan(id, variables);
+    }
 
-        for (Symbol symbol : symbolsList) {
-            assignments.put(symbol, new TpchColumnHandle("orderkey", BIGINT));
+    private TableScanNode tableScan(String id, List<VariableReferenceExpression> variables)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
+
+        for (VariableReferenceExpression variable : variables) {
+            assignments.put(variable, new TpchColumnHandle("orderkey", BIGINT));
         }
 
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new ConnectorId("tpch"), new TpchTableHandle("orders", 1.0)),
-                symbolsList,
+                new TableHandle(
+                        new ConnectorId("tpch"),
+                        tableHandle,
+                        TpchTransactionHandle.INSTANCE,
+                        Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
+                variables,
                 assignments.build(),
-                Optional.of(new TableLayoutHandle(new ConnectorId("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 TupleDomain.all(),
                 TupleDomain.all());
     }
 
-    private PlanNode project(String id, PlanNode source, String symbol, Expression expression)
+    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, Expression expression)
     {
         return new ProjectNode(
                 new PlanNodeId(id),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                assignment(variable, expression));
     }
 
     private AggregationNode aggregation(String id, PlanNode source)
     {
-        AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
-                Optional.empty());
+        AggregationNode.Aggregation aggregation = count(metadata.getFunctionManager());
 
         return new AggregationNode(
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(new Symbol("count"), aggregation),
-                singleGroupingSet(source.getOutputSymbols()),
+                ImmutableMap.of(new VariableReferenceExpression("count", BIGINT), aggregation),
+                singleGroupingSet(source.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -790,7 +821,7 @@ public class TestCostCalculator
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1])));
+            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(symbols[i], BIGINT), new VariableReferenceExpression(symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(
@@ -799,9 +830,9 @@ public class TestCostCalculator
                 left,
                 right,
                 criteria.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),

@@ -20,24 +20,34 @@ import org.apache.hadoop.io.compress.SnappyCodec;
 import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.util.Optional;
+import java.util.function.Predicate;
 
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static java.util.Objects.requireNonNull;
 
 public enum HiveCompressionCodec
 {
-    NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED),
-    SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY),
-    GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP);
+    NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED, f -> true),
+    SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, f -> true),
+    GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, f -> true),
+    ZSTD(null, CompressionKind.ZSTD, null, f -> f == ORC || f == DWRF);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
     private final CompressionKind orcCompressionKind;
-    private final CompressionCodecName parquetCompressionCodec;
+    private final Optional<CompressionCodecName> parquetCompressionCodec;
+    private final Predicate<HiveStorageFormat> supportedStorageFormats;
 
-    HiveCompressionCodec(Class<? extends CompressionCodec> codec, CompressionKind orcCompressionKind, CompressionCodecName parquetCompressionCodec)
+    HiveCompressionCodec(
+            Class<? extends CompressionCodec> codec,
+            CompressionKind orcCompressionKind,
+            CompressionCodecName parquetCompressionCodec,
+            Predicate<HiveStorageFormat> supportedStorageFormats)
     {
         this.codec = Optional.ofNullable(codec);
         this.orcCompressionKind = requireNonNull(orcCompressionKind, "orcCompressionKind is null");
-        this.parquetCompressionCodec = requireNonNull(parquetCompressionCodec, "parquetCompressionCodec is null");
+        this.parquetCompressionCodec = Optional.ofNullable(parquetCompressionCodec);
+        this.supportedStorageFormats = requireNonNull(supportedStorageFormats, "supportedStorageFormats is null");
     }
 
     public Optional<Class<? extends CompressionCodec>> getCodec()
@@ -50,8 +60,13 @@ public enum HiveCompressionCodec
         return orcCompressionKind;
     }
 
-    public CompressionCodecName getParquetCompressionCodec()
+    public Optional<CompressionCodecName> getParquetCompressionCodec()
     {
         return parquetCompressionCodec;
+    }
+
+    public boolean isSupportedStorageFormat(HiveStorageFormat hiveStorageFormat)
+    {
+        return supportedStorageFormats.test(hiveStorageFormat);
     }
 }

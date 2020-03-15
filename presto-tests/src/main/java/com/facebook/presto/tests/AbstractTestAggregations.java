@@ -15,12 +15,16 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.Session.builder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -206,6 +210,17 @@ public abstract class AbstractTestAggregations
     {
         assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
         assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
+        assertQuery(" SELECT COUNT(*) FROM (SELECT orderkey, COUNT(DISTINCT partkey) FROM lineitem " +
+                        "  GROUP BY orderkey " +
+                        "HAVING COUNT(DISTINCT partkey) != CARDINALITY(ARRAY_DISTINCT(ARRAY_AGG(partkey))))",
+                "VALUES 0");
+        assertQuery(builder(TEST_SESSION)
+                        .setSystemProperty("use_mark_distinct", "false")
+                        .build(),
+                " SELECT COUNT(*) FROM (SELECT orderkey, COUNT(DISTINCT partkey) FROM lineitem " +
+                        "  GROUP BY orderkey " +
+                        "HAVING COUNT(DISTINCT partkey) != CARDINALITY(ARRAY_DISTINCT(ARRAY_AGG(partkey))))",
+                "VALUES 0");
     }
 
     @Test
@@ -1268,5 +1283,95 @@ public abstract class AbstractTestAggregations
                         "('5-LOW', 1369, ('O'))," +
                         "('5-LOW', 445 , NULL)," +
                         "('1-URGENT', 781 , ('O'))");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction and TestTDigestAggregationFunction
+     */
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigest(String type)
+    {
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction and TestTDigestAggregationFunction
+     */
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestGroupBy(String type)
+    {
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction and TestMergeTDigestFunction
+     */
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestMerge(String type)
+    {
+        assertQuery(format("SELECT value_at_quantile(merge(%s), 0.5E0) > 0 FROM (SELECT partkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey)",
+                type,
+                type,
+                type),
+                "SELECT true");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction and TestMergeTDigestFunction
+     */
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestMergeGroupBy(String type)
+    {
+        assertQuery(format("SELECT partkey, value_at_quantile(merge(%s), 0.5E0) > 0 " +
+                        "FROM (SELECT partkey, suppkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey, suppkey)" +
+                        "GROUP BY partkey",
+                type,
+                type,
+                type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
+
+    @Test
+    public void testGroupedRow()
+    {
+        assertQuery(
+                "SELECT count(r[1]), count(r[2]) " +
+                        "FROM (" +
+                        "   SELECT orderkey, max_by(ROW(orderstatus, shippriority), orderstatus) AS r " +
+                        "   FROM orders " +
+                        "   GROUP BY orderkey" +
+                        ")",
+                "SELECT 15000, 15000");
+    }
+
+    @DataProvider(name = "getType")
+    protected Object[][] getDigests()
+    {
+        return new Object[][] {{"tdigest"}, {"qdigest"}};
     }
 }

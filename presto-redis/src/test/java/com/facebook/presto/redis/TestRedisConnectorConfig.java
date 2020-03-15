@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.io.File;

@@ -28,7 +28,9 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Lightweight version of QueryStats. Parts of the web UI depend on the fields
@@ -43,6 +45,8 @@ public class BasicQueryStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
+
+    private final int peakRunningTasks;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -62,6 +66,8 @@ public class BasicQueryStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final DataSize totalAllocation;
+
     private final OptionalDouble progressPercentage;
 
     @JsonCreator
@@ -71,6 +77,7 @@ public class BasicQueryStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("peakRunningTasks") int peakRunningTasks,
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
@@ -85,6 +92,7 @@ public class BasicQueryStats
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
@@ -93,6 +101,8 @@ public class BasicQueryStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
+
+        this.peakRunningTasks = peakRunningTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -116,6 +126,8 @@ public class BasicQueryStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
@@ -126,6 +138,7 @@ public class BasicQueryStats
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
@@ -140,7 +153,36 @@ public class BasicQueryStats
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
+                queryStats.getTotalAllocation(),
                 queryStats.getProgressPercentage());
+    }
+
+    public static BasicQueryStats immediateFailureQueryStats()
+    {
+        DateTime now = DateTime.now();
+        return new BasicQueryStats(
+                now,
+                now,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                false,
+                ImmutableSet.of(),
+                new DataSize(0, BYTE),
+                OptionalDouble.empty());
     }
 
     @JsonProperty
@@ -227,6 +269,11 @@ public class BasicQueryStats
         return totalMemoryReservation;
     }
 
+    public int getPeakRunningTasks()
+    {
+        return peakRunningTasks;
+    }
+
     @JsonProperty
     public DataSize getPeakUserMemoryReservation()
     {
@@ -255,6 +302,12 @@ public class BasicQueryStats
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
+    }
+
+    @JsonProperty
+    public DataSize getTotalAllocation()
+    {
+        return totalAllocation;
     }
 
     @JsonProperty

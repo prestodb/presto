@@ -37,7 +37,7 @@ public class ListEncoding
     {
         byte separator = getSeparator(depth);
 
-        Block list = block.getObject(position, Block.class);
+        Block list = block.getBlock(position);
         for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
             if (elementIndex > 0) {
                 output.writeByte(separator);

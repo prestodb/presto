@@ -221,6 +221,6 @@ public final class MLFeaturesFunctions
 
         mapBlockBuilder.closeEntry();
         pageBuilder.declarePosition();
-        return mapBlockBuilder.getObject(mapBlockBuilder.getPositionCount() - 1, Block.class);
+        return mapBlockBuilder.getBlock(mapBlockBuilder.getPositionCount() - 1);
     }
 }

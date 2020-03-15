@@ -89,13 +89,6 @@ public class BenchmarkBinaryFileSpiller
     public static class BenchmarkData
     {
         private final SpillerStats spillerStats = new SpillerStats();
-        private final FileSingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
-                MoreExecutors.newDirectExecutorService(),
-                BLOCK_ENCODING_MANAGER,
-                spillerStats,
-                ImmutableList.of(SPILL_PATH),
-                1.0);
-        private final SpillerFactory spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
 
         @Param("10000")
         private int rowsPerPage = 10000;
@@ -103,13 +96,31 @@ public class BenchmarkBinaryFileSpiller
         @Param("10")
         private int pagesCount = 10;
 
+        @Param("false")
+        private boolean compressionEnabled;
+
+        @Param("false")
+        private boolean encryptionEnabled;
+
         private List<Page> pages;
         private Spiller readSpiller;
+
+        private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
+        private SpillerFactory spillerFactory;
 
         @Setup
         public void setup()
                 throws ExecutionException, InterruptedException
         {
+            singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                    MoreExecutors.newDirectExecutorService(),
+                    BLOCK_ENCODING_MANAGER,
+                    spillerStats,
+                    ImmutableList.of(SPILL_PATH),
+                    1.0,
+                    compressionEnabled,
+                    encryptionEnabled);
+            spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();
             readSpiller = spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
             readSpiller.spill(pages.iterator()).get();

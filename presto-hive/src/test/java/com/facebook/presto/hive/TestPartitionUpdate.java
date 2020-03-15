@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestPartitionUpdate

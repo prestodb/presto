@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -44,11 +44,15 @@ public class QueryManagerConfig
     private int hashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
+    private boolean useStreamingExchangeForMarkDistinct;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
     private int stageCountWarningThreshold = 50;
+    private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
+    private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
+    private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -62,11 +66,10 @@ public class QueryManagerConfig
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
-    private int initializationRequiredWorkers = 1;
-    private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
-
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+
+    private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -158,6 +161,20 @@ public class QueryManagerConfig
         return exchangeMaterializationStrategy;
     }
 
+    @Config("query.use-streaming-exchange-for-mark-distinct")
+    @ConfigDescription("Use streaming instead of materialization with mark distinct when materialized exchange is enabled")
+    public QueryManagerConfig setUseStreamingExchangeForMarkDistinct(boolean useStreamingExchangeForMarkDistinct)
+    {
+        this.useStreamingExchangeForMarkDistinct = useStreamingExchangeForMarkDistinct;
+        return this;
+    }
+
+    @NotNull
+    public boolean getUseStreamingExchangeForMarkDistinct()
+    {
+        return useStreamingExchangeForMarkDistinct;
+    }
+
     @Config("query.exchange-materialization-strategy")
     @ConfigDescription("The exchange materialization strategy to use")
     public QueryManagerConfig setExchangeMaterializationStrategy(ExchangeMaterializationStrategy exchangeMaterializationStrategy)
@@ -231,6 +248,47 @@ public class QueryManagerConfig
     public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
     {
         this.stageCountWarningThreshold = stageCountWarningThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTotalRunningTaskCountToKillQuery()
+    {
+        return maxTotalRunningTaskCountToKillQuery;
+    }
+
+    @Config("max-total-running-task-count-to-kill-query")
+    @ConfigDescription("Query may be killed when running task count from all queries exceeds this threshold")
+    public QueryManagerConfig setMaxTotalRunningTaskCountToKillQuery(int maxTotalRunningTaskCountToKillQuery)
+    {
+        this.maxTotalRunningTaskCountToKillQuery = maxTotalRunningTaskCountToKillQuery;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxQueryRunningTaskCount()
+    {
+        return maxQueryRunningTaskCount;
+    }
+
+    @Config("experimental.max-total-running-task-count-to-not-execute-new-query")
+    @ConfigDescription("Keep new queries in the queue if total task count exceeds this threshold")
+    public QueryManagerConfig setMaxTotalRunningTaskCountToNotExecuteNewQuery(int maxTotalRunningTaskCountToNotExecuteNewQuery)
+    {
+        this.maxTotalRunningTaskCountToNotExecuteNewQuery = maxTotalRunningTaskCountToNotExecuteNewQuery;
+        return this;
+    }
+
+    public int getMaxTotalRunningTaskCountToNotExecuteNewQuery()
+    {
+        return maxTotalRunningTaskCountToNotExecuteNewQuery;
+    }
+
+    @Config("max-query-running-task-count")
+    @ConfigDescription("Maximal allowed running task for single query only if max-total-running-task-count-to-kill-query is violated")
+    public QueryManagerConfig setMaxQueryRunningTaskCount(int maxQueryRunningTaskCount)
+    {
+        this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;
         return this;
     }
 
@@ -355,34 +413,6 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getInitializationRequiredWorkers()
-    {
-        return initializationRequiredWorkers;
-    }
-
-    @Config("query-manager.initialization-required-workers")
-    @ConfigDescription("Minimum number of workers that must be available before the cluster will accept queries")
-    public QueryManagerConfig setInitializationRequiredWorkers(int initializationRequiredWorkers)
-    {
-        this.initializationRequiredWorkers = initializationRequiredWorkers;
-        return this;
-    }
-
-    @NotNull
-    public Duration getInitializationTimeout()
-    {
-        return initializationTimeout;
-    }
-
-    @Config("query-manager.initialization-timeout")
-    @ConfigDescription("After this time, the cluster will accept queries even if the minimum required workers are not available")
-    public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
-    {
-        this.initializationTimeout = initializationTimeout;
-        return this;
-    }
-
-    @Min(1)
     public int getRequiredWorkers()
     {
         return requiredWorkers;
@@ -407,6 +437,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getQuerySubmissionMaxThreads()
+    {
+        return querySubmissionMaxThreads;
+    }
+
+    @Config("query-manager.query-submission-max-threads")
+    public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
+    {
+        this.querySubmissionMaxThreads = querySubmissionMaxThreads;
         return this;
     }
 

@@ -14,8 +14,8 @@
 package com.facebook.presto.hive.s3;
 
 import com.amazonaws.AbortedException;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeStat;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -251,15 +251,15 @@ public class PrestoS3FileSystemStats
         listObjectsCalls.update(1);
     }
 
-    public void newReadError(Exception e)
+    public void newReadError(Throwable t)
     {
-        if (e instanceof SocketException) {
+        if (t instanceof SocketException) {
             socketExceptions.update(1);
         }
-        else if (e instanceof SocketTimeoutException) {
+        else if (t instanceof SocketTimeoutException) {
             socketTimeoutExceptions.update(1);
         }
-        else if (e instanceof AbortedException) {
+        else if (t instanceof AbortedException) {
             awsAbortedExceptions.update(1);
         }
         else {

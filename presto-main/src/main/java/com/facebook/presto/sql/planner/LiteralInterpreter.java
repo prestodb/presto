@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -52,7 +53,6 @@ import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -70,12 +70,12 @@ import java.math.MathContext;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
@@ -157,7 +157,11 @@ public final class LiteralInterpreter
             return new SqlIntervalDayTime((long) node.getValue());
         }
         if (type instanceof IntervalYearMonthType) {
-            return new SqlIntervalYearMonth((int) node.getValue());
+            return new SqlIntervalYearMonth(((Long) node.getValue()).intValue());
+        }
+        if (type.getJavaType().equals(Slice.class)) {
+            // DO NOT ever remove toBase64. Calling toString directly on Slice whose base is not byte[] will cause JVM to crash.
+            return "'" + VarbinaryFunctions.toBase64((Slice) node.getValue()).toStringUtf8() + "'";
         }
 
         // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
@@ -238,7 +242,7 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
 

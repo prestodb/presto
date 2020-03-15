@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.decoder.json;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;

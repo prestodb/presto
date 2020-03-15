@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.ROWS_PER_PAGE;
@@ -51,7 +52,6 @@ import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.TOTAL
 import static com.facebook.presto.operator.TestWindowOperator.ROW_NUMBER;
 import static com.facebook.presto.operator.TestWindowOperator.createFactoryUnbounded;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

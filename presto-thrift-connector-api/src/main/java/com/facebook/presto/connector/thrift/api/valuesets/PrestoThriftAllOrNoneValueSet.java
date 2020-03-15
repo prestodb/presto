@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.connector.thrift.api.valuesets;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
-import io.airlift.drift.annotations.ThriftConstructor;
-import io.airlift.drift.annotations.ThriftField;
-import io.airlift.drift.annotations.ThriftStruct;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

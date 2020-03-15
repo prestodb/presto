@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
@@ -23,6 +22,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -49,20 +49,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
 {
     private static final Principal PRINCIPAL = new BasicPrincipal("principal");
     private static final String USER_NAME = "user_name";
+    private static final String QUERY_TOKEN_FIELD = "query_token";
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
@@ -129,6 +132,28 @@ public class TestAccessControlManager
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
+    }
+
+    @Test
+    public void testCheckQueryIntegrity()
+    {
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+        String testQuery = "test_query";
+
+        accessControlManager.checkQueryIntegrity(new Identity(USER_NAME, Optional.of(PRINCIPAL), ImmutableMap.of(), ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery)), testQuery);
+        assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
+        assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
+        assertEquals(accessControlFactory.getCheckedQuery(), testQuery);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> accessControlManager.checkQueryIntegrity(
+                        new Identity(USER_NAME, Optional.of(PRINCIPAL), ImmutableMap.of(), ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery + " modified")),
+                        testQuery));
     }
 
     @Test
@@ -219,6 +244,7 @@ public class TestAccessControlManager
 
         private Optional<Principal> checkedPrincipal;
         private String checkedUserName;
+        private String checkedQuery;
 
         public TestSystemAccessControlFactory(String name)
         {
@@ -240,6 +266,11 @@ public class TestAccessControlManager
             return checkedUserName;
         }
 
+        public String getCheckedQuery()
+        {
+            return checkedQuery;
+        }
+
         @Override
         public String getName()
         {
@@ -257,6 +288,17 @@ public class TestAccessControlManager
                 {
                     checkedPrincipal = principal;
                     checkedUserName = userName;
+                }
+
+                @Override
+                public void checkQueryIntegrity(Identity identity, String query)
+                {
+                    if (!query.equals(identity.getExtraCredentials().get(QUERY_TOKEN_FIELD))) {
+                        denyQueryIntegrityCheck();
+                    }
+                    checkedUserName = identity.getUser();
+                    checkedPrincipal = identity.getPrincipal();
+                    checkedQuery = query;
                 }
 
                 @Override

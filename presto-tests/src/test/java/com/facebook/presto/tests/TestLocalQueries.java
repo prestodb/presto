@@ -14,9 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -43,7 +44,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -70,7 +70,7 @@ public class TestLocalQueries
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
-        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localQueryRunner.getMetadata().registerBuiltInFunctions(CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);

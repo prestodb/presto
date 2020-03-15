@@ -14,8 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -71,7 +71,7 @@ public class TestQueryPlanDeterminism
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
-        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localQueryRunner.getMetadata().registerBuiltInFunctions(CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);

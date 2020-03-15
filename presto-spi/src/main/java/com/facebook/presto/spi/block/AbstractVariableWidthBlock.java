@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
@@ -23,9 +24,11 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 public abstract class AbstractVariableWidthBlock
         implements Block
 {
-    protected abstract Slice getRawSlice(int position);
+    // TODO: create ColumnarSlice class and expose the rawSlice through it
+    public abstract Slice getRawSlice(int position);
 
-    protected abstract int getPositionOffset(int position);
+    // TODO: create ColumnarSlice class and expose the offset through it
+    public abstract int getPositionOffset(int position);
 
     protected abstract boolean isEntryNull(int position);
 
@@ -36,24 +39,31 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getByte(getPositionOffset(position) + offset);
+        return getRawSlice(position).getByte(getPositionOffset(position));
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getShort(getPositionOffset(position) + offset);
+        return getRawSlice(position).getShort(getPositionOffset(position));
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getInt(getPositionOffset(position) + offset);
+        return getRawSlice(position).getInt(getPositionOffset(position));
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        checkReadablePosition(position);
+        return getRawSlice(position).getLong(getPositionOffset(position));
     }
 
     @Override
@@ -125,6 +135,20 @@ public abstract class AbstractVariableWidthBlock
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
         blockBuilder.closeEntry();
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            int sliceLength = getSliceLength(position);
+            output.writeInt(sliceLength);
+            output.writeBytes(getRawSlice(position), getPositionOffset(position), sliceLength);
+        }
     }
 
     @Override

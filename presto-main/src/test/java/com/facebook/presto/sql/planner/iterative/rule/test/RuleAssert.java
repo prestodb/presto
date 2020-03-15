@@ -26,17 +26,21 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -49,34 +53,33 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
 {
     private final Metadata metadata;
-    private TestingStatsCalculator statsCalculator;
+    private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private Session session;
     private final Rule<?> rule;
-
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-    private TypeProvider types;
-    private PlanNode plan;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
+    private Session session;
+    private TypeProvider types;
+    private PlanNode plan;
+
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
-        this.metadata = metadata;
-        this.statsCalculator = new TestingStatsCalculator(statsCalculator);
-        this.costCalculator = costCalculator;
-        this.session = session;
-        this.rule = rule;
-        this.transactionManager = transactionManager;
-        this.accessControl = accessControl;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.statsCalculator = new TestingStatsCalculator(requireNonNull(statsCalculator, "statsCalculator is null"));
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.session = requireNonNull(session, "session is null");
+        this.rule = requireNonNull(rule, "rule is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -100,12 +103,27 @@ public class RuleAssert
 
     public RuleAssert on(Function<PlanBuilder, PlanNode> planProvider)
     {
-        checkArgument(plan == null, "plan has already been set");
+        checkState(plan == null, "plan has already been set");
 
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        PlanBuilder builder = new PlanBuilder(session, idAllocator, metadata);
         plan = planProvider.apply(builder);
         types = builder.getTypes();
         return this;
+    }
+
+    public PlanNode get()
+    {
+        RuleApplication ruleApplication = applyRule();
+        TypeProvider types = ruleApplication.types;
+
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
+
+        return ruleApplication.getTransformedPlan();
     }
 
     public void doesNotFire()
@@ -141,31 +159,31 @@ public class RuleAssert
                     formatPlan(plan, types)));
         }
 
-        if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
+        if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
             fail(String.format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
                     rule.getClass().getName(),
-                    plan.getOutputSymbols(),
-                    actual.getOutputSymbols()));
+                    plan.getOutputVariables(),
+                    actual.getOutputVariables()));
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern, planNode -> translateExpressions(planNode, types));
             return null;
         });
     }
 
     private RuleApplication applyRule()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
+        PlanVariableAllocator variableAllocator = new PlanVariableAllocator(types.allVariables());
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, symbolAllocator, memo, lookup, session)));
+        return inTransaction(session -> applyRule(rule, memoRoot, ruleContext(statsCalculator, costCalculator, variableAllocator, memo, lookup, session)));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -181,14 +199,14 @@ public class RuleAssert
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getVariableAllocator().getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session);
+        return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -202,10 +220,16 @@ public class RuleAssert
                 });
     }
 
-    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
+    private PlanNode translateExpressions(PlanNode node, TypeProvider typeProvider)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
+        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator, new TranslateExpressions(metadata, new SqlParser()).rules());
+        return optimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
+    }
+
+    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, PlanVariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)
+    {
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, variableAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
 
         return new Rule.Context()
         {
@@ -222,9 +246,9 @@ public class RuleAssert
             }
 
             @Override
-            public SymbolAllocator getSymbolAllocator()
+            public PlanVariableAllocator getVariableAllocator()
             {
-                return symbolAllocator;
+                return variableAllocator;
             }
 
             @Override
@@ -282,13 +306,13 @@ public class RuleAssert
         }
     }
 
-    private static class TestingStatsCalculator
+    public static class TestingStatsCalculator
             implements StatsCalculator
     {
         private final StatsCalculator delegate;
         private final Map<PlanNodeId, PlanNodeStatsEstimate> stats = new HashMap<>();
 
-        TestingStatsCalculator(StatsCalculator delegate)
+        public TestingStatsCalculator(StatsCalculator delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

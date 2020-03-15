@@ -56,7 +56,7 @@ public class TypedKeyValueHeap
 
     public static Type getSerializedType(Type keyType, Type valueType)
     {
-        return RowType.anonymous(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)));
+        return RowType.withDefaultFieldNames(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)));
     }
 
     public int getCapacity()

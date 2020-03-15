@@ -1,0 +1,3 @@
+The code for the t-digest was originally authored by Ted Dunning
+
+Adrien Grand contributed the heart of the AVLTreeDigest (https://github.com/jpountz)

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -27,6 +28,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
@@ -105,21 +107,27 @@ public class DictionaryBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
-        return dictionary.getByte(getId(position), offset);
+        return dictionary.getByte(getId(position));
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
-        return dictionary.getShort(getId(position), offset);
+        return dictionary.getShort(getId(position));
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
-        return dictionary.getInt(getId(position), offset);
+        return dictionary.getInt(getId(position));
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        return dictionary.getLong(getId(position));
     }
 
     @Override
@@ -135,9 +143,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        return dictionary.getObject(getId(position), clazz);
+        return dictionary.getBlock(getId(position));
     }
 
     @Override
@@ -162,6 +170,12 @@ public class DictionaryBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         dictionary.writePositionTo(getId(position), blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        dictionary.writePositionTo(getId(position), output);
     }
 
     @Override
@@ -368,7 +382,8 @@ public class DictionaryBlock
     public String toString()
     {
         StringBuilder sb = new StringBuilder("DictionaryBlock{");
-        sb.append("positionCount=").append(getPositionCount());
+        sb.append("positionCount=").append(getPositionCount()).append(",");
+        sb.append("dictionary=").append(dictionary.toString());
         sb.append('}');
         return sb.toString();
     }
@@ -392,6 +407,11 @@ public class DictionaryBlock
     Slice getIds()
     {
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
+    }
+
+    int[] getRawIds()
+    {
+        return ids;
     }
 
     public int getId(int position)
@@ -457,5 +477,75 @@ public class DictionaryBlock
             // ignore if copy positions is not supported for the dictionary block
             return this;
         }
+    }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getByte(ids[internalPosition]);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getShort(ids[internalPosition]);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getInt(ids[internalPosition]);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getLong(ids[internalPosition]);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getLong(ids[internalPosition], offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getSlice(ids[internalPosition], offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getSliceLength(ids[internalPosition]);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return dictionary.getBlock(ids[internalPosition]);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return idsOffset;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, idsOffset, positionCount);
+        return dictionary.isNull(ids[internalPosition]);
     }
 }

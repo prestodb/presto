@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.event;
 
-import io.airlift.event.client.EventField;
-import io.airlift.event.client.EventType;
+import com.facebook.airlift.event.client.EventField;
+import com.facebook.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -31,44 +31,46 @@ public class QueryInfo
     private final String schema;
     private final String originalQuery;
     private final String queryId;
+    private final String checksumQueryId;
     private final String query;
     private final List<String> setupQueries;
     private final List<String> teardownQueries;
     private final String checksumQuery;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
-    private final List<FailureInfo> allFailures;
+
+    public QueryInfo(
+            String catalog,
+            String schema,
+            String originalQuery)
+    {
+        this(catalog, schema, originalQuery, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
 
     public QueryInfo(
             String catalog,
             String schema,
             String originalQuery,
             Optional<String> queryId,
+            Optional<String> checksumQueryId,
             Optional<String> query,
             Optional<List<String>> setupQueries,
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
             Optional<Double> cpuTimeSecs,
-            Optional<Double> wallTimeSecs,
-            List<FailureInfo> allFailures)
+            Optional<Double> wallTimeSecs)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.originalQuery = requireNonNull(originalQuery, "originalQuery is null");
         this.queryId = queryId.orElse(null);
+        this.checksumQueryId = checksumQueryId.orElse(null);
         this.query = query.orElse(null);
         this.setupQueries = setupQueries.orElse(null);
         this.teardownQueries = teardownQueries.orElse(null);
         this.checksumQuery = checksumQuery.orElse(null);
         this.cpuTimeSecs = cpuTimeSecs.orElse(null);
         this.wallTimeSecs = wallTimeSecs.orElse(null);
-        this.allFailures = requireNonNull(allFailures, "allFailures is null");
-    }
-
-    @EventField
-    public String getQueryId()
-    {
-        return queryId;
     }
 
     @EventField
@@ -87,6 +89,18 @@ public class QueryInfo
     public String getOriginalQuery()
     {
         return originalQuery;
+    }
+
+    @EventField
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
+    @EventField
+    public String getChecksumQueryId()
+    {
+        return checksumQueryId;
     }
 
     @EventField
@@ -123,11 +137,5 @@ public class QueryInfo
     public Double getWallTimeSecs()
     {
         return wallTimeSecs;
-    }
-
-    @EventField
-    public List<FailureInfo> getAllFailures()
-    {
-        return allFailures;
     }
 }

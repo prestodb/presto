@@ -60,9 +60,9 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.1'
+needs_sphinx = '1.6.5'
 
-extensions = ['download', 'issue']
+extensions = ['download', 'issue', 'pr', 'sphinx.ext.mathjax']
 
 templates_path = ['_templates']
 

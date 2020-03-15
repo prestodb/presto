@@ -48,6 +48,24 @@ memory intensive queries. It is still possible that the query runner will fail
 to divide intermediate data into chunks small enough that every chunk fits into
 memory, leading to ``Out of memory`` errors while loading the data from disk.
 
+Revocable memory and reserved pool
+----------------------------------
+
+Both reserved memory pool and revocable memory are designed to cope with low memory conditions.
+When user memory pool is exhausted then a single query will be promoted to a reserved pool.
+In such case only that query is allowed to progress thus reducing cluster
+concurrency. Revocable memory will try to prevent that by triggering spill.
+Reserved pool is of ``query.max-total-memory-per-node`` size. If 
+``query.max-total-memory-per-node`` is large compared to the total memory 
+available on the node, then the general memory pool may not have enough 
+memory to run larger queries. If spill is enabled, then this will cause
+excessive spilling for queries that consume large amounts of memory per node. 
+These queries would finish much quicker if spill were disabled because they
+would execute in the reserved pool. However, doing so could also significantly
+reduce cluster concurrency. In such a situation we recommend disabling the 
+reserved memory pool via the ``experimental.reserved-pool-enabled`` config 
+property.
+
 Spill Disk Space
 ----------------
 
@@ -64,6 +82,28 @@ it is recommended to monitor the disk saturation of the configured spill paths.
 Presto treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
+
+Spill Compression
+-----------------
+
+When spill compression is enabled (``spill-compression-enabled`` property in
+:ref:`tuning-spilling`), spilled pages will be compressed using the same
+implementation as exchange compression when they are sufficiently compressible.
+Enabling this feature can reduce the amount of disk IO at the cost
+of extra CPU load to compress and decompress spilled pages.
+
+Spill Encryption
+----------------
+
+When spill encryption is enabled (``spill-encryption-enabled`` property in
+:ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
+(per spill file) secret key. Enabling this will decrease the performance of spilling
+to disk but can protect spilled data from being recovered from the files written to disk.
+
+**Note**: Some distributions of Java ship with policy files that limit the strength
+of the cryptographic keys that can be used. Spill encryption uses
+256-bit AES keys and may require Unlimited Strength :abbr:`JCE (Java Cryptography Extension)`
+policy files to work correctly.
 
 Supported Operations
 --------------------

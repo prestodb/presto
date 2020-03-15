@@ -25,7 +25,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -35,7 +37,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -62,11 +63,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -125,26 +128,26 @@ public class BenchmarkArrayFilter
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            metadata.addFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
+            metadata.registerBuiltInFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
+                FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
                 FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
-                projectionsBuilder.add(new CallExpression(functionHandle, arrayType, ImmutableList.of(
+                projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 
@@ -202,7 +205,7 @@ public class BenchmarkArrayFilter
         private ExactArrayFilterFunction()
         {
             super(new Signature(
-                    "exact_filter",
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "exact_filter"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -212,9 +215,9 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public boolean isHidden()
+        public SqlFunctionVisibility getVisibility()
         {
-            return false;
+            return PUBLIC;
         }
 
         @Override
@@ -230,16 +233,15 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {
             Type type = boundVariables.getTypeVariable("T");
-            return new ScalarFunctionImplementation(
+            return new BuiltInScalarFunctionImplementation(
                     false,
                     ImmutableList.of(
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    METHOD_HANDLE.bindTo(type),
-                    isDeterministic());
+                    METHOD_HANDLE.bindTo(type));
         }
 
         public static Block filter(Type type, Block block, MethodHandle function)

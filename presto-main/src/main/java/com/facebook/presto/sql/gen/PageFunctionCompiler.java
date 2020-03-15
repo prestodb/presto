@@ -13,6 +13,17 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.ForLoop;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
@@ -28,32 +39,21 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.FieldDefinition;
-import io.airlift.bytecode.MethodDefinition;
-import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.ParameterizedType;
-import io.airlift.bytecode.Scope;
-import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.ForLoop;
-import io.airlift.bytecode.control.IfStatement;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -62,36 +62,36 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PRIVATE;
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.Parameter.arg;
-import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.add;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
-import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
@@ -99,8 +99,8 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final LoadingCache<CacheKey, Supplier<PageProjection>> projectionCache;
+    private final LoadingCache<CacheKey, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
@@ -114,13 +114,13 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -132,7 +132,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -157,15 +157,15 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
-            return compileProjectionInternal(projection, classNameSuffix);
+            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix);
         }
-        return projectionCache.getUnchecked(projection);
+        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection));
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -186,7 +186,7 @@ public class PageFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
@@ -208,7 +208,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -233,8 +233,8 @@ public class PageFunctionCompiler
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         // evaluate
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, metadata, sqlFunctionProperties);
+        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -312,6 +312,7 @@ public class PageFunctionCompiler
     }
 
     private MethodDefinition generateEvaluateMethod(
+            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
@@ -343,10 +344,12 @@ public class PageFunctionCompiler
 
         scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionManager(),
+                metadata,
+                sqlFunctionProperties,
                 compiledLambdaMap);
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
@@ -356,22 +359,22 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
     {
         if (filterCache == null) {
-            return compileFilterInternal(filter, classNameSuffix);
+            return compileFilterInternal(sqlFunctionProperties, filter, classNameSuffix);
         }
-        return filterCache.getUnchecked(filter);
+        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, filter));
     }
 
-    private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
+    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
     {
         requireNonNull(filter, "filter is null");
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
+        ClassDefinition classDefinition = defineFilterClass(sqlFunctionProperties, result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
 
         Class<? extends PageFilter> functionClass;
         try {
@@ -396,7 +399,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -406,8 +409,8 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -488,6 +491,7 @@ public class PageFunctionCompiler
     }
 
     private MethodDefinition generateFilterMethod(
+            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
@@ -517,10 +521,12 @@ public class PageFunctionCompiler
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionManager(),
+                metadata,
+                sqlFunctionProperties,
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
@@ -529,32 +535,6 @@ public class PageFunctionCompiler
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());
         return method;
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    metadata.getFunctionManager());
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private static void generateConstructor(
@@ -616,5 +596,37 @@ public class PageFunctionCompiler
                 (scope, field) -> scope.getVariable("block_" + field),
                 (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
+    }
+
+    private static final class CacheKey
+    {
+        private final SqlFunctionProperties sqlFunctionProperties;
+        private final RowExpression rowExpression;
+
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression)
+        {
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
+            this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CacheKey)) {
+                return false;
+            }
+            CacheKey that = (CacheKey) o;
+            return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
+                    Objects.equals(rowExpression, that.rowExpression);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sqlFunctionProperties, rowExpression);
+        }
     }
 }

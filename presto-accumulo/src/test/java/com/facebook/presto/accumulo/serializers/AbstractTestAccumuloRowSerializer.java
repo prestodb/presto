@@ -27,13 +27,13 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Value;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +108,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testDate()
             throws Exception
     {
-        Date expected = new Date(new DateTime(2001, 2, 3, 4, 5, 6, DateTimeZone.UTC).getMillis());
+        Date expected = new Date(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 0, ZoneId.of("UTC")).toEpochSecond());
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         byte[] data = serializer.encode(DATE, expected);
 

@@ -14,12 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class HiveWritableTableHandle
@@ -33,6 +35,7 @@ public class HiveWritableTableHandle
     private final Optional<HiveBucketProperty> bucketProperty;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
+    private final HiveCompressionCodec compressionCodec;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -43,7 +46,8 @@ public class HiveWritableTableHandle
             LocationHandle locationHandle,
             Optional<HiveBucketProperty> bucketProperty,
             HiveStorageFormat tableStorageFormat,
-            HiveStorageFormat partitionStorageFormat)
+            HiveStorageFormat partitionStorageFormat,
+            HiveCompressionCodec compressionCodec)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -54,6 +58,14 @@ public class HiveWritableTableHandle
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+
+        if (!compressionCodec.isSupportedStorageFormat(tableStorageFormat)) {
+            throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), tableStorageFormat.name()));
+        }
+        if (!compressionCodec.isSupportedStorageFormat(partitionStorageFormat)) {
+            throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), partitionStorageFormat.name()));
+        }
     }
 
     @JsonProperty
@@ -108,6 +120,12 @@ public class HiveWritableTableHandle
     public HiveStorageFormat getPartitionStorageFormat()
     {
         return partitionStorageFormat;
+    }
+
+    @JsonProperty
+    public HiveCompressionCodec getCompressionCodec()
+    {
+        return compressionCodec;
     }
 
     @Override

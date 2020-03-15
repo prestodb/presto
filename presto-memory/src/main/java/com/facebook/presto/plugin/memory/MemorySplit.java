@@ -15,13 +15,14 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -79,9 +80,9 @@ public class MemorySplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return false;
+        return HARD_AFFINITY;
     }
 
     @JsonProperty
@@ -91,7 +92,7 @@ public class MemorySplit
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of(address);
     }
@@ -100,27 +101,6 @@ public class MemorySplit
     public long getExpectedRows()
     {
         return expectedRows;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        MemorySplit other = (MemorySplit) obj;
-        return Objects.equals(this.tableHandle, other.tableHandle) &&
-                Objects.equals(this.totalPartsPerWorker, other.totalPartsPerWorker) &&
-                Objects.equals(this.partNumber, other.partNumber);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(tableHandle, totalPartsPerWorker, partNumber);
     }
 
     @Override

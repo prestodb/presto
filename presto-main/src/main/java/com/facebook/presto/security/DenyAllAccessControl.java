@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDropVie
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
@@ -65,6 +66,12 @@ public class DenyAllAccessControl
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+        denyQueryIntegrityCheck();
     }
 
     @Override

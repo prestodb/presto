@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
@@ -237,6 +238,14 @@ public class TestingPrestoClient
                     .collect(Collectors.toMap(
                             e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
                             e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
+        }
+        else if (type instanceof RowType) {
+            Map<String, Object> data = (Map<String, Object>) value;
+            RowType rowType = (RowType) type;
+
+            return rowType.getFields().stream()
+                    .map(field -> convertToRowValue(field.getType(), data.get(field.getName().get())))
+                    .collect(toList());
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);

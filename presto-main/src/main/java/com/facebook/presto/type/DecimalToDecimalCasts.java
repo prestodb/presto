@@ -51,7 +51,7 @@ public final class DecimalToDecimalCasts
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalToDecimalCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalToDecimalCasts.class, CAST)
             .signature(SIGNATURE)
             .deterministic(true)
             .choice(choice -> choice

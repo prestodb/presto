@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 
 import java.util.Map;
 

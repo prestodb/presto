@@ -38,6 +38,7 @@ import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -45,12 +46,21 @@ public abstract class AbstractTestAggregationFunction
     protected FunctionManager functionManager;
     protected Session session;
 
+    protected AbstractTestAggregationFunction()
+    {
+        this(testSessionBuilder().build());
+    }
+
+    protected AbstractTestAggregationFunction(Session session)
+    {
+        this.session = requireNonNull(session, "session is null");
+    }
+
     @BeforeClass
     public final void initTestAggregationFunction()
     {
         typeRegistry = new TypeRegistry();
         functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        session = testSessionBuilder().build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -64,7 +74,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionManager.addFunctions(extractFunctions(plugin.getFunctions()));
+        functionManager.registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)
@@ -77,7 +87,7 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of(getFunctionName()), parameterTypes);
+        FunctionHandle functionHandle = functionManager.resolveFunction(session.getTransactionId(), QualifiedName.of(getFunctionName()), parameterTypes);
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

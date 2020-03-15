@@ -13,23 +13,31 @@
  */
 package com.facebook.presto.sql;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.spi.type.TimeZoneKey;
+
+import javax.annotation.Nullable;
+import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 public class SqlEnvironmentConfig
 {
-    private Optional<String> path = Optional.empty();
+    private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
 
-    @Config("sql.path")
-    public SqlEnvironmentConfig setPath(String path)
+    @NotNull
+    public Optional<TimeZoneKey> getForcedSessionTimeZone()
     {
-        this.path = Optional.ofNullable(path);
-        return this;
+        return forcedSessionTimeZone;
     }
 
-    public Optional<String> getPath()
+    @Config("sql.forced-session-time-zone")
+    @ConfigDescription("User session time zone overriding value sent by client")
+    public SqlEnvironmentConfig setForcedSessionTimeZone(@Nullable String timeZoneId)
     {
-        return path;
+        this.forcedSessionTimeZone = Optional.ofNullable(timeZoneId)
+                .map(TimeZoneKey::getTimeZoneKey);
+        return this;
     }
 }

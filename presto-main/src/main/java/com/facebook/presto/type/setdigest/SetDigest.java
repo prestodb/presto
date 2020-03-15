@@ -14,16 +14,16 @@
 
 package com.facebook.presto.type.setdigest;
 
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Murmur3;
+import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.stats.cardinality.HyperLogLog;
 import it.unimi.dsi.fastutil.longs.Long2ShortRBTreeMap;
 import it.unimi.dsi.fastutil.longs.Long2ShortSortedMap;
 import it.unimi.dsi.fastutil.longs.LongBidirectionalIterator;
@@ -185,13 +185,13 @@ public class SetDigest
 
     public void add(long value)
     {
-        addHash(Murmur3.hash64(value));
+        addHash(Murmur3Hash128.hash64(value));
         hll.add(value);
     }
 
     public void add(Slice value)
     {
-        addHash(Murmur3.hash64(value));
+        addHash(Murmur3Hash128.hash64(value));
         hll.add(value);
     }
 

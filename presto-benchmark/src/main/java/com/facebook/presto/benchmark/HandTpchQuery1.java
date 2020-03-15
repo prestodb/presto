@@ -24,10 +24,9 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -61,13 +60,13 @@ public class HandTpchQuery1
 
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         longAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
+                functionManager.lookupFunction("avg", fromTypes(BIGINT)));
         doubleAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction("avg", fromTypes(DOUBLE)));
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
         countFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
+                functionManager.lookupFunction("count", ImmutableList.of()));
     }
 
     @Override

@@ -46,8 +46,25 @@ public class NthValueFunction
             long offset = windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
 
-            // offset is base 1
-            long valuePosition = frameStart + (offset - 1);
+            long valuePosition;
+
+            if (ignoreNulls) {
+                long count = 0;
+                valuePosition = frameStart;
+                while (valuePosition >= 0 && valuePosition <= frameEnd) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        count++;
+                        if (count == offset) {
+                            break;
+                        }
+                    }
+                    valuePosition++;
+                }
+            }
+            else {
+                // offset is base 1
+                valuePosition = frameStart + (offset - 1);
+            }
 
             if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);

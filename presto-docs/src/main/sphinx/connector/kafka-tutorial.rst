@@ -63,7 +63,7 @@ Now run the ``kafka-tpch`` program to preload a number of topics with tpch data:
 .. code-block:: none
 
     $ ./kafka-tpch load --brokers localhost:9092 --prefix tpch. --tpch-type tiny
-    2014-07-28T17:17:07.594-0700     INFO    main    io.airlift.log.Logging    Logging to stderr
+    2014-07-28T17:17:07.594-0700     INFO    main    com.facebook.airlift.log.Logging    Logging to stderr
     2014-07-28T17:17:07.623-0700     INFO    main    de.softwareforge.kafka.LoadCommand    Processing tables: [customer, orders, lineitem, part, partsupp, supplier, nation, region]
     2014-07-28T17:17:07.981-0700     INFO    pool-1-thread-1    de.softwareforge.kafka.LoadCommand    Loading table 'customer' into topic 'tpch.customer'...
     2014-07-28T17:17:07.981-0700     INFO    pool-1-thread-2    de.softwareforge.kafka.LoadCommand    Loading table 'orders' into topic 'tpch.orders'...
@@ -154,9 +154,6 @@ built-in ones:
     -------------------+---------+-------+---------------------------------------------
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes
@@ -231,9 +228,6 @@ The customer table now has an additional column: ``kafka_key``.
      kafka_key         | bigint  |       |
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes
@@ -357,9 +351,6 @@ the sum query from earlier can operate on the ``account_balance`` column directl
      comment           | varchar |       |
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes

@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.EnumSet;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class SqlParserOptions
 {
+    protected static final Set<String> RESERVED_WORDS_WARNING = ImmutableSet.of(
+            "CALLED", "CURRENT_ROLE", "DETERMINISTIC", "FUNCTION", "LANGUAGE", "RETURN", "RETURNS", "SQL");
+
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
     private boolean enhancedErrorHandlerEnabled = true;
 

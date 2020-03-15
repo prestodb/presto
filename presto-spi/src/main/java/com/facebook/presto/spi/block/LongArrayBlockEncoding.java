@@ -40,7 +40,7 @@ public class LongArrayBlockEncoding
 
         for (int position = 0; position < positionCount; position++) {
             if (!block.isNull(position)) {
-                sliceOutput.writeLong(block.getLong(position, 0));
+                sliceOutput.writeLong(block.getLong(position));
             }
         }
     }

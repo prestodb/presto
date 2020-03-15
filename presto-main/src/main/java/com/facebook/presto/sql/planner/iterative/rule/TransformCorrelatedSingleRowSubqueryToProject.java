@@ -15,16 +15,17 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
 
 /**
@@ -68,7 +69,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         }
 
         List<ProjectNode> subqueryProjections = searchFrom(parent.getSubquery(), context.getLookup())
-                .where(node -> node instanceof ProjectNode && !node.getOutputSymbols().equals(parent.getCorrelation()))
+                .where(node -> node instanceof ProjectNode && !node.getOutputVariables().equals(parent.getCorrelation()))
                 .findAll();
 
         if (subqueryProjections.size() == 0) {
@@ -76,7 +77,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         }
         else if (subqueryProjections.size() == 1) {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(parent.getInput().getOutputSymbols())
+                    .putAll(identitiesAsSymbolReferences(parent.getInput().getOutputVariables()))
                     .putAll(subqueryProjections.get(0).getAssignments())
                     .build();
             return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));

@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
@@ -50,6 +51,8 @@ public interface QueryRunner
     PageSourceManager getPageSourceManager();
 
     NodePartitioningManager getNodePartitioningManager();
+
+    ConnectorPlanOptimizerManager getPlanOptimizerManager();
 
     StatsCalculator getStatsCalculator();
 

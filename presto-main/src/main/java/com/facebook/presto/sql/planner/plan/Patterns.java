@@ -15,8 +15,17 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.List;
 import java.util.Optional;
@@ -134,6 +143,11 @@ public class Patterns
         return typeOf(TableWriterNode.class);
     }
 
+    public static Pattern<TableWriterMergeNode> tableWriterMergeNode()
+    {
+        return typeOf(TableWriterMergeNode.class);
+    }
+
     public static Pattern<TopNNode> topN()
     {
         return typeOf(TopNNode.class);
@@ -178,7 +192,7 @@ public class Patterns
 
     public static class Aggregation
     {
-        public static Property<AggregationNode, List<Symbol>> groupingColumns()
+        public static Property<AggregationNode, List<VariableReferenceExpression>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }
@@ -191,7 +205,7 @@ public class Patterns
 
     public static class Apply
     {
-        public static Property<ApplyNode, List<Symbol>> correlation()
+        public static Property<ApplyNode, List<VariableReferenceExpression>> correlation()
         {
             return property("correlation", ApplyNode::getCorrelation);
         }
@@ -207,7 +221,7 @@ public class Patterns
 
     public static class LateralJoin
     {
-        public static Property<LateralJoinNode, List<Symbol>> correlation()
+        public static Property<LateralJoinNode, List<VariableReferenceExpression>> correlation()
         {
             return property("correlation", LateralJoinNode::getCorrelation);
         }

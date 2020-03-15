@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 
 import java.util.Map;
 
+import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public final class MemoryQueryRunner
 {
@@ -37,10 +37,10 @@ public final class MemoryQueryRunner
     public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return createQueryRunner(ImmutableMap.of());
+        return createQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> coordinatorProperties, Map<String, String> extraProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -48,7 +48,11 @@ public final class MemoryQueryRunner
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(4)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setExtraProperties(extraProperties)
+                .build();
 
         try {
             queryRunner.installPlugin(new MemoryPlugin());
@@ -71,7 +75,7 @@ public final class MemoryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

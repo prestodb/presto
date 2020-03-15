@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.airlift.concurrent.ExtendedSettableFuture;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -22,7 +23,6 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.ExtendedSettableFuture;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -167,6 +167,9 @@ public class LazyOutputBuffer
                         break;
                     case ARBITRARY:
                         delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                        break;
+                    case DISCARDING:
+                        delegate = new DiscardingOutputBuffer(newOutputBuffers, state);
                         break;
                 }
 

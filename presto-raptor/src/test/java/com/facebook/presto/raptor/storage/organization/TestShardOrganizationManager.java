@@ -58,8 +58,8 @@ public class TestShardOrganizationManager
     private MetadataDao metadataDao;
     private ShardOrganizerDao organizerDao;
 
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true);
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
+    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true, false);
+    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true, false);
 
     private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP);
     private static final TemporalFunction TEMPORAL_FUNCTION = new TemporalFunction(UTC);
@@ -84,11 +84,11 @@ public class TestShardOrganizationManager
     @Test
     public void testOrganizationEligibleTables()
     {
-        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0);
+        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0, false);
         metadataDao.insertColumn(table1, 1, "foo", 1, "bigint", 1, null);
 
-        metadataDao.insertTable("schema", "table2", false, true, null, 0);
-        metadataDao.insertTable("schema", "table3", false, false, null, 0);
+        metadataDao.insertTable("schema", "table2", false, true, null, 0, false);
+        metadataDao.insertTable("schema", "table3", false, false, null, 0, false);
         assertEquals(metadataDao.getOrganizationEligibleTables(), ImmutableSet.of(table1));
     }
 
@@ -96,13 +96,13 @@ public class TestShardOrganizationManager
     public void testTableDiscovery()
             throws Exception
     {
-        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0);
+        long table1 = metadataDao.insertTable("schema", "table1", false, true, null, 0, false);
         metadataDao.insertColumn(table1, 1, "foo", 1, "bigint", 1, null);
 
-        long table2 = metadataDao.insertTable("schema", "table2", false, true, null, 0);
+        long table2 = metadataDao.insertTable("schema", "table2", false, true, null, 0, false);
         metadataDao.insertColumn(table2, 1, "foo", 1, "bigint", 1, null);
 
-        metadataDao.insertTable("schema", "table3", false, false, null, 0);
+        metadataDao.insertTable("schema", "table3", false, false, null, 0, false);
 
         long intervalMillis = 100;
         ShardOrganizationManager organizationManager = createShardOrganizationManager(intervalMillis);
@@ -140,7 +140,7 @@ public class TestShardOrganizationManager
 
         assertEquals(actual.size(), 1);
         // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
-        assertEquals(getOnlyElement(actual).getShards(), extractIndexes(shards, 0, 1, 2));
+        assertEquals(getOnlyElement(actual).getShardsMap(), extractIndexes(shards, 0, 1, 2));
     }
 
     @Test
@@ -167,7 +167,7 @@ public class TestShardOrganizationManager
 
         // expect 2 organization sets, of overlapping shards (0, 2) and (1, 3)
         assertEquals(organizationSets.size(), 2);
-        assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 2), extractIndexes(shards, 1, 3)));
+        assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 2).keySet(), extractIndexes(shards, 1, 3).keySet()));
     }
 
     private static ShardIndexInfo shardWithSortRange(int bucketNumber, ShardRange sortRange)
@@ -176,6 +176,8 @@ public class TestShardOrganizationManager
                 1,
                 OptionalInt.of(bucketNumber),
                 UUID.randomUUID(),
+                false,
+                Optional.empty(),
                 1,
                 1,
                 Optional.of(sortRange),
@@ -188,6 +190,8 @@ public class TestShardOrganizationManager
                 1,
                 OptionalInt.of(bucketNumber),
                 UUID.randomUUID(),
+                false,
+                Optional.empty(),
                 1,
                 1,
                 Optional.of(sortRange),

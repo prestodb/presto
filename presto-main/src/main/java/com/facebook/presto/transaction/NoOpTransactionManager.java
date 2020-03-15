@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.CatalogMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,13 +32,13 @@ public class NoOpTransactionManager
         implements TransactionManager
 {
     @Override
-    public boolean transactionExists(TransactionId transactionId)
+    public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public TransactionInfo getTransactionInfo(TransactionId transactionId)
+    public Optional<TransactionInfo> getOptionalTransactionInfo(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
@@ -91,6 +93,17 @@ public class NoOpTransactionManager
 
     @Override
     public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void registerFunctionNamespaceManager(String catalogName, FunctionNamespaceManager<?> functionNamespaceManager)
+    {
+    }
+
+    @Override
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
     {
         throw new UnsupportedOperationException();
     }

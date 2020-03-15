@@ -15,23 +15,33 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HivePlugin;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+import org.testng.internal.collections.Pair;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.CONTAINS_PAIRS;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.CROSSES_PAIRS;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.EQUALS_PAIRS;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.OVERLAPS_PAIRS;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.RELATION_GEOMETRIES_WKT;
+import static com.facebook.presto.plugin.geospatial.TestGeoRelations.TOUCHES_PAIRS;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -59,6 +69,18 @@ public class TestSpatialJoins
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
 
+    private static String getRelationalGeometriesSql()
+    {
+        StringBuilder sql = new StringBuilder("VALUES ");
+        for (int i = 0; i < RELATION_GEOMETRIES_WKT.size(); i++) {
+            sql.append(format("(%s, %s)", RELATION_GEOMETRIES_WKT.get(i), i));
+            if (i != RELATION_GEOMETRIES_WKT.size() - 1) {
+                sql.append(", ");
+            }
+        }
+        return sql.toString();
+    }
+
     public TestSpatialJoins()
     {
         super(() -> createQueryRunner());
@@ -77,8 +99,9 @@ public class TestSpatialJoins
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
         metastore.createDatabase(Database.builder()
@@ -323,5 +346,43 @@ public class TestSpatialJoins
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) LEFT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
                 "SELECT * FROM VALUES ('a', null), ('b', null), ('c', 'a'), ('c', 'b'), ('d', null), ('empty', null), ('null', null)");
+    }
+
+    private void testRelationshipSpatialJoin(Session session, String relation, List<Pair<Integer, Integer>> expectedPairs)
+    {
+        StringBuilder expected = new StringBuilder("SELECT * FROM VALUES ");
+        for (int i = 0; i < expectedPairs.size(); i++) {
+            Pair<Integer, Integer> pair = expectedPairs.get(i);
+            expected.append(format("(%d, %d)", pair.first(), pair.second()));
+            if (i != expectedPairs.size() - 1) {
+                expected.append(", ");
+            }
+        }
+
+        String whereClause;
+        switch (relation) {
+            case "ST_Contains": whereClause = "WHERE a.id != b.id";
+                break;
+            case "ST_Equals": whereClause = "";
+                break;
+            default: whereClause = "WHERE a.id < b.id";
+                break;
+        }
+
+        assertQuery(session,
+                format("SELECT a.id, b.id FROM (%s) AS a (wkt, id) JOIN (%s) AS b (wkt, id) " +
+                        "ON %s(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt)) %s",
+                getRelationalGeometriesSql(), getRelationalGeometriesSql(), relation, whereClause),
+                expected.toString());
+    }
+
+    @Test
+    public void testRelationshipBroadcastSpatialJoin()
+    {
+        testRelationshipSpatialJoin(getSession(), "ST_Equals", EQUALS_PAIRS);
+        testRelationshipSpatialJoin(getSession(), "ST_Contains", CONTAINS_PAIRS);
+        testRelationshipSpatialJoin(getSession(), "ST_Touches", TOUCHES_PAIRS);
+        testRelationshipSpatialJoin(getSession(), "ST_Overlaps", OVERLAPS_PAIRS);
+        testRelationshipSpatialJoin(getSession(), "ST_Crosses", CROSSES_PAIRS);
     }
 }

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.memory.MemoryAllocation;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -34,11 +33,14 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.facebook.presto.memory.context.AbstractAggregatedMemoryContext.FORCE_FREE_TAG;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class MemoryPool
 {
@@ -351,6 +353,19 @@ public class MemoryPool
     @VisibleForTesting
     synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
-        return ImmutableMap.copyOf(taggedMemoryAllocations);
+        return taggedMemoryAllocations.keySet().stream()
+                .collect(toImmutableMap(identity(), this::getTaggedMemoryAllocations));
+    }
+
+    @VisibleForTesting
+    synchronized Map<String, Long> getTaggedMemoryAllocations(QueryId targetQueryId)
+    {
+        if (taggedMemoryAllocations.get(targetQueryId) == null) {
+            return null;
+        }
+        return taggedMemoryAllocations.get(targetQueryId)
+                .entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(FORCE_FREE_TAG))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

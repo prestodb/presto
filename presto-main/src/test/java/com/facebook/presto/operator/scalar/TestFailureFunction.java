@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.Failures;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static org.testng.Assert.assertTrue;
 
 public class TestFailureFunction
         extends AbstractTestFunctions
@@ -33,13 +37,20 @@ public class TestFailureFunction
         assertFunction("fail(json_parse('" + FAILURE_INFO + "'))", UNKNOWN, null);
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "/ by zero")
+    @Test
     public void testQuery()
     {
         // The other test does not exercise this function during execution (i.e. inside a page processor).
         // It only verifies constant folding works.
         try (LocalQueryRunner runner = new LocalQueryRunner(TEST_SESSION)) {
-            runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)");
+            try {
+                runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)");
+                throw new RuntimeException("Should throw PrestoException");
+            }
+            catch (PrestoException e) {
+                assertEquals(e.getErrorCode(), DIVISION_BY_ZERO.toErrorCode());
+                assertTrue(e.getMessage().contains("/ by zero"));
+            }
         }
     }
 }

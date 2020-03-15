@@ -207,7 +207,7 @@ public class SpatialPartitioningStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + (envelope != null ? envelope.estimateMemorySize() * (1 + samples.size()) : 0);
+            return INSTANCE_SIZE + (envelope != null ? envelope.getEstimatedSizeInBytes() * (1 + samples.size()) : 0);
         }
     }
 }

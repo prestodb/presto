@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.sql.gen;
 
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.FieldDefinition;
-import io.airlift.bytecode.Variable;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.Variable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PRIVATE;
-import static io.airlift.bytecode.Access.a;
 import static java.util.Objects.requireNonNull;
 
 public final class CachedInstanceBinder

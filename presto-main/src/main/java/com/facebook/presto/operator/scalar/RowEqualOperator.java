@@ -27,8 +27,8 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -54,18 +54,17 @@ public class RowEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(
+        return new BuiltInScalarFunctionImplementation(
                 true,
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, functionManager)),
-                isDeterministic());
+                        .bindTo(resolveFieldEqualOperators(type, functionManager)));
     }
 
     public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionManager functionManager)
@@ -78,7 +77,7 @@ public class RowEqualOperator
     private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
     {
         FunctionHandle operator = functionManager.resolveOperator(EQUAL, fromTypes(type, type));
-        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(operator);
+        BuiltInScalarFunctionImplementation implementation = functionManager.getBuiltInScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }
 

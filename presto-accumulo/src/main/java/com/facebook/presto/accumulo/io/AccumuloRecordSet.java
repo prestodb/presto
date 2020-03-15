@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo.io;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchScanner;

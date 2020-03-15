@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestInternalCommunicationConfig
 {
@@ -31,9 +34,15 @@ public class TestInternalCommunicationConfig
                 .setHttpsRequired(false)
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
+                .setTrustStorePath(null)
                 .setKerberosEnabled(false)
+                .setIncludedCipherSuites(null)
+                .setExcludeCipherSuites(null)
                 .setKerberosUseCanonicalHostname(true)
-                .setBinaryTransportEnabled(false));
+                .setBinaryTransportEnabled(false)
+                .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE))
+                .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP));
     }
 
     @Test
@@ -42,19 +51,31 @@ public class TestInternalCommunicationConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", "/a")
+                .put("internal-communication.https.trust-store-path", "/a")
                 .put("internal-communication.https.keystore.key", "key")
+                .put("internal-communication.https.included-cipher", "cipher")
+                .put("internal-communication.https.excluded-cipher", "")
                 .put("internal-communication.kerberos.enabled", "true")
                 .put("internal-communication.kerberos.use-canonical-hostname", "false")
                 .put("experimental.internal-communication.binary-transport-enabled", "true")
+                .put("experimental.internal-communication.max-task-update-size", "512MB")
+                .put("internal-communication.task-communication-protocol", "THRIFT")
+                .put("internal-communication.server-info-communication-protocol", "THRIFT")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setHttpsRequired(true)
                 .setKeyStorePath("/a")
                 .setKeyStorePassword("key")
+                .setTrustStorePath("/a")
+                .setIncludedCipherSuites("cipher")
+                .setExcludeCipherSuites("")
                 .setKerberosEnabled(true)
                 .setKerberosUseCanonicalHostname(false)
-                .setBinaryTransportEnabled(true);
+                .setBinaryTransportEnabled(true)
+                .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE))
+                .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT);
 
         assertFullMapping(properties, expected);
     }

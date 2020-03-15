@@ -66,8 +66,9 @@ public abstract class AbstractTestHiveClientLocal
 
         HiveClientConfig hiveConfig = new HiveClientConfig()
                 .setTimeZone("America/Los_Angeles");
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
 
-        setup(testDbName, hiveConfig, metastore);
+        setup(testDbName, hiveConfig, metastoreClientConfig, metastore);
     }
 
     @AfterClass(alwaysRun = true)

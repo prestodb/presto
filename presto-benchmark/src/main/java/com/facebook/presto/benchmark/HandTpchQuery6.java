@@ -26,10 +26,9 @@ import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +56,7 @@ public class HandTpchQuery6
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
     }
 
     @Override
@@ -72,7 +71,7 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(field(0, BIGINT), Optional.empty());
+        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(session.getSqlFunctionProperties(), field(0, BIGINT), Optional.empty());
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,

@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Objects;
 
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -32,11 +36,12 @@ public final class Split
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
+    private final SplitContext splitContext;
 
     // TODO: inline
     public Split(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplit connectorSplit)
     {
-        this(connectorId, transactionHandle, connectorSplit, Lifespan.taskWide());
+        this(connectorId, transactionHandle, connectorSplit, Lifespan.taskWide(), NON_CACHEABLE);
     }
 
     @JsonCreator
@@ -44,12 +49,14 @@ public final class Split
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
-            @JsonProperty("lifespan") Lifespan lifespan)
+            @JsonProperty("lifespan") Lifespan lifespan,
+            @JsonProperty("splitContext") SplitContext splitContext)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.splitContext = requireNonNull(splitContext, "splitContext is null");
     }
 
     @JsonProperty
@@ -76,19 +83,25 @@ public final class Split
         return lifespan;
     }
 
+    @JsonProperty
+    public SplitContext getSplitContext()
+    {
+        return splitContext;
+    }
+
     public Object getInfo()
     {
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return connectorSplit.getAddresses();
+        return connectorSplit.getPreferredNodes(sortedCandidates);
     }
 
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return connectorSplit.isRemotelyAccessible();
+        return connectorSplit.getNodeSelectionStrategy();
     }
 
     @Override
@@ -99,6 +112,31 @@ public final class Split
                 .add("transactionHandle", transactionHandle)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)
+                .add("splitContext", splitContext)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Split split = (Split) o;
+        return connectorId.equals(split.connectorId) &&
+                transactionHandle.equals(split.transactionHandle) &&
+                connectorSplit.equals(split.connectorSplit) &&
+                lifespan.equals(split.lifespan);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        // Requires connectorSplit's hash function to be set up correctly
+        return Objects.hash(connectorId, transactionHandle, connectorSplit, lifespan);
     }
 }

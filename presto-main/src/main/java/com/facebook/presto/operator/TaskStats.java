@@ -55,12 +55,15 @@ public class TaskStats
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
+    private final long peakTotalMemoryInBytes;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
+
+    private final DataSize totalAllocation;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -98,11 +101,13 @@ public class TaskStats
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
+                0,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 0,
                 new DataSize(0, BYTE),
@@ -137,12 +142,15 @@ public class TaskStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -190,12 +198,15 @@ public class TaskStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.peakTotalMemoryInBytes = peakTotalMemoryInBytes;
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -319,6 +330,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public long getPeakTotalMemoryInBytes()
+    {
+        return peakTotalMemoryInBytes;
+    }
+
+    @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
@@ -346,6 +363,12 @@ public class TaskStats
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
+    }
+
+    @JsonProperty
+    public DataSize getTotalAllocation()
+    {
+        return totalAllocation;
     }
 
     @JsonProperty
@@ -441,11 +464,13 @@ public class TaskStats
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
+                peakTotalMemoryInBytes,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
+                totalAllocation,
                 rawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,
@@ -479,11 +504,13 @@ public class TaskStats
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
+                peakTotalMemoryInBytes,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
+                totalAllocation,
                 rawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,

@@ -41,7 +41,8 @@ public class TestMongoDistributedQueries
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        mongoQueryRunner.shutdown();
-        mongoQueryRunner = null;
+        if (mongoQueryRunner != null) {
+            mongoQueryRunner.shutdown();
+        }
     }
 }

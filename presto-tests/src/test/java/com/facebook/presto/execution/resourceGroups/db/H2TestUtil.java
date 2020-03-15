@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
@@ -28,18 +29,17 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class H2TestUtil

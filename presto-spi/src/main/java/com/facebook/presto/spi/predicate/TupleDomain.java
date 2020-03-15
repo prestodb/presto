@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -33,7 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -66,7 +69,7 @@ public final class TupleDomain<T>
             if (containsNoneDomain(map)) {
                 return Optional.empty();
             }
-            return Optional.of(Collections.unmodifiableMap(normalizeAndCopy(map)));
+            return Optional.of(unmodifiableMap(normalizeAndCopy(map)));
         });
     }
 
@@ -99,6 +102,62 @@ public final class TupleDomain<T>
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
                 .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+    }
+
+    /**
+     * Extract all column constraints that require exactly one value or only null in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, ConstantExpression>> extractFixedValuesToConstantExpressions(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tupleDomain.getDomains().get()
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().isNullableSingleValue())
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new ConstantExpression(entry.getValue().getNullableSingleValue(), entry.getValue().getType()))));
+    }
+
+    /**
+     * Extract all column constraints that require a set of one (or more) values in their respective Domains. All the
+     * ranges (see {@link SortedRangeSet}) must have fixed values.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, Set<NullableValue>>> extractFixedValueSets(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<T, Set<NullableValue>> fixedValues = new HashMap<>();
+        for (Map.Entry<T, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            Optional<Set<NullableValue>> values = extractFixedValueSet(entry.getValue());
+            if (values.isPresent()) {
+                fixedValues.put(entry.getKey(), values.get());
+            }
+        }
+
+        return Optional.of(fixedValues);
+    }
+
+    private static Optional<Set<NullableValue>> extractFixedValueSet(Domain domain)
+    {
+        ValueSet values = domain.getValues();
+        if (!values.getType().isOrderable()) {
+            return Optional.empty();
+        }
+
+        List<Range> ranges = values.getRanges().getOrderedRanges();
+        boolean allSingleValue = ranges.stream().allMatch(Range::isSingleValue);
+        if (!allSingleValue) {
+            return Optional.empty();
+        }
+
+        return Optional.of(ranges.stream()
+                .map(range -> new NullableValue(domain.getType(), range.getSingleValue()))
+                .collect(Collectors.toSet()));
     }
 
     /**
@@ -391,6 +450,26 @@ public final class TupleDomain<T>
                 .collect(toLinkedMap(Map.Entry::getKey, e -> e.getValue().simplify()));
 
         return TupleDomain.withColumnDomains(simplified);
+    }
+
+    public TupleDomain<T> compact(int threshold)
+    {
+        Map<T, Domain> compactedDomains = new HashMap<>();
+        getDomains().ifPresent(domains -> {
+            for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+                T hiveColumnHandle = entry.getKey();
+                Domain domain = entry.getValue();
+
+                ValueSet values = domain.getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                compactedDomains.put(hiveColumnHandle, Domain.create(compactValueSet, domain.isNullAllowed()));
+            }
+        });
+        return TupleDomain.withColumnDomains(unmodifiableMap(compactedDomains));
     }
 
     private static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)

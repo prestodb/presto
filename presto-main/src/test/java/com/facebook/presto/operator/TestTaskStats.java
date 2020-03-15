@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestTaskStats
 {
-    public static final TaskStats EXPECTED = new TaskStats(
+    private static final TaskStats EXPECTED = new TaskStats(
             new DateTime(1),
             new DateTime(2),
             new DateTime(100),
@@ -50,11 +50,14 @@ public class TestTaskStats
             new DataSize(12, BYTE),
             new DataSize(13, BYTE),
             new DataSize(14, BYTE),
+            26,
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
             new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
+
+            new DataSize(123, BYTE),
 
             new DataSize(19, BYTE),
             20,
@@ -105,10 +108,12 @@ public class TestTaskStats
         assertEquals(actual.getUserMemoryReservation(), new DataSize(12, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(13, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(14, BYTE));
+        assertEquals(actual.getPeakTotalMemoryInBytes(), 26);
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
         assertEquals(actual.getRawInputPositions(), 20);

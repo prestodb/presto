@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -21,7 +22,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
@@ -46,22 +46,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
@@ -74,7 +73,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -99,7 +97,6 @@ class StatementClientV1
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
-    private final AtomicReference<String> setPath = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, SelectedRole> setRoles = new ConcurrentHashMap<>();
@@ -110,7 +107,6 @@ class StatementClientV1
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
-    private final String clientCapabilities;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -125,7 +121,6 @@ class StatementClientV1
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
-        this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
 
         Request request = buildQueryRequest(session, query);
 
@@ -167,9 +162,6 @@ class StatementClientV1
         if (session.getSchema() != null) {
             builder.addHeader(PRESTO_SCHEMA, session.getSchema());
         }
-        if (session.getPath() != null) {
-            builder.addHeader(PRESTO_PATH, session.getPath());
-        }
         builder.addHeader(PRESTO_TIME_ZONE, session.getTimeZone().getId());
         if (session.getLocale() != null) {
             builder.addHeader(PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
@@ -190,14 +182,17 @@ class StatementClientV1
             builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
         }
 
+        Map<String, String> extraCredentials = session.getExtraCredentials();
+        for (Entry<String, String> entry : extraCredentials.entrySet()) {
+            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + entry.getValue());
+        }
+
         Map<String, String> statements = session.getPreparedStatements();
         for (Entry<String, String> entry : statements.entrySet()) {
             builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
-
-        builder.addHeader(PRESTO_CLIENT_CAPABILITIES, clientCapabilities);
 
         return builder.build();
     }
@@ -271,12 +266,6 @@ class StatementClientV1
     public Optional<String> getSetSchema()
     {
         return Optional.ofNullable(setSchema.get());
-    }
-
-    @Override
-    public Optional<String> getSetPath()
-    {
-        return Optional.ofNullable(setPath.get());
     }
 
     @Override
@@ -403,7 +392,6 @@ class StatementClientV1
     {
         setCatalog.set(headers.get(PRESTO_SET_CATALOG));
         setSchema.set(headers.get(PRESTO_SET_SCHEMA));
-        setPath.set(headers.get(PRESTO_SET_PATH));
 
         for (String setSession : headers.values(PRESTO_SET_SESSION)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);

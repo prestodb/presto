@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.RowExpression;
-import io.airlift.bytecode.ClassDefinition;
 
 import java.util.List;
 
 public interface BodyCompiler
 {
-    void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections);
+    void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections);
 }

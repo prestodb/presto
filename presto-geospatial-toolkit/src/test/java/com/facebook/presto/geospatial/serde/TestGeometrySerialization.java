@@ -15,17 +15,20 @@ package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
-import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
+import java.util.function.Consumer;
+
+import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.createFromEsriGeometry;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeType;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.ENVELOPE;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.GEOMETRY_COLLECTION;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.LINE_STRING;
@@ -34,6 +37,7 @@ import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MUL
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POINT;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POLYGON;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometrySerialization
@@ -82,7 +86,6 @@ public class TestGeometrySerialization
     {
         testSerialization("POLYGON ((30 10, 40 40, 20 40, 30 10))");
         testSerialization("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))");
-        testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
         testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
         testSerialization("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))");
         testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0.75 0.25, 0.75 0.75, 0.25 0.75, 0.25 0.25, 0.75 0.25))");
@@ -134,6 +137,7 @@ public class TestGeometrySerialization
     @Test
     public void testEnvelope()
     {
+        testEnvelopeSerialization(new Envelope());
         testEnvelopeSerialization(new Envelope(0, 0, 1, 1));
         testEnvelopeSerialization(new Envelope(1, 2, 3, 4));
         testEnvelopeSerialization(new Envelope(10101, -2.05, -3e5, 0));
@@ -141,9 +145,9 @@ public class TestGeometrySerialization
 
     private void testEnvelopeSerialization(Envelope envelope)
     {
-        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, null));
+        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, false));
         assertEquals(deserializeEnvelope(serialize(envelope)), envelope);
-        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, null)));
+        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, false)));
     }
 
     @Test
@@ -154,9 +158,9 @@ public class TestGeometrySerialization
         assertDeserializeEnvelope("POLYGON ((0 0, 0 4, 4 0))", new Envelope(0, 0, 4, 4));
         assertDeserializeEnvelope("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", new Envelope(0, 0, 4, 4));
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(3, 6, 7, 10));
-        assertDeserializeEnvelope("POLYGON EMPTY", null);
+        assertDeserializeEnvelope("POLYGON EMPTY", new Envelope());
         assertDeserializeEnvelope("POINT (1 2)", new Envelope(1, 2, 1, 2));
-        assertDeserializeEnvelope("POINT EMPTY", null);
+        assertDeserializeEnvelope("POINT EMPTY", new Envelope());
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 7), LINESTRING (4 6, 7 10)), POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(2, 6, 7, 10));
     }
 
@@ -181,10 +185,33 @@ public class TestGeometrySerialization
         assertEquals(deserializeType(serialize(new Envelope(1, 2, 3, 4))), ENVELOPE);
     }
 
+    @Test
+    public void testInvalidSerializations()
+    {
+        String wkt = "LINESTRING (0 0)";
+        testEsriSerialization(wkt);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::testJtsSerialization, INVALID_FUNCTION_ARGUMENT);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::tryDeserializeEsriFromJts, INVALID_FUNCTION_ARGUMENT);
+        tryDeserializeJtsFromEsri(wkt);
+
+        wkt = "POLYGON ((0 0, 1 1))";
+        testEsriSerialization(wkt);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::testJtsSerialization, INVALID_FUNCTION_ARGUMENT);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::tryDeserializeEsriFromJts, INVALID_FUNCTION_ARGUMENT);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::tryDeserializeJtsFromEsri, INVALID_FUNCTION_ARGUMENT);
+
+        wkt = "POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))";
+        testEsriSerialization(wkt);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::testJtsSerialization, INVALID_FUNCTION_ARGUMENT);
+        tryDeserializeEsriFromJts(wkt);
+        assertThrowsPrestoException(wkt, TestGeometrySerialization::tryDeserializeJtsFromEsri, INVALID_FUNCTION_ARGUMENT);
+    }
+
     private static void testSerialization(String wkt)
     {
         testEsriSerialization(wkt);
         testJtsSerialization(wkt);
+        testCrossSerialization(wkt);
     }
 
     private static void testEsriSerialization(String wkt)
@@ -196,33 +223,40 @@ public class TestGeometrySerialization
 
     private static void testJtsSerialization(String wkt)
     {
-        Geometry jtsGeometry = createJtsGeometry(wkt);
+        Geometry expected = jtsGeometryFromWkt(wkt);
+        Geometry actual = JtsGeometrySerde.deserialize(JtsGeometrySerde.serialize(expected));
+        assertGeometryEquals(actual, expected);
+    }
+
+    private static void testCrossSerialization(String wkt)
+    {
+        Geometry jtsGeometry = jtsGeometryFromWkt(wkt);
         OGCGeometry esriGeometry = OGCGeometry.fromText(wkt);
 
         Slice jtsSerialized = JtsGeometrySerde.serialize(jtsGeometry);
-        Slice esriSerialized = GeometrySerde.serialize(esriGeometry);
-        assertEquals(jtsSerialized, esriSerialized);
+        Slice esriSerialized = EsriGeometrySerde.serialize(esriGeometry);
 
-        Geometry jtsDeserialized = JtsGeometrySerde.deserialize(jtsSerialized);
-        assertGeometryEquals(jtsDeserialized, jtsGeometry);
+        OGCGeometry esriFromJts = EsriGeometrySerde.deserialize(jtsSerialized);
+        Geometry jtsFromEsri = JtsGeometrySerde.deserialize(esriSerialized);
+        assertGeometryEquals(esriFromJts, esriGeometry);
+        assertGeometryEquals(jtsFromEsri, jtsGeometry);
+    }
 
-        OGCGeometry esriDeserialized = GeometrySerde.deserialize(esriSerialized);
-        assertGeometryEquals(esriDeserialized, esriGeometry);
+    private static void tryDeserializeEsriFromJts(String wkt)
+    {
+        Geometry jtsGeometry = jtsGeometryFromWkt(wkt);
+        EsriGeometrySerde.deserialize(JtsGeometrySerde.serialize(jtsGeometry));
+    }
+
+    private static void tryDeserializeJtsFromEsri(String wkt)
+    {
+        OGCGeometry esriGeometry = OGCGeometry.fromText(wkt);
+        JtsGeometrySerde.deserialize(EsriGeometrySerde.serialize(esriGeometry));
     }
 
     private static Slice geometryFromText(String wkt)
     {
         return serialize(OGCGeometry.fromText(wkt));
-    }
-
-    private static Geometry createJtsGeometry(String wkt)
-    {
-        try {
-            return new WKTReader().read(wkt);
-        }
-        catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static void assertGeometryEquals(Geometry actual, Geometry expected)
@@ -256,5 +290,15 @@ public class TestGeometrySerialization
     private static void ensureEnvelopeLoaded(OGCGeometry geometry)
     {
         geometry.envelope();
+    }
+
+    private static void assertThrowsPrestoException(String argument, Consumer<String> function, StandardErrorCode errorCode)
+    {
+        try {
+            function.accept(argument);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+        }
     }
 }

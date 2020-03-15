@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -24,21 +24,21 @@ import static java.util.Objects.requireNonNull;
 
 public class SortExpressionContext
 {
-    private final Expression sortExpression;
-    private final List<Expression> searchExpressions;
+    private final RowExpression sortExpression;
+    private final List<RowExpression> searchExpressions;
 
-    public SortExpressionContext(Expression sortExpression, List<Expression> searchExpressions)
+    public SortExpressionContext(RowExpression sortExpression, List<RowExpression> searchExpressions)
     {
         this.sortExpression = requireNonNull(sortExpression, "sortExpression can not be null");
         this.searchExpressions = ImmutableList.copyOf(searchExpressions);
     }
 
-    public Expression getSortExpression()
+    public RowExpression getSortExpression()
     {
         return sortExpression;
     }
 
-    public List<Expression> getSearchExpressions()
+    public List<RowExpression> getSearchExpressions()
     {
         return searchExpressions;
     }

@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.testing.TestingHttpClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -40,6 +41,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorIsBlocked;
@@ -51,7 +53,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -60,9 +61,9 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMergeOperator
 {
-    private static final String TASK_1_ID = "task1";
-    private static final String TASK_2_ID = "task2";
-    private static final String TASK_3_ID = "task3";
+    private static final String TASK_1_ID = "task1.0.0.0";
+    private static final String TASK_2_ID = "task2.0.0.0";
+    private static final String TASK_3_ID = "task3.0.0.0";
 
     private AtomicInteger operatorId = new AtomicInteger();
 
@@ -82,7 +83,7 @@ public class TestMergeOperator
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, executor);
+        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, new TestingDriftClient<>(), executor);
         orderingCompiler = new OrderingCompiler();
     }
 
@@ -335,7 +336,7 @@ public class TestMergeOperator
         MergeOperator.MergeOperatorFactory factory = new MergeOperator.MergeOperatorFactory(
                 mergeOperatorId,
                 new PlanNodeId("plan_node_id" + mergeOperatorId),
-                exchangeClientFactory,
+                new TaskExchangeClientManager(exchangeClientFactory),
                 serdeFactory,
                 orderingCompiler,
                 sourceTypes,
@@ -350,7 +351,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(String taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
+        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId), TaskId.valueOf(taskId)));
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

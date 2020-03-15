@@ -14,8 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +36,8 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
-    private final Node localNode;
-    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final InternalNode localNode;
+    private final SetMultimap<ConnectorId, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -51,7 +50,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
+        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
     public void addCurrentNodeConnector(ConnectorId connectorId)
@@ -59,12 +58,12 @@ public class InMemoryNodeManager
         addNode(connectorId, localNode);
     }
 
-    public void addNode(ConnectorId connectorId, Node... nodes)
+    public void addNode(ConnectorId connectorId, InternalNode... nodes)
     {
         addNode(connectorId, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
+    public void addNode(ConnectorId connectorId, Iterable<InternalNode> nodes)
     {
         remoteNodes.putAll(connectorId, nodes);
 
@@ -77,7 +76,7 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<InternalNode> getNodes(NodeState state)
     {
         switch (state) {
             case ACTIVE:
@@ -92,7 +91,7 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public Set<InternalNode> getActiveConnectorNodes(ConnectorId connectorId)
     {
         return ImmutableSet.copyOf(remoteNodes.get(connectorId));
     }
@@ -100,17 +99,17 @@ public class InMemoryNodeManager
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
+        return new AllNodes(ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
     }
 
     @Override
-    public Node getCurrentNode()
+    public InternalNode getCurrentNode()
     {
         return localNode;
     }
 
     @Override
-    public Set<Node> getCoordinators()
+    public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
         return ImmutableSet.of(localNode);

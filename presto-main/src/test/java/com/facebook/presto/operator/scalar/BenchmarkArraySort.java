@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -106,20 +105,20 @@ public class BenchmarkArraySort
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(extractFunctions(BenchmarkArraySort.class));
+            metadata.registerBuiltInFunctions(extractFunctions(BenchmarkArraySort.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
-                projectionsBuilder.add(new CallExpression(functionHandle, arrayType, ImmutableList.of(field(i, arrayType))));
+                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(name, fromTypes(arrayType));
+                projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 

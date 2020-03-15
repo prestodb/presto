@@ -13,20 +13,19 @@
  */
 package com.facebook.presto.benchmark.driver;
 
+import com.facebook.airlift.log.Level;
+import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.log.LoggingConfiguration;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import io.airlift.log.Level;
-import io.airlift.log.Logging;
-import io.airlift.log.LoggingConfiguration;
 
 import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -160,9 +159,6 @@ public class PrestoBenchmarkDriver
                 logging.configure(new LoggingConfiguration());
                 logging.disableConsole();
             }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         finally {
             System.setOut(out);

@@ -14,11 +14,12 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,19 +47,19 @@ public class PageSinkManager
     }
 
     @Override
-    public ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkProperties);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkProperties);
     }
 
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)

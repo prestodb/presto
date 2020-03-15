@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -54,7 +55,7 @@ public class MapBlockEncoding
 
         int offsetBase = mapBlock.getOffsetBase();
         int[] offsets = mapBlock.getOffsets();
-        int[] hashTable = mapBlock.getHashTables();
+        int[] hashTable = mapBlock.getHashTables().get().orElse(null);
 
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
@@ -64,8 +65,15 @@ public class MapBlockEncoding
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
 
-        sliceOutput.appendInt((entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER);
-        sliceOutput.writeBytes(wrappedIntArray(hashTable, entriesStartOffset * HASH_MULTIPLIER, (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER));
+        if (hashTable != null) {
+            int hashTableLength = (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER;
+            sliceOutput.appendInt(hashTableLength); // hashtable length
+            sliceOutput.writeBytes(wrappedIntArray(hashTable, entriesStartOffset * HASH_MULTIPLIER, hashTableLength));
+        }
+        else {
+            // if the hashTable is null, we write the length -1
+            sliceOutput.appendInt(-1);  // hashtable length
+        }
 
         sliceOutput.appendInt(positionCount);
         for (int position = 0; position < positionCount + 1; position++) {
@@ -82,18 +90,27 @@ public class MapBlockEncoding
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
-        int[] hashTable = new int[sliceInput.readInt()];
-        sliceInput.readBytes(wrappedIntArray(hashTable));
+        int hashTableLength = sliceInput.readInt();
+        int[] hashTable = null;
+        if (hashTableLength >= 0) {
+            hashTable = new int[hashTableLength];
+            sliceInput.readBytes(wrappedIntArray(hashTable));
+        }
 
-        if (keyBlock.getPositionCount() != valueBlock.getPositionCount() || keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
             throw new IllegalArgumentException(
-                    format("Deserialized MapBlock violates invariants: key %d, value %d, hash %d", keyBlock.getPositionCount(), valueBlock.getPositionCount(), hashTable.length));
+                    format("Deserialized MapBlock violates invariants: key %d, value %d", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+        }
+
+        if (hashTable != null && keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
+            throw new IllegalArgumentException(
+                    format("Deserialized MapBlock violates invariants: expected hashtable size %d, actual hashtable size %d", keyBlock.getPositionCount() * HASH_MULTIPLIER, hashTable.length));
         }
 
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
+        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(Optional.ofNullable(hashTable), positionCount, hashTableLength));
     }
 }

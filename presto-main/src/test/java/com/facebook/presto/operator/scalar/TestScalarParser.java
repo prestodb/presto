@@ -55,7 +55,7 @@ public class TestScalarParser
         assertFunction("generic_incomplete_specialization_not_nullable(array[1, 2])", new ArrayType(INTEGER), ImmutableList.of(1, 2));
     }
 
-    @ScalarFunction("generic_incomplete_specialization_nullable")
+    @ScalarFunction(value = "generic_incomplete_specialization_nullable", calledOnNullInput = true)
     public static class GenericWithIncompleteSpecializationNullable
     {
         @TypeParameter("E")

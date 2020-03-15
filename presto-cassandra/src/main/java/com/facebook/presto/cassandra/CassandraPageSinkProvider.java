@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
@@ -37,8 +38,9 @@ public class CassandraPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Cassandra connector does not support partition commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
@@ -53,8 +55,9 @@ public class CassandraPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Cassandra connector does not support partition commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraInsertTableHandle, "tableHandle is not an instance of ConnectorInsertTableHandle");
         CassandraInsertTableHandle handle = (CassandraInsertTableHandle) tableHandle;

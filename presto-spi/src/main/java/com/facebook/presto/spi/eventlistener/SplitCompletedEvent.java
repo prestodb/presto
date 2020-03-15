@@ -22,6 +22,7 @@ public class SplitCompletedEvent
 {
     private final String queryId;
     private final String stageId;
+    private final String stageExecutionId;
     private final String taskId;
 
     private final Instant createTime;
@@ -36,6 +37,7 @@ public class SplitCompletedEvent
     public SplitCompletedEvent(
             String queryId,
             String stageId,
+            String stageExecutionId,
             String taskId,
             Instant createTime,
             Optional<Instant> startTime,
@@ -46,6 +48,7 @@ public class SplitCompletedEvent
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.stageId = requireNonNull(stageId, "stageId is null");
+        this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = requireNonNull(startTime, "startTime is null");
@@ -63,6 +66,11 @@ public class SplitCompletedEvent
     public String getStageId()
     {
         return stageId;
+    }
+
+    public String getStageExecutionId()
+    {
+        return stageExecutionId;
     }
 
     public String getTaskId()

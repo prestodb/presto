@@ -16,10 +16,12 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -46,8 +48,12 @@ final class FilterMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        return new MatchResult(verifier.process(filterNode.getPredicate(), predicate));
+        if (isExpression(filterNode.getPredicate())) {
+            ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+            return new MatchResult(verifier.process(castToExpression(filterNode.getPredicate()), predicate));
+        }
+        RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
+        return new MatchResult(verifier.process(predicate, filterNode.getPredicate()));
     }
 
     @Override

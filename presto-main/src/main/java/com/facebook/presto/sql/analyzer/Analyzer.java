@@ -18,16 +18,19 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -86,9 +89,9 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionManager functionManager, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionManager);
+        List<FunctionCall> aggregates = extractAggregateFunctions(functionHandles, ImmutableList.of(predicate), functionManager);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 

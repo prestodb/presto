@@ -18,9 +18,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -104,9 +102,9 @@ public class BenchmarkArrayAggregation
                 default:
                     throw new UnsupportedOperationException();
             }
-            ArrayType arrayType = new ArrayType(elementType);
+
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                    functionManager.lookupFunction(QualifiedName.of(name), fromTypes(elementType)));
+                    functionManager.lookupFunction(name, fromTypes(elementType)));
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

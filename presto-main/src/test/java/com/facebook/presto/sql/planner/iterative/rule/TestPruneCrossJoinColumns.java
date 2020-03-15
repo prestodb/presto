@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +31,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneCrossJoinColumns
@@ -41,7 +41,7 @@ public class TestPruneCrossJoinColumns
     public void testLeftInputNotReferenced()
     {
         tester().assertThat(new PruneCrossJoinColumns())
-                .on(p -> buildProjectedCrossJoin(p, symbol -> symbol.getName().equals("rightValue")))
+                .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("rightValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
@@ -60,7 +60,7 @@ public class TestPruneCrossJoinColumns
     public void testRightInputNotReferenced()
     {
         tester().assertThat(new PruneCrossJoinColumns())
-                .on(p -> buildProjectedCrossJoin(p, symbol -> symbol.getName().equals("leftValue")))
+                .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("leftValue", PlanMatchPattern.expression("leftValue")),
@@ -83,13 +83,13 @@ public class TestPruneCrossJoinColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedCrossJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedCrossJoin(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol leftValue = p.symbol("leftValue");
-        Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
+        VariableReferenceExpression leftValue = p.variable("leftValue");
+        VariableReferenceExpression rightValue = p.variable("rightValue");
+        List<VariableReferenceExpression> outputs = ImmutableList.of(leftValue, rightValue);
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

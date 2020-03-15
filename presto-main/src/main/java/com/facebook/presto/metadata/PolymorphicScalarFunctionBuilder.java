@@ -14,10 +14,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -29,10 +30,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,21 +45,30 @@ import static java.util.Objects.requireNonNull;
 public final class PolymorphicScalarFunctionBuilder
 {
     private final Class<?> clazz;
+    private final Optional<OperatorType> operatorType;
     private Signature signature;
     private String description;
-    private Optional<Boolean> hidden = Optional.empty();
+    private Optional<SqlFunctionVisibility> visibility = Optional.empty();
     private Boolean deterministic;
+    private Boolean calledOnNullInput;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
         this.clazz = clazz;
+        this.operatorType = Optional.empty();
+    }
+
+    public PolymorphicScalarFunctionBuilder(Class<?> clazz, OperatorType operatorType)
+    {
+        this.clazz = clazz;
+        this.operatorType = Optional.of(operatorType);
     }
 
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
+        this.visibility = Optional.of(visibility.orElse(isOperator(signature) ? HIDDEN : PUBLIC));
         return this;
     }
 
@@ -67,15 +78,21 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
-    public PolymorphicScalarFunctionBuilder hidden(boolean hidden)
+    public PolymorphicScalarFunctionBuilder visibility(SqlFunctionVisibility visibility)
     {
-        this.hidden = Optional.of(hidden);
+        this.visibility = Optional.of(visibility);
         return this;
     }
 
     public PolymorphicScalarFunctionBuilder deterministic(boolean deterministic)
     {
         this.deterministic = deterministic;
+        return this;
+    }
+
+    public PolymorphicScalarFunctionBuilder calledOnNullInput(boolean calledOnNullInput)
+    {
+        this.calledOnNullInput = calledOnNullInput;
         return this;
     }
 
@@ -91,12 +108,13 @@ public final class PolymorphicScalarFunctionBuilder
     {
         checkState(signature != null, "signature is null");
         checkState(deterministic != null, "deterministic is null");
-
+        checkState(operatorType.isPresent() || calledOnNullInput != null, "None operator needs to set calledOnNullInput");
         return new PolymorphicScalarFunction(
                 signature,
                 description,
-                hidden.orElse(false),
+                visibility.orElse(PUBLIC),
                 deterministic,
+                operatorType.map(OperatorType::isCalledOnNullInput).orElse(calledOnNullInput),
                 choices);
     }
 
@@ -120,7 +138,7 @@ public final class PolymorphicScalarFunctionBuilder
     private static boolean isOperator(Signature signature)
     {
         for (OperatorType operator : OperatorType.values()) {
-            if (signature.getName().equals(mangleOperatorName(operator))) {
+            if (signature.getName().equals(operator.getFunctionName())) {
                 return true;
             }
         }

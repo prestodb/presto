@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.server;
 
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static java.util.Objects.requireNonNull;
@@ -28,15 +27,11 @@ import static java.util.Objects.requireNonNull;
 public class AsyncHttpExecutionMBean
 {
     private final ThreadPoolExecutorMBean responseExecutor;
-    private final ThreadPoolExecutorMBean timeoutExecutor;
 
     @Inject
-    public AsyncHttpExecutionMBean(@ForAsyncHttp ExecutorService responseExecutor, @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
+    public AsyncHttpExecutionMBean(@ForAsyncRpc ExecutorService responseExecutor)
     {
-        requireNonNull(responseExecutor, "responseExecutor is null");
-        requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        this.responseExecutor = new ThreadPoolExecutorMBean((ThreadPoolExecutor) responseExecutor);
-        this.timeoutExecutor = new ThreadPoolExecutorMBean((ThreadPoolExecutor) timeoutExecutor);
+        this.responseExecutor = new ThreadPoolExecutorMBean((ThreadPoolExecutor) requireNonNull(responseExecutor, "responseExecutor is null"));
     }
 
     @Managed
@@ -44,12 +39,5 @@ public class AsyncHttpExecutionMBean
     public ThreadPoolExecutorMBean getResponseExecutor()
     {
         return responseExecutor;
-    }
-
-    @Managed
-    @Nested
-    public ThreadPoolExecutorMBean getTimeoutExecutor()
-    {
-        return timeoutExecutor;
     }
 }

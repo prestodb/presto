@@ -16,21 +16,23 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public abstract class BaseStrictSymbolsMatcher
         implements Matcher
 {
-    private final Function<PlanNode, Set<Symbol>> getActual;
+    private final Function<PlanNode, Set<VariableReferenceExpression>> getActual;
 
-    public BaseStrictSymbolsMatcher(Function<PlanNode, Set<Symbol>> getActual)
+    public BaseStrictSymbolsMatcher(Function<PlanNode, Set<VariableReferenceExpression>> getActual)
     {
         this.getActual = requireNonNull(getActual, "getActual is null");
     }
@@ -51,8 +53,16 @@ public abstract class BaseStrictSymbolsMatcher
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
-        return new MatchResult(getActual.apply(node).equals(getExpectedSymbols(node, session, metadata, symbolAliases)));
+        return new MatchResult(match(getActual.apply(node), getExpectedVariables(node, session, metadata, symbolAliases)));
     }
 
-    protected abstract Set<Symbol> getExpectedSymbols(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    protected abstract Set<VariableReferenceExpression> getExpectedVariables(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
+
+    boolean match(Set<VariableReferenceExpression> actual, Set<VariableReferenceExpression> expected)
+    {
+        if (expected.stream().anyMatch(variable -> variable.getType().equals(UNKNOWN))) {
+            return actual.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).equals(expected.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()));
+        }
+        return actual.equals(expected);
+    }
 }

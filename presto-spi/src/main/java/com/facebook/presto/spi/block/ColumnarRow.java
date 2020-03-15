@@ -134,4 +134,36 @@ public final class ColumnarRow
     {
         return fields[index];
     }
+
+    public int getOffset(int position)
+    {
+        return ((AbstractRowBlock) nullCheckBlock).getFieldBlockOffset(position);
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        int fieldsRetainedSize = 0;
+        for (int i = 0; i < fields.length; i++) {
+            fieldsRetainedSize += fields[i].getRetainedSizeInBytes();
+        }
+        return nullCheckBlock.getRetainedSizeInBytes() + fieldsRetainedSize;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
+        sb.append("positionCount=").append(getPositionCount()).append(",");
+        sb.append("fieldsCount=").append(fields.length).append(",");
+        for (int i = 0; i < fields.length; i++) {
+            sb.append("field_").append(i).append("=").append(fields[i].toString()).append(",");
+        }
+        sb.append('}');
+        return sb.toString();
+    }
 }

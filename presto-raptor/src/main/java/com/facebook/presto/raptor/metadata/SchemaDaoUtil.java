@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import io.airlift.log.Logger;
+import com.facebook.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLTransientException;
+import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
 public final class SchemaDaoUtil
@@ -33,11 +39,15 @@ public final class SchemaDaoUtil
         while (true) {
             try (Handle handle = dbi.open()) {
                 createTables(handle.attach(SchemaDao.class));
+                alterTables(handle.getConnection(), handle.attach(SchemaDao.class));
                 return;
             }
-            catch (UnableToObtainConnectionException e) {
+            catch (UnableToObtainConnectionException | SQLTransientException e) {
                 log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
                 sleep(delay);
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
             }
         }
     }
@@ -59,7 +69,41 @@ public final class SchemaDaoUtil
         dao.createTableShardOrganizerJobs();
     }
 
-    private static void sleep(Duration duration)
+    private static void alterTables(Connection connection, SchemaDao dao)
+            throws SQLException
+    {
+        // for upgrading compatibility
+        alterTable(dao::alterTableTablesWithDeltaDelete, "tables", "table_supports_delta_delete", connection);
+        alterTable(dao::alterTableTablesWithDeltaCount, "tables", "delta_count", connection);
+        alterTable(dao::alterTableShardsWithIsDelta, "shards", "is_delta", connection);
+        alterTable(dao::alterTableShardsWithDeltaUuid, "shards", "delta_uuid", connection);
+    }
+
+    public static void alterTable(Runnable alterTableFunction, String tableName, String columnName, Connection connection)
+            throws SQLException
+    {
+        if (!findColumnName(tableName, columnName, connection)) {
+            log.info("Alter table %s, add column %s", tableName, columnName);
+            alterTableFunction.run();
+        }
+    }
+
+    public static boolean findColumnName(String tableName, String columnName, Connection connection)
+            throws SQLException
+    {
+        Statement statement = connection.createStatement();
+        ResultSet results = statement.executeQuery("SELECT * FROM " + tableName + " LIMIT 0");
+        ResultSetMetaData metadata = results.getMetaData();
+        int columnCount = metadata.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            if (columnName.equalsIgnoreCase(metadata.getColumnName(i + 1))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void sleep(Duration duration)
     {
         try {
             Thread.sleep(duration.toMillis());

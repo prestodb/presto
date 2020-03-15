@@ -17,6 +17,8 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -30,6 +32,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -58,15 +61,15 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(schemaName, escape),
-                escapeNamePattern(tableName, escape),
+                escapeNamePattern(schemaName, escape).orElse(null),
+                escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
     }
 
@@ -81,10 +84,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void createTable(ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, session, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             if (DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState())) {
@@ -95,10 +98,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    protected void renameTable(JdbcIdentity identity, String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
         // PostgreSQL does not allow qualifying the target of a rename
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),

@@ -35,7 +35,8 @@ public class HiveInsertTableHandle
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
-            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat)
+            @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec)
     {
         super(
                 schemaName,
@@ -46,6 +47,7 @@ public class HiveInsertTableHandle
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                compressionCodec);
     }
 }

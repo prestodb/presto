@@ -14,15 +14,16 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.DateStatistics;
 import com.facebook.presto.hive.metastore.DecimalStatistics;
 import com.facebook.presto.hive.metastore.DoubleStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,7 +44,6 @@ import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;

@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import com.facebook.presto.operator.index.PageRecordSet;
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.stats.cardinality.HyperLogLog;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -40,10 +40,11 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -147,7 +148,15 @@ public class TestReadWrite
     {
         testReadWrite(random, records, blocks -> {
             List<Type> types = columns.stream().map(ColumnDefinition::getType).collect(toImmutableList());
-            PageRecordSet inputRecordSet = new PageRecordSet(types, new Page(blocks.toArray(new Block[blocks.size()])));
+            ImmutableList.Builder<List<Object>> recordSet = ImmutableList.builder();
+            for (int i = 0; i < records; i++) {
+                List<Object> record = new ArrayList<>();
+                for (int j = 0; j < types.size(); j++) {
+                    record.add(readNativeValue(types.get(j), blocks.get(j), i));
+                }
+                recordSet.add(record);
+            }
+            InMemoryRecordSet inputRecordSet = new InMemoryRecordSet(types, recordSet.build());
             return fromRecordSet(inputRecordSet);
         });
     }

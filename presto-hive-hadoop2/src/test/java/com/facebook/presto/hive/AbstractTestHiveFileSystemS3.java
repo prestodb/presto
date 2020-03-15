@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,12 +44,12 @@ public abstract class AbstractTestHiveFileSystemS3
         super.setup(host, port, databaseName, this::createHdfsConfiguration, s3SelectPushdownEnabled);
     }
 
-    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config)
+    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config, MetastoreClientConfig metastoreConfig)
     {
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        return new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, s3Config));
+        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreConfig, s3Config, ignored -> {}), ImmutableSet.of());
     }
 
     @Override

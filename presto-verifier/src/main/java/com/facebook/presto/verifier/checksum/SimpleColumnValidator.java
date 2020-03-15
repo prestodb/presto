@@ -19,8 +19,6 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.verifier.framework.Column;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,33 +29,29 @@ import static java.lang.String.format;
 public class SimpleColumnValidator
         implements ColumnValidator
 {
-    @Inject
-    public SimpleColumnValidator()
-    {
-    }
-
     @Override
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
         return ImmutableList.of(
                 new SingleColumn(
-                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier())),
+                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getExpression())),
                         Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))));
     }
 
     @Override
-    public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
         String checksumColumnAlias = getChecksumColumnAlias(column);
         Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
         Object testChecksum = testResult.getChecksum(checksumColumnAlias);
-        return new ColumnMatchResult(
+        return ImmutableList.of(new ColumnMatchResult(
                 Objects.equals(controlChecksum, testChecksum),
-                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum));
+                column,
+                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum)));
     }
 
     private static String getChecksumColumnAlias(Column column)
     {
-        return column.getName() + "_checksum";
+        return column.getName() + "$checksum";
     }
 }

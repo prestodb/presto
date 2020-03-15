@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
@@ -36,10 +41,10 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -48,19 +53,19 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import io.airlift.slice.Slice;
-import io.airlift.stats.cardinality.HyperLogLog;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -79,9 +84,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Float.floatToIntBits;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
@@ -93,7 +95,7 @@ public class TestRowExpressionSerde
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private JsonCodec<RowExpression> codec;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
@@ -138,18 +140,20 @@ public class TestRowExpressionSerde
         assertTrue(value instanceof IntArrayBlock);
         IntArrayBlock block = (IntArrayBlock) value;
         assertEquals(block.getPositionCount(), 3);
-        assertEquals(block.getInt(0, 0), 1);
-        assertEquals(block.getInt(1, 0), 2);
-        assertEquals(block.getInt(2, 0), 3);
+        assertEquals(block.getInt(0), 1);
+        assertEquals(block.getInt(1), 2);
+        assertEquals(block.getInt(2), 3);
     }
 
     @Test
     public void testArrayGet()
     {
         assertEquals(getRoundTrip("(ARRAY [1, 2, 3])[1]", false),
-                call(operator(SUBSCRIPT, new ArrayType(INTEGER), BIGINT),
+                call(SUBSCRIPT.name(),
+                        operator(SUBSCRIPT, new ArrayType(INTEGER), BIGINT),
                         INTEGER,
-                        call(function("array_constructor", INTEGER, INTEGER, INTEGER),
+                        call("array_constructor",
+                                function("array_constructor", INTEGER, INTEGER, INTEGER),
                                 new ArrayType(INTEGER),
                                 constant(1L, INTEGER),
                                 constant(2L, INTEGER),
@@ -161,7 +165,7 @@ public class TestRowExpressionSerde
     @Test
     public void testRowLiteral()
     {
-        assertEquals(getRoundTrip("ROW(1, 1.1)", true),
+        assertEquals(getRoundTrip("ROW(1, 1.1)", false),
                 specialForm(
                         ROW_CONSTRUCTOR,
                         RowType.anonymous(
@@ -170,6 +174,15 @@ public class TestRowExpressionSerde
                                         DOUBLE)),
                         constant(1L, INTEGER),
                         constant(1.1, DOUBLE)));
+    }
+
+    @Test
+    public void testDereference()
+    {
+        String sql = "CAST(ROW(1) AS ROW(col1 integer)).col1";
+        RowExpression before = translate(expression(sql, new ParsingOptions(AS_DOUBLE)), false);
+        RowExpression after = getRoundTrip(sql, false);
+        assertEquals(before, after);
     }
 
     @Test
@@ -222,7 +235,7 @@ public class TestRowExpressionSerde
 
     private FunctionHandle function(String name, Type... types)
     {
-        return metadata.getFunctionManager().lookupFunction(QualifiedName.of(name), fromTypes(types));
+        return metadata.getFunctionManager().lookupFunction(name, fromTypes(types));
     }
 
     private JsonCodec<RowExpression> getJsonCodec()
@@ -230,6 +243,7 @@ public class TestRowExpressionSerde
     {
         Module module = binder -> {
             binder.install(new JsonModule());
+            binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
 
             binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
@@ -253,7 +267,12 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        return SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, optimize);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        if (optimize) {
+            RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
+            return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+        }
+        return rowExpression;
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)

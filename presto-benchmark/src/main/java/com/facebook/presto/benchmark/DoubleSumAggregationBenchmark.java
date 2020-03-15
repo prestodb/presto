@@ -18,9 +18,8 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -45,7 +44,7 @@ public class DoubleSumAggregationBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
         InternalAggregationFunction doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Objects;
@@ -23,12 +22,12 @@ import static java.util.Objects.requireNonNull;
 
 public class AllNodes
 {
-    private final Set<Node> activeNodes;
-    private final Set<Node> inactiveNodes;
-    private final Set<Node> shuttingDownNodes;
-    private final Set<Node> activeCoordinators;
+    private final Set<InternalNode> activeNodes;
+    private final Set<InternalNode> inactiveNodes;
+    private final Set<InternalNode> shuttingDownNodes;
+    private final Set<InternalNode> activeCoordinators;
 
-    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes, Set<Node> activeCoordinators)
+    public AllNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes, Set<InternalNode> shuttingDownNodes, Set<InternalNode> activeCoordinators)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
@@ -36,22 +35,22 @@ public class AllNodes
         this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
     }
 
-    public Set<Node> getActiveNodes()
+    public Set<InternalNode> getActiveNodes()
     {
         return activeNodes;
     }
 
-    public Set<Node> getInactiveNodes()
+    public Set<InternalNode> getInactiveNodes()
     {
         return inactiveNodes;
     }
 
-    public Set<Node> getShuttingDownNodes()
+    public Set<InternalNode> getShuttingDownNodes()
     {
         return shuttingDownNodes;
     }
 
-    public Set<Node> getActiveCoordinators()
+    public Set<InternalNode> getActiveCoordinators()
     {
         return activeCoordinators;
     }

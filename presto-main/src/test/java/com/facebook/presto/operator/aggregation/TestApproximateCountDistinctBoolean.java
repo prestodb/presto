@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
@@ -35,7 +34,7 @@ public class TestApproximateCountDistinctBoolean
     public InternalAggregationFunction getAggregationFunction()
     {
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(BOOLEAN, DOUBLE)));
+                functionManager.lookupFunction("approx_distinct", fromTypes(BOOLEAN, DOUBLE)));
     }
 
     @Override

@@ -14,11 +14,12 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 
 import java.util.List;
@@ -47,13 +48,22 @@ public class PageSourceManager
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
+        if (table.getLayout().isPresent()) {
+            return getPageSourceProvider(split).createPageSource(
+                    split.getTransactionHandle(),
+                    connectorSession,
+                    split.getConnectorSplit(),
+                    table.getLayout().get(),
+                    columns,
+                    split.getSplitContext());
+        }
+        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns, split.getSplitContext());
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)

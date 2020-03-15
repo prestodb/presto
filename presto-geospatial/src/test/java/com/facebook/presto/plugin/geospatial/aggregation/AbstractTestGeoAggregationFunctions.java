@@ -15,14 +15,13 @@ package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.plugin.geospatial.GeoPlugin;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 
@@ -49,17 +48,17 @@ public abstract class AbstractTestGeoAggregationFunctions
         for (Type type : plugin.getTypes()) {
             functionAssertions.getTypeRegistry().addType(type);
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY)));
+                functionManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
     {
         List<Slice> geometrySlices = Arrays.stream(wkts)
                 .map(text -> text == null ? null : OGCGeometry.fromText(text))
-                .map(input -> input == null ? null : GeometrySerde.serialize(input))
+                .map(input -> input == null ? null : EsriGeometrySerde.serialize(input))
                 .collect(Collectors.toList());
 
         // Add a custom equality assertion because the resulting geometry may have

@@ -13,6 +13,16 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
@@ -20,6 +30,7 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
@@ -28,18 +39,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.airlift.bytecode.FieldDefinition;
-import io.airlift.bytecode.MethodDefinition;
-import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.Scope;
-import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.IfStatement;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -51,21 +50,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PRIVATE;
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.Parameter.arg;
-import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
@@ -81,7 +79,7 @@ public class JoinFilterFunctionCompiler
     private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
+            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested
@@ -90,18 +88,18 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(sqlFunctionProperties, filterExpression, leftBlocksSize);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -111,7 +109,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
         //
         // toString method
@@ -127,14 +125,14 @@ public class JoinFilterFunctionCompiler
         return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
+    private void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
@@ -160,6 +158,7 @@ public class JoinFilterFunctionCompiler
     }
 
     private void generateFilterMethod(
+            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
@@ -193,10 +192,12 @@ public class JoinFilterFunctionCompiler
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata.getFunctionManager(),
+                metadata,
+                sqlFunctionProperties,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
@@ -208,33 +209,6 @@ public class JoinFilterFunctionCompiler
                         .condition(wasNullVariable)
                         .ifTrue(constantFalse().ret())
                         .ifFalse(result.ret()));
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            int leftBlocksSize,
-            RowExpression filter)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(filter));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    metadata.getFunctionManager());
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -272,13 +246,20 @@ public class JoinFilterFunctionCompiler
 
     private static final class JoinFilterCacheKey
     {
+        private final SqlFunctionProperties sqlFunctionProperties;
         private final RowExpression filter;
         private final int leftBlocksSize;
 
-        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
+        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
         {
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
+        }
+
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            return sqlFunctionProperties;
         }
 
         public RowExpression getFilter()

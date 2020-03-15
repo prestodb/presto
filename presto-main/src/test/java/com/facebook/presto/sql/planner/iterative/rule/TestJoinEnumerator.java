@@ -22,15 +22,19 @@ import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -41,22 +45,29 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestJoinEnumerator
 {
     private LocalQueryRunner queryRunner;
+    private Metadata metadata;
+    private DeterminismEvaluator determinismEvaluator;
+    private FunctionResolution functionResolution;
 
     @BeforeClass
     public void setUp()
     {
         queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        metadata = queryRunner.getMetadata();
+        determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
+        functionResolution = new FunctionResolution(metadata.getFunctionManager());
     }
 
     @AfterClass(alwaysRun = true)
@@ -90,18 +101,21 @@ public class TestJoinEnumerator
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata());
-        Symbol a1 = p.symbol("A1");
-        Symbol b1 = p.symbol("B1");
+        PlanBuilder p = new PlanBuilder(TEST_SESSION, idAllocator, queryRunner.getMetadata());
+        VariableReferenceExpression a1 = p.variable("A1");
+        VariableReferenceExpression b1 = p.variable("B1");
         MultiJoinNode multiJoinNode = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
-                TRUE_LITERAL,
+                TRUE_CONSTANT,
                 ImmutableList.of(a1, b1));
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
-                createContext());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
+                createContext(),
+                determinismEvaluator,
+                functionResolution,
+                metadata);
+        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputVariables(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
         assertEquals(actual.getCost(), PlanCostEstimate.infinite());
     }
@@ -109,19 +123,18 @@ public class TestJoinEnumerator
     private Rule.Context createContext()
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
                 queryRunner.getStatsCalculator(),
                 Optional.empty(),
                 noLookup(),
                 queryRunner.getDefaultSession(),
-                symbolAllocator.getTypes());
+                variableAllocator.getTypes());
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                queryRunner.getDefaultSession(),
-                symbolAllocator.getTypes());
+                queryRunner.getDefaultSession());
 
         return new Rule.Context()
         {
@@ -138,9 +151,9 @@ public class TestJoinEnumerator
             }
 
             @Override
-            public SymbolAllocator getSymbolAllocator()
+            public PlanVariableAllocator getVariableAllocator()
             {
-                return symbolAllocator;
+                return variableAllocator;
             }
 
             @Override

@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -73,7 +74,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
@@ -946,6 +946,14 @@ public class TestArrayOperators
                 "ARRAY_SORT(ARRAY[1, null], (x, y) -> x / COALESCE(y, 0))",
                 INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[ARRAY[1], ARRAY[null]])",
+                INVALID_FUNCTION_ARGUMENT,
+                "Array contains elements not supported for comparison");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[ROW(1), ROW(null)])",
+                INVALID_FUNCTION_ARGUMENT,
+                "Array contains elements not supported for comparison");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
     }

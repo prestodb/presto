@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestUnnestStatsRule
         extends BaseStatsCalculatorTest
@@ -28,13 +31,13 @@ public class TestUnnestStatsRule
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(
-                        pb.values(pb.symbol("some_map")),
-                        ImmutableList.of(pb.symbol("some_map")),
-                        ImmutableMap.of(pb.symbol("some_map"), ImmutableList.of(pb.symbol("key"), pb.symbol("value"))),
+                        pb.values(pb.variable("some_map", mapType(VARCHAR, VARCHAR))),
+                        ImmutableList.of(pb.variable("some_map", mapType(VARCHAR, VARCHAR))),
+                        ImmutableMap.of(pb.variable("some_map", mapType(VARCHAR, VARCHAR)), ImmutableList.of(pb.variable("key"), pb.variable("value"))),
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2)
-                        .addSymbolStatistics(new Symbol("some_map"), SymbolStatsEstimate.builder().setAverageRowSize(100).build())
+                        .addVariableStatistics(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
                         .build())
                 .check(check -> check.equalTo(PlanNodeStatsEstimate.unknown()));
     }
@@ -44,18 +47,18 @@ public class TestUnnestStatsRule
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(
-                        pb.values(pb.symbol("some_map")),
-                        ImmutableList.of(pb.symbol("some_map")),
-                        ImmutableMap.of(pb.symbol("some_map"), ImmutableList.of(pb.symbol("key"), pb.symbol("value"))),
+                        pb.values(pb.variable("some_map", mapType(VARCHAR, VARCHAR))),
+                        ImmutableList.of(pb.variable("some_map", mapType(VARCHAR, VARCHAR))),
+                        ImmutableMap.of(pb.variable("some_map", mapType(VARCHAR, VARCHAR)), ImmutableList.of(pb.variable("key", VARCHAR), pb.variable("value", VARCHAR))),
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1)
-                        .addSymbolStatistics(new Symbol("some_map"), SymbolStatsEstimate.builder().setAverageRowSize(100).build())
+                        .addVariableStatistics(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), VariableStatsEstimate.builder().setAverageRowSize(100).build())
                         .build())
                 .check(check -> check
                         .outputRowsCount(1)
-                        .symbolStats("some_map", assertion -> assertion.averageRowSize(100))
-                        .symbolStats("key", assertion -> assertion.averageRowSize(100))
-                        .symbolStats("value", assertion -> assertion.averageRowSize(100)));
+                        .variableStats(new VariableReferenceExpression("some_map", mapType(VARCHAR, VARCHAR)), assertion -> assertion.averageRowSize(100))
+                        .variableStats(new VariableReferenceExpression("key", VARCHAR), assertion -> assertion.averageRowSize(100))
+                        .variableStats(new VariableReferenceExpression("value", VARCHAR), assertion -> assertion.averageRowSize(100)));
     }
 }

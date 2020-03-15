@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -22,9 +22,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 
 public class TestExchangeClientConfig
@@ -37,10 +37,13 @@ public class TestExchangeClientConfig
                 .setConcurrentRequestMultiplier(3)
                 .setMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
+                .setAsyncPageTransportTimeout(new Duration(60, TimeUnit.SECONDS))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25)
-                .setAcknowledgePages(true));
+                .setAcknowledgePages(true)
+                .setResponseSizeExponentialMovingAverageDecayingAlpha(0.1)
+                .setAsyncPageTransportEnabled(false));
     }
 
     @Test
@@ -51,10 +54,13 @@ public class TestExchangeClientConfig
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
                 .put("exchange.max-error-duration", "33s")
+                .put("exchange.async-page-transport-timeout", "30s")
                 .put("exchange.max-response-size", "1MB")
                 .put("exchange.client-threads", "2")
                 .put("exchange.page-buffer-client.max-callback-threads", "16")
                 .put("exchange.acknowledge-pages", "false")
+                .put("exchange.response-size-exponential-moving-average-decaying-alpha", "0.42")
+                .put("exchange.async-page-transport-enabled", "true")
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
@@ -62,10 +68,13 @@ public class TestExchangeClientConfig
                 .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
+                .setAsyncPageTransportTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2)
                 .setPageBufferClientMaxCallbackThreads(16)
-                .setAcknowledgePages(false);
+                .setAcknowledgePages(false)
+                .setResponseSizeExponentialMovingAverageDecayingAlpha(0.42)
+                .setAsyncPageTransportEnabled(true);
 
         assertFullMapping(properties, expected);
     }

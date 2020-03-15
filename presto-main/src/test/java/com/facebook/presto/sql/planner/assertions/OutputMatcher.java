@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -51,9 +52,9 @@ public class OutputMatcher
         for (String alias : aliases) {
             Expression expression = symbolAliases.get(alias);
             boolean found = false;
-            while (i < node.getOutputSymbols().size()) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i++);
-                if (expression.equals(outputSymbol.toSymbolReference())) {
+            while (i < node.getOutputVariables().size()) {
+                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i++);
+                if (expression.equals(new SymbolReference(outputVariable.getName()))) {
                     found = true;
                     break;
                 }

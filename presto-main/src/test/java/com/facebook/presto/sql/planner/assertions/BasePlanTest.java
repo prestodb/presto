@@ -14,13 +14,15 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -38,8 +40,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -133,7 +135,14 @@ public class BasePlanTest
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    ImmutableList.<PlanOptimizer>builder()
+                            .addAll(optimizers)
+                            .add(getExpressionTranslator()).build(), // To avoid assert plan failure not printing out plan (#12885)
+                    stage,
+                    WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
@@ -152,13 +161,14 @@ public class BasePlanTest
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
@@ -200,6 +210,21 @@ public class BasePlanTest
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
         }
+    }
+
+    protected Metadata getMetadata()
+    {
+        return getQueryRunner().getMetadata();
+    }
+
+    // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
+    protected PlanOptimizer getExpressionTranslator()
+    {
+        return new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                getQueryRunner().getStatsCalculator(),
+                getQueryRunner().getCostCalculator(),
+                ImmutableSet.copyOf(new TranslateExpressions(getMetadata(), getQueryRunner().getSqlParser()).rules()));
     }
 
     public interface LocalQueryRunnerSupplier

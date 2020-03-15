@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -51,7 +52,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestQueues
 {
-    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     @Test(timeOut = 240_000)
     public void testResourceGroupManager()
@@ -227,7 +228,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("400MB")))),
+                            Optional.of(DataSize.valueOf("400MB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "small"));
 
@@ -236,7 +238,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("600MB")))),
+                            Optional.of(DataSize.valueOf("600MB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
 
@@ -244,6 +247,7 @@ public class TestQueues
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("4m")),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty())),
                     LONG_LASTING_QUERY,
@@ -254,7 +258,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("1s")),
                             Optional.of(Duration.valueOf("1s")),
-                            Optional.of(DataSize.valueOf("6TB")))),
+                            Optional.of(DataSize.valueOf("6TB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "huge_memory"));
 
@@ -263,7 +268,8 @@ public class TestQueues
                     newSessionWithResourceEstimates(new ResourceEstimates(
                             Optional.of(Duration.valueOf("100h")),
                             Optional.empty(),
-                            Optional.of(DataSize.valueOf("4TB")))),
+                            Optional.of(DataSize.valueOf("4TB")),
+                            Optional.empty())),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
         }
@@ -304,8 +310,8 @@ public class TestQueues
 
             QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
-            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-            assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+            DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+            assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         }
     }
 
@@ -344,7 +350,7 @@ public class TestQueues
         return newSession("sessionWithTags", ImmutableSet.of(), resourceEstimates);
     }
 
-    private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
+    public static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
     {
         return testSessionBuilder()
                 .setCatalog("tpch")

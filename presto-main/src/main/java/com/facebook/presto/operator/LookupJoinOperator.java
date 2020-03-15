@@ -39,13 +39,13 @@ import java.util.OptionalInt;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
+import static com.facebook.airlift.concurrent.MoreFutures.getDone;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
-import static io.airlift.concurrent.MoreFutures.checkSuccess;
-import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;

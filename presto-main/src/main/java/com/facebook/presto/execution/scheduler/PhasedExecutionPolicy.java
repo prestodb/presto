@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.SqlStageExecution;
-
 import java.util.Collection;
 
 public class PhasedExecutionPolicy
         implements ExecutionPolicy
 {
     @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<SqlStageExecution> stages)
+    public ExecutionSchedule createExecutionSchedule(Collection<StageExecutionAndScheduler> stages)
     {
         return new PhasedExecutionSchedule(stages);
     }

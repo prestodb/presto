@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import io.airlift.testing.EquivalenceTester;
+import com.facebook.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.jmx.MetadataUtil.COLUMN_CODEC;

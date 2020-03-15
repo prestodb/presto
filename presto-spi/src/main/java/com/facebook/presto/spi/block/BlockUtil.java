@@ -180,6 +180,7 @@ final class BlockUtil
         }
         return Arrays.copyOfRange(array, index, index + length);
     }
+
     static int countUsedPositions(boolean[] positions)
     {
         int used = 0;
@@ -207,5 +208,12 @@ final class BlockUtil
             }
         }
         return true;
+    }
+
+    public static boolean internalPositionInRange(int internalPosition, int offset, int positionCount)
+    {
+        boolean withinRange = internalPosition >= offset && internalPosition < positionCount + offset;
+        assert withinRange : format("internalPosition %s is not within range [%s, %s)", internalPosition, offset, positionCount + offset);
+        return withinRange;
     }
 }

@@ -17,12 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -34,14 +35,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 
@@ -61,7 +61,7 @@ public class PushPartialAggregationThroughJoin
             return false;
         }
 
-        if (aggregationNode.getHashSymbol().isPresent()) {
+        if (aggregationNode.getHashVariable().isPresent()) {
             // TODO: add support for hash symbol in aggregation node
             return false;
         }
@@ -90,62 +90,66 @@ public class PushPartialAggregationThroughJoin
         }
 
         // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), context.getVariableAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
+        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), context.getVariableAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
+    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<VariableReferenceExpression> variables, TypeProvider types)
     {
-        Set<Symbol> inputs = extractUnique(aggregations.values().stream().map(AggregationNode.Aggregation::getCall).collect(toImmutableList()));
-        return symbols.containsAll(inputs);
+        Set<VariableReferenceExpression> inputs = aggregations.values()
+                .stream()
+                .map(aggregation -> extractAggregationUniqueVariables(aggregation, types))
+                .flatMap(Set::stream)
+                .collect(toImmutableSet());
+        return variables.containsAll(inputs);
     }
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().getOutputSymbols());
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinLeftChildSymbols, intersection(getJoinRequiredSymbols(child), joinLeftChildSymbols));
+        Set<VariableReferenceExpression> joinLeftChildVariables = ImmutableSet.copyOf(child.getLeft().getOutputVariables());
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child), joinLeftChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context);
     }
 
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().getOutputSymbols());
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinRightChildSymbols, intersection(getJoinRequiredSymbols(child), joinRightChildSymbols));
+        Set<VariableReferenceExpression> joinRightChildVariables = ImmutableSet.copyOf(child.getRight().getOutputVariables());
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child), joinRightChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);
     }
 
-    private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
+    private Set<VariableReferenceExpression> getJoinRequiredVariables(JoinNode node)
     {
         return Streams.concat(
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
-                node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                node.getFilter().map(expression -> VariablesExtractor.extractUnique(expression)).orElse(ImmutableSet.of()).stream(),
+                node.getLeftHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                node.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 
-    private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, Set<Symbol> availableSymbols, Set<Symbol> requiredJoinSymbols)
+    private List<VariableReferenceExpression> getPushedDownGroupingSet(AggregationNode aggregation, Set<VariableReferenceExpression> availableVariables, Set<VariableReferenceExpression> requiredJoinVariables)
     {
-        List<Symbol> groupingSet = aggregation.getGroupingKeys();
+        List<VariableReferenceExpression> groupingSet = aggregation.getGroupingKeys();
 
-        // keep symbols that are directly from the join's child (availableSymbols)
-        List<Symbol> pushedDownGroupingSet = groupingSet.stream()
-                .filter(availableSymbols::contains)
+        // keep variables that are directly from the join's child (availableVariables)
+        List<VariableReferenceExpression> pushedDownGroupingSet = groupingSet.stream()
+                .filter(availableVariables::contains)
                 .collect(Collectors.toList());
 
-        // add missing required join symbols to grouping set
-        Set<Symbol> existingSymbols = new HashSet<>(pushedDownGroupingSet);
-        requiredJoinSymbols.stream()
-                .filter(existingSymbols::add)
+        // add missing required join variables to grouping set
+        Set<VariableReferenceExpression> existingVariables = new HashSet<>(pushedDownGroupingSet);
+        requiredJoinVariables.stream()
+                .filter(existingVariables::add)
                 .forEach(pushedDownGroupingSet::add);
 
         return pushedDownGroupingSet;
@@ -154,7 +158,7 @@ public class PushPartialAggregationThroughJoin
     private AggregationNode replaceAggregationSource(
             AggregationNode aggregation,
             PlanNode source,
-            List<Symbol> groupingKeys)
+            List<VariableReferenceExpression> groupingKeys)
     {
         return new AggregationNode(
                 aggregation.getId(),
@@ -163,8 +167,8 @@ public class PushPartialAggregationThroughJoin
                 singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 aggregation.getStep(),
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+                aggregation.getHashVariable(),
+                aggregation.getGroupIdVariable());
     }
 
     private PlanNode pushPartialToJoin(
@@ -180,14 +184,14 @@ public class PushPartialAggregationThroughJoin
                 leftChild,
                 rightChild,
                 child.getCriteria(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftChild.getOutputSymbols())
-                        .addAll(rightChild.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftChild.getOutputVariables())
+                        .addAll(rightChild.getOutputVariables())
                         .build(),
                 child.getFilter(),
-                child.getLeftHashSymbol(),
-                child.getRightHashSymbol(),
+                child.getLeftHashVariable(),
+                child.getRightHashVariable(),
                 child.getDistributionType());
-        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
+        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputVariables()), false).orElse(joinNode);
     }
 }

@@ -2,7 +2,7 @@ language: java
 
 env:
   global:
-    - MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError"
+    - MAVEN_OPTS="-Xmx1024M -XX:+ExitOnOutOfMemoryError"
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
     - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
     - ARTIFACTS_UPLOAD_PATH_BRANCH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
@@ -11,20 +11,38 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - WEBUI_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-tpch-distributed-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-local-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-aggregation-queries"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-plan-determinism"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
-    - TEST_SPECIFIC_MODULES=presto-cassandra
+    - TEST_SPECIFIC_MODULES=presto-cassandra TEST_FLAGS="-P test-cassandra-integration-smoke-test"
     - TEST_SPECIFIC_MODULES=presto-hive
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized-queries"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized-aggregations"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-execution"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-basic"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced" 
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-main
-    - TEST_SPECIFIC_MODULES=presto-mongodb
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb
+    - TEST_SPECIFIC_MODULES=presto-mongodb TEST_FLAGS="-P test-mongo-distributed-queries"
+    - TEST_SPECIFIC_MODULES=presto-redis TEST_FLAGS="-P test-redis-integration-smoke-test"
+    - TEST_SPECIFIC_MODULES=presto-elasticsearch
+    - TEST_SPECIFIC_MODULES=presto-orc
+    - TEST_SPECIFIC_MODULES=presto-thrift-connector
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-redis,!presto-elasticsearch,!presto-orc,!presto-thrift-connector
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2=true
     - HIVE_TESTS=true
     - KUDU_TESTS=true
+    - SPARK_INTEGRATION_TESTS=true
 
 sudo: required
 dist: trusty
@@ -33,6 +51,7 @@ cache:
   yarn: true
   directories:
     - $HOME/.m2/repository
+    - $HOME/.m2/wrapper
 
 services:
   - docker
@@ -48,11 +67,11 @@ install:
     fi
   - |
     if [[ -v TEST_OTHER_MODULES ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
     fi
   - |
     if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
@@ -61,6 +80,10 @@ install:
   - |
     if [[ -v KUDU_TESTS ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl presto-kudu -am
+    fi
+  - |
+    if [[ -v SPARK_INTEGRATION_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
     fi
 
 before_script:
@@ -196,6 +219,10 @@ script:
       presto-kudu/bin/run_kudu_tests.sh 3 null
       presto-kudu/bin/run_kudu_tests.sh 1 ""
       presto-kudu/bin/run_kudu_tests.sh 1 presto::
+    fi
+  - |
+    if [[ -v SPARK_INTEGRATION_TESTS ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
     fi
 
 before_cache:

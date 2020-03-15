@@ -160,7 +160,7 @@ public abstract class TestDateTimeFunctionsBase
     private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), isLegacyTimestamp(session)));
+        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), isLegacyTimestamp(session), Optional.empty()));
         assertEquals(dateTimeCalculation, expectedDays);
     }
 
@@ -756,6 +756,7 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_format(" + dateTimeLiteral + ", '%g')", VARCHAR, "g");
         assertFunction("date_format(" + dateTimeLiteral + ", '%4')", VARCHAR, "4");
         assertFunction("date_format(" + dateTimeLiteral + ", '%x %v')", VARCHAR, "2001 02");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%Y\u5e74%m\u6708%d\u65e5')", VARCHAR, "2001\u5e7401\u670809\u65e5");
 
         String weirdDateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321 +07:09'";
 
@@ -788,6 +789,7 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%g')", VARCHAR, "g");
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%4')", VARCHAR, "4");
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%x %v')", VARCHAR, "2001 02");
+        assertFunction("date_format(" + weirdDateTimeLiteral + ", '%Y\u5e74%m\u6708%d\u65e5')", VARCHAR, "2001\u5e7401\u670809\u65e5");
 
         assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", VARCHAR, "320000");
         assertFunction("date_format(TIMESTAMP '2001-01-09 00:04:05.32', '%k')", VARCHAR, "0");
@@ -875,7 +877,7 @@ public abstract class TestDateTimeFunctionsBase
         assertInvalidFunction("date_parse('', '%X')", "%X not supported in date format string");
 
         assertInvalidFunction("date_parse('3.0123456789', '%s.%f')", "Invalid format: \"3.0123456789\" is malformed at \"9\"");
-        assertInvalidFunction("date_parse('%Y-%M-%d', '')", "Both printing and parsing not supported");
+        assertInvalidFunction("date_parse('%Y-%m-%d', '')", "Both printing and parsing not supported");
     }
 
     @Test

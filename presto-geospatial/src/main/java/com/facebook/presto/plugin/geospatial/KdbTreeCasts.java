@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.KdbTreeType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;

@@ -83,7 +83,7 @@ public class TestShardOrganizerUtil
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
-        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
+        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), new TypeRegistry());
 
         metadataDao = dbi.onDemand(MetadataDao.class);
         shardManager = createShardManager(dbi);
@@ -110,6 +110,7 @@ public class TestShardOrganizerUtil
                         .column("orderstatus", createVarcharType(3))
                         .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
                         .property("temporal_column", "orderdate")
+                        .property("table_supports_delta_delete", false)
                         .build(),
                 false);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
@@ -160,7 +161,7 @@ public class TestShardOrganizerUtil
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableInfo.getTableId(), COLUMNS, shards, Optional.empty(), 0);
-        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShards("node1");
+        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShardsAndDeltas("node1");
 
         Long temporalColumnId = metadataDao.getTemporalColumnId(tableInfo.getTableId());
         TableColumn temporalColumn = metadataDao.getTableColumn(tableInfo.getTableId(), temporalColumnId);
@@ -226,6 +227,8 @@ public class TestShardOrganizerUtil
                     tableId,
                     OptionalInt.empty(),
                     shard.getShardUuid(),
+                    false,
+                    Optional.empty(),
                     shard.getRowCount(),
                     shard.getUncompressedSize(),
                     sortRange,
