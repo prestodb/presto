@@ -88,11 +88,11 @@ public class MapBlockEncodingBuffer
     private final BlockEncodingBuffer keyBuffers;
     private final BlockEncodingBuffer valueBuffers;
 
-    public MapBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
+    public MapBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
-        super(bufferAllocator);
-        keyBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator);
-        valueBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1), bufferAllocator);
+        super(bufferAllocator, isNested);
+        keyBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
+        valueBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1), bufferAllocator, true);
     }
 
     @Override

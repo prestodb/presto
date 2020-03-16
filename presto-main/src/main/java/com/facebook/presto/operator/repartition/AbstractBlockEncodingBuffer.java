@@ -67,6 +67,9 @@ public abstract class AbstractBlockEncodingBuffer
     // The allocator for internal buffers
     protected final ArrayAllocator bufferAllocator;
 
+    // Boolean indicating whether this is a buffer for a nested level block.
+    protected final boolean isNested;
+
     // The block after peeling off the Dictionary or RLE wrappings.
     protected Block decodedBlock;
 
@@ -114,12 +117,13 @@ public abstract class AbstractBlockEncodingBuffer
     // Boolean indicating whether there are any null values in the nullsBuffer. It is possible that all values are non-null.
     private boolean hasEncodedNulls;
 
-    protected AbstractBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    protected AbstractBlockEncodingBuffer(ArrayAllocator bufferAllocator, boolean isNested)
     {
         this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
+        this.isNested = isNested;
     }
 
-    public static BlockEncodingBuffer createBlockEncodingBuffers(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
+    public static BlockEncodingBuffer createBlockEncodingBuffers(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
         requireNonNull(bufferAllocator, "bufferAllocator is null");
@@ -143,39 +147,39 @@ public abstract class AbstractBlockEncodingBuffer
         verify(!(decodedBlock instanceof RunLengthEncodedBlock), "Nested RLEs and dictionaries are not supported");
 
         if (decodedBlock instanceof LongArrayBlock) {
-            return new LongArrayBlockEncodingBuffer(bufferAllocator);
+            return new LongArrayBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof Int128ArrayBlock) {
-            return new Int128ArrayBlockEncodingBuffer(bufferAllocator);
+            return new Int128ArrayBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof IntArrayBlock) {
-            return new IntArrayBlockEncodingBuffer(bufferAllocator);
+            return new IntArrayBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof ShortArrayBlock) {
-            return new ShortArrayBlockEncodingBuffer(bufferAllocator);
+            return new ShortArrayBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof ByteArrayBlock) {
-            return new ByteArrayBlockEncodingBuffer(bufferAllocator);
+            return new ByteArrayBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof VariableWidthBlock) {
-            return new VariableWidthBlockEncodingBuffer(bufferAllocator);
+            return new VariableWidthBlockEncodingBuffer(bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof ColumnarArray) {
-            return new ArrayBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
+            return new ArrayBlockEncodingBuffer(decodedBlockNode, bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof ColumnarMap) {
-            return new MapBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
+            return new MapBlockEncodingBuffer(decodedBlockNode, bufferAllocator, isNested);
         }
 
         if (decodedBlock instanceof ColumnarRow) {
-            return new RowBlockEncodingBuffer(decodedBlockNode, bufferAllocator);
+            return new RowBlockEncodingBuffer(decodedBlockNode, bufferAllocator, isNested);
         }
 
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());

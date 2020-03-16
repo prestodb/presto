@@ -69,10 +69,10 @@ public class ArrayBlockEncodingBuffer
     // The AbstractBlockEncodingBuffer for the nested values Block of the ArrayBlock
     private final BlockEncodingBuffer valuesBuffers;
 
-    public ArrayBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator)
+    public ArrayBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
-        super(bufferAllocator);
-        valuesBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator);
+        super(bufferAllocator, isNested);
+        valuesBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
     }
 
     @Override
