@@ -216,29 +216,55 @@ public class TestMySqlFunctionNamespaceManager
         createFunction(createFunctionTangent(functionName), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter type list exceeds max length of 500.*")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function has more than 100 parameters: 101")
+    public void testTooManyParameters()
+    {
+        List<SqlParameter> parameters = nCopies(101, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        createFunction(createFunctionTangent(parameters), false);
+    }
+
+    public void testLargeParameterCount()
+    {
+        List<SqlParameter> parameters = nCopies(100, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        createFunction(createFunctionTangent(parameters), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter name exceeds max length of 100.*")
+    public void testParameterNameTooLong()
+    {
+        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter(dummyString(101), parseTypeSignature(DOUBLE)));
+        createFunction(createFunctionTangent(parameters), false);
+    }
+
+    public void testLongParameterName()
+    {
+        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter(dummyString(100), parseTypeSignature(DOUBLE)));
+        createFunction(createFunctionTangent(parameters), false);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter type list exceeds max length of 30000.*")
     public void testParameterTypeListTooLong()
     {
-        List<SqlParameter> parameters = nCopies(72, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter("x", createLargeRowType(4286)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     public void testLongParameterTypeList()
     {
-        List<SqlParameter> parameters = nCopies(71, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter("x", createLargeRowType(4285)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Return type exceeds max length of 256.*")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Return type exceeds max length of 30000.*")
     public void testReturnTypeTooLong()
     {
-        TypeSignature returnType = parseTypeSignature(dummyString(257));
+        TypeSignature returnType = parseTypeSignature(dummyString(30001));
         createFunction(createFunctionTangent(returnType), false);
     }
 
     public void testLongReturnType()
     {
-        TypeSignature returnType = parseTypeSignature(dummyString(256));
+        TypeSignature returnType = parseTypeSignature(dummyString(30000));
         createFunction(createFunctionTangent(returnType), false);
     }
 
@@ -502,5 +528,12 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getRoutineCharacteristics(),
                 FUNCTION_TANGENT.getBody(),
                 Optional.empty());
+    }
+
+    private static TypeSignature createLargeRowType(int fieldCount)
+    {
+        String format = format("ROW(%s)", Joiner.on(",").join(nCopies(fieldCount, DOUBLE)));
+        System.out.println(format.length());
+        return parseTypeSignature(format);
     }
 }
