@@ -427,6 +427,9 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields("SELECT c['cat'] FROM test_pushdown_map_subscripts", "test_pushdown_map_subscripts",
                 ImmutableMap.of("c", toSubfields("c[\"cat\"]")));
 
+        assertPushdownSubfields("SELECT c[JSON_EXTRACT_SCALAR(JSON_PARSE('{}'),'$.a')] FROM test_pushdown_map_subscripts", "test_pushdown_map_subscripts",
+                ImmutableMap.of());
+
         assertPushdownSubfields("SELECT mod(c['cat'], 2) FROM test_pushdown_map_subscripts WHERE c['dog'] > 10", "test_pushdown_map_subscripts",
                 ImmutableMap.of("c", toSubfields("c[\"cat\"]", "c[\"dog\"]")));
 
