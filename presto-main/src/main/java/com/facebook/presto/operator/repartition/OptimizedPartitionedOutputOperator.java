@@ -640,7 +640,7 @@ public class OptimizedPartitionedOutputOperator
             if (blockEncodingBuffers == null) {
                 BlockEncodingBuffer[] buffers = new BlockEncodingBuffer[channelCount];
                 for (int i = 0; i < channelCount; i++) {
-                    buffers[i] = createBlockEncodingBuffers(decodedBlocks[i], bufferAllocator);
+                    buffers[i] = createBlockEncodingBuffers(decodedBlocks[i], bufferAllocator, false);
                 }
                 blockEncodingBuffers = buffers;
             }

@@ -68,9 +68,9 @@ public class VariableWidthBlockEncodingBuffer
     // The last offset in the offsets buffer
     private int lastOffset;
 
-    public VariableWidthBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    public VariableWidthBlockEncodingBuffer(ArrayAllocator bufferAllocator, boolean isNested)
     {
-        super(bufferAllocator);
+        super(bufferAllocator, isNested);
     }
 
     @Override

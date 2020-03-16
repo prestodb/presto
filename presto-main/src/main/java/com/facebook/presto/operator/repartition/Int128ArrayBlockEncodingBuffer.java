@@ -52,9 +52,9 @@ public class Int128ArrayBlockEncodingBuffer
     private byte[] valuesBuffer;
     private int valuesBufferIndex;
 
-    public Int128ArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    public Int128ArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator, boolean isNested)
     {
-        super(bufferAllocator);
+        super(bufferAllocator, isNested);
     }
 
     @Override
