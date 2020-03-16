@@ -15,6 +15,7 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -88,7 +89,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return 0;
     }
@@ -169,6 +170,22 @@ public class RowBlockBuilder
         }
 
         entryAdded(true);
+        return this;
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            for (BlockBuilder blockBuilder : fieldBlockBuilders) {
+                blockBuilder.readPositionFrom(input);
+            }
+            entryAdded(false);
+        }
         return this;
     }
 

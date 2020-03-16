@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.storage.BackupStats;
-import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -54,7 +56,7 @@ public class TestBackupManager
 
     private File temporary;
     private BackupStore backupStore;
-    private FileStorageService storageService;
+    private LocalFileStorageService storageService;
     private BackupManager backupManager;
 
     @BeforeMethod
@@ -66,10 +68,10 @@ public class TestBackupManager
         fileStore.start();
         backupStore = new TestingBackupStore(fileStore);
 
-        storageService = new FileStorageService(new File(temporary, "data"));
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), new File(temporary, "data").toURI());
         storageService.start();
 
-        backupManager = new BackupManager(Optional.of(backupStore), storageService, 5);
+        backupManager = new BackupManager(Optional.of(backupStore), storageService, new LocalOrcDataEnvironment(), 5);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -94,7 +96,7 @@ public class TestBackupManager
             Files.write("hello world", file, UTF_8);
             uuids.add(randomUUID());
 
-            futures.add(backupManager.submit(uuids.get(i), file));
+            futures.add(backupManager.submit(uuids.get(i), path(file)));
         }
         futures.forEach(CompletableFuture::join);
         for (UUID uuid : uuids) {
@@ -116,7 +118,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(FAILURE_UUID, file).get(1, SECONDS);
+            backupManager.submit(FAILURE_UUID, path(file)).get(1, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -140,7 +142,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(CORRUPTION_UUID, file).get(1, SECONDS);
+            backupManager.submit(CORRUPTION_UUID, path(file)).get(5, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -149,7 +151,7 @@ public class TestBackupManager
             assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
         }
 
-        File quarantineBase = storageService.getQuarantineFile(CORRUPTION_UUID);
+        File quarantineBase = new File(storageService.getQuarantineFile(CORRUPTION_UUID).toString());
         assertFile(new File(quarantineBase.getPath() + ".original"));
         assertFile(new File(quarantineBase.getPath() + ".restored"));
 
@@ -159,7 +161,7 @@ public class TestBackupManager
 
     private void assertEmptyStagingDirectory()
     {
-        File staging = storageService.getStagingFile(randomUUID()).getParentFile();
+        File staging = new File(storageService.getStagingFile(randomUUID()).getParent().toString());
         assertEquals(staging.list(), new String[] {});
     }
 
@@ -169,6 +171,11 @@ public class TestBackupManager
         assertEquals(stats.getBackupSuccess().getTotalCount(), successCount);
         assertEquals(stats.getBackupFailure().getTotalCount(), failureCount);
         assertEquals(stats.getBackupCorruption().getTotalCount(), corruptionCount);
+    }
+
+    private static Path path(File file)
+    {
+        return new Path(file.toURI());
     }
 
     private static class TestingBackupStore

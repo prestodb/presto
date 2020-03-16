@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.stats.Distribution;
+import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
-import io.airlift.stats.Distribution;
-import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -62,6 +62,8 @@ public class TestPipelineStats
             new Duration(13, NANOSECONDS),
             false,
             ImmutableSet.of(),
+
+            new DataSize(123, BYTE),
 
             new DataSize(14, BYTE),
             15,
@@ -114,6 +116,8 @@ public class TestPipelineStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(11, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(13, NANOSECONDS));
+
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(14, BYTE));
         assertEquals(actual.getRawInputPositions(), 15);

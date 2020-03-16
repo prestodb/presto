@@ -56,6 +56,7 @@ public class RcFilePageSource
     private final int[] hiveColumnIndexes;
 
     private int pageId;
+    private long completedPositions;
 
     private boolean closed;
 
@@ -111,6 +112,12 @@ public class RcFilePageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return rcFileReader.getReadTimeNanos();
@@ -136,6 +143,8 @@ public class RcFilePageSource
                 return null;
             }
 
+            completedPositions += currentPageSize;
+
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 if (constantBlocks[fieldId] != null) {
@@ -146,9 +155,7 @@ public class RcFilePageSource
                 }
             }
 
-            Page page = new Page(currentPageSize, blocks);
-
-            return page;
+            return new Page(currentPageSize, blocks);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);

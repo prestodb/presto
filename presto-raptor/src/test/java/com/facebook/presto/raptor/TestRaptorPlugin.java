@@ -24,10 +24,10 @@ import java.io.File;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestRaptorPlugin
 {
@@ -45,7 +45,7 @@ public class TestRaptorPlugin
             Map<String, String> config = ImmutableMap.<String, String>builder()
                     .put("metadata.db.type", "h2")
                     .put("metadata.db.filename", tmpDir.getAbsolutePath())
-                    .put("storage.data-directory", tmpDir.getAbsolutePath())
+                    .put("storage.data-directory", tmpDir.toURI().toString())
                     .build();
 
             factory.create("test", config, new TestingConnectorContext());

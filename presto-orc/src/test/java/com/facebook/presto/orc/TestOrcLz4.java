@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -46,7 +48,17 @@ public class TestOrcLz4
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), ORC, SIZE, SIZE, SIZE, SIZE);
+        OrcReader orcReader = new OrcReader(
+                new InMemoryOrcDataSource(data),
+                ORC,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                new OrcReaderOptions(
+                        SIZE,
+                        SIZE,
+                        SIZE,
+                        false),
+                DEFAULT_HIVE_FILE_CONTEXT);
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
@@ -57,7 +69,7 @@ public class TestOrcLz4
                 .put(2, BIGINT)
                 .build();
 
-        OrcRecordReader reader = orcReader.createRecordReader(
+        OrcBatchRecordReader reader = orcReader.createBatchRecordReader(
                 includedColumns,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
@@ -72,9 +84,9 @@ public class TestOrcLz4
             }
             rows += batchSize;
 
-            Block xBlock = reader.readBlock(BIGINT, 0);
-            Block yBlock = reader.readBlock(INTEGER, 1);
-            Block zBlock = reader.readBlock(BIGINT, 2);
+            Block xBlock = reader.readBlock(0);
+            Block yBlock = reader.readBlock(1);
+            Block zBlock = reader.readBlock(2);
 
             for (int position = 0; position < batchSize; position++) {
                 BIGINT.getLong(xBlock, position);

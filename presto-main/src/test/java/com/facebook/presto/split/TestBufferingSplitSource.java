@@ -21,12 +21,12 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.Future;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.split.MockSplitSource.Action.FAIL;
 import static com.facebook.presto.split.MockSplitSource.Action.FINISH;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

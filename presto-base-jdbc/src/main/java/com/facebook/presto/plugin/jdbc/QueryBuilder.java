@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
@@ -102,7 +103,7 @@ public class QueryBuilder
             String table,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate)
+            Optional<JdbcExpression> additionalPredicate)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -133,8 +134,11 @@ public class QueryBuilder
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
-                    .add(additionalPredicate.get())
+                    .add(additionalPredicate.get().getExpression())
                     .build();
+            accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                    .collect(ImmutableList.toImmutableList()));
         }
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.predicate;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.block.TestingBlockJsonSerde;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 

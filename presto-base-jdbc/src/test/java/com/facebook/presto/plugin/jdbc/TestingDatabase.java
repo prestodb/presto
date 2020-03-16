@@ -25,13 +25,14 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 
 final class TestingDatabase
         implements AutoCloseable
@@ -97,15 +98,16 @@ final class TestingDatabase
 
     public JdbcSplit getSplit(String schemaName, String tableName)
     {
-        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
-        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());
-        ConnectorSplitSource splits = jdbcClient.getSplits(jdbcLayoutHandle);
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, new SchemaTableName(schemaName, tableName));
+        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all(), Optional.empty());
+        ConnectorSplitSource splits = jdbcClient.getSplits(identity, jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)
     {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle);
         checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
 

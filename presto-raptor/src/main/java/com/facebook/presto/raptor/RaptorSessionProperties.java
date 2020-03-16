@@ -36,9 +36,11 @@ public class RaptorSessionProperties
     private static final String READER_MAX_MERGE_DISTANCE = "reader_max_merge_distance";
     private static final String READER_MAX_READ_SIZE = "reader_max_read_size";
     private static final String READER_STREAM_BUFFER_SIZE = "reader_stream_buffer_size";
+    private static final String WRITER_MAX_BUFFER_SIZE = "writer_max_buffer_size";
     private static final String READER_TINY_STRIPE_THRESHOLD = "reader_tiny_stripe_threshold";
     private static final String READER_LAZY_READ_SMALL_RANGES = "reader_lazy_read_small_ranges";
     private static final String ONE_SPLIT_PER_BUCKET_THRESHOLD = "one_split_per_bucket_threshold";
+    private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_ztd_jni_decompression_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -80,6 +82,16 @@ public class RaptorSessionProperties
                         ONE_SPLIT_PER_BUCKET_THRESHOLD,
                         "Experimental: Maximum bucket count at which to produce multiple splits per bucket",
                         config.getOneSplitPerBucketThreshold(),
+                        false),
+                booleanProperty(
+                        ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
+                        "use JNI based std decompression for reading ORC files",
+                        config.isZstdJniDecompressionEnabled(),
+                        true),
+                dataSizeSessionProperty(
+                        WRITER_MAX_BUFFER_SIZE,
+                        "Raptor page writer max logical buffer size",
+                        config.getMaxBufferSize(),
                         false));
     }
 
@@ -113,6 +125,11 @@ public class RaptorSessionProperties
         return session.getProperty(READER_TINY_STRIPE_THRESHOLD, DataSize.class);
     }
 
+    public static DataSize getWriterMaxBufferSize(ConnectorSession session)
+    {
+        return session.getProperty(WRITER_MAX_BUFFER_SIZE, DataSize.class);
+    }
+
     public static boolean isReaderLazyReadSmallRanges(ConnectorSession session)
     {
         return session.getProperty(READER_LAZY_READ_SMALL_RANGES, Boolean.class);
@@ -121,6 +138,11 @@ public class RaptorSessionProperties
     public static int getOneSplitPerBucketThreshold(ConnectorSession session)
     {
         return session.getProperty(ONE_SPLIT_PER_BUCKET_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isZstdJniDecompressionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

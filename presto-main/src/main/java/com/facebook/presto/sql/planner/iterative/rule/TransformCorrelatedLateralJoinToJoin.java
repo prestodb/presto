@@ -15,12 +15,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -50,7 +51,7 @@ public class TransformCorrelatedLateralJoinToJoin
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional.map(decorrelatedNode ->
@@ -60,8 +61,8 @@ public class TransformCorrelatedLateralJoinToJoin
                         lateralJoinNode.getInput(),
                         decorrelatedNode.getNode(),
                         ImmutableList.of(),
-                        lateralJoinNode.getOutputSymbols(),
-                        decorrelatedNode.getCorrelatedPredicates(),
+                        lateralJoinNode.getOutputVariables(),
+                        decorrelatedNode.getCorrelatedPredicates().map(OriginalExpressionUtils::castToRowExpression),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()))).orElseGet(Result::empty);

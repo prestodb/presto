@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.array;
 
+import com.facebook.presto.spi.block.AbstractMapBlock;
 import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
@@ -89,6 +90,9 @@ public final class ReferenceCountMap
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
+        }
+        else if (key instanceof AbstractMapBlock.HashTables) {
+            extraIdentity = (int) ((AbstractMapBlock.HashTables) key).getRetainedSizeInBytes();
         }
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));

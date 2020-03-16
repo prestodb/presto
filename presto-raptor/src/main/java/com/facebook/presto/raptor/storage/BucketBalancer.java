@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupService;
@@ -31,8 +33,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
-import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -50,7 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
@@ -81,7 +81,6 @@ public class BucketBalancer
     private final ShardManager shardManager;
     private final boolean enabled;
     private final Duration interval;
-    private final Duration initialDelay;
     private final boolean backupAvailable;
     private final boolean coordinator;
     private final int minimumNodeCount;
@@ -106,7 +105,6 @@ public class BucketBalancer
                 shardManager,
                 balancerConfig.isBalancerEnabled(),
                 balancerConfig.getBalancerInterval(),
-                metadataConfig.getStartupGracePeriod(),
                 metadataConfig.getMinimumNodeCount(),
                 backupService.isBackupAvailable(),
                 nodeManager.getCurrentNode().isCoordinator(),
@@ -118,7 +116,6 @@ public class BucketBalancer
             ShardManager shardManager,
             boolean enabled,
             Duration interval,
-            Duration initialDelay,
             int minimumNodeCount,
             boolean backupAvailable,
             boolean coordinator,
@@ -128,7 +125,6 @@ public class BucketBalancer
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.enabled = enabled;
         this.interval = requireNonNull(interval, "interval is null");
-        this.initialDelay = requireNonNull(initialDelay, "initialDelay is null");
         this.minimumNodeCount = minimumNodeCount;
         this.backupAvailable = backupAvailable;
         this.coordinator = coordinator;
@@ -139,7 +135,7 @@ public class BucketBalancer
     public void start()
     {
         if (enabled && backupAvailable && coordinator && !started.getAndSet(true)) {
-            executor.scheduleWithFixedDelay(this::runBalanceJob, initialDelay.toMillis(), interval.toMillis(), MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::runBalanceJob, interval.toMillis(), interval.toMillis(), MILLISECONDS);
         }
     }
 

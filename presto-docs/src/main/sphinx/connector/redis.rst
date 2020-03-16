@@ -45,7 +45,7 @@ Property Name                       Description
 ``redis.default-schema``            Default schema name for tables
 ``redis.nodes``                     Location of the Redis server
 ``redis.scan-count``                Redis parameter for scanning of the keys
-``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name prefix
+``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name: prefix
 ``redis.key-delimiter``             Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
 ``redis.table-description-dir``     Directory containing table description files
 ``redis.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
@@ -96,9 +96,10 @@ This property is optional; the default is ``100``.
 ``redis.key-prefix-schema-table``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If true, only keys prefixed with the ``schema-name:table-name`` are be scanned
+If true, only keys prefixed with the ``schema-name:table-name:`` are scanned
 for a table, and all other keys will be filtered out.  If false, all keys are
-scanned.
+scanned.  Note that if the schema-name is default schema, then the prefix to
+be scanned is just ``table-name:``.
 
 This property is optional; the default is ``false``.
 

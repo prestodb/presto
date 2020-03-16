@@ -15,14 +15,15 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -32,24 +33,24 @@ public class StrictSymbolsMatcher
 {
     private final List<String> expectedAliases;
 
-    public StrictSymbolsMatcher(Function<PlanNode, Set<Symbol>> getActual, List<String> expectedAliases)
+    public StrictSymbolsMatcher(Function<PlanNode, Set<VariableReferenceExpression>> getActual, List<String> expectedAliases)
     {
         super(getActual);
         this.expectedAliases = requireNonNull(expectedAliases, "expectedAliases is null");
     }
 
     @Override
-    protected Set<Symbol> getExpectedSymbols(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    protected Set<VariableReferenceExpression> getExpectedVariables(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return expectedAliases.stream()
                 .map(symbolAliases::get)
-                .map(Symbol::from)
+                .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), UNKNOWN))
                 .collect(toImmutableSet());
     }
 
-    public static Function<PlanNode, Set<Symbol>> actualOutputs()
+    public static Function<PlanNode, Set<VariableReferenceExpression>> actualOutputs()
     {
-        return node -> ImmutableSet.copyOf(node.getOutputSymbols());
+        return node -> ImmutableSet.copyOf(node.getOutputVariables());
     }
 
     @Override

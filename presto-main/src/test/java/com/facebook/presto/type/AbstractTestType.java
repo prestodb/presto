@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
@@ -46,7 +47,6 @@ import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;

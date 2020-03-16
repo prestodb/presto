@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.ConnectorId;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

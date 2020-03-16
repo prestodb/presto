@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import java.math.BigInteger;
 
@@ -73,29 +74,29 @@ final class ShortDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        long unscaledValue = block.getLong(position, 0);
+        long unscaledValue = block.getLong(position);
         return new SqlDecimal(BigInteger.valueOf(unscaledValue), getPrecision(), getScale());
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = leftBlock.getLong(leftPosition);
+        long rightValue = rightBlock.getLong(rightPosition);
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getLong(position);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = leftBlock.getLong(leftPosition);
+        long rightValue = rightBlock.getLong(rightPosition);
         return Long.compare(leftValue, rightValue);
     }
 
@@ -106,14 +107,20 @@ final class ShortDecimalType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
         }
     }
 
     @Override
     public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getLong(position);
+    }
+
+    @Override
+    public long getLongUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return block.getLongUnchecked(internalPosition);
     }
 
     @Override

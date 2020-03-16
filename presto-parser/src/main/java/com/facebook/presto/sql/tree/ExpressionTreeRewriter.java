@@ -539,7 +539,7 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), arguments);
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.isIgnoreNulls(), arguments);
             }
             return node;
         }
@@ -876,19 +876,6 @@ public final class ExpressionTreeRewriter<C>
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteCurrentUser(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            return node;
-        }
-
-        @Override
-        protected Expression visitCurrentPath(CurrentPath node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteCurrentPath(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }

@@ -28,7 +28,6 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
-import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
@@ -167,12 +166,6 @@ public final class ExpressionFormatter
         protected String visitCurrentUser(CurrentUser node, Void context)
         {
             return "CURRENT_USER";
-        }
-
-        @Override
-        protected String visitCurrentPath(CurrentPath node, Void context)
-        {
-            return "CURRENT_PATH";
         }
 
         @Override
@@ -376,6 +369,10 @@ public final class ExpressionFormatter
             }
 
             builder.append(')');
+
+            if (node.isIgnoreNulls()) {
+                builder.append(" IGNORE NULLS");
+            }
 
             if (node.getFilter().isPresent()) {
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));

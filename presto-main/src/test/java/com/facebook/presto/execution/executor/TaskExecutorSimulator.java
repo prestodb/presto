@@ -38,12 +38,13 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.Histogram.fromContinuous;
 import static com.facebook.presto.execution.executor.Histogram.fromDiscrete;
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -78,7 +79,7 @@ public class TaskExecutorSimulator
     private TaskExecutorSimulator()
     {
         splitQueue = new MultilevelSplitQueue(2);
-        taskExecutor = new TaskExecutor(36, 72, 3, 8, splitQueue, Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(36, 72, 3, 8, TASK_FAIR, splitQueue, Ticker.systemTicker());
         taskExecutor.start();
     }
 

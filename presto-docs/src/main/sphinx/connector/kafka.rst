@@ -14,12 +14,12 @@ This connector allows the use of Apache Kafka topics as tables in Presto.
 Each message is presented as a row in Presto.
 
 Topics can be live: rows will appear as data arrives and disappear as
-segments get dropped. This can result in strange behavior if accessing the
+messages get dropped. This can result in strange behavior if accessing the
 same table multiple times in a single query (e.g., performing a self join).
 
 .. note::
 
-    Apache Kafka 0.8+ is supported although it is highly recommend to use 0.8.1 or later.
+    Apache Kafka 2.3.1+ is supported.
 
 Configuration
 -------------
@@ -48,17 +48,18 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=============================== ==============================================================
-Property Name                   Description
-=============================== ==============================================================
-``kafka.table-names``           List of all tables provided by the catalog
-``kafka.default-schema``        Default schema name for tables
-``kafka.nodes``                 List of nodes in the Kafka cluster
-``kafka.connect-timeout``       Timeout for connecting to the Kafka cluster
-``kafka.buffer-size``           Kafka read buffer size
-``kafka.table-description-dir`` Directory containing topic description files
-``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
-=============================== ==============================================================
+=================================== ==============================================================
+Property Name                       Description
+=================================== ==============================================================
+``kafka.table-names``               List of all tables provided by the catalog
+``kafka.default-schema``            Default schema name for tables
+``kafka.nodes``                     List of nodes in the Kafka cluster
+``kafka.connect-timeout``           Timeout for connecting to the Kafka cluster
+``kafka.max-poll-records``          Maximum number of records per poll
+``kafka.max-partition-fetch-bytes`` Maximum number of bytes from one partition per poll
+``kafka.table-description-dir``     Directory containing topic description files
+``kafka.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
+=================================== ==============================================================
 
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -92,7 +93,7 @@ This property is required; there is no default and at least one node must be def
 .. note::
 
     Presto must still be able to connect to all nodes of the cluster
-    even if only a subset is specified here as segment files may be
+    even if only a subset is specified here as messages may be
     located only on a specific node.
 
 ``kafka.connect-timeout``
@@ -104,14 +105,19 @@ timeouts, increasing this value is a good strategy.
 
 This property is optional; the default is 10 seconds (``10s``).
 
-``kafka.buffer-size``
-^^^^^^^^^^^^^^^^^^^^^
+``kafka.max-poll-records``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Size of the internal data buffer for reading data from Kafka. The data
-buffer must be able to hold at least one message and ideally can hold many
-messages. There is one data buffer allocated per worker and data node.
+The maximum number of records per poll() from Kafka.
 
-This property is optional; the default is ``64kb``.
+This property is optional; the default is ``500``.
+
+kafka.max-partition-fetch-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Maximum number of bytes from one partition per poll
+
+This property is optional; the default is ``1MB``.
 
 ``kafka.table-description-dir``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,9 +147,6 @@ Column name             Type      Description
 ======================= ========= =============================
 ``_partition_id``       BIGINT    ID of the Kafka partition which contains this row.
 ``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
-``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
-``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
-``_segment_count``      BIGINT    Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
 ``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
 ``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
 ``_message_length``     BIGINT    Number of bytes in the message.

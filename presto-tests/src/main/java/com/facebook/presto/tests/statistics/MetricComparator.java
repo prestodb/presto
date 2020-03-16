@@ -16,8 +16,8 @@ package com.facebook.presto.tests.statistics;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -72,11 +72,11 @@ final class MetricComparator
 
     private static StatsContext buildStatsContext(Plan queryPlan, OutputNode outputNode)
     {
-        ImmutableMap.Builder<String, Symbol> columnSymbols = ImmutableMap.builder();
+        ImmutableMap.Builder<String, VariableReferenceExpression> columnVariables = ImmutableMap.builder();
         for (int columnId = 0; columnId < outputNode.getColumnNames().size(); ++columnId) {
-            columnSymbols.put(outputNode.getColumnNames().get(columnId), outputNode.getOutputSymbols().get(columnId));
+            columnVariables.put(outputNode.getColumnNames().get(columnId), outputNode.getOutputVariables().get(columnId));
         }
-        return new StatsContext(columnSymbols.build(), queryPlan.getTypes());
+        return new StatsContext(columnVariables.build());
     }
 
     private static List<OptionalDouble> getActualValues(List<Metric> metrics, String query, QueryRunner runner)

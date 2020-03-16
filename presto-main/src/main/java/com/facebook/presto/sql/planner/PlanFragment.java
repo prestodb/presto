@@ -15,10 +15,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,66 +28,68 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
 public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final Map<Symbol, Type> symbols;
+    private final Set<VariableReferenceExpression> variables;
     private final PartitioningHandle partitioning;
-    private final List<PlanNodeId> partitionedSources;
-    private final Set<PlanNodeId> partitionedSourcesSet;
+    private final List<PlanNodeId> tableScanSchedulingOrder;
     private final List<Type> types;
-    private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
+    private final boolean outputTableWriterFragment;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
+
+    // This is ensured to be lazily populated on the first successful call to #toBytes
+    @GuardedBy("this")
+    private byte[] cachedSerialization;
+    @GuardedBy("this")
+    private Codec<PlanFragment> lastUsedCodec;
 
     @JsonCreator
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
-            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("variables") Set<VariableReferenceExpression> variables,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
-            @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
+            @JsonProperty("tableScanSchedulingOrder") List<PlanNodeId> tableScanSchedulingOrder,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
+            @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
-        this.symbols = requireNonNull(symbols, "symbols is null");
+        this.variables = requireNonNull(variables, "variables is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
-        this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
-        this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
+        this.tableScanSchedulingOrder = ImmutableList.copyOf(requireNonNull(tableScanSchedulingOrder, "tableScanSchedulingOrder is null"));
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
+        this.outputTableWriterFragment = outputTableWriterFragment;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
-        checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
-                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitioningScheme.getOutputLayout());
+        checkArgument(root.getOutputVariables().containsAll(partitioningScheme.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputVariables(), partitioningScheme.getOutputLayout());
 
         types = partitioningScheme.getOutputLayout().stream()
-                .map(symbols::get)
+                .map(VariableReferenceExpression::getType)
                 .collect(toImmutableList());
-
-        this.partitionedSourceNodes = findSources(root, partitionedSources);
 
         ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();
         findRemoteSourceNodes(root, remoteSourceNodes);
@@ -107,9 +111,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Map<Symbol, Type> getSymbols()
+    public Set<VariableReferenceExpression> getVariables()
     {
-        return symbols;
+        return variables;
     }
 
     @JsonProperty
@@ -119,14 +123,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public List<PlanNodeId> getPartitionedSources()
+    public List<PlanNodeId> getTableScanSchedulingOrder()
     {
-        return partitionedSources;
-    }
-
-    public boolean isPartitionedSources(PlanNodeId nodeId)
-    {
-        return partitionedSourcesSet.contains(nodeId);
+        return tableScanSchedulingOrder;
     }
 
     @JsonProperty
@@ -139,6 +138,12 @@ public class PlanFragment
     public StageExecutionDescriptor getStageExecutionDescriptor()
     {
         return stageExecutionDescriptor;
+    }
+
+    @JsonProperty
+    public boolean isOutputTableWriterFragment()
+    {
+        return outputTableWriterFragment;
     }
 
     @JsonProperty
@@ -155,14 +160,23 @@ public class PlanFragment
         return jsonRepresentation;
     }
 
+    // Serialize this plan fragment with the provided codec, caching the results
+    public synchronized byte[] toBytes(Codec<PlanFragment> codec)
+    {
+        requireNonNull(codec, "codec is null");
+        if (cachedSerialization != null) {
+            verify(codec == lastUsedCodec, "Only one Codec may be used to serialize PlanFragments");
+        }
+        else {
+            cachedSerialization = codec.toBytes(this);
+            lastUsedCodec = codec;
+        }
+        return cachedSerialization;
+    }
+
     public List<Type> getTypes()
     {
         return types;
-    }
-
-    public Set<PlanNode> getPartitionedSourceNodes()
-    {
-        return partitionedSourceNodes;
     }
 
     public boolean isLeaf()
@@ -206,17 +220,62 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme.withBucketToPartition(bucketToPartition),
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
-    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
+    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
-    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
+    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
+    }
+
+    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
+    {
+        return new PlanFragment(
+                id,
+                root,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
     @Override
@@ -225,7 +284,7 @@ public class PlanFragment
         return toStringHelper(this)
                 .add("id", id)
                 .add("partitioning", partitioning)
-                .add("partitionedSource", partitionedSources)
+                .add("tableScanSchedulingOrder", tableScanSchedulingOrder)
                 .add("partitionFunction", partitioningScheme)
                 .toString();
     }

@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -34,6 +36,7 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.metadata.CastType.CAST;
 import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
 
 final class StatsUtil
 {
@@ -46,6 +49,8 @@ final class StatsUtil
 
     static OptionalDouble toStatsRepresentation(FunctionManager functionManager, ConnectorSession session, Type type, Object value)
     {
+        requireNonNull(value, "value is null");
+
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
             FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
@@ -70,5 +75,21 @@ final class StatsUtil
                 || SmallintType.SMALLINT.equals(type)
                 || TinyintType.TINYINT.equals(type)
                 || BooleanType.BOOLEAN.equals(type);
+    }
+
+    public static VariableStatsEstimate toVariableStatsEstimate(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
+    {
+        double nullsFraction = columnStatistics.getNullsFraction().getValue();
+        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
+        double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
+        VariableStatsEstimate.Builder result = VariableStatsEstimate.builder();
+        result.setNullsFraction(nullsFraction);
+        result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
+        result.setAverageRowSize(averageRowSize);
+        columnStatistics.getRange().ifPresent(range -> {
+            result.setLowValue(range.getMin());
+            result.setHighValue(range.getMax());
+        });
+        return result.build();
     }
 }

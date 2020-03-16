@@ -115,6 +115,7 @@ public class TestColumnarArray
             T expectedArray = expectedValues[position];
             assertEquals(columnarArray.isNull(position), expectedArray == null);
             assertEquals(columnarArray.getLength(position), expectedArray == null ? 0 : Array.getLength(expectedArray));
+            assertEquals(elementsPosition, columnarArray.getOffset(position));
 
             for (int i = 0; i < columnarArray.getLength(position); i++) {
                 Object expectedElement = Array.get(expectedArray, i);

@@ -33,6 +33,7 @@ import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +49,7 @@ public class RaptorNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Node> sortedNodes)
     {
         RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioning;
 
@@ -62,7 +63,7 @@ public class RaptorNodePartitioningProvider
             }
             bucketToNode.add(node);
         }
-        return createBucketNodeMap(bucketToNode.build());
+        return createBucketNodeMap(bucketToNode.build(), HARD_AFFINITY);
     }
 
     @Override

@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
 
@@ -62,7 +65,14 @@ public class JdbcConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new JdbcModule(catalogName), module);
+            Bootstrap app = new Bootstrap(
+                    binder -> {
+                        binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
+                        binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                    },
+                    new JdbcModule(catalogName),
+                    module);
 
             Injector injector = app
                     .strictConfig()

@@ -24,6 +24,7 @@ public class FixedPageSource
     private final Iterator<Page> pages;
 
     private long completedBytes;
+    private long completedPositions;
     private long memoryUsageBytes;
     private boolean closed;
 
@@ -52,6 +53,12 @@ public class FixedPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return 0;
@@ -71,6 +78,7 @@ public class FixedPageSource
         }
         Page page = pages.next();
         completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
         return page;
     }
 

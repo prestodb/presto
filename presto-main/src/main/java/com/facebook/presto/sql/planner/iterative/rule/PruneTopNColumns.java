@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.google.common.collect.Streams;
 
 import java.util.Optional;
@@ -35,11 +36,11 @@ public class PruneTopNColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, TopNNode topNNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, TopNNode topNNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        Set<Symbol> prunedTopNInputs = Streams.concat(
+        Set<VariableReferenceExpression> prunedTopNInputs = Streams.concat(
                 referencedOutputs.stream(),
-                topNNode.getOrderingScheme().getOrderBy().stream())
+                topNNode.getOrderingScheme().getOrderByVariables().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, topNNode, prunedTopNInputs);

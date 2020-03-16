@@ -31,13 +31,13 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -340,7 +340,7 @@ public class TestDictionaryAwarePageProjection
                     int offset = selectedPositions.getOffset();
                     int[] positions = selectedPositions.getPositions();
                     for (int index = nextIndexOrPosition + offset; index < offset + selectedPositions.size(); index++) {
-                        blockBuilder.writeLong(verifyPositive(block.getLong(positions[index], 0)));
+                        blockBuilder.writeLong(verifyPositive(block.getLong(positions[index])));
                         if (yieldSignal.isSet()) {
                             nextIndexOrPosition = index + 1 - offset;
                             return false;
@@ -350,7 +350,7 @@ public class TestDictionaryAwarePageProjection
                 else {
                     int offset = selectedPositions.getOffset();
                     for (int position = nextIndexOrPosition + offset; position < offset + selectedPositions.size(); position++) {
-                        blockBuilder.writeLong(verifyPositive(block.getLong(position, 0)));
+                        blockBuilder.writeLong(verifyPositive(block.getLong(position)));
                         if (yieldSignal.isSet()) {
                             nextIndexOrPosition = position + 1 - offset;
                             return false;

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
-import com.facebook.presto.raptor.storage.Row;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -26,8 +28,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -37,27 +37,31 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.storage.Row.extractRow;
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public final class ShardCompactor
 {
     private final StorageManager storageManager;
 
     private final CounterStat inputShards = new CounterStat();
+    private final CounterStat inputDeltaShards = new CounterStat();
     private final CounterStat outputShards = new CounterStat();
     private final DistributionStat inputShardsPerCompaction = new DistributionStat();
+    private final DistributionStat inputDeltaShardsPerCompaction = new DistributionStat();
     private final DistributionStat outputShardsPerCompaction = new DistributionStat();
     private final DistributionStat compactionLatencyMillis = new DistributionStat();
     private final DistributionStat sortedCompactionLatencyMillis = new DistributionStat();
@@ -70,33 +74,53 @@ public final class ShardCompactor
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
     }
 
-    public List<ShardInfo> compact(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns)
+    public List<ShardInfo> compact(long transactionId, boolean tableSupportsDeltaDelete, OptionalInt bucketNumber, Map<UUID, Optional<UUID>> uuidsMap, List<ColumnInfo> columns)
             throws IOException
     {
         long start = System.nanoTime();
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
 
         List<ShardInfo> shardInfos;
         try {
-            shardInfos = compact(storagePageSink, bucketNumber, uuids, columnIds, columnTypes);
+            shardInfos = compact(storagePageSink, tableSupportsDeltaDelete, bucketNumber, uuidsMap, columnIds, columnTypes);
         }
         catch (IOException | RuntimeException e) {
             storagePageSink.rollback();
             throw e;
         }
 
-        updateStats(uuids.size(), shardInfos.size(), nanosSince(start).toMillis());
+        int deltaCount = uuidsMap.values().stream().filter(Optional::isPresent).collect(toSet()).size();
+        updateStats(uuidsMap.size(), deltaCount, shardInfos.size(), nanosSince(start).toMillis());
+
         return shardInfos;
     }
 
-    private List<ShardInfo> compact(StoragePageSink storagePageSink, OptionalInt bucketNumber, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    private List<ShardInfo> compact(
+            StoragePageSink storagePageSink,
+            boolean tableSupportsDeltaDelete,
+            OptionalInt bucketNumber,
+            Map<UUID, Optional<UUID>> uuidsMap,
+            List<Long> columnIds,
+            List<Type> columnTypes)
             throws IOException
     {
-        for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+        for (Map.Entry<UUID, Optional<UUID>> entry : uuidsMap.entrySet()) {
+            UUID uuid = entry.getKey();
+            Optional<UUID> deltaUuid = entry.getValue();
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(
+                    FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                    DEFAULT_HIVE_FILE_CONTEXT,
+                    uuid,
+                    deltaUuid,
+                    tableSupportsDeltaDelete,
+                    bucketNumber,
+                    columnIds,
+                    columnTypes,
+                    TupleDomain.all(),
+                    readerAttributes)) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -112,7 +136,14 @@ public final class ShardCompactor
         return getFutureValue(storagePageSink.commit());
     }
 
-    public List<ShardInfo> compactSorted(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
+    public List<ShardInfo> compactSorted(
+            long transactionId,
+            boolean tableSupportsDeltaDelete,
+            OptionalInt bucketNumber,
+            Map<UUID, Optional<UUID>> uuidsMap,
+            List<ColumnInfo> columns,
+            List<Long> sortColumnIds,
+            List<SortOrder> sortOrders)
             throws IOException
     {
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
@@ -128,23 +159,34 @@ public final class ShardCompactor
                 .map(columnIds::indexOf)
                 .collect(toList());
 
-        Queue<SortedRowSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
+        Queue<SortedPageSource> rowSources = new PriorityQueue<>();
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
-            for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
-                SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
+            uuidsMap.forEach((uuid, deltaUuid) -> {
+                ConnectorPageSource pageSource = storageManager.getPageSource(
+                        FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                        DEFAULT_HIVE_FILE_CONTEXT,
+                        uuid,
+                        deltaUuid,
+                        tableSupportsDeltaDelete,
+                        bucketNumber,
+                        columnIds,
+                        columnTypes,
+                        TupleDomain.all(),
+                        readerAttributes);
+                SortedPageSource rowSource = new SortedPageSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
-            }
+            });
+
             while (!rowSources.isEmpty()) {
-                SortedRowSource rowSource = rowSources.poll();
+                SortedPageSource rowSource = rowSources.poll();
                 if (!rowSource.hasNext()) {
                     // rowSource is empty, close it
                     rowSource.close();
                     continue;
                 }
 
-                outputPageSink.appendRow(rowSource.next());
+                outputPageSink.appendPages(ImmutableList.of(rowSource.next()));
 
                 if (outputPageSink.isFull()) {
                     outputPageSink.flush();
@@ -155,7 +197,8 @@ public final class ShardCompactor
             outputPageSink.flush();
             List<ShardInfo> shardInfos = getFutureValue(outputPageSink.commit());
 
-            updateStats(uuids.size(), shardInfos.size(), nanosSince(start).toMillis());
+            int deltaCount = uuidsMap.values().stream().filter(Optional::isPresent).collect(toSet()).size();
+            updateStats(uuidsMap.size(), deltaCount, shardInfos.size(), nanosSince(start).toMillis());
 
             return shardInfos;
         }
@@ -164,12 +207,12 @@ public final class ShardCompactor
             throw e;
         }
         finally {
-            rowSources.forEach(SortedRowSource::closeQuietly);
+            rowSources.forEach(SortedPageSource::closeQuietly);
         }
     }
 
-    private static class SortedRowSource
-            implements Iterator<Row>, Comparable<SortedRowSource>, Closeable
+    private static class SortedPageSource
+            implements Iterator<Page>, Comparable<SortedPageSource>, Closeable
     {
         private final ConnectorPageSource pageSource;
         private final List<Type> columnTypes;
@@ -179,7 +222,7 @@ public final class ShardCompactor
         private Page currentPage;
         private int currentPosition;
 
-        public SortedRowSource(ConnectorPageSource pageSource, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
+        public SortedPageSource(ConnectorPageSource pageSource, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
         {
             this.pageSource = requireNonNull(pageSource, "pageSource is null");
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -219,19 +262,20 @@ public final class ShardCompactor
         }
 
         @Override
-        public Row next()
+        public Page next()
         {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
 
-            Row row = extractRow(currentPage, currentPosition, columnTypes);
+            int[] mask = {currentPosition};
+            Page page = currentPage.getPositions(mask, 0, 1);
             currentPosition++;
-            return row;
+            return page;
         }
 
         @Override
-        public int compareTo(SortedRowSource other)
+        public int compareTo(SortedPageSource other)
         {
             if (!hasNext()) {
                 return 1;
@@ -286,12 +330,14 @@ public final class ShardCompactor
         return nextPage == null || nextPage.getPositionCount() == 0;
     }
 
-    private void updateStats(int inputShardsCount, int outputShardsCount, long latency)
+    private void updateStats(int inputShardsCount, int inputDeltaShardsCount, int outputShardsCount, long latency)
     {
         inputShards.update(inputShardsCount);
+        inputDeltaShards.update(inputDeltaShardsCount);
         outputShards.update(outputShardsCount);
 
         inputShardsPerCompaction.add(inputShardsCount);
+        inputDeltaShardsPerCompaction.add(inputDeltaShardsCount);
         outputShardsPerCompaction.add(outputShardsCount);
 
         compactionLatencyMillis.add(latency);
@@ -306,6 +352,13 @@ public final class ShardCompactor
 
     @Managed
     @Nested
+    public CounterStat getInputDeltaShards()
+    {
+        return inputDeltaShards;
+    }
+
+    @Managed
+    @Nested
     public CounterStat getOutputShards()
     {
         return outputShards;
@@ -316,6 +369,13 @@ public final class ShardCompactor
     public DistributionStat getInputShardsPerCompaction()
     {
         return inputShardsPerCompaction;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getInputDeltaShardsPerCompaction()
+    {
+        return inputDeltaShardsPerCompaction;
     }
 
     @Managed

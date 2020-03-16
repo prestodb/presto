@@ -34,9 +34,6 @@ public interface SessionContext
     String getSchema();
 
     @Nullable
-    String getPath();
-
-    @Nullable
     String getSource();
 
     String getRemoteUserAddress();
@@ -48,8 +45,6 @@ public interface SessionContext
     String getClientInfo();
 
     Set<String> getClientTags();
-
-    Set<String> getClientCapabilities();
 
     ResourceEstimates getResourceEstimates();
 

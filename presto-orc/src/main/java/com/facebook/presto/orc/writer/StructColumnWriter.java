@@ -55,6 +55,7 @@ public class StructColumnWriter
     private final List<ColumnWriter> structFields;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
+    private long columnStatisticsRetainedSizeInBytes;
 
     private int nonNullValueCount;
 
@@ -137,6 +138,7 @@ public class StructColumnWriter
         checkState(!closed);
         ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
+        columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
 
         ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
@@ -234,9 +236,7 @@ public class StructColumnWriter
         for (ColumnWriter structField : structFields) {
             retainedBytes += structField.getRetainedBytes();
         }
-        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
-            retainedBytes += statistics.getRetainedSizeInBytes();
-        }
+        retainedBytes += columnStatisticsRetainedSizeInBytes;
         return retainedBytes;
     }
 
@@ -247,6 +247,7 @@ public class StructColumnWriter
         presentStream.reset();
         structFields.forEach(ColumnWriter::reset);
         rowGroupColumnStatistics.clear();
+        columnStatisticsRetainedSizeInBytes = 0;
         nonNullValueCount = 0;
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -125,8 +126,8 @@ public class MapType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Block leftMapBlock = leftBlock.getObject(leftPosition, Block.class);
-        Block rightMapBlock = rightBlock.getObject(rightPosition, Block.class);
+        Block leftMapBlock = leftBlock.getBlock(leftPosition);
+        Block rightMapBlock = rightBlock.getBlock(rightPosition);
 
         if (leftMapBlock.getPositionCount() != rightMapBlock.getPositionCount()) {
             return false;
@@ -201,7 +202,7 @@ public class MapType
             return null;
         }
 
-        Block singleMapBlock = block.getObject(position, Block.class);
+        Block singleMapBlock = block.getBlock(position);
         if (!(singleMapBlock instanceof SingleMapBlock)) {
             throw new UnsupportedOperationException("Map is encoded with legacy block representation");
         }
@@ -227,7 +228,13 @@ public class MapType
     @Override
     public Block getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getBlock(position);
+    }
+
+    @Override
+    public Block getBlockUnchecked(Block block, int internalPosition)
+    {
+        return block.getBlockUnchecked(internalPosition);
     }
 
     @Override
@@ -251,9 +258,10 @@ public class MapType
         return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
-    public Block createBlockFromKeyValue(Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    public Block createBlockFromKeyValue(int positionCount, Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
+                positionCount,
                 mapIsNull,
                 offsets,
                 keyBlock,
@@ -278,11 +286,11 @@ public class MapType
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            int[] hashTables)
+            HashTables hashTables)
     {
         // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
         // BIGINT is chosen arbitrarily here. Any type will do.
         MapType mapType = (MapType) typeManager.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
-        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode);
+        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode, mapType.keyBlockHashCode);
     }
 }

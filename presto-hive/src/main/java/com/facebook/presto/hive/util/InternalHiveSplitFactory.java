@@ -13,36 +13,32 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveSplit.BucketConversion;
-import com.facebook.presto.hive.HiveTypeName;
+import com.facebook.presto.hive.HiveFileInfo;
+import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.hive.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -51,67 +47,54 @@ import static java.util.Objects.requireNonNull;
 public class InternalHiveSplitFactory
 {
     private final FileSystem fileSystem;
-    private final String partitionName;
     private final InputFormat<?, ?> inputFormat;
-    private final Properties schema;
-    private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
-    private final Map<Integer, HiveTypeName> columnCoercions;
-    private final Optional<BucketConversion> bucketConversion;
-    private final boolean forceLocalScheduling;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
+    private final HiveSplitPartitionInfo partitionInfo;
+    private final boolean schedulerUsesHostAddresses;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
-            String partitionName,
             InputFormat<?, ?> inputFormat,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveTypeName> columnCoercions,
-            Optional<BucketConversion> bucketConversion,
-            boolean forceLocalScheduling,
-            boolean s3SelectPushdownEnabled)
+            Optional<Domain> pathDomain,
+            NodeSelectionStrategy nodeSelectionStrategy,
+            boolean s3SelectPushdownEnabled,
+            HiveSplitPartitionInfo partitionInfo,
+            boolean schedulerUsesHostAddresses)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        this.schema = requireNonNull(schema, "schema is null");
-        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
-        pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
-        this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
-        this.forceLocalScheduling = forceLocalScheduling;
+        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.partitionInfo = partitionInfo;
+        this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
-    public String getPartitionName()
+    public Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, boolean splittable)
     {
-        return partitionName;
+        return createInternalHiveSplit(fileInfo, OptionalInt.empty(), OptionalInt.empty(), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, int readBucketNumber, int tableBucketNumber, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable);
+        return createInternalHiveSplit(fileInfo, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber)
+    private Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), false);
-    }
-
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
-    {
-        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
+        splittable = splittable && isSplittable(inputFormat, fileSystem, fileInfo.getPath());
         return createInternalHiveSplit(
-                status.getPath(),
-                status.getBlockLocations(),
+                fileInfo.getPath(),
+                fileInfo.getBlockLocations(),
                 0,
-                status.getLen(),
-                status.getLen(),
+                fileInfo.getLength(),
+                fileInfo.getLength(),
                 readBucketNumber,
                 tableBucketNumber,
-                splittable);
+                splittable,
+                fileInfo.getExtraFileInfo());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -126,7 +109,8 @@ public class InternalHiveSplitFactory
                 file.getLen(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                false);
+                false,
+                Optional.empty());
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -137,15 +121,15 @@ public class InternalHiveSplitFactory
             long fileSize,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
-            boolean splittable)
+            boolean splittable,
+            Optional<byte[]> extraFileInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
             return Optional.empty();
         }
 
-        boolean forceLocalScheduling = this.forceLocalScheduling;
-
+        boolean forceLocalScheduling = this.nodeSelectionStrategy == HARD_AFFINITY;
         // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
@@ -168,43 +152,51 @@ public class InternalHiveSplitFactory
                 // skip zero-width block, except in the special circumstance: slice is empty, and the block covers the empty slice interval.
                 continue;
             }
-            blockBuilder.add(new InternalHiveBlock(blockStart, blockEnd, getHostAddresses(blockLocation)));
+
+            List<HostAddress> addresses = getHostAddresses(blockLocation);
+            if (!needsHostAddresses(forceLocalScheduling, addresses)) {
+                addresses = ImmutableList.of();
+            }
+            blockBuilder.add(new InternalHiveBlock(blockEnd, addresses));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
         checkBlocks(blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
-            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
+            List<HostAddress> addresses = blocks.get(0).getAddresses();
+            if (!needsHostAddresses(forceLocalScheduling, addresses)) {
+                addresses = ImmutableList.of();
+            }
+            blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }
 
+        URI relativePath = partitionInfo.getPath().relativize(path.toUri());
         return Optional.of(new InternalHiveSplit(
-                partitionName,
-                pathString,
+                relativePath.toString(),
                 start,
                 start + length,
-                fileSize,
-                schema,
-                partitionKeys,
+                length,
                 blocks,
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
-                forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                columnCoercions,
-                bucketConversion,
-                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
+                forceLocalScheduling && allBlocksHaveRealAddress(blocks) ? HARD_AFFINITY : nodeSelectionStrategy,
+                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
+                partitionInfo,
+                extraFileInfo));
+    }
+
+    private boolean needsHostAddresses(boolean forceLocalScheduling, List<HostAddress> addresses)
+    {
+        return schedulerUsesHostAddresses || (forceLocalScheduling && hasRealAddress(addresses));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
     {
         checkArgument(length >= 0);
         checkArgument(!blocks.isEmpty());
-        checkArgument(start == blocks.get(0).getStart());
         checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
-        for (int i = 1; i < blocks.size(); i++) {
-            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
-        }
     }
 
     private static boolean allBlocksHaveRealAddress(List<InternalHiveBlock> blocks)
@@ -232,18 +224,6 @@ public class InternalHiveSplitFactory
         return Arrays.stream(hosts)
                 .map(HostAddress::fromString)
                 .collect(toImmutableList());
-    }
-
-    private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
-    {
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
-                .findFirst()
-                .map(Map.Entry::getValue);
     }
 
     private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)

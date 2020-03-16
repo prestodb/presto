@@ -16,16 +16,24 @@ package com.facebook.presto.plugin.geospatial;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Objects;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class BingTile
 {
     public static final int MAX_ZOOM_LEVEL = 23;
+    @VisibleForTesting
+    static final int VERSION_OFFSET = 63 - 5;
+    private static final int VERSION = 0;
+    private static final int BITS_23 = (1 << 24) - 1;
+    private static final int BITS_5 = (1 << 6) - 1;
+    private static final int ZOOM_OFFSET = 31 - 5;
 
     private final int x;
     private final int y;
@@ -33,7 +41,9 @@ public final class BingTile
 
     private BingTile(int x, int y, int zoomLevel)
     {
-        checkArgument(zoomLevel <= MAX_ZOOM_LEVEL);
+        checkArgument(0 <= zoomLevel && zoomLevel <= MAX_ZOOM_LEVEL);
+        checkArgument(0 <= x && x < (1 << zoomLevel));
+        checkArgument(0 <= y && y < (1 << zoomLevel));
         this.x = x;
         this.y = y;
         this.zoomLevel = zoomLevel;
@@ -146,19 +156,38 @@ public final class BingTile
     }
 
     /**
-     * Encodes Bing tile as a 64-bit long: 23 bits for X, followed by 23 bits for Y,
-     * followed by 5 bits for zoomLevel
+     * Encodes Bing tile as a 64-bit long:
+     * Version (5 bits), 0 (4 bits), x (23 bits), Zoom (5 bits), 0 (4 bits), y (23 bits)
+     * (high bits left, low bits right).
+     *
+     * This arrangement maximizes low-bit entropy for the Java long hash function.
      */
     public long encode()
     {
-        return (((long) x) << 28) + (y << 5) + zoomLevel;
+        // Java's long hash function just XORs itself right shifted 32.
+        // This is used for bucketing, so if you have 2^k buckets, this only
+        // keeps the k lowest bits.  This puts the highest entropy bits
+        // (finest resolution x and y bits) in places that contribute to the
+        // low bits of the hash.
+        return (((long) VERSION << VERSION_OFFSET) | y | ((long) x << 32) | ((long) zoomLevel << ZOOM_OFFSET));
     }
 
     public static BingTile decode(long tile)
     {
-        int tileX = (int) (tile >> 28);
-        int tileY = (int) ((tile % (1 << 28)) >> 5);
-        int zoomLevel = (int) (tile % (1 << 5));
+        int version = (int) (tile >>> VERSION_OFFSET) & BITS_5;
+        if (version == 0) {
+            return decodeV0(tile);
+        }
+        else {
+            throw new IllegalArgumentException(format("Unknown Bing Tile encoding version: %s", version));
+        }
+    }
+
+    private static BingTile decodeV0(long tile)
+    {
+        int tileX = (int) (tile >>> 32) & BITS_23;
+        int tileY = (int) tile & BITS_23;
+        int zoomLevel = (int) (tile >>> ZOOM_OFFSET) & BITS_5;
 
         return new BingTile(tileX, tileY, zoomLevel);
     }

@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  * - the memory pool is exhausted
  */
 @ThreadSafe
-class OutputBufferMemoryManager
+public class OutputBufferMemoryManager
 {
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();

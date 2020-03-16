@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.PagesSerde;
@@ -23,11 +28,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 
@@ -48,6 +48,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static java.util.Collections.synchronizedList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -60,6 +61,8 @@ public class MockExchangeRequestProcessor
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
 
     private final DataSize expectedMaxSize;
+
+    private final List<DataSize> requestMaxSizes = synchronizedList(new ArrayList<>());
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
@@ -86,7 +89,8 @@ public class MockExchangeRequestProcessor
         // verify we got a data size and it parses correctly
         assertTrue(!request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
         DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
-        assertEquals(maxSize, expectedMaxSize);
+        assertTrue(maxSize.compareTo(expectedMaxSize) <= 0);
+        requestMaxSizes.add(maxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
         URI location = requestLocation.getLocation();
@@ -114,6 +118,11 @@ public class MockExchangeRequestProcessor
                         PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
                         PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
                 bytes);
+    }
+
+    public List<DataSize> getRequestMaxSizes()
+    {
+        return requestMaxSizes;
     }
 
     private class RequestLocation

@@ -13,24 +13,31 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +60,7 @@ public class BasicQueryInfo
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Optional<QueryType> queryType;
+    private final List<PrestoWarning> warnings;
 
     @JsonCreator
     public BasicQueryInfo(
@@ -67,7 +75,8 @@ public class BasicQueryInfo
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("queryType") Optional<QueryType> queryType)
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("warnings") List<PrestoWarning> warnings)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -81,6 +90,7 @@ public class BasicQueryInfo
         this.query = requireNonNull(query, "query is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -96,7 +106,26 @@ public class BasicQueryInfo
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
-                queryInfo.getQueryType());
+                queryInfo.getQueryType(),
+                queryInfo.getWarnings());
+    }
+
+    public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ErrorCode errorCode)
+    {
+        return new BasicQueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                resourceGroupId,
+                FAILED,
+                GENERAL_POOL,
+                false,
+                self,
+                query,
+                immediateFailureQueryStats(),
+                errorCode == null ? null : errorCode.getType(),
+                errorCode,
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @JsonProperty
@@ -171,6 +200,12 @@ public class BasicQueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override

@@ -40,7 +40,7 @@ public class AssignUniqueIdStatsRule
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(assignUniqueId.getSource());
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
-                .addSymbolStatistics(assignUniqueId.getIdColumn(), SymbolStatsEstimate.builder()
+                .addVariableStatistics(assignUniqueId.getIdVariable(), VariableStatsEstimate.builder()
                         .setDistinctValuesCount(sourceStats.getOutputRowCount())
                         .setNullsFraction(0.0)
                         .setAverageRowSize(BIGINT.getFixedSize())

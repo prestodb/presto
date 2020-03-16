@@ -14,10 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 public interface StagingFileCommitter
 {
-    void commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates);
+    ListenableFuture<Void> commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates);
 }

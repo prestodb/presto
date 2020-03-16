@@ -35,6 +35,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -57,22 +58,24 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORGANIZED_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Ticker.systemTicker;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -107,7 +110,7 @@ public class TestRaptorMetadata
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, new TypeRegistry());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -137,7 +140,7 @@ public class TestRaptorMetadata
     public void testAddColumn()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+        metadata.createTable(SESSION, buildTable(ImmutableMap.of(TABLE_SUPPORTS_DELTA_DELETE, false), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
                 false);
@@ -154,7 +157,7 @@ public class TestRaptorMetadata
     public void testDropColumn()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+        metadata.createTable(SESSION, buildTable(ImmutableMap.of(TABLE_SUPPORTS_DELTA_DELETE, false), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
                 false);
@@ -172,7 +175,7 @@ public class TestRaptorMetadata
     public void testAddColumnAfterDropColumn()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+        metadata.createTable(SESSION, buildTable(ImmutableMap.of(TABLE_SUPPORTS_DELTA_DELETE, false), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
                 false);
@@ -196,7 +199,8 @@ public class TestRaptorMetadata
                 BUCKET_COUNT_PROPERTY, 16,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
                 ORDERING_PROPERTY, ImmutableList.of("totalprice"),
-                TEMPORAL_COLUMN_PROPERTY, "orderdate");
+                TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                TABLE_SUPPORTS_DELTA_DELETE, false);
         ConnectorTableMetadata ordersTable = buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", BIGINT)
                 .column("totalprice", DOUBLE)
@@ -272,13 +276,32 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testCreateTableWithUnsupportedType()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        ConnectorTableMetadata raptorMetadata =
+                buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                    .column("orderkey", BIGINT)
+                    .column("rowtype", RowType.withDefaultFieldNames(ImmutableList.of(BIGINT))));
+
+        try {
+            metadata.createTable(SESSION, raptorMetadata, false);
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        }
+    }
+
+    @Test
     public void testTableProperties()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey"),
-                TEMPORAL_COLUMN_PROPERTY, "orderdate"));
+                TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, ordersTable, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -305,13 +328,36 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testTablePropertiesDeltaDelete()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
+                TABLE_SUPPORTS_DELTA_DELETE, true));
+        metadata.createTable(SESSION, ordersTable, false);
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        assertEquals(raptorTableHandle.getTableId(), 1);
+
+        long tableId = raptorTableHandle.getTableId();
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        // verify delta delete enabled property
+        assertTrue(metadataDao.getTableInformation(tableId).isTableSupportsDeltaDelete());
+
+        metadata.dropTable(SESSION, tableHandle);
+    }
+
+    @Test
     public void testTablePropertiesWithOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey"),
-                ORGANIZED_PROPERTY, true));
+                ORGANIZED_PROPERTY, true,
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, ordersTable, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -341,7 +387,8 @@ public class TestRaptorMetadata
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
-                BUCKETED_ON_PROPERTY, ImmutableList.of("custkey", "orderkey")));
+                BUCKETED_ON_PROPERTY, ImmutableList.of("custkey", "orderkey"),
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, ordersTable, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -376,7 +423,8 @@ public class TestRaptorMetadata
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 32,
-                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey"),
+                TABLE_SUPPORTS_DELTA_DELETE, false));
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
@@ -417,7 +465,8 @@ public class TestRaptorMetadata
         ConnectorTableMetadata table = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
-                DISTRIBUTION_NAME_PROPERTY, "orders"));
+                DISTRIBUTION_NAME_PROPERTY, "orders",
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, table, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -440,7 +489,8 @@ public class TestRaptorMetadata
         table = getLineItemsTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
-                DISTRIBUTION_NAME_PROPERTY, "orders"));
+                DISTRIBUTION_NAME_PROPERTY, "orders",
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, table, false);
 
         tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_LINEITEMS);
@@ -491,7 +541,8 @@ public class TestRaptorMetadata
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
                 TEMPORAL_COLUMN_PROPERTY, "orderdate",
-                ORGANIZED_PROPERTY, true)),
+                ORGANIZED_PROPERTY, true,
+                TABLE_SUPPORTS_DELTA_DELETE, false)),
                 false);
     }
 
@@ -499,7 +550,7 @@ public class TestRaptorMetadata
     public void testInvalidOrderingOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)), false);
+        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true, TABLE_SUPPORTS_DELTA_DELETE, false)), false);
     }
 
     @Test
@@ -507,7 +558,8 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey")));
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY,
+                ImmutableList.of("orderdate", "custkey"), TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, ordersTable, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -534,7 +586,8 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderdate"));
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                TABLE_SUPPORTS_DELTA_DELETE, false));
         metadata.createTable(SESSION, ordersTable, false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -585,12 +638,18 @@ public class TestRaptorMetadata
     @Test
     public void testViews()
     {
-        SchemaTableName test1 = new SchemaTableName("test", "test_view1");
-        SchemaTableName test2 = new SchemaTableName("test", "test_view2");
+        ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view1"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view2"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        SchemaTableName test1 = viewMetadata1.getTable();
+        SchemaTableName test2 = viewMetadata2.getTable();
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, viewMetadata1, "test1", false);
+        metadata.createView(SESSION, viewMetadata2, "test2", false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, "test");
@@ -622,24 +681,29 @@ public class TestRaptorMetadata
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
     public void testCreateViewWithoutReplace()
     {
-        SchemaTableName test = new SchemaTableName("test", "test_view");
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, viewMetadata, "test", false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, viewMetadata, "test", false);
     }
 
     @Test
     public void testCreateViewWithReplace()
     {
-        SchemaTableName test = new SchemaTableName("test", "test_view");
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
+                new SchemaTableName("test", "test_view"),
+                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+        SchemaTableName test = viewMetadata.getTable();
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, viewMetadata, "aaa", true);
+        metadata.createView(SESSION, viewMetadata, "bbb", true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }
@@ -760,6 +824,26 @@ public class TestRaptorMetadata
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testColumnWithInvalidType()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable(), false);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        List<RowType.Field> fields = (ImmutableList.of(new RowType.Field(Optional.of("field_1"), BIGINT)));
+
+        try {
+            metadata.addColumn(
+                    SESSION,
+                    raptorTableHandle,
+                    new ColumnMetadata("new_col", RowType.from(fields)));
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
         }
     }
 

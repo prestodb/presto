@@ -29,6 +29,7 @@ public class TableStatsRow
     private final long updateTime;
     private final long tableVersion;
     private final long shardCount;
+    private final long deltaCount;
     private final long rowCount;
     private final long compressedSize;
     private final long uncompressedSize;
@@ -40,6 +41,7 @@ public class TableStatsRow
             long updateTime,
             long tableVersion,
             long shardCount,
+            long deltaCount,
             long rowCount,
             long compressedSize,
             long uncompressedSize)
@@ -50,6 +52,7 @@ public class TableStatsRow
         this.updateTime = updateTime;
         this.tableVersion = tableVersion;
         this.shardCount = shardCount;
+        this.deltaCount = deltaCount;
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
@@ -85,6 +88,11 @@ public class TableStatsRow
         return shardCount;
     }
 
+    public long getDeltaCount()
+    {
+        return deltaCount;
+    }
+
     public long getRowCount()
     {
         return rowCount;
@@ -114,6 +122,7 @@ public class TableStatsRow
                     rs.getLong("update_time"),
                     rs.getLong("table_version"),
                     rs.getLong("shard_count"),
+                    rs.getLong("delta_count"),
                     rs.getLong("row_count"),
                     rs.getLong("compressed_size"),
                     rs.getLong("uncompressed_size"));

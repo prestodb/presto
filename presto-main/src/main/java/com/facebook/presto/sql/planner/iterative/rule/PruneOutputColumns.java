@@ -39,7 +39,7 @@ public class PruneOutputColumns
         return restrictChildOutputs(
                     context.getIdAllocator(),
                     outputNode,
-                    ImmutableSet.copyOf(outputNode.getOutputSymbols()))
+                    ImmutableSet.copyOf(outputNode.getOutputVariables()))
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

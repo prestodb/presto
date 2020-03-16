@@ -47,7 +47,7 @@ public class TestSphericalGeoFunctions
         for (Type type : plugin.getTypes()) {
             functionAssertions.getTypeRegistry().addType(type);
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     @Test
@@ -97,13 +97,13 @@ public class TestSphericalGeoFunctions
         assertToAndFromSphericalGeography("MULTIPOINT ((-40.2 28.9), (-40.2 31.9))");
         assertToAndFromSphericalGeography("LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)");
         assertToAndFromSphericalGeography("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), " +
-                "(-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
-        assertToAndFromSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), " +
-                "((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))");
+        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9))");
+        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9), " +
+                "(-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9))");
+        assertToAndFromSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), " +
+                "((-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9)))");
         assertToAndFromSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), " +
-                "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
+                "POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))");
 
         // geometries containing invalid latitude or longitude values
         assertInvalidLongitude("POINT (-340.2 28.9)");
@@ -111,7 +111,7 @@ public class TestSphericalGeoFunctions
         assertInvalidLongitude("LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)");
         assertInvalidLatitude("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))");
         assertInvalidLongitude("POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))");
-        assertInvalidLatitude("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
+        assertInvalidLatitude("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9))");
         assertInvalidLongitude("MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), " +
                 "((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))");
         assertInvalidLatitude("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), " +
@@ -158,9 +158,6 @@ public class TestSphericalGeoFunctions
         // Empty polygon
         assertFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))", DOUBLE, null);
 
-        // Invalid polygon (too few vertices)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))", "Polygon is not valid: a loop contains less then 3 vertices.");
-
         // Invalid data type (point)
         assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
@@ -170,18 +167,18 @@ public class TestSphericalGeoFunctions
         // A polygon around the North Pole
         assertArea("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))", 619.00E9);
 
-        assertArea("POLYGON((0 0, 0 1, 1 1, 1 0))", 123.64E8);
+        assertArea("POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))", 123.64E8);
 
-        assertArea("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392))", 163290.93943446054);
+        assertArea("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961, -122.149324 37.482480,  -122.150837 37.483238,  -122.150901 37.485392, -122.150124 37.486095))", 163290.93943446054);
 
         double angleOfOneKm = 0.008993201943349;
-        assertArea(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm), 1E6);
+        assertArea(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f, 0 0))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm), 1E6);
 
         // 1/4th of an hemisphere, ie 1/8th of the planet, should be close to 4PiR2/8 = 637.58E11
-        assertArea("POLYGON((90 0, 0 0, 0 90))", 637.58E11);
+        assertArea("POLYGON((90 0, 0 0, 0 90, 90 0))", 637.58E11);
 
         //A Polygon with a large hole
-        assertArea("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))", 348.04E10);
+        assertArea("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))", 348.04E10);
 
         Path geometryPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-states.tsv").getPath());
         Map<String, String> stateGeometries = Files.lines(geometryPath)
@@ -209,12 +206,6 @@ public class TestSphericalGeoFunctions
     {
         // Empty linestring returns null
         assertLength("LINESTRING EMPTY", null);
-
-        // Linestring with one point has length 0
-        assertLength("LINESTRING (0 0)", 0.0);
-
-        // Linestring with only one distinct point has length 0
-        assertLength("LINESTRING (0 0, 0 0, 0 0)", 0.0);
 
         double length = 4350866.6362;
 

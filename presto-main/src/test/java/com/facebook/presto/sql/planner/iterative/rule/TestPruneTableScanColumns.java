@@ -13,23 +13,27 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
@@ -42,14 +46,16 @@ public class TestPruneTableScanColumns
         tester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                 {
-                    Symbol orderdate = p.symbol("orderdate", DATE);
-                    Symbol totalprice = p.symbol("totalprice", DOUBLE);
+                    VariableReferenceExpression orderdate = p.variable("orderdate", DATE);
+                    VariableReferenceExpression totalprice = p.variable("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            assignment(p.variable("x"), new SymbolReference(totalprice.getName())),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
-                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                            TestingTransactionHandle.create(),
+                                            Optional.empty()),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
                                             orderdate, new TpchColumnHandle(orderdate.getName(), DATE),
@@ -65,12 +71,14 @@ public class TestPruneTableScanColumns
     public void testAllOutputsReferenced()
     {
         tester().assertThat(new PruneTableScanColumns())
-                .on(p ->
-                        p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
-                                p.tableScan(
-                                        ImmutableList.of(p.symbol("x")),
-                                        ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))
+                .on(p -> {
+                    VariableReferenceExpression xv = p.variable("x");
+                    return p.project(
+                            assignment(p.variable("y"), expression("x")),
+                            p.tableScan(
+                                    ImmutableList.of(xv),
+                                    ImmutableMap.of(p.variable("x"), new TestingColumnHandle("x"))));
+                })
                 .doesNotFire();
     }
 }

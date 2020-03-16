@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
@@ -53,7 +54,7 @@ public final class LikeFunctions
 
     private LikeFunctions() {}
 
-    @ScalarFunction(value = "like", hidden = true)
+    @ScalarFunction(value = "like", visibility = HIDDEN)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
@@ -62,7 +63,7 @@ public final class LikeFunctions
     }
 
     // TODO: this should not be callable from SQL
-    @ScalarFunction(value = "like", hidden = true)
+    @ScalarFunction(value = "like", visibility = HIDDEN)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
@@ -94,7 +95,7 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), '0', false);
     }
 
-    @ScalarFunction(hidden = true)
+    @ScalarFunction(visibility = HIDDEN)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
     public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)

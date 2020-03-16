@@ -157,7 +157,7 @@ public class ArrayBlock
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return arrayOffset;
     }

@@ -13,23 +13,21 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.checksum.ChecksumResult;
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
-import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
-import com.facebook.presto.verifier.framework.VerificationResult.MatchType;
-import com.facebook.presto.verifier.resolver.FailureResolver;
-import io.airlift.log.Logger;
+import com.facebook.presto.verifier.framework.MatchResult.MatchType;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
+import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import io.airlift.units.Duration;
 
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
@@ -37,16 +35,20 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_FAILED;
+import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_TIMED_OUT;
+import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
+import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
+import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -56,47 +58,45 @@ public abstract class AbstractVerification
 {
     private static final Logger log = Logger.get(AbstractVerification.class);
 
+    private final VerificationResubmitter verificationResubmitter;
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
-    private final List<FailureResolver> failureResolvers;
+    private final DeterminismAnalyzer determinismAnalyzer;
+    private final FailureResolverManager failureResolverManager;
+    private final VerificationContext verificationContext;
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
 
-    private final VerificationContext verificationContext = new VerificationContext();
-
-    private Map<QueryGroup, QueryStats> queryStats = new EnumMap<>(QueryGroup.class);
-
     public AbstractVerification(
+            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
-            List<FailureResolver> failureResolvers,
-            VerifierConfig config)
+            DeterminismAnalyzer determinismAnalyzer,
+            FailureResolverManager failureResolverManager,
+            VerificationContext verificationContext,
+            VerifierConfig verifierConfig)
     {
+        this.verificationResubmitter = requireNonNull(verificationResubmitter, "verificationResubmitter is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
-        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
+        this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
+        this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
+        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
-        this.testId = requireNonNull(config.getTestId(), "testId is null");
-        this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
+        this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
+        this.runTearDownOnResultMismatch = verifierConfig.isRunTeardownOnResultMismatch();
     }
 
-    protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
+    protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
 
-    protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
-
-    protected VerificationContext getVerificationContext()
+    @Override
+    public SourceQuery getSourceQuery()
     {
-        return verificationContext;
-    }
-
-    protected void setQueryStats(QueryStats queryStats, QueryGroup group)
-    {
-        checkState(!this.queryStats.containsKey(group), "%sQueryStats has already been set", group.name().toLowerCase(ENGLISH));
-        this.queryStats.put(group, queryStats);
+        return sourceQuery;
     }
 
     @Override
@@ -105,37 +105,48 @@ public abstract class AbstractVerification
         boolean resultMismatched = false;
         QueryBundle control = null;
         QueryBundle test = null;
-        VerificationResult verificationResult = null;
-        Optional<Boolean> deterministic = Optional.empty();
+        MatchResult matchResult = null;
+        Optional<DeterminismAnalysis> determinismAnalysis = Optional.empty();
+
+        QueryStats controlQueryStats = null;
+        QueryStats testQueryStats = null;
 
         try {
-            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
-            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST, getConfiguration(TEST), getVerificationContext());
-            verificationResult = verify(control, test);
+            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
+            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
+            controlQueryStats = DataVerificationUtil.setupAndRun(prestoAction, control, false);
+            testQueryStats = DataVerificationUtil.setupAndRun(prestoAction, test, false);
+            matchResult = verify(control, test);
 
-            deterministic = verificationResult.isMismatchPossiblyCausedByNonDeterminism() ?
-                    isDeterministic(control, verificationResult.getControlChecksum()) :
-                    Optional.empty();
-            resultMismatched = deterministic.orElse(true) && !verificationResult.isMatched();
+            if (matchResult.isMismatchPossiblyCausedByNonDeterminism()) {
+                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control, matchResult.getControlChecksum()));
+            }
+            boolean maybeDeterministic = !determinismAnalysis.isPresent() ||
+                    determinismAnalysis.get().isDeterministic() ||
+                    determinismAnalysis.get().isUnknown();
+            resultMismatched = maybeDeterministic && !matchResult.isMatched();
 
             return Optional.of(buildEvent(
                     Optional.of(control),
                     Optional.of(test),
-                    Optional.of(queryStats.get(CONTROL)),
-                    Optional.of(queryStats.get(TEST)),
+                    Optional.ofNullable(controlQueryStats),
+                    Optional.ofNullable(testQueryStats),
                     Optional.empty(),
-                    Optional.of(verificationResult),
-                    deterministic));
+                    Optional.of(matchResult),
+                    determinismAnalysis));
         }
         catch (QueryException e) {
+            if (verificationResubmitter.resubmit(this, e)) {
+                return Optional.empty();
+            }
             return Optional.of(buildEvent(
                     Optional.ofNullable(control),
                     Optional.ofNullable(test),
-                    Optional.ofNullable(queryStats.get(CONTROL)),
-                    Optional.ofNullable(queryStats.get(TEST)),
+                    Optional.ofNullable(controlQueryStats),
+                    Optional.ofNullable(testQueryStats),
                     Optional.of(e),
-                    Optional.ofNullable(verificationResult),
-                    deterministic));
+                    Optional.ofNullable(matchResult),
+                    determinismAnalysis));
         }
         catch (Throwable t) {
             log.error(t);
@@ -143,12 +154,8 @@ public abstract class AbstractVerification
         }
         finally {
             if (!resultMismatched || runTearDownOnResultMismatch) {
-                if (control != null) {
-                    teardownSafely(control, CONTROL);
-                }
-                if (test != null) {
-                    teardownSafely(test, TEST);
-                }
+                teardownSafely(prestoAction, control);
+                teardownSafely(prestoAction, test);
             }
         }
     }
@@ -158,39 +165,9 @@ public abstract class AbstractVerification
         return prestoAction;
     }
 
-    protected QueryRewriter getQueryRewriter()
+    protected VerificationContext getVerificationContext()
     {
-        return queryRewriter;
-    }
-
-    protected SourceQuery getSourceQuery()
-    {
-        return sourceQuery;
-    }
-
-    protected QueryConfiguration getConfiguration(QueryGroup group)
-    {
-        checkState(group == CONTROL || group == TEST, "Unexpected QueryGroup %s", group);
-        return group == CONTROL ? sourceQuery.getControlConfiguration() : sourceQuery.getTestConfiguration();
-    }
-
-    protected void setup(QueryBundle control, QueryGroup group)
-    {
-        for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, getConfiguration(group), new QueryOrigin(group, SETUP), getVerificationContext());
-        }
-    }
-
-    protected void teardownSafely(QueryBundle control, QueryGroup group)
-    {
-        for (Statement teardownQuery : control.getTeardownQueries()) {
-            try {
-                prestoAction.execute(teardownQuery, getConfiguration(group), new QueryOrigin(group, TEARDOWN), getVerificationContext());
-            }
-            catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", group.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
-            }
-        }
+        return verificationContext;
     }
 
     private VerifierQueryEvent buildEvent(
@@ -199,52 +176,60 @@ public abstract class AbstractVerification
             Optional<QueryStats> controlStats,
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
-            Optional<VerificationResult> verificationResult,
-            Optional<Boolean> deterministic)
+            Optional<MatchResult> matchResult,
+            Optional<DeterminismAnalysis> determinismAnalysis)
     {
-        boolean succeeded = verificationResult.isPresent() && verificationResult.get().isMatched();
+        boolean succeeded = matchResult.isPresent() && matchResult.get().isMatched();
 
         QueryState controlState = getQueryState(controlStats, queryException, CONTROL);
         QueryState testState = getQueryState(testStats, queryException, TEST);
         String errorMessage = null;
         if (!succeeded) {
-            errorMessage = format("Test state %s, Control state %s\n", testState.name(), controlState.name());
+            errorMessage = format("Test state %s, Control state %s.\n\n", testState.name(), controlState.name());
 
             if (queryException.isPresent()) {
-                errorMessage += getStackTraceAsString(queryException.get().getCause());
+                errorMessage += format(
+                        "%s query failed on %s cluster:\n%s",
+                        queryException.get().getQueryStage().name().replace("_", " "),
+                        queryException.get().getQueryStage().getTargetCluster(),
+                        getStackTraceAsString(queryException.get().getCause()));
             }
-            if (verificationResult.isPresent()) {
-                errorMessage += verificationResult.get().getResultsComparison();
+            if (matchResult.isPresent()) {
+                errorMessage += matchResult.get().getResultsComparison();
             }
         }
 
         EventStatus status;
+        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis, queryException);
         Optional<String> resolveMessage = Optional.empty();
         if (succeeded) {
             status = SUCCEEDED;
         }
-        else if (isSkipped(controlState, deterministic)) {
+        else if (skippedReason.isPresent()) {
             status = SKIPPED;
         }
         else {
             if (controlState == QueryState.SUCCEEDED && queryException.isPresent()) {
                 checkState(controlStats.isPresent(), "control succeeded but control stats is missing");
-                resolveMessage = resolveFailure(controlStats.get(), queryException.get());
+                resolveMessage = failureResolverManager.resolve(controlStats.get(), queryException.get(), test);
             }
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
 
-        controlStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(new QueryOrigin(CONTROL, MAIN)) ?
-                queryException.get().getQueryStats() :
-                controlStats;
-        testStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(new QueryOrigin(TEST, MAIN)) ?
-                queryException.get().getQueryStats() :
-                testStats;
+        if (queryException.isPresent() && queryException.get() instanceof PrestoQueryException) {
+            PrestoQueryException prestoException = (PrestoQueryException) queryException.get();
+            if (prestoException.getQueryStage() == CONTROL_MAIN) {
+                controlStats = prestoException.getQueryStats();
+            }
+            else if (prestoException.getQueryStage() == TEST_MAIN) {
+                testStats = prestoException.getQueryStats();
+            }
+        }
 
         Optional<String> errorCode = Optional.empty();
         if (!succeeded) {
-            errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCode).orElse(
-                    verificationResult.map(VerificationResult::getMatchType).map(MatchType::name).orElse(null)));
+            errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCodeName).orElse(
+                    matchResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
         return new VerifierQueryEvent(
@@ -252,57 +237,55 @@ public abstract class AbstractVerification
                 testId,
                 sourceQuery.getName(),
                 status,
-                deterministic,
+                skippedReason,
+                determinismAnalysis,
+                determinismAnalysis.isPresent() ?
+                        Optional.of(new DeterminismAnalysisDetails(
+                                verificationContext.getDeterminismAnalysisRuns(),
+                                verificationContext.getLimitQueryAnalysis(),
+                                verificationContext.getLimitQueryAnalysisQueryId())) :
+                        Optional.empty(),
                 resolveMessage,
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
-                        verificationResult.flatMap(VerificationResult::getControlChecksumQuery),
+                        verificationContext.getControlChecksumQueryId(),
+                        verificationContext.getControlChecksumQuery(),
                         control,
-                        controlStats,
-                        verificationContext.getAllFailures(CONTROL)),
+                        controlStats),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
-                        verificationResult.flatMap(VerificationResult::getTestChecksumQuery),
+                        verificationContext.getTestChecksumQueryId(),
+                        verificationContext.getTestChecksumQuery(),
                         test,
-                        testStats,
-                        verificationContext.getAllFailures(TEST)),
+                        testStats),
                 errorCode,
-                Optional.ofNullable(errorMessage));
-    }
-
-    private Optional<String> resolveFailure(QueryStats controlStats, QueryException queryException)
-    {
-        for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolve(controlStats, queryException);
-            if (resolveMessage.isPresent()) {
-                return resolveMessage;
-            }
-        }
-        return Optional.empty();
+                Optional.ofNullable(errorMessage),
+                queryException.map(QueryException::toQueryFailure),
+                verificationContext.getQueryFailures());
     }
 
     private static QueryInfo buildQueryInfo(
             QueryConfiguration configuration,
             String originalQuery,
+            Optional<String> checksumQueryId,
             Optional<String> checksumQuery,
             Optional<QueryBundle> queryBundle,
-            Optional<QueryStats> queryStats,
-            List<FailureInfo> allFailures)
+            Optional<QueryStats> queryStats)
     {
         return new QueryInfo(
                 configuration.getCatalog(),
                 configuration.getSchema(),
                 originalQuery,
                 queryStats.map(QueryStats::getQueryId),
+                checksumQueryId,
                 queryBundle.map(QueryBundle::getQuery).map(AbstractVerification::formatSql),
                 queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQuery,
                 millisToSeconds(queryStats.map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)),
-                allFailures);
+                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)));
     }
 
     protected static String formatSql(Statement statement)
@@ -317,18 +300,25 @@ public abstract class AbstractVerification
                 .collect(toImmutableList());
     }
 
-    private static boolean isSkipped(QueryState controlState, Optional<Boolean> deterministic)
+    private static Optional<SkippedReason> getSkippedReason(
+            QueryState controlState,
+            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<QueryException> queryException)
     {
-        if (controlState == QueryState.FAILED ||
-                controlState == QueryState.FAILED_TO_SETUP ||
-                controlState == QueryState.TIMED_OUT ||
-                controlState == QueryState.NOT_RUN) {
-            return true;
+        switch (controlState) {
+            case FAILED:
+                return Optional.of(CONTROL_QUERY_FAILED);
+            case FAILED_TO_SETUP:
+                return Optional.of(CONTROL_SETUP_QUERY_FAILED);
+            case TIMED_OUT:
+                return Optional.of(CONTROL_QUERY_TIMED_OUT);
+            case NOT_RUN:
+                return Optional.of(FAILED_BEFORE_CONTROL_QUERY);
         }
-        if (!deterministic.orElse(true)) {
-            return true;
+        if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
+            return Optional.of(NON_DETERMINISTIC);
         }
-        return false;
+        return Optional.empty();
     }
 
     private static Optional<Double> millisToSeconds(Optional<Long> millis)
@@ -336,23 +326,24 @@ public abstract class AbstractVerification
         return millis.map(value -> new Duration(value, MILLISECONDS).getValue(SECONDS));
     }
 
-    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, QueryGroup group)
+    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, ClusterType cluster)
     {
         if (statsFromResult.isPresent()) {
             return QueryState.SUCCEEDED;
         }
-        if (!queryException.isPresent() || queryException.get().getQueryOrigin().getGroup() != group) {
+        if (!queryException.isPresent() || queryException.get().getQueryStage().getTargetCluster() != cluster) {
             return QueryState.NOT_RUN;
         }
-        if (queryException.get().getQueryOrigin().getStage() == SETUP) {
+        if (queryException.get().getQueryStage().isSetup()) {
             return QueryState.FAILED_TO_SETUP;
         }
-        if (queryException.get().getQueryOrigin().getStage() == MAIN) {
-            return queryException.get().getPrestoErrorCode().map(errorCode -> errorCode == EXCEEDED_TIME_LIMIT).orElse(false) ?
+        if (queryException.get().getQueryStage().isMain()) {
+            return queryException.get() instanceof PrestoQueryException
+                    && ((PrestoQueryException) queryException.get()).getErrorCode().equals(Optional.of(EXCEEDED_TIME_LIMIT)) ?
                     QueryState.TIMED_OUT :
                     QueryState.FAILED;
         }
-        if (queryException.get().getQueryOrigin().getStage() == TEARDOWN) {
+        if (queryException.get().getQueryStage().isTeardown()) {
             return QueryState.FAILED_TO_TEARDOWN;
         }
         return QueryState.NOT_RUN;

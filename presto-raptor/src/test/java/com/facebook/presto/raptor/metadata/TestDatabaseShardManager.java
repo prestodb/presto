@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.DaoSupplier;
@@ -33,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import io.airlift.slice.Slice;
-import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -47,6 +47,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
@@ -61,6 +62,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
@@ -81,6 +84,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Ticker.systemTicker;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -93,6 +97,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -122,6 +127,42 @@ public class TestDatabaseShardManager
     }
 
     @Test
+    public void testCreateTable()
+            throws SQLException
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
+
+        Statement statement = dummyHandle.getConnection().createStatement();
+        ResultSet resultSet = statement.executeQuery("select * from " + shardIndexTable(tableId));
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        assertEquals(metaData.getColumnLabel(1), "SHARD_ID");
+        assertEquals(metaData.getColumnLabel(2), "SHARD_UUID");
+        assertNotEquals(metaData.getColumnLabel(3), "DELTA_SHARD_UUID");
+        resultSet.close();
+        statement.close();
+    }
+
+    @Test
+    public void testCreateTableWithDeltaDelete()
+            throws SQLException
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), true);
+
+        Statement statement = dummyHandle.getConnection().createStatement();
+        ResultSet resultSet = statement.executeQuery("select * from " + shardIndexTable(tableId));
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        assertEquals(metaData.getColumnLabel(1), "SHARD_ID");
+        assertEquals(metaData.getColumnLabel(2), "SHARD_UUID");
+        assertEquals(metaData.getColumnLabel(3), "DELTA_SHARD_UUID");
+        resultSet.close();
+        statement.close();
+    }
+
+    @Test
     public void testCommit()
     {
         long tableId = createTable("test");
@@ -134,7 +175,7 @@ public class TestDatabaseShardManager
 
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -150,7 +191,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.rollbackTransaction(transactionId);
@@ -172,16 +213,16 @@ public class TestDatabaseShardManager
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
 
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
+        assertEquals(actual, new ShardNodes(shard, Optional.empty(), ImmutableSet.of("node1")));
 
         try {
-            shardManager.replaceShardAssignment(tableId, shard, "node2", true);
+            shardManager.replaceShardAssignment(tableId, shard, Optional.empty(), "node2", true);
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -189,16 +230,16 @@ public class TestDatabaseShardManager
         }
 
         // replace shard assignment to another node
-        shardManager.replaceShardAssignment(tableId, shard, "node2", false);
+        shardManager.replaceShardAssignment(tableId, shard, Optional.empty(), "node2", false);
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
+        assertEquals(actual, new ShardNodes(shard, Optional.empty(), ImmutableSet.of("node2")));
 
         // replacing shard assignment should be idempotent
-        shardManager.replaceShardAssignment(tableId, shard, "node2", false);
+        shardManager.replaceShardAssignment(tableId, shard, Optional.empty(), "node2", false);
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
+        assertEquals(actual, new ShardNodes(shard, Optional.empty(), ImmutableSet.of("node2")));
     }
 
     @Test
@@ -214,22 +255,22 @@ public class TestDatabaseShardManager
                 new ShardInfo(shard2, bucketNumber, ImmutableSet.of("node1"), ImmutableList.of(), 5, 55, 555, 0));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
-                new ShardNodes(shard1, ImmutableSet.of("node1")),
-                new ShardNodes(shard2, ImmutableSet.of("node1"))));
+                new ShardNodes(shard1, Optional.empty(), ImmutableSet.of("node1")),
+                new ShardNodes(shard2, Optional.empty(), ImmutableSet.of("node1"))));
 
         assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L));
 
-        shardManager.replaceShardAssignment(tableId, shard1, "node2", false);
+        shardManager.replaceShardAssignment(tableId, shard1, Optional.empty(), "node2", false);
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
-                new ShardNodes(shard1, ImmutableSet.of("node2")),
-                new ShardNodes(shard2, ImmutableSet.of("node1"))));
+                new ShardNodes(shard1, Optional.empty(), ImmutableSet.of("node2")),
+                new ShardNodes(shard2, Optional.empty(), ImmutableSet.of("node1"))));
 
         assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 55L, "node2", 33L));
     }
@@ -249,13 +290,13 @@ public class TestDatabaseShardManager
             inputShards.add(shardInfo(uuid, node));
         }
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, inputShards.build(), Optional.empty(), 0);
 
         for (String node : nodes) {
-            Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(node);
+            Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(node);
             Set<UUID> expectedUuids = ImmutableSet.copyOf(nodeShardMap.get(node));
             Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
             assertEquals(actualUuids, expectedUuids);
@@ -271,7 +312,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard1, "node1"), shardInfo(shard2, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
@@ -281,8 +322,82 @@ public class TestDatabaseShardManager
     }
 
     @Test
+    public void testReplaceShardUuidsFunction()
+            throws SQLException
+    {
+        // node1 shard1 shard4
+        // node2 shard2
+        // node3 shard3
+
+        // goal: replace shard1 and shard4 with newUuid5
+
+        // Initial data
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        UUID uuid3 = UUID.randomUUID();
+        UUID uuid4 = UUID.randomUUID();
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 1, 1, 1, 1);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, OptionalInt.empty(), ImmutableSet.of("node2"), ImmutableList.of(), 2, 2, 2, 2);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, OptionalInt.empty(), ImmutableSet.of("node3"), ImmutableList.of(), 3, 3, 3, 3);
+        ShardInfo shardInfo4 = new ShardInfo(uuid4, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 4, 4, 4, 4);
+
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), true);
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, ImmutableList.of(shardInfo1, shardInfo2, shardInfo3, shardInfo4), Optional.empty(), 0);
+
+        // New data
+        UUID newUuid5 = UUID.randomUUID();
+        ShardInfo newShardInfo4 = new ShardInfo(newUuid5, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 5, 5, 5, 5);
+
+        // toReplace
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
+        Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
+        Map<UUID, Optional<UUID>> replaceUuidMap = replacedUuids.stream().collect(Collectors.toMap(uuid -> uuid, uuid -> Optional.empty()));
+
+        transactionId = shardManager.beginTransaction();
+        shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, ImmutableList.of(newShardInfo4), OptionalLong.of(0), true);
+
+        // check shards on this node1 are correct
+        shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
+        assertEquals(shardMetadata.size(), 1);
+        for (ShardMetadata actual : shardMetadata) {
+            assertEquals(actual.getShardUuid(), newUuid5);
+            assertEquals(actual.getDeltaUuid(), Optional.empty());
+            assertEquals(actual.getRowCount(), 5);
+            assertEquals(actual.getCompressedSize(), 5);
+            assertEquals(actual.getUncompressedSize(), 5);
+        }
+
+        // check that shards are replaced in index table as well
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
+        Set<UUID> actualAllUuids = shardNodes.stream()
+                .map(BucketShards::getShards)
+                .flatMap(Collection::stream)
+                .map(ShardNodes::getShardUuid)
+                .collect(toSet());
+        Set<UUID> expectedAllUuids = ImmutableSet.of(uuid2, uuid3, newUuid5);
+        assertEquals(actualAllUuids, expectedAllUuids);
+
+        // Verify statistics
+        Statement statement = dummyHandle.getConnection().createStatement();
+        ResultSet resultSet = statement.executeQuery("SELECT * FROM tables where table_id = " + tableId);
+        resultSet.next();
+        assertEquals(resultSet.getLong("shard_count"), 3);
+        assertEquals(resultSet.getLong("delta_count"), 0);
+        assertEquals(resultSet.getLong("row_count"), 10);
+        assertEquals(resultSet.getLong("compressed_size"), 10);
+        assertEquals(resultSet.getLong("uncompressed_size"), 10);
+        resultSet.close();
+        statement.close();
+    }
+
+    @Test
     public void testReplaceShardUuids()
     {
+        // node1 shard1 / node2 shard2 / node3 shard3
+        // replace shard1 with two new shard
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<String> nodes = ImmutableList.of("node1", "node2", "node3");
@@ -294,24 +409,28 @@ public class TestDatabaseShardManager
                 .add(shardInfo(originalUuids.get(2), nodes.get(2)))
                 .build();
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), true);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, oldShards, Optional.empty(), 0);
 
+        // newShards
         List<UUID> expectedUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
         List<ShardInfo> newShards = ImmutableList.<ShardInfo>builder()
                 .add(shardInfo(expectedUuids.get(0), nodes.get(0)))
                 .add(shardInfo(expectedUuids.get(1), nodes.get(0)))
                 .build();
 
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        // toReplace
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
+        Map<UUID, Optional<UUID>> replaceUuidMap = replacedUuids.stream().collect(Collectors.toMap(uuid -> uuid, uuid -> Optional.empty()));
 
         transactionId = shardManager.beginTransaction();
-        shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards, OptionalLong.of(0));
+        shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, newShards, OptionalLong.of(0), true);
 
-        shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        // check that shards are replaced in shards table for node1
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
 
@@ -321,7 +440,7 @@ public class TestDatabaseShardManager
         expectedAllUuids.addAll(expectedUuids);
 
         // check that shards are replaced in index table as well
-        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all()));
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
         Set<UUID> actualAllUuids = shardNodes.stream()
                 .map(BucketShards::getShards)
                 .flatMap(Collection::stream)
@@ -329,16 +448,217 @@ public class TestDatabaseShardManager
                 .collect(toSet());
         assertEquals(actualAllUuids, expectedAllUuids);
 
-        // verify that conflicting updates are handled
-        newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
+        // Verify conflict is handled
+        // Try to replace shard1 with newShards again (shard1 already deleted, delete shards that's already deleted)
         try {
+            newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
             transactionId = shardManager.beginTransaction();
-            shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards, OptionalLong.of(0));
+            shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, newShards, OptionalLong.of(0), true);
             fail("expected exception");
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
         }
+        // Try to add new delta to shard1 (shard1 already deleted)
+        try {
+            transactionId = shardManager.beginTransaction();
+            ShardInfo newDelta = shardInfo(UUID.randomUUID(), nodes.get(0));
+            Map<UUID, DeltaInfoPair> shardMap = ImmutableMap.of(originalUuids.get(0), new DeltaInfoPair(Optional.empty(), Optional.of(newDelta)));
+            shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+        // Try to delete shard1 (shard1 already deleted)
+        try {
+            transactionId = shardManager.beginTransaction();
+            Map<UUID, DeltaInfoPair> shardMap = ImmutableMap.of(originalUuids.get(0), new DeltaInfoPair(Optional.empty(), Optional.empty()));
+            shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testReplaceDeltaUuidsFunction()
+            throws SQLException
+    {
+        // node1 shard1 shard4
+        // node2 shard2
+        // node3 shard3
+
+        // goal: shard4 add delta1
+
+        // Initial data
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        UUID uuid3 = UUID.randomUUID();
+        UUID uuid4 = UUID.randomUUID();
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 1, 1, 1, 1);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, OptionalInt.empty(), ImmutableSet.of("node2"), ImmutableList.of(), 2, 2, 2, 2);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, OptionalInt.empty(), ImmutableSet.of("node3"), ImmutableList.of(), 3, 3, 3, 3);
+        ShardInfo shardInfo4 = new ShardInfo(uuid4, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 4, 4, 4, 4);
+
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), true);
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, ImmutableList.of(shardInfo1, shardInfo2, shardInfo3, shardInfo4), Optional.empty(), 0);
+
+        // delta
+        UUID delta1 = UUID.randomUUID();
+        ShardInfo deltaInfo1 = new ShardInfo(delta1, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 1, 1, 1, 1);
+
+        // toReplace
+        Map<UUID, DeltaInfoPair> shardMap = ImmutableMap.of(uuid4, new DeltaInfoPair(Optional.empty(), Optional.of(deltaInfo1)));
+        transactionId = shardManager.beginTransaction();
+        shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
+
+        // check shards on this node1 are correct
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
+        assertEquals(shardMetadata.size(), 3);
+
+        // check index table as well
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
+        Set<UUID> actualAllUuids = shardNodes.stream()
+                .map(BucketShards::getShards)
+                .flatMap(Collection::stream)
+                .map(ShardNodes::getShardUuid)
+                .collect(toSet());
+        Set<UUID> expectedAllUuids = ImmutableSet.of(uuid1, uuid2, uuid3, uuid4);
+        assertEquals(actualAllUuids, expectedAllUuids);
+
+        // Verify statistics
+        Statement statement = dummyHandle.getConnection().createStatement();
+        ResultSet resultSet = statement.executeQuery("SELECT * FROM tables where table_id = " + tableId);
+        resultSet.next();
+        assertEquals(resultSet.getLong("shard_count"), 4);
+        assertEquals(resultSet.getLong("delta_count"), 1);
+        assertEquals(resultSet.getLong("row_count"), 9);
+        assertEquals(resultSet.getLong("compressed_size"), 11);
+        assertEquals(resultSet.getLong("uncompressed_size"), 11);
+        resultSet.close();
+        statement.close();
+    }
+
+    @Test
+    public void testReplaceDeltaUuids()
+    {
+        // node1 shard1 / node2 shard2 / node3 shard3
+        // Add delta to shard1
+        // Delete shard2
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        List<String> nodes = ImmutableList.of("node1", "node2", "node3");
+        List<UUID> originalUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
+        List<ShardInfo> oldShards = ImmutableList.<ShardInfo>builder()
+                .add(shardInfo(originalUuids.get(0), nodes.get(0)))
+                .add(shardInfo(originalUuids.get(1), nodes.get(1)))
+                .add(shardInfo(originalUuids.get(2), nodes.get(2)))
+                .build();
+
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), true);
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, oldShards, Optional.empty(), 0);
+
+        UUID newDeltaUuid1 = UUID.randomUUID();
+        ShardInfo newDeltaShard1 = shardInfo(newDeltaUuid1, nodes.get(0));
+        Map<UUID, DeltaInfoPair> shardMap = new HashMap<>();
+        shardMap.put(originalUuids.get(0), new DeltaInfoPair(Optional.empty(), Optional.of(newDeltaShard1)));
+        shardMap.put(originalUuids.get(1), new DeltaInfoPair(Optional.empty(), Optional.empty()));
+
+        transactionId = shardManager.beginTransaction();
+        shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
+
+        // check that delta shard are added in shards table for node1
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
+        Map<UUID, Optional<UUID>> actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
+        Map<UUID, Optional<UUID>> expectedUuidsMap = ImmutableMap.of(originalUuids.get(0), Optional.of(newDeltaUuid1), newDeltaUuid1, Optional.empty());
+        assertEquals(actualUuidsMap, expectedUuidsMap);
+
+        // check that shard are deleted in shards table for node2
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(1));
+        actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
+        expectedUuidsMap = ImmutableMap.of();
+        assertEquals(actualUuidsMap, expectedUuidsMap);
+
+        // check index table, delta added and shard removed
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
+        Set<BucketShards> expectedshardNodes = ImmutableSet.of(
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(originalUuids.get(0), Optional.of(newDeltaUuid1), ImmutableSet.of(nodes.get(0))))),
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(originalUuids.get(2), Optional.empty(), ImmutableSet.of(nodes.get(2))))));
+        assertEquals(shardNodes, expectedshardNodes);
+
+        // Verify conflict is handled
+        // Try to replace shard1 with newShards without knowing its new delta
+        // stimulate the other thread didn't catch the change (actually it's already committed up)
+        try {
+            transactionId = shardManager.beginTransaction();
+            Map<UUID, Optional<UUID>> replaceUuidMap = ImmutableMap.of(originalUuids.get(0), Optional.empty());
+            Set<ShardInfo> newShards = ImmutableSet.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
+            shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, newShards, OptionalLong.of(0), true);
+            fail("expected exception");
+            // todo check transaction id roll back
+            // todo shard change roll back
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+        // Try to delete shard1 with newShards without knowing its new delta
+        try {
+            transactionId = shardManager.beginTransaction();
+            shardManager.replaceDeltaUuids(transactionId, tableId, columns,
+                    ImmutableMap.of(originalUuids.get(0), new DeltaInfoPair(Optional.empty(), Optional.empty())), OptionalLong.of(0));
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+
+        // node1 shard1 newDelta / node3 shard3
+        // replace the newDelta with another new delta
+        transactionId = shardManager.beginTransaction();
+        UUID anotherNewDeltaUuid1 = UUID.randomUUID();
+        shardMap = ImmutableMap.of(originalUuids.get(0), new DeltaInfoPair(Optional.of(newDeltaUuid1), Optional.of(shardInfo(anotherNewDeltaUuid1, nodes.get(0)))));
+        shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
+
+        // check that delta shard are added in shards table for node1
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
+        actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
+        expectedUuidsMap = ImmutableMap.of(originalUuids.get(0), Optional.of(anotherNewDeltaUuid1), anotherNewDeltaUuid1, Optional.empty());
+        assertEquals(actualUuidsMap, expectedUuidsMap);
+
+        // check index table, delta modified
+        shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
+        expectedshardNodes = ImmutableSet.of(
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(originalUuids.get(0), Optional.of(anotherNewDeltaUuid1), ImmutableSet.of(nodes.get(0))))),
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(originalUuids.get(2), Optional.empty(), ImmutableSet.of(nodes.get(2))))));
+        assertEquals(shardNodes, expectedshardNodes);
+
+        // node1 shard1 anotherNewDelta / node3 shard3
+        // rewrite shard1 to shard4
+        transactionId = shardManager.beginTransaction();
+        UUID uuid4 = UUID.randomUUID();
+        Map<UUID, Optional<UUID>> replaceUuidMap = ImmutableMap.of(originalUuids.get(0), Optional.of(anotherNewDeltaUuid1));
+        shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, ImmutableSet.of(shardInfo(uuid4, nodes.get(0))), OptionalLong.of(0), true);
+
+        // check that new shard are added, old shard and delta are deleted in shards table for node1
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
+        actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
+        expectedUuidsMap = ImmutableMap.of(uuid4, Optional.empty());
+        assertEquals(actualUuidsMap, expectedUuidsMap);
+
+        // check index table, old shard and delta deleted, new shard added
+        shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all(), true));
+        expectedshardNodes = ImmutableSet.of(
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(uuid4, Optional.empty(), ImmutableSet.of(nodes.get(0))))),
+                new BucketShards(OptionalInt.empty(), ImmutableSet.of(new ShardNodes(originalUuids.get(2), Optional.empty(), ImmutableSet.of(nodes.get(2))))));
+        assertEquals(shardNodes, expectedshardNodes);
     }
 
     @Test
@@ -350,7 +670,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, 0);
@@ -417,9 +737,9 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, TupleDomain.all(), false)) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -429,9 +749,9 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, true, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, true, OptionalLong.empty(), false);
 
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableList.of(), TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableList.of(), TupleDomain.all(), false)) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -441,11 +761,11 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
-        shardManager.createTable(tableId, columns, false, OptionalLong.of(1));
+        shardManager.createTable(tableId, columns, false, OptionalLong.of(1), false);
 
         long tableId2 = createTable("test2");
         List<ColumnInfo> columns2 = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
-        shardManager.createTable(tableId2, columns2, true, OptionalLong.of(1));
+        shardManager.createTable(tableId2, columns2, true, OptionalLong.of(1), false);
     }
 
     @Test
@@ -511,7 +831,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -609,7 +929,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, createVarcharType(10));
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -644,7 +964,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
 
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -659,7 +979,7 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
         int before = columnCount(tableId);
 
         ColumnInfo newColumn = new ColumnInfo(2, BIGINT);
@@ -675,7 +995,7 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty(), false);
         int before = columnCount(tableId);
 
         shardManager.addColumn(tableId, columns.get(0));
@@ -695,7 +1015,8 @@ public class TestDatabaseShardManager
 
         long transactionId = shardManager.beginTransaction();
         try {
-            shardManager.replaceShardUuids(transactionId, tableId, columns, oldShards, ImmutableSet.of(), OptionalLong.empty());
+            Map<UUID, Optional<UUID>> oldShardMap = oldShards.stream().collect(toImmutableMap(Function.identity(), uuid -> Optional.empty()));
+            shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardMap, ImmutableSet.of(), OptionalLong.empty(), false);
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -706,14 +1027,14 @@ public class TestDatabaseShardManager
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, predicate)) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, predicate, false)) {
             return ImmutableSet.copyOf(concat(transform(iterator, i -> i.getShards().iterator())));
         }
     }
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0, false);
     }
 
     public static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)
@@ -729,7 +1050,7 @@ public class TestDatabaseShardManager
     private static Set<ShardNodes> toShardNodes(List<ShardInfo> shards)
     {
         return shards.stream()
-                .map(shard -> new ShardNodes(shard.getShardUuid(), shard.getNodeIdentifiers()))
+                .map(shard -> new ShardNodes(shard.getShardUuid(), Optional.empty(), shard.getNodeIdentifiers()))
                 .collect(toSet());
     }
 
@@ -821,7 +1142,7 @@ public class TestDatabaseShardManager
 
     private static Node createTestingNode()
     {
-        return new PrestoNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private int columnCount(long tableId)

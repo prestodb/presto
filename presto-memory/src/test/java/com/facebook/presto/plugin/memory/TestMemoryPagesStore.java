@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -128,7 +129,8 @@ public class TestMemoryPagesStore
         ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
-                createMemoryInsertTableHandle(tableId, activeTableIds));
+                createMemoryInsertTableHandle(tableId, activeTableIds),
+                PageSinkProperties.defaultProperties());
         pageSink.appendPage(page);
         pageSink.finish();
     }
@@ -138,7 +140,8 @@ public class TestMemoryPagesStore
         ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
-                createMemoryOutputTableHandle(tableId, activeTableIds));
+                createMemoryOutputTableHandle(tableId, activeTableIds),
+                PageSinkProperties.defaultProperties());
         pageSink.finish();
     }
 

@@ -16,7 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -52,28 +52,28 @@ public class UnnestStatsRule
         // Thus we'd still populate the inaccurate numbers just so stats are populated to enable optimization
         // potential.
         calculatedStats.setOutputRowCount(sourceStats.getOutputRowCount());
-        for (Symbol symbol : node.getReplicateSymbols()) {
-            calculatedStats.addSymbolStatistics(symbol, sourceStats.getSymbolStatistics(symbol));
+        for (VariableReferenceExpression variable : node.getReplicateVariables()) {
+            calculatedStats.addVariableStatistics(variable, sourceStats.getVariableStatistics(variable));
         }
-        for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-            List<Symbol> unnestToSymbols = entry.getValue();
-            SymbolStatsEstimate stats = sourceStats.getSymbolStatistics(entry.getKey());
-            for (Symbol symbol : unnestToSymbols) {
+        for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getUnnestVariables().entrySet()) {
+            List<VariableReferenceExpression> unnestToVariables = entry.getValue();
+            VariableStatsEstimate stats = sourceStats.getVariableStatistics(entry.getKey());
+            for (VariableReferenceExpression variable : unnestToVariables) {
                 // This is a very conservative way on estimating stats after unnest. We assume each symbol
                 // after unnest would have as much data as the symbol before unnest. This would over
                 // estimate, which are more likely to mean we'd loose an optimization opportunity, but at
                 // least it won't cause false optimizations.
-                calculatedStats.addSymbolStatistics(
-                        symbol,
-                        SymbolStatsEstimate.builder()
+                calculatedStats.addVariableStatistics(
+                        variable,
+                        VariableStatsEstimate.builder()
                                 .setAverageRowSize(stats.getAverageRowSize())
                                 .build());
             }
         }
-        if (node.getOrdinalitySymbol().isPresent()) {
-            calculatedStats.addSymbolStatistics(
-                    node.getOrdinalitySymbol().get(),
-                    SymbolStatsEstimate.builder()
+        if (node.getOrdinalityVariable().isPresent()) {
+            calculatedStats.addVariableStatistics(
+                    node.getOrdinalityVariable().get(),
+                    VariableStatsEstimate.builder()
                         .setLowValue(0)
                         .setNullsFraction(0)
                         .build());

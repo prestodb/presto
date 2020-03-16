@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler.group;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
@@ -47,8 +47,8 @@ import static java.util.Objects.requireNonNull;
 public class FixedLifespanScheduler
         implements LifespanScheduler
 {
-    private final Int2ObjectMap<Node> driverGroupToNodeMap;
-    private final Map<Node, IntListIterator> nodeToDriverGroupsMap;
+    private final Int2ObjectMap<InternalNode> driverGroupToNodeMap;
+    private final Map<InternalNode, IntListIterator> nodeToDriverGroupsMap;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
 
@@ -64,10 +64,10 @@ public class FixedLifespanScheduler
         checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
         checkArgument(partitionHandles.size() == bucketNodeMap.getBucketCount());
 
-        Map<Node, IntList> nodeToDriverGroupMap = new HashMap<>();
-        Int2ObjectMap<Node> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
+        Map<InternalNode, IntList> nodeToDriverGroupMap = new HashMap<>();
+        Int2ObjectMap<InternalNode> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
         for (int bucket = 0; bucket < bucketNodeMap.getBucketCount(); bucket++) {
-            Node node = bucketNodeMap.getAssignedNode(bucket).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(bucket).get();
             nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(bucket);
             driverGroupToNodeMap.put(bucket, node);
         }
@@ -87,7 +87,7 @@ public class FixedLifespanScheduler
         checkState(!initialScheduled);
         initialScheduled = true;
 
-        for (Map.Entry<Node, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
+        for (Map.Entry<InternalNode, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
             IntListIterator driverGroupsIterator = entry.getValue();
             int driverGroupsScheduled = 0;
             while (driverGroupsIterator.hasNext()) {
@@ -117,6 +117,12 @@ public class FixedLifespanScheduler
         }
         newDriverGroupReady.set(null);
         verify(totalLifespanExecutionFinished <= partitionHandles.size());
+    }
+
+    @Override
+    public void onTaskFailed(int taskId, List<SourceScheduler> sourceSchedulers)
+    {
+        throw new UnsupportedOperationException("onTaskFailed is not supported in FixedLifespanScheduler");
     }
 
     public SettableFuture schedule(SourceScheduler scheduler)

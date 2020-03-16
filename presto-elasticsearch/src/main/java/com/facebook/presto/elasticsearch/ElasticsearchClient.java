@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -27,8 +29,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CORRUPTED_MAPPING_METADATA;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -81,7 +82,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -251,6 +251,7 @@ public class ElasticsearchClient
         List<ColumnMetadata> result = new ArrayList<>();
         for (ElasticsearchColumn column : columns) {
             Map<String, Object> properties = new HashMap<>();
+            properties.put("originalColumnName", column.getName());
             properties.put("jsonPath", column.getJsonPath());
             properties.put("jsonType", column.getJsonType());
             properties.put("isList", column.isList());
@@ -275,7 +276,7 @@ public class ElasticsearchClient
 
             Iterator<String> indexIterator = mappings.keysIt();
             while (indexIterator.hasNext()) {
-                // TODO use io.airlift.json.JsonCodec
+                // TODO use com.facebook.airlift.json.JsonCodec
                 MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
                 JsonNode rootNode;
                 try {

@@ -46,11 +46,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ROLE;
@@ -63,10 +62,12 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static java.lang.String.format;
 
 public final class HttpRequestSessionContext
@@ -76,7 +77,6 @@ public final class HttpRequestSessionContext
 
     private final String catalog;
     private final String schema;
-    private final String path;
 
     private final Identity identity;
 
@@ -87,7 +87,6 @@ public final class HttpRequestSessionContext
     private final String timeZoneId;
     private final String language;
     private final Set<String> clientTags;
-    private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
 
     private final Map<String, String> systemProperties;
@@ -104,22 +103,24 @@ public final class HttpRequestSessionContext
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
-        path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()), parseRoleHeaders(servletRequest));
+        identity = new Identity(
+                user,
+                Optional.ofNullable(servletRequest.getUserPrincipal()),
+                parseRoleHeaders(servletRequest),
+                parseExtraCredentials(servletRequest));
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
         userAgent = servletRequest.getHeader(USER_AGENT);
-        remoteUserAddress = servletRequest.getRemoteAddr();
+        remoteUserAddress = !isNullOrEmpty(servletRequest.getHeader(X_FORWARDED_FOR)) ? servletRequest.getHeader(X_FORWARDED_FOR) : servletRequest.getRemoteAddr();
         timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         language = servletRequest.getHeader(PRESTO_LANGUAGE);
         clientInfo = servletRequest.getHeader(PRESTO_CLIENT_INFO);
         clientTags = parseClientTags(servletRequest);
-        clientCapabilities = parseClientCapabilities(servletRequest);
         resourceEstimates = parseResourceEstimate(servletRequest);
 
         // parse session properties
@@ -162,120 +163,6 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
-    @Override
-    public Identity getIdentity()
-    {
-        return identity;
-    }
-
-    @Override
-    public String getCatalog()
-    {
-        return catalog;
-    }
-
-    @Override
-    public String getSchema()
-    {
-        return schema;
-    }
-
-    @Override
-    public String getPath()
-    {
-        return path;
-    }
-
-    @Override
-    public String getSource()
-    {
-        return source;
-    }
-
-    @Override
-    public String getRemoteUserAddress()
-    {
-        return remoteUserAddress;
-    }
-
-    @Override
-    public String getUserAgent()
-    {
-        return userAgent;
-    }
-
-    @Override
-    public String getClientInfo()
-    {
-        return clientInfo;
-    }
-
-    @Override
-    public Set<String> getClientTags()
-    {
-        return clientTags;
-    }
-
-    @Override
-    public Set<String> getClientCapabilities()
-    {
-        return clientCapabilities;
-    }
-
-    @Override
-    public ResourceEstimates getResourceEstimates()
-    {
-        return resourceEstimates;
-    }
-
-    @Override
-    public String getTimeZoneId()
-    {
-        return timeZoneId;
-    }
-
-    @Override
-    public String getLanguage()
-    {
-        return language;
-    }
-
-    @Override
-    public Map<String, String> getSystemProperties()
-    {
-        return systemProperties;
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties()
-    {
-        return catalogSessionProperties;
-    }
-
-    @Override
-    public Map<String, String> getPreparedStatements()
-    {
-        return preparedStatements;
-    }
-
-    @Override
-    public Optional<TransactionId> getTransactionId()
-    {
-        return transactionId;
-    }
-
-    @Override
-    public boolean supportClientTransaction()
-    {
-        return clientTransactionSupport;
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
-    }
-
     private static List<String> splitSessionHeader(Enumeration<String> headers)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -287,13 +174,7 @@ public final class HttpRequestSessionContext
 
     private static Map<String, String> parseSessionHeaders(HttpServletRequest servletRequest)
     {
-        Map<String, String> sessionProperties = new HashMap<>();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
-            sessionProperties.put(nameValue.get(0), nameValue.get(1));
-        }
-        return sessionProperties;
+        return parseProperty(servletRequest, PRESTO_SESSION);
     }
 
     private static Map<String, SelectedRole> parseRoleHeaders(HttpServletRequest servletRequest)
@@ -307,48 +188,31 @@ public final class HttpRequestSessionContext
         return roles.build();
     }
 
-    private Set<String> parseClientTags(HttpServletRequest servletRequest)
+    private static Map<String, String> parseExtraCredentials(HttpServletRequest servletRequest)
     {
-        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
-        return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
+        return parseCredentialProperty(servletRequest, PRESTO_EXTRA_CREDENTIAL);
     }
 
-    private Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
+    private static Map<String, String> parseProperty(HttpServletRequest servletRequest, String headerName)
     {
-        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
-        return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_CAPABILITIES))));
-    }
-
-    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
-    {
-        ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_RESOURCE_ESTIMATE);
-            String name = nameValue.get(0);
-            String value = nameValue.get(1);
-
-            try {
-                switch (name.toUpperCase()) {
-                    case ResourceEstimates.EXECUTION_TIME:
-                        builder.setExecutionTime(Duration.valueOf(value));
-                        break;
-                    case ResourceEstimates.CPU_TIME:
-                        builder.setCpuTime(Duration.valueOf(value));
-                        break;
-                    case ResourceEstimates.PEAK_MEMORY:
-                        builder.setPeakMemory(DataSize.valueOf(value));
-                        break;
-                    default:
-                        throw badRequest(format("Unsupported resource name %s", name));
-                }
-            }
-            catch (IllegalArgumentException e) {
-                throw badRequest(format("Unsupported format for resource estimate '%s': %s", value, e));
-            }
+        Map<String, String> properties = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
+            List<String> nameValue = Splitter.on('=').trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
+            properties.put(nameValue.get(0), nameValue.get(1));
         }
+        return properties;
+    }
 
-        return builder.build();
+    private static Map<String, String> parseCredentialProperty(HttpServletRequest servletRequest, String headerName)
+    {
+        Map<String, String> properties = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
+            properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
+        }
+        return properties;
     }
 
     private static void assertRequest(boolean expression, String format, Object... args)
@@ -425,5 +289,148 @@ public final class HttpRequestSessionContext
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
+    }
+
+    @Override
+    public Identity getIdentity()
+    {
+        return identity;
+    }
+
+    @Override
+    public String getCatalog()
+    {
+        return catalog;
+    }
+
+    @Override
+    public String getSchema()
+    {
+        return schema;
+    }
+
+    @Override
+    public String getSource()
+    {
+        return source;
+    }
+
+    @Override
+    public String getRemoteUserAddress()
+    {
+        return remoteUserAddress;
+    }
+
+    @Override
+    public String getUserAgent()
+    {
+        return userAgent;
+    }
+
+    @Override
+    public String getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    @Override
+    public Set<String> getClientTags()
+    {
+        return clientTags;
+    }
+
+    @Override
+    public ResourceEstimates getResourceEstimates()
+    {
+        return resourceEstimates;
+    }
+
+    @Override
+    public String getTimeZoneId()
+    {
+        return timeZoneId;
+    }
+
+    @Override
+    public String getLanguage()
+    {
+        return language;
+    }
+
+    @Override
+    public Map<String, String> getSystemProperties()
+    {
+        return systemProperties;
+    }
+
+    @Override
+    public Map<String, Map<String, String>> getCatalogSessionProperties()
+    {
+        return catalogSessionProperties;
+    }
+
+    @Override
+    public Map<String, String> getPreparedStatements()
+    {
+        return preparedStatements;
+    }
+
+    @Override
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    @Override
+    public boolean supportClientTransaction()
+    {
+        return clientTransactionSupport;
+    }
+
+    @Override
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
+    private Set<String> parseClientTags(HttpServletRequest servletRequest)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
+    }
+
+    private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
+    {
+        ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_RESOURCE_ESTIMATE);
+            String name = nameValue.get(0);
+            String value = nameValue.get(1);
+
+            try {
+                switch (name.toUpperCase()) {
+                    case ResourceEstimates.EXECUTION_TIME:
+                        builder.setExecutionTime(Duration.valueOf(value));
+                        break;
+                    case ResourceEstimates.CPU_TIME:
+                        builder.setCpuTime(Duration.valueOf(value));
+                        break;
+                    case ResourceEstimates.PEAK_MEMORY:
+                        builder.setPeakMemory(DataSize.valueOf(value));
+                        break;
+                    case ResourceEstimates.PEAK_TASK_MEMORY:
+                        builder.setPeakTaskMemory(DataSize.valueOf(value));
+                        break;
+                    default:
+                        throw badRequest(format("Unsupported resource name %s", name));
+                }
+            }
+            catch (IllegalArgumentException e) {
+                throw badRequest(format("Unsupported format for resource estimate '%s': %s", value, e));
+            }
+        }
+
+        return builder.build();
     }
 }

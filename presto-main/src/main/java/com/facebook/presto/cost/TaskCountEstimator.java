@@ -14,8 +14,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
 
 import javax.inject.Inject;
 
@@ -35,7 +35,7 @@ public class TaskCountEstimator
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
-            Set<Node> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
             if (nodeSchedulerConfig.isIncludeCoordinator()) {
                 return activeNodes.size();
             }

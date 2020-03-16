@@ -16,19 +16,35 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
+import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -38,18 +54,29 @@ import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
+import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public final class BlockAssertions
 {
+    private static final int ENTRY_SIZE = 4;
+    private static final int MAX_STRING_SIZE = 10;
+
     private BlockAssertions()
     {
     }
@@ -88,6 +115,15 @@ public final class BlockAssertions
         }
     }
 
+    public static Block createAllNullsBlock(Type type, int positionCount)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.appendNull();
+        }
+        return blockBuilder.build();
+    }
+
     public static Block createStringsBlock(String... values)
     {
         requireNonNull(values, "varargs 'values' is null");
@@ -109,6 +145,14 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRandomStringBlock(int positionCount, boolean allowNulls, int maxStringLength)
+    {
+        return createStringsBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : generateRandomStringWithLength(maxStringLength))
+                        .collect(Collectors.toList()));
     }
 
     public static Block createSlicesBlock(Slice... values)
@@ -177,6 +221,18 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static <K, V> Block createMapBlock(MapType type, Map<K, V> map)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, map.size());
+        for (Map.Entry<K, V> entry : map.entrySet()) {
+            BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+            appendToBlockBuilder(BIGINT, entry.getKey(), entryBuilder);
+            appendToBlockBuilder(BIGINT, entry.getValue(), entryBuilder);
+            blockBuilder.closeEntry();
+        }
+        return blockBuilder.build();
+    }
+
     public static Block createBooleansBlock(Boolean... values)
     {
         requireNonNull(values, "varargs 'values' is null");
@@ -205,6 +261,14 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createRandomBooleansBlock(int positionCount, boolean allowNulls)
+    {
+        return createBooleansBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextBoolean())
+                        .collect(Collectors.toList()));
+    }
+
     public static Block createShortDecimalsBlock(String... values)
     {
         requireNonNull(values, "varargs 'values' is null");
@@ -227,6 +291,14 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRandomShortDecimalsBlock(int positionCount, boolean allowNulls)
+    {
+        return createShortDecimalsBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()))
+                        .collect(Collectors.toList()));
     }
 
     public static Block createLongDecimalsBlock(String... values)
@@ -253,6 +325,15 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createRandomLongDecimalsBlock(int positionCount, boolean allowNulls)
+    {
+        checkArgument(positionCount >= 10, "positionCount is less than 10");
+        return createLongDecimalsBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()))
+                        .collect(Collectors.toList()));
+    }
+
     public static Block createIntsBlock(Integer... values)
     {
         requireNonNull(values, "varargs 'values' is null");
@@ -274,6 +355,60 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
+    {
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        for (Object[] row : rows) {
+            if (row == null) {
+                rowBlockBuilder.appendNull();
+                continue;
+            }
+            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
+            for (Object fieldValue : row) {
+                if (fieldValue == null) {
+                    singleRowBlockWriter.appendNull();
+                    continue;
+                }
+
+                if (fieldValue instanceof String) {
+                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                }
+                else if (fieldValue instanceof Slice) {
+                    VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
+                }
+                else if (fieldValue instanceof Double) {
+                    DOUBLE.writeDouble(singleRowBlockWriter, ((Double) fieldValue).doubleValue());
+                }
+                else if (fieldValue instanceof Long) {
+                    BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                }
+                else if (fieldValue instanceof Boolean) {
+                    BOOLEAN.writeBoolean(singleRowBlockWriter, ((Boolean) fieldValue).booleanValue());
+                }
+                else if (fieldValue instanceof Block) {
+                    singleRowBlockWriter.appendStructure((Block) fieldValue);
+                }
+                else if (fieldValue instanceof Integer) {
+                    INTEGER.writeLong(singleRowBlockWriter, ((Integer) fieldValue).intValue());
+                }
+                else {
+                    throw new IllegalArgumentException();
+                }
+            }
+            rowBlockBuilder.closeEntry();
+        }
+
+        return rowBlockBuilder.build();
+    }
+
+    public static Block createRandomIntsBlock(int positionCount, boolean allowNulls)
+    {
+        return createIntsBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextInt())
+                        .collect(Collectors.toList()));
     }
 
     public static Block createEmptyLongsBlock()
@@ -305,6 +440,14 @@ public final class BlockAssertions
         return createTypedLongsBlock(BIGINT, values);
     }
 
+    public static Block createRandomLongsBlock(int positionCount, boolean allowNulls)
+    {
+        return createLongsBlock(
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextLong())
+                        .collect(Collectors.toList()));
+    }
+
     public static Block createTypedLongsBlock(Type type, Iterable<Long> values)
     {
         BlockBuilder builder = type.createBlockBuilder(null, 100);
@@ -319,6 +462,15 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRandomSmallintsBlock(int positionCount, boolean allowNulls)
+    {
+        return createTypedLongsBlock(
+                SMALLINT,
+                IntStream.range(0, positionCount)
+                        .mapToObj(i -> allowNulls && i % 7 == 1 ? null : ThreadLocalRandom.current().nextLong() % Short.MIN_VALUE)
+                        .collect(Collectors.toList()));
     }
 
     public static Block createLongSequenceBlock(int start, int end)
@@ -518,5 +670,171 @@ public final class BlockAssertions
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
+
+    public static RunLengthEncodedBlock createRLEBlock(String value, int positionCount)
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, wrappedBuffer(value.getBytes()));
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
+
+    public static RunLengthEncodedBlock createRleBlockWithRandomValue(Block block, int positionCount)
+    {
+        checkArgument(block.getPositionCount() > 0, format("block positions %d is less than or equal to 0", block.getPositionCount()));
+        return new RunLengthEncodedBlock(block.getRegion(block.getPositionCount() / 2, 1), positionCount);
+    }
+
+    public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount)
+    {
+        return createRandomDictionaryBlock(dictionary, positionCount, false);
+    }
+
+    public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount, boolean isView)
+    {
+        int idsOffset = 0;
+        if (isView) {
+            idsOffset = min(ThreadLocalRandom.current().nextInt(dictionary.getPositionCount()), 1);
+        }
+
+        int[] ids = IntStream.range(0, positionCount + idsOffset).map(i -> ThreadLocalRandom.current().nextInt(dictionary.getPositionCount() / 10)).toArray();
+        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
+    }
+
+    public static Block createRandomBlockForType(Type type, int positionCount, boolean allowNulls, boolean createView, List<Encoding> wrappings)
+    {
+        Block block = null;
+
+        if (createView) {
+            positionCount *= 2;
+        }
+
+        if (type == BOOLEAN) {
+            block = createRandomBooleansBlock(positionCount, allowNulls);
+        }
+        else if (type == BIGINT) {
+            block = createRandomLongsBlock(positionCount, allowNulls);
+        }
+        else if (type == INTEGER || type == REAL) {
+            block = createRandomIntsBlock(positionCount, allowNulls);
+        }
+        else if (type == SMALLINT) {
+            block = createRandomSmallintsBlock(positionCount, allowNulls);
+        }
+        else if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                block = createRandomLongsBlock(positionCount, allowNulls);
+            }
+            else {
+                block = createRandomLongDecimalsBlock(positionCount, allowNulls);
+            }
+        }
+        else if (type == VARCHAR) {
+            block = createRandomStringBlock(positionCount, allowNulls, MAX_STRING_SIZE);
+        }
+        else {
+            // Nested types
+            // Build isNull and offsets of size positionCount
+            boolean[] isNull = new boolean[positionCount];
+            int[] offsets = new int[positionCount + 1];
+            for (int position = 0; position < positionCount; position++) {
+                if (allowNulls && position % 7 == 1) {
+                    isNull[position] = true;
+                    offsets[position + 1] = offsets[position];
+                }
+                else {
+                    offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : ThreadLocalRandom.current().nextInt(ENTRY_SIZE) + 1);
+                }
+            }
+
+            // Build the nested block of size offsets[positionCount].
+            if (type instanceof ArrayType) {
+                Block valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], allowNulls, createView, wrappings);
+                block = fromElementBlock(positionCount, Optional.of(isNull), offsets, valuesBlock);
+            }
+            else if (type instanceof MapType) {
+                MapType mapType = (MapType) type;
+                Block keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], false, createView, wrappings);
+                Block valueBlock = createRandomBlockForType(mapType.getValueType(), offsets[positionCount], allowNulls, createView, wrappings);
+
+                block = mapType.createBlockFromKeyValue(positionCount, Optional.of(isNull), offsets, keyBlock, valueBlock);
+            }
+            else if (type instanceof RowType) {
+                List<Type> fieldTypes = type.getTypeParameters();
+                Block[] fieldBlocks = new Block[fieldTypes.size()];
+
+                for (int i = 0; i < fieldBlocks.length; i++) {
+                    fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, allowNulls, createView, wrappings);
+                }
+
+                block = fromFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks);
+            }
+            else {
+                throw new IllegalArgumentException(format("type %s is not supported.", type));
+            }
+        }
+
+        if (createView) {
+            positionCount /= 2;
+            int offset = positionCount / 2;
+            block = block.getRegion(offset, positionCount);
+        }
+
+        if (!wrappings.isEmpty()) {
+            block = wrapBlock(block, positionCount, wrappings);
+        }
+
+        return block;
+    }
+
+    public static Block wrapBlock(Block block, int positionCount, List<Encoding> wrappings)
+    {
+        checkArgument(!wrappings.isEmpty(), "wrappings is empty");
+
+        Block wrappedBlock = block;
+
+        for (int i = wrappings.size() - 1; i >= 0; i--) {
+            switch (wrappings.get(i)) {
+                case DICTIONARY:
+                    wrappedBlock = createRandomDictionaryBlock(wrappedBlock, positionCount, true);
+                    break;
+                case RUN_LENGTH:
+                    wrappedBlock = createRleBlockWithRandomValue(wrappedBlock, positionCount);
+                    break;
+                default:
+                    throw new IllegalArgumentException(format("wrappings %s is incorrect", wrappings));
+            }
+        }
+        return wrappedBlock;
+    }
+
+    public static MapType createMapType(Type keyType, Type valueType)
+    {
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
+        return new MapType(
+                keyType,
+                valueType,
+                keyBlockNativeEquals,
+                keyBlockEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
+    }
+
+    public enum Encoding
+    {
+        DICTIONARY,
+        RUN_LENGTH
+    }
+
+    private static String generateRandomStringWithLength(int length)
+    {
+        byte[] array = new byte[length];
+        ThreadLocalRandom.current().nextBytes(array);
+        return new String(array, UTF_8);
     }
 }

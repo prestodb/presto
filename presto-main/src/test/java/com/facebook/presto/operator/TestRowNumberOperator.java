@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +37,9 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -49,9 +52,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -176,7 +176,7 @@ public class TestRowNumberOperator
         for (Page page : result.getOutput()) {
             assertEquals(page.getChannelCount(), 3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                assertEquals(page.getBlock(2).getLong(i), 1);
                 count++;
             }
         }
@@ -305,7 +305,7 @@ public class TestRowNumberOperator
         assertEquals(rowNumberColumn.getPositionCount(), 8);
         // Check that all row numbers generated are <= 3
         for (int i = 0; i < rowNumberColumn.getPositionCount(); i++) {
-            assertTrue(rowNumberColumn.getLong(i, 0) <= 3);
+            assertTrue(rowNumberColumn.getLong(i) <= 3);
         }
 
         pages = stripRowNumberColumn(pages);
@@ -381,7 +381,7 @@ public class TestRowNumberOperator
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
-                BIGINT.writeLong(builder, page.getBlock(rowNumberChannel).getLong(i, 0));
+                BIGINT.writeLong(builder, page.getBlock(rowNumberChannel).getLong(i));
             }
         }
         return builder.build();

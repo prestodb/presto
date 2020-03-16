@@ -121,7 +121,7 @@ public class BenchmarkSTIntersects
         public void setup()
                 throws IOException
         {
-            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))"));
+            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54, 16.5 54))"));
             geometry = stGeometryFromText(utf8Slice(loadPolygon("large_polygon.txt")));
             innerLine = stGeometryFromText(utf8Slice("LINESTRING (16.6 54.0167, 16.6 54.017)"));
             crossingLine = stGeometryFromText(utf8Slice("LINESTRING (16.6 53, 16.6 56)"));

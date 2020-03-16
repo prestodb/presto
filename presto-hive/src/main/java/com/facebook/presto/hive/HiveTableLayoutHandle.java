@@ -14,16 +14,23 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -32,47 +39,80 @@ public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
-    private final List<ColumnHandle> partitionColumns;
-    private final List<HivePartition> partitions;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
-    private final TupleDomain<ColumnHandle> promisedPredicate;
+    private final List<HiveColumnHandle> partitionColumns;
+    private final List<Column> dataColumns;
+    private final Map<String, String> tableParameters;
+    private final TupleDomain<Subfield> domainPredicate;
+    private final RowExpression remainingPredicate;
+    private final Map<String, HiveColumnHandle> predicateColumns;
+    private final TupleDomain<ColumnHandle> partitionColumnPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
+    private final boolean pushdownFilterEnabled;
+    private final String layoutString;
+
+    // coordinator-only properties
+    @Nullable
+    private final List<HivePartition> partitions;
 
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
-            @JsonProperty("compactEffectivePredicate") TupleDomain<ColumnHandle> compactEffectivePredicate,
-            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
+            @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
+            @JsonProperty("dataColumns") List<Column> dataColumns,
+            @JsonProperty("tableParameters") Map<String, String> tableParameters,
+            @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
+            @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
+            @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
+            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
-            @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter)
+            @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
+            @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
+            @JsonProperty("layoutString") String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
+        this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
+        this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
+        this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
+        this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
+        this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.partitions = null;
-        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
+        this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
     public HiveTableLayoutHandle(
             SchemaTableName schemaTableName,
-            List<ColumnHandle> partitionColumns,
+            List<HiveColumnHandle> partitionColumns,
+            List<Column> dataColumns,
+            Map<String, String> tableParameters,
             List<HivePartition> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
-            TupleDomain<ColumnHandle> promisedPredicate,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
+            Map<String, HiveColumnHandle> predicateColumns,
+            TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<HiveBucketHandle> bucketHandle,
-            Optional<HiveBucketFilter> bucketFilter)
+            Optional<HiveBucketFilter> bucketFilter,
+            boolean pushdownFilterEnabled,
+            String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
+        this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
-        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
+        this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
+        this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
+        this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
+        this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
     @JsonProperty
@@ -82,9 +122,21 @@ public final class HiveTableLayoutHandle
     }
 
     @JsonProperty
-    public List<ColumnHandle> getPartitionColumns()
+    public List<HiveColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    @JsonProperty
+    public List<Column> getDataColumns()
+    {
+        return dataColumns;
+    }
+
+    @JsonProperty
+    public Map<String, String> getTableParameters()
+    {
+        return tableParameters;
     }
 
     /**
@@ -99,15 +151,27 @@ public final class HiveTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
+    public TupleDomain<Subfield> getDomainPredicate()
     {
-        return compactEffectivePredicate;
+        return domainPredicate;
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getPromisedPredicate()
+    public RowExpression getRemainingPredicate()
     {
-        return promisedPredicate;
+        return remainingPredicate;
+    }
+
+    @JsonProperty
+    public Map<String, HiveColumnHandle> getPredicateColumns()
+    {
+        return predicateColumns;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getPartitionColumnPredicate()
+    {
+        return partitionColumnPredicate;
     }
 
     @JsonProperty
@@ -122,14 +186,21 @@ public final class HiveTableLayoutHandle
         return bucketFilter;
     }
 
+    @JsonProperty
+    public boolean isPushdownFilterEnabled()
+    {
+        return pushdownFilterEnabled;
+    }
+
+    @JsonProperty
+    public String getLayoutString()
+    {
+        return layoutString;
+    }
+
     @Override
     public String toString()
     {
-        StringBuilder result = new StringBuilder();
-        result.append(schemaTableName.toString());
-        if (bucketHandle.isPresent()) {
-            result.append(" bucket=").append(bucketHandle.get().getReadBucketCount());
-        }
-        return result.toString();
+        return layoutString;
     }
 }

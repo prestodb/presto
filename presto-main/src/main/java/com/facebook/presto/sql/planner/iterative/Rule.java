@@ -19,9 +19,9 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 
 import java.util.Optional;
 
@@ -47,7 +47,7 @@ public interface Rule<T>
 
         PlanNodeIdAllocator getIdAllocator();
 
-        SymbolAllocator getSymbolAllocator();
+        PlanVariableAllocator getVariableAllocator();
 
         Session getSession();
 

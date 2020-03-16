@@ -35,7 +35,7 @@ public class TestEvaluateZeroSample
                         p.sample(
                                 0.15,
                                 Type.BERNOULLI,
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -50,10 +50,10 @@ public class TestEvaluateZeroSample
                                 p.filter(
                                         expression("b > 5"),
                                         p.values(
-                                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                                ImmutableList.of(p.variable("a"), p.variable("b")),
                                                 ImmutableList.of(
-                                                        constantExpressions(BIGINT, 1, 10),
-                                                        constantExpressions(BIGINT, 2, 11))))))
+                                                        constantExpressions(BIGINT, 1L, 10L),
+                                                        constantExpressions(BIGINT, 2L, 11L))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }

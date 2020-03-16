@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.security;
 
+import com.facebook.airlift.log.Logger;
 import com.sun.security.auth.module.Krb5LoginModule;
-import io.airlift.log.Logger;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;

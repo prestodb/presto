@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests.utils;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.PrestoConnection;
-import io.airlift.log.Logger;
 
 import java.math.BigDecimal;
 import java.sql.Connection;

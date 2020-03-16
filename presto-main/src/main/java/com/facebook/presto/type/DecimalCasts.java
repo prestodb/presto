@@ -52,6 +52,7 @@ import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.Decimals.overflows;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -63,7 +64,6 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
@@ -132,7 +132,7 @@ public final class DecimalCasts
                 .argumentTypes(parseTypeSignature("decimal(precision,scale)", ImmutableSet.of("precision", "scale")))
                 .returnType(to)
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return SqlScalarFunction.builder(DecimalCasts.class, CAST)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -166,7 +166,7 @@ public final class DecimalCasts
                 .argumentTypes(from)
                 .returnType(parseTypeSignature("decimal(precision,scale)", ImmutableSet.of("precision", "scale")))
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return SqlScalarFunction.builder(DecimalCasts.class, CAST)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

@@ -13,63 +13,15 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
-import static java.util.Objects.requireNonNull;
+import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.api.Experimental;
 
 /**
- * @apiNote FunctionHandle is a unique handle to identify the function implementation from namespaces.
- *          However, currently it is still under changes, so please don't assume it is backward compatible.
+ * FunctionHandle is a unique handle to identify the function implementation from namespaces.
+ * However, currently it is still under changes, so please don't assume it is backward compatible.
  */
-public class FunctionHandle
+@Experimental
+public interface FunctionHandle
 {
-    private final Signature signature;
-
-    @JsonCreator
-    public FunctionHandle(@JsonProperty("signature") Signature signature)
-    {
-        this.signature = requireNonNull(signature, "signature is null");
-        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
-    }
-
-    @JsonProperty
-    public Signature getSignature()
-    {
-        return signature;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        FunctionHandle that = (FunctionHandle) o;
-        return Objects.equals(signature, that.signature);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(signature);
-    }
-
-    @Override
-    public String toString()
-    {
-        return signature.toString();
-    }
-
-    private static void checkArgument(boolean condition, String message, Object... args)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(String.format(message, args));
-        }
-    }
+    CatalogSchemaName getFunctionNamespace();
 }

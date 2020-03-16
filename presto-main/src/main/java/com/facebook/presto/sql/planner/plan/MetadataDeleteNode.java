@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,48 +29,39 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class MetadataDeleteNode
-        extends PlanNode
+        extends InternalPlanNode
 {
-    private final DeleteHandle target;
-    private final Symbol output;
-    private final TableLayoutHandle tableLayout;
+    private final TableHandle tableHandle;
+    private final VariableReferenceExpression output;
 
     @JsonCreator
     public MetadataDeleteNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("target") DeleteHandle target,
-            @JsonProperty("output") Symbol output,
-            @JsonProperty("tableLayout") TableLayoutHandle tableLayout)
+            @JsonProperty("target") TableHandle tableHandle,
+            @JsonProperty("output") VariableReferenceExpression output)
     {
         super(id);
 
-        this.target = requireNonNull(target, "target is null");
+        this.tableHandle = requireNonNull(tableHandle, "target is null");
         this.output = requireNonNull(output, "output is null");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
     }
 
     @JsonProperty
-    public DeleteHandle getTarget()
+    public TableHandle getTableHandle()
     {
-        return target;
+        return tableHandle;
     }
 
     @JsonProperty
-    public Symbol getOutput()
+    public VariableReferenceExpression getOutput()
     {
         return output;
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
         return ImmutableList.of(output);
-    }
-
-    @JsonProperty
-    public TableLayoutHandle getTableLayout()
-    {
-        return tableLayout;
     }
 
     @Override
@@ -79,7 +71,7 @@ public class MetadataDeleteNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMetadataDelete(this, context);
     }
@@ -87,6 +79,6 @@ public class MetadataDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getId(), target, output, tableLayout);
+        return new MetadataDeleteNode(getId(), tableHandle, output);
     }
 }

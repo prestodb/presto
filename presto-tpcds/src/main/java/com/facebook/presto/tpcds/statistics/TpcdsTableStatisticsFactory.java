@@ -29,6 +29,7 @@ import com.teradata.tpcds.Table;
 import io.airlift.slice.Slice;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,14 +46,14 @@ public class TpcdsTableStatisticsFactory
 {
     private final TableStatisticsDataRepository statisticsDataRepository = new TableStatisticsDataRepository();
 
-    public TableStatistics create(String schemaName, Table table, Map<String, ColumnHandle> columnHandles)
+    public TableStatistics create(String schemaName, Table table, List<ColumnHandle> columnHandles)
     {
         Optional<TableStatisticsData> statisticsDataOptional = statisticsDataRepository.load(schemaName, table);
         return statisticsDataOptional.map(statisticsData -> toTableStatistics(columnHandles, statisticsData))
                 .orElse(TableStatistics.empty());
     }
 
-    private TableStatistics toTableStatistics(Map<String, ColumnHandle> columnHandles, TableStatisticsData statisticsData)
+    private TableStatistics toTableStatistics(List<ColumnHandle> columnHandles, TableStatisticsData statisticsData)
     {
         long rowCount = statisticsData.getRowCount();
         TableStatistics.Builder tableStatistics = TableStatistics.builder()
@@ -60,9 +61,9 @@ public class TpcdsTableStatisticsFactory
 
         if (rowCount > 0) {
             Map<String, ColumnStatisticsData> columnsData = statisticsData.getColumns();
-            for (Map.Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
-                TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) entry.getValue();
-                tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.getType(), rowCount));
+            for (ColumnHandle handle : columnHandles) {
+                TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) handle;
+                tableStatistics.setColumnStatistics(columnHandle, toColumnStatistics(columnsData.get(columnHandle.getColumnName()), columnHandle.getType(), rowCount));
             }
         }
 

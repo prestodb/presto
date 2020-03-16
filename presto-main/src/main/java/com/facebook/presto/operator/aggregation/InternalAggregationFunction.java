@@ -102,7 +102,7 @@ public final class InternalAggregationFunction
             return getOnlyElement(intermediateType);
         }
         else {
-            return RowType.anonymous(intermediateType);
+            return RowType.withDefaultFieldNames(intermediateType);
         }
     }
 

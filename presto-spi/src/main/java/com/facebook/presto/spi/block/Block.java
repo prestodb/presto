@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.function.BiConsumer;
 
@@ -21,6 +22,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
+        extends UncheckedBlock
 {
     /**
      * Gets the length of the value at the {@code position}.
@@ -32,25 +34,33 @@ public interface Block
     }
 
     /**
-     * Gets a byte at {@code offset} in the value at {@code position}.
+     * Gets a byte in the value at {@code position}.
      */
-    default byte getByte(int position, int offset)
+    default byte getByte(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian short at {@code offset} in the value at {@code position}.
+     * Gets a little endian short at in the value at {@code position}.
      */
-    default short getShort(int position, int offset)
+    default short getShort(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
-     * Gets a little endian int at {@code offset} in the value at {@code position}.
+     * Gets a little endian int in the value at {@code position}.
      */
-    default int getInt(int position, int offset)
+    default int getInt(int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
+     * Gets a little endian long in the value at {@code position}.
+     */
+    default long getLong(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -72,9 +82,10 @@ public interface Block
     }
 
     /**
-     * Gets an object in the value at {@code position}.
+     * Gets a block in the value at {@code position}.
+     * @return
      */
-    default <T> T getObject(int position, Class<T> clazz)
+    default Block getBlock(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -113,6 +124,11 @@ public interface Block
      * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
+
+    /**
+     * Appends the value at {@code position} to {@code output}.
+     */
+    void writePositionTo(int position, SliceOutput output);
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal

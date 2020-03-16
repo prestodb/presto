@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
@@ -27,6 +28,7 @@ import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,12 +74,95 @@ public class TestMapBlock
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] mapIsNull = {false, true, false, false, false, false};
 
-        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.empty(), new int[1], emptyBlock, emptyBlock));
-        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(0, Optional.empty(), new int[1], emptyBlock, emptyBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull.length, Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
         // TODO: Add test case for a sliced MapBlock
 
         // underlying key/value block is not compact
-        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull.length, Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+    }
+
+    // TODO: remove this test when we have a more unified testWith() using assertBlock()
+    @Test
+    public void testLazyHashTableBuildOverBlockRegion()
+    {
+        assertLazyHashTableBuildOverBlockRegion(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+        assertLazyHashTableBuildOverBlockRegion(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    private void assertLazyHashTableBuildOverBlockRegion(Map<String, Long>[] testValues)
+    {
+        // use prefix block to build the hash table
+        {
+            MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+            BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+            MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+
+            assertFalse(block.isHashTablesPresent());
+            assertFalse(prefix.isHashTablesPresent());
+
+            assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+            assertTrue(block.isHashTablesPresent());
+            assertTrue(prefix.isHashTablesPresent());
+
+            MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+            assertTrue(midSection.isHashTablesPresent());
+            assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+
+            MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+            assertTrue(suffix.isHashTablesPresent());
+            assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+        }
+
+        // use mid-section block to build the hash table
+        {
+            MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+            BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+            MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+
+            assertFalse(block.isHashTablesPresent());
+            assertFalse(midSection.isHashTablesPresent());
+
+            assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+
+            assertTrue(block.isHashTablesPresent());
+            assertTrue(midSection.isHashTablesPresent());
+
+            MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+            assertTrue(prefix.isHashTablesPresent());
+            assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+            MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+            assertTrue(suffix.isHashTablesPresent());
+            assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+        }
+
+        // use suffix block to build the hash table
+        {
+            MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+            BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+            MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+
+            assertFalse(block.isHashTablesPresent());
+            assertFalse(suffix.isHashTablesPresent());
+
+            assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+
+            assertTrue(block.isHashTablesPresent());
+            assertTrue(suffix.isHashTablesPresent());
+
+            MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+            assertTrue(prefix.isHashTablesPresent());
+            assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+            MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+            assertTrue(midSection.isHashTablesPresent());
+            assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+        }
     }
 
     private Map<String, Long>[] createTestMap(int... entryCounts)
@@ -138,13 +223,14 @@ public class TestMapBlock
         return mapBlockBuilder;
     }
 
-    private Block createBlockWithValuesFromKeyValueBlock(Map<String, Long>[] maps)
+    private MapBlock createBlockWithValuesFromKeyValueBlock(Map<String, Long>[] maps)
     {
         List<String> keys = new ArrayList<>();
         List<Long> values = new ArrayList<>();
-        int[] offsets = new int[maps.length + 1];
-        boolean[] mapIsNull = new boolean[maps.length];
-        for (int i = 0; i < maps.length; i++) {
+        int positionCount = maps.length;
+        int[] offsets = new int[positionCount + 1];
+        boolean[] mapIsNull = new boolean[positionCount];
+        for (int i = 0; i < positionCount; i++) {
             Map<String, Long> map = maps[i];
             mapIsNull[i] = map == null;
             if (map == null) {
@@ -158,7 +244,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
+        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)
@@ -182,13 +268,23 @@ public class TestMapBlock
     }
 
     @Override
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected <T> void assertCheckedPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue instanceof Map) {
             assertValue(block, position, (Map<String, Long>) expectedValue);
             return;
         }
-        super.assertPositionValue(block, position, expectedValue);
+        super.assertCheckedPositionValue(block, position, expectedValue);
+    }
+
+    @Override
+    protected <T> void assertPositionValueUnchecked(Block block, int internalPosition, T expectedValue)
+    {
+        if (expectedValue instanceof Map) {
+            assertValueUnchecked(block, internalPosition, (Map<String, Long>) expectedValue);
+            return;
+        }
+        super.assertPositionValueUnchecked(block, internalPosition, expectedValue);
     }
 
     private void assertValue(Block mapBlock, int position, Map<String, Long> map)
@@ -228,6 +324,49 @@ public class TestMapBlock
             }
             else {
                 actualValue = BIGINT.getLong(elementBlock, i + 1);
+            }
+            assertTrue(map.containsKey(actualKey));
+            assertEquals(actualValue, map.get(actualKey));
+        }
+    }
+
+    private void assertValueUnchecked(Block mapBlock, int internalPosition, Map<String, Long> map)
+    {
+        MapType mapType = mapType(VARCHAR, BIGINT);
+
+        // null maps are handled by assertPositionValue
+        requireNonNull(map, "map is null");
+
+        assertFalse(mapBlock.isNullUnchecked((internalPosition)));
+        SingleMapBlock elementBlock = (SingleMapBlock) mapType.getBlockUnchecked(mapBlock, (internalPosition));
+        assertEquals(elementBlock.getPositionCount(), map.size() * 2);
+
+        // Test new/hash-index access: assert inserted keys
+        for (Map.Entry<String, Long> entry : map.entrySet()) {
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            assertNotEquals(pos, -1);
+            if (entry.getValue() == null) {
+                assertTrue(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
+            }
+            else {
+                assertFalse(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
+                assertEquals(BIGINT.getLongUnchecked(elementBlock, pos + elementBlock.getOffsetBase()), (long) entry.getValue());
+            }
+        }
+        // Test new/hash-index access: assert non-existent keys
+        for (int i = 0; i < 10; i++) {
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+        }
+
+        // Test legacy/iterative access
+        for (int i = 0; i < elementBlock.getPositionCount(); i += 2) {
+            String actualKey = VARCHAR.getSliceUnchecked(elementBlock, i + elementBlock.getOffset()).toStringUtf8();
+            Long actualValue;
+            if (elementBlock.isNullUnchecked(i + 1 + elementBlock.getOffset())) {
+                actualValue = null;
+            }
+            else {
+                actualValue = BIGINT.getLongUnchecked(elementBlock, i + 1 + elementBlock.getOffsetBase());
             }
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));

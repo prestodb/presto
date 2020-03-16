@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -235,6 +235,16 @@ public class DriverContext
         return pipelineContext.isCpuTimerEnabled();
     }
 
+    public boolean isPerOperatorAllocationTrackingEnabled()
+    {
+        return pipelineContext.isPerOperatorAllocationTrackingEnabled();
+    }
+
+    public boolean isAllocationTrackingEnabled()
+    {
+        return pipelineContext.isAllocationTrackingEnabled();
+    }
+
     public CounterStat getInputDataSize()
     {
         OperatorContext inputOperator = getFirst(operatorContexts, null);
@@ -300,6 +310,7 @@ public class DriverContext
     {
         long totalScheduledTime = overallTiming.getWallNanos();
         long totalCpuTime = overallTiming.getCpuNanos();
+        long totalAllocation = overallTiming.getAllocationBytes();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
@@ -383,6 +394,7 @@ public class DriverContext
                 succinctNanos(totalBlockedTime),
                 blockedMonitor != null,
                 builder.build(),
+                succinctBytes(totalAllocation),
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 rawInputReadTime,

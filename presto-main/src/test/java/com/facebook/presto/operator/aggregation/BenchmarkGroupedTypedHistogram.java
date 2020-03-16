@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplemen
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -158,7 +157,7 @@ public class BenchmarkGroupedTypedHistogram
         FunctionManager functionManager = getMetadata(groupMode).getFunctionManager();
 
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(VARCHAR)));
+                functionManager.lookupFunction(NAME, fromTypes(VARCHAR)));
     }
 
     private static MetadataManager getMetadata(HistogramGroupImplementation groupMode)

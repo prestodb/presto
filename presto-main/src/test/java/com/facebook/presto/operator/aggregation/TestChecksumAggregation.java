@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -127,6 +126,6 @@ public class TestChecksumAggregation
 
     private InternalAggregationFunction getAggregation(Type argument)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("checksum"), fromTypes(argument)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("checksum", fromTypes(argument)));
     }
 }

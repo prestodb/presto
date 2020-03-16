@@ -15,6 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.net.URI;
 import java.util.List;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
@@ -31,7 +33,6 @@ public class ExampleSplit
     private final String schemaName;
     private final String tableName;
     private final URI uri;
-    private final boolean remotelyAccessible;
     private final List<HostAddress> addresses;
 
     @JsonCreator
@@ -46,8 +47,6 @@ public class ExampleSplit
         this.tableName = requireNonNull(tableName, "table name is null");
         this.uri = requireNonNull(uri, "uri is null");
 
-//        if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
-        remotelyAccessible = true;
         addresses = ImmutableList.of(HostAddress.fromUri(uri));
     }
 
@@ -76,14 +75,18 @@ public class ExampleSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        // only http or https is remotely accessible
-        return remotelyAccessible;
+        return NO_PREFERENCE;
+    }
+
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return addresses;
     }

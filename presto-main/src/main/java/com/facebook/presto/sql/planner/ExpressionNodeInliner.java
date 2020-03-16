@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 
 import java.util.Map;
 
+@Deprecated
 public class ExpressionNodeInliner
         extends ExpressionRewriter<Void>
 {

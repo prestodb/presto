@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 class EquiJoinClauseProvider
@@ -31,7 +33,9 @@ class EquiJoinClauseProvider
 
     public JoinNode.EquiJoinClause getExpectedValue(SymbolAliases aliases)
     {
-        return new JoinNode.EquiJoinClause(left.toSymbol(aliases), right.toSymbol(aliases));
+        return new JoinNode.EquiJoinClause(
+                new VariableReferenceExpression(left.toSymbol(aliases).getName(), BIGINT),
+                new VariableReferenceExpression(right.toSymbol(aliases).getName(), BIGINT));
     }
 
     @Override

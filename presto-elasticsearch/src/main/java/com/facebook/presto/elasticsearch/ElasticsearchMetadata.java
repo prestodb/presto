@@ -113,7 +113,7 @@ public class ElasticsearchMetadata
             int position = ordinalPosition == -1 ? index : ordinalPosition;
             columnHandles.put(column.getName(),
                     new ElasticsearchColumnHandle(
-                        column.getName(),
+                        String.valueOf(properties.get("originalColumnName")),
                         column.getType(),
                         String.valueOf(properties.get("jsonPath")),
                         String.valueOf(properties.get("jsonType")),

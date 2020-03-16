@@ -62,7 +62,7 @@ public class StatisticRange
         return new StatisticRange(NaN, NaN, 0);
     }
 
-    public static StatisticRange from(SymbolStatsEstimate estimate)
+    public static StatisticRange from(VariableStatsEstimate estimate)
     {
         return new StatisticRange(estimate.getLowValue(), estimate.getHighValue(), estimate.getDistinctValuesCount());
     }

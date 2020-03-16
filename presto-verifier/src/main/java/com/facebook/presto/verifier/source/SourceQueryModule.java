@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.verifier.source;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import java.util.Set;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SourceQueryModule
         extends AbstractConfigurationAwareModule

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.security;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;

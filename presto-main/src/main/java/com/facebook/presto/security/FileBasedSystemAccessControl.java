@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.nio.file.Paths;
@@ -155,6 +155,11 @@ public class FileBasedSystemAccessControl
         }
 
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
     }
 
     @Override

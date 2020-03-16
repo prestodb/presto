@@ -17,15 +17,16 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -49,7 +51,7 @@ public class PushTableWriteThroughUnion
             // guaranteed regardless of this optimizer. The level of local parallelism will be
             // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
             // this optimizer.
-            .matching(tableWriter -> !tableWriter.getPartitioningScheme().isPresent())
+            .matching(tableWriter -> !(tableWriter.getTablePartitioningScheme().isPresent() || tableWriter.getPreferredShufflePartitioningScheme().isPresent()))
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
@@ -69,41 +71,42 @@ public class PushTableWriteThroughUnion
     {
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
-        List<Map<Symbol, Symbol>> sourceMappings = new ArrayList<>();
+        List<Map<VariableReferenceExpression, VariableReferenceExpression>> sourceMappings = new ArrayList<>();
         for (int source = 0; source < unionNode.getSources().size(); source++) {
             rewrittenSources.add(rewriteSource(writerNode, unionNode, source, sourceMappings, context));
         }
 
-        ImmutableListMultimap.Builder<Symbol, Symbol> unionMappings = ImmutableListMultimap.builder();
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> unionMappings = ImmutableListMultimap.builder();
         sourceMappings.forEach(mappings -> mappings.forEach(unionMappings::put));
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = unionMappings.build();
 
         return Result.ofPlanNode(
                 new UnionNode(
                         context.getIdAllocator().getNextId(),
                         rewrittenSources.build(),
-                        unionMappings.build(),
-                        ImmutableList.copyOf(unionMappings.build().keySet())));
+                        ImmutableList.copyOf(mappings.keySet()),
+                        fromListMultimap(mappings)));
     }
 
     private static TableWriterNode rewriteSource(
             TableWriterNode writerNode,
             UnionNode unionNode,
             int source,
-            List<Map<Symbol, Symbol>> sourceMappings,
+            List<Map<VariableReferenceExpression, VariableReferenceExpression>> sourceMappings,
             Context context)
     {
-        Map<Symbol, Symbol> inputMappings = getInputSymbolMapping(unionNode, source);
-        ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        Map<VariableReferenceExpression, VariableReferenceExpression> inputMappings = getInputVariableMapping(unionNode, source);
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
         mappings.putAll(inputMappings);
-        ImmutableMap.Builder<Symbol, Symbol> outputMappings = ImmutableMap.builder();
-        for (Symbol outputSymbol : writerNode.getOutputSymbols()) {
-            if (inputMappings.containsKey(outputSymbol)) {
-                outputMappings.put(outputSymbol, inputMappings.get(outputSymbol));
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableMap.builder();
+        for (VariableReferenceExpression outputVariable : writerNode.getOutputVariables()) {
+            if (inputMappings.containsKey(outputVariable)) {
+                outputMappings.put(outputVariable, inputMappings.get(outputVariable));
             }
             else {
-                Symbol newSymbol = context.getSymbolAllocator().newSymbol(outputSymbol);
-                outputMappings.put(outputSymbol, newSymbol);
-                mappings.put(outputSymbol, newSymbol);
+                VariableReferenceExpression newVariable = context.getVariableAllocator().newVariable(outputVariable);
+                outputMappings.put(outputVariable, newVariable);
+                mappings.put(outputVariable, newVariable);
             }
         }
         sourceMappings.add(outputMappings.build());
@@ -111,11 +114,8 @@ public class PushTableWriteThroughUnion
         return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
     }
 
-    private static Map<Symbol, Symbol> getInputSymbolMapping(UnionNode node, int source)
+    private static Map<VariableReferenceExpression, VariableReferenceExpression> getInputVariableMapping(UnionNode node, int source)
     {
-        return node.getSymbolMapping()
-                .keySet()
-                .stream()
-                .collect(toImmutableMap(key -> key, key -> node.getSymbolMapping().get(key).get(source)));
+        return node.getOutputVariables().stream().collect(toImmutableMap(key -> key, key -> node.getVariableMapping().get(key).get(source)));
     }
 }

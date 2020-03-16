@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -25,9 +26,14 @@ import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class Expressions
 {
@@ -45,14 +51,30 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
+    public static boolean isNull(RowExpression expression)
     {
-        return new CallExpression(functionHandle, returnType, Arrays.asList(arguments));
+        return expression instanceof ConstantExpression && ((ConstantExpression) expression).isNull();
     }
 
-    public static CallExpression call(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(functionHandle, returnType, arguments);
+        return new CallExpression(displayName, functionHandle, returnType, Arrays.asList(arguments));
+    }
+
+    public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    {
+        return new CallExpression(displayName, functionHandle, returnType, arguments);
+    }
+
+    public static CallExpression call(FunctionManager functionManager, String name, Type returnType, RowExpression... arguments)
+    {
+        return call(functionManager, name, returnType, ImmutableList.copyOf(arguments));
+    }
+
+    public static CallExpression call(FunctionManager functionManager, String name, Type returnType, List<RowExpression> arguments)
+    {
+        FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypes(arguments.stream().map(RowExpression::getType).collect(toImmutableList())));
+        return call(name, functionHandle, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)
@@ -68,6 +90,16 @@ public final class Expressions
     public static SpecialFormExpression specialForm(Form form, Type returnType, List<RowExpression> arguments)
     {
         return new SpecialFormExpression(form, returnType, arguments);
+    }
+
+    public static Set<RowExpression> uniqueSubExpressions(RowExpression expression)
+    {
+        return ImmutableSet.copyOf(subExpressions(ImmutableList.of(expression)));
+    }
+
+    public static List<RowExpression> subExpressions(RowExpression expression)
+    {
+        return subExpressions(ImmutableList.of(expression));
     }
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
@@ -129,5 +161,10 @@ public final class Expressions
         }
 
         return builder.build();
+    }
+
+    public static VariableReferenceExpression variable(String name, Type type)
+    {
+        return new VariableReferenceExpression(name, type);
     }
 }

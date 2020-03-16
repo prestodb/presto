@@ -53,6 +53,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+        delegate().checkQueryIntegrity(identity, query);
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         delegate().checkCanSetSystemSessionProperty(identity, propertyName);

@@ -31,7 +31,7 @@ public final class CustomFunctions
         return x + y;
     }
 
-    @ScalarFunction("custom_is_null")
+    @ScalarFunction(value = "custom_is_null", calledOnNullInput = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean customIsNullVarchar(@SqlNullable @SqlType("varchar(x)") Slice slice)
@@ -39,7 +39,7 @@ public final class CustomFunctions
         return slice == null;
     }
 
-    @ScalarFunction("custom_is_null")
+    @ScalarFunction(value = "custom_is_null", calledOnNullInput = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean customIsNullBigint(@SqlNullable @SqlType(StandardTypes.BIGINT) Long value)
     {

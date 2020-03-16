@@ -85,7 +85,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, partitioningEnabled);
+                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, isPartitioningEnabled(properties));
             }
 
             @Override
@@ -116,5 +116,10 @@ public class TpchConnectorFactory
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
         }
+    }
+
+    private boolean isPartitioningEnabled(Map<String, String> properties)
+    {
+        return Boolean.parseBoolean(properties.getOrDefault("tpch.partitioning-enabled", String.valueOf(partitioningEnabled)));
     }
 }

@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import kafka.admin.AdminUtils;
-import kafka.javaapi.producer.Producer;
-import kafka.producer.ProducerConfig;
+import kafka.admin.RackAwareMode;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
-import kafka.utils.ZKStringSerializer$;
-import org.I0Itec.zkclient.ZkClient;
+import kafka.utils.ZkUtils;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.serialization.LongSerializer;
 
 import java.io.Closeable;
 import java.io.File;
@@ -37,6 +37,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
+import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
+import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
+import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
+import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
 public class EmbeddedKafka
         implements Closeable
@@ -77,12 +81,12 @@ public class EmbeddedKafka
                 .put("log.flush.interval.messages", "10000")
                 .put("log.flush.interval.ms", "1000")
                 .put("log.retention.minutes", "60")
-                .put("log.segment.bytes", "1048576")
                 .put("auto.create.topics.enable", "false")
                 .put("zookeeper.connection.timeout.ms", "1000000")
                 .put("port", Integer.toString(port))
                 .put("log.dirs", kafkaDataDir.getAbsolutePath())
                 .put("zookeeper.connect", zookeeper.getConnectString())
+                .put("offsets.topic.replication.factor", "1")
                 .putAll(Maps.fromProperties(overrideProperties))
                 .build();
 
@@ -120,39 +124,26 @@ public class EmbeddedKafka
     {
         checkState(started.get() && !stopped.get(), "not started!");
 
-        ZkClient zkClient = new ZkClient(getZookeeperConnectString(), 30_000, 30_000, ZKStringSerializer$.MODULE$);
+        ZkUtils zkUtils = ZkUtils.apply(getZookeeperConnectString(), 30_000, 30_000, false);
         try {
             for (String topic : topics) {
-                AdminUtils.createTopic(zkClient, topic, partitions, replication, topicProperties);
+                AdminUtils.createTopic(zkUtils, topic, partitions, replication, topicProperties, RackAwareMode.Disabled$.MODULE$);
             }
         }
         finally {
-            zkClient.close();
+            zkUtils.close();
         }
     }
 
-    public CloseableProducer<Long, Object> createProducer()
+    public KafkaProducer<Long, Object> createProducer()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.broker.list", getConnectString())
-                .put("serializer.class", JsonEncoder.class.getName())
-                .put("key.serializer.class", NumberEncoder.class.getName())
-                .put("partitioner.class", NumberPartitioner.class.getName())
-                .put("request.required.acks", "1")
-                .build();
+        Properties properties = new Properties();
+        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, getConnectString());
+        properties.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, JsonEncoder.class.getName());
+        properties.setProperty(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
+        properties.setProperty(ACKS_CONFIG, "1");
 
-        ProducerConfig producerConfig = new ProducerConfig(toProperties(properties));
-        return new CloseableProducer<>(producerConfig);
-    }
-
-    public static class CloseableProducer<K, V>
-            extends Producer<K, V>
-            implements AutoCloseable
-    {
-        public CloseableProducer(ProducerConfig config)
-        {
-            super(config);
-        }
+        return new KafkaProducer<>(properties);
     }
 
     public int getZookeeperPort()

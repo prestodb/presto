@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
+
 import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
@@ -21,6 +23,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -29,7 +32,7 @@ public abstract class AbstractArrayBlock
 
     protected abstract int[] getOffsets();
 
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
     @Nullable
     protected abstract boolean[] getValueIsNull();
@@ -144,16 +147,13 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
         checkReadablePosition(position);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
-        return clazz.cast(getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset));
+        return getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset);
     }
 
     @Override
@@ -161,6 +161,26 @@ public abstract class AbstractArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.appendStructureInternal(this, position);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            int startValueOffset = getOffset(position);
+            int endValueOffset = getOffset(position + 1);
+            int numberOfElements = endValueOffset - startValueOffset;
+
+            output.writeByte(1);
+            output.writeInt(numberOfElements);
+            Block rawElementBlock = getRawElementBlock();
+            for (int i = startValueOffset; i < endValueOffset; i++) {
+                rawElementBlock.writePositionTo(i, output);
+            }
+        }
     }
 
     @Override
@@ -201,6 +221,12 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return getValueIsNull() != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -227,5 +253,21 @@ public abstract class AbstractArrayBlock
     public interface ArrayBlockFunction<T>
     {
         T apply(Block block, int startPosition, int length);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        int startValueOffset = getOffsets()[internalPosition];
+        int endValueOffset = getOffsets()[internalPosition + 1];
+        return getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset);
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return getValueIsNull()[internalPosition];
     }
 }

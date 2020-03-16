@@ -14,13 +14,7 @@
 
 import React from "react";
 
-import {
-    addToHistory,
-    formatCount,
-    formatDataSize,
-    getFirstParameter,
-    precisionRound
-} from "../utils";
+import {addToHistory, formatCount, formatDataSize, getFirstParameter, precisionRound} from "../utils";
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
@@ -68,7 +62,7 @@ export class WorkerStatus extends React.Component {
                 processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
                 systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
                 heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0 / serverInfo.heapAvailable, this.state.heapPercentUsed),
-                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed * 100.0, this.state.nonHeapUsed),
+                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed, this.state.nonHeapUsed),
             });
 
             this.resetTimer();

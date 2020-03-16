@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.checksum;
 
+import com.facebook.presto.verifier.framework.Column;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -21,17 +23,24 @@ import static java.util.Objects.requireNonNull;
 public class ColumnMatchResult
 {
     private final boolean matched;
+    private final Column column;
     private final String message;
 
-    public ColumnMatchResult(boolean matched, String message)
+    public ColumnMatchResult(boolean matched, Column column, String message)
     {
         this.matched = matched;
+        this.column = requireNonNull(column, "column is null");
         this.message = requireNonNull(message, "message is null");
     }
 
     public boolean isMatched()
     {
         return matched;
+    }
+
+    public Column getColumn()
+    {
+        return column;
     }
 
     public String getMessage()
@@ -50,13 +59,14 @@ public class ColumnMatchResult
         }
         ColumnMatchResult o = (ColumnMatchResult) obj;
         return Objects.equals(matched, o.matched) &&
+                Objects.equals(column, o.column) &&
                 Objects.equals(message, o.message);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(matched, message);
+        return Objects.hash(matched, column, message);
     }
 
     @Override
@@ -64,6 +74,7 @@ public class ColumnMatchResult
     {
         return toStringHelper(this)
                 .add("matched", matched)
+                .add("column", column)
                 .add("message", message)
                 .toString();
     }

@@ -11,6 +11,7 @@ from different data sources.
     connector/accumulo
     connector/blackhole
     connector/cassandra
+    connector/druid
     connector/elasticsearch
     connector/hive
     connector/hive-security
@@ -22,6 +23,7 @@ from different data sources.
     connector/memory
     connector/mongodb
     connector/mysql
+    connector/pinot
     connector/postgresql
     connector/redis
     connector/redshift

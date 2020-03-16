@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,10 +31,11 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class RemoteSourceNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
-    private final List<Symbol> outputs;
+    private final List<VariableReferenceExpression> outputVariables;
+    private final boolean ensureSourceOrdering;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
 
@@ -40,23 +43,29 @@ public class RemoteSourceNode
     public RemoteSourceNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
-            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
     {
         super(id);
 
-        requireNonNull(outputs, "outputs is null");
-
         this.sourceFragmentIds = sourceFragmentIds;
-        this.outputs = ImmutableList.copyOf(outputs);
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        this.ensureSourceOrdering = ensureSourceOrdering;
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
     }
 
-    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme, ExchangeNode.Type exchangeType)
+    public RemoteSourceNode(
+            PlanNodeId id,
+            PlanFragmentId sourceFragmentId,
+            List<VariableReferenceExpression> outputVariables,
+            boolean ensureSourceOrdering,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
     }
 
     @Override
@@ -66,32 +75,38 @@ public class RemoteSourceNode
     }
 
     @Override
-    @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputs;
+        return outputVariables;
     }
 
-    @JsonProperty("sourceFragmentIds")
+    @JsonProperty
     public List<PlanFragmentId> getSourceFragmentIds()
     {
         return sourceFragmentIds;
     }
 
-    @JsonProperty("orderingScheme")
+    @JsonProperty
+    public boolean isEnsureSourceOrdering()
+    {
+        return ensureSourceOrdering;
+    }
+
+    @JsonProperty
     public Optional<OrderingScheme> getOrderingScheme()
     {
         return orderingScheme;
     }
 
-    @JsonProperty("exchangeType")
+    @JsonProperty
     public ExchangeNode.Type getExchangeType()
     {
         return exchangeType;
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitRemoteSource(this, context);
     }

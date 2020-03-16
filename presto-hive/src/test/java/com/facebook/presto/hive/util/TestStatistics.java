@@ -36,10 +36,10 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBina
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
-import static com.facebook.presto.hive.util.Statistics.merge;
-import static com.facebook.presto.hive.util.Statistics.reduce;
+import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
+import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.SUBTRACT;
+import static com.facebook.presto.hive.metastore.Statistics.merge;
+import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatistics

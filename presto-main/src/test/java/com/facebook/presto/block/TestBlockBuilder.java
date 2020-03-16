@@ -130,7 +130,7 @@ public class TestBlockBuilder
     private static void assertInvalidGetPositions(Block block, int[] positions, int offset, int length)
     {
         try {
-            block.getPositions(positions, offset, length).getLong(0, 0);
+            block.getPositions(positions, offset, length).getLong(0);
             fail("Expected to fail");
         }
         catch (IllegalArgumentException e) {

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.SchemaTableName;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

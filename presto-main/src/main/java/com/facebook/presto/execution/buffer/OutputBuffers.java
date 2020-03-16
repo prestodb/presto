@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,6 +29,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.DISCARDING;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -38,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public final class OutputBuffers
 {
     public static final int BROADCAST_PARTITION_ID = 0;
+    private static final OutputBuffers DISCARDING_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers(DISCARDING).withNoMoreBufferIds();
 
     public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
@@ -59,11 +64,17 @@ public final class OutputBuffers
         return new OutputBuffers(type, 0, false, ImmutableMap.of());
     }
 
+    public static OutputBuffers createDiscardingOutputBuffers()
+    {
+        return DISCARDING_OUTPUT_BUFFERS;
+    }
+
     public enum BufferType
     {
         PARTITIONED,
         BROADCAST,
         ARBITRARY,
+        DISCARDING,
     }
 
     private final BufferType type;
@@ -240,6 +251,7 @@ public final class OutputBuffers
                 partition);
     }
 
+    @ThriftStruct
     public static class OutputBufferId
     {
         // this is needed by JAX-RS
@@ -250,6 +262,7 @@ public final class OutputBuffers
 
         private final int id;
 
+        @ThriftConstructor
         @JsonCreator
         public OutputBufferId(int id)
         {
@@ -270,6 +283,7 @@ public final class OutputBuffers
             return id == that.id;
         }
 
+        @ThriftField(1)
         @JsonValue
         public int getId()
         {

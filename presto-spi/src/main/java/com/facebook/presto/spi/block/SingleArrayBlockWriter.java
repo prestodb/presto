@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
@@ -138,6 +139,14 @@ public class SingleArrayBlockWriter
     private void entryAdded()
     {
         positionsWritten++;
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        blockBuilder.readPositionFrom(input);
+        entryAdded();
+        return this;
     }
 
     @Override

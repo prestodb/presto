@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Output;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.google.common.base.VerifyException;
 
 import java.util.Optional;
 
@@ -42,7 +43,7 @@ public class OutputExtractor
     }
 
     private class Visitor
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private ConnectorId connectorId;
         private SchemaTableName schemaTableName;
@@ -50,31 +51,16 @@ public class OutputExtractor
         @Override
         public Void visitTableWriter(TableWriterNode node, Void context)
         {
-            TableWriterNode.WriterTarget writerTarget = node.getTarget();
-
-            if (writerTarget instanceof TableWriterNode.CreateHandle) {
-                connectorId = ((TableWriterNode.CreateHandle) writerTarget).getHandle().getConnectorId();
-                checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.CreateHandle) writerTarget).getSchemaTableName()),
-                        "cannot have more than a single create, insert or delete in a query");
-                schemaTableName = ((TableWriterNode.CreateHandle) writerTarget).getSchemaTableName();
-            }
-            if (writerTarget instanceof TableWriterNode.InsertHandle) {
-                connectorId = ((TableWriterNode.InsertHandle) writerTarget).getHandle().getConnectorId();
-                checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.InsertHandle) writerTarget).getSchemaTableName()),
-                        "cannot have more than a single create, insert or delete in a query");
-                schemaTableName = ((TableWriterNode.InsertHandle) writerTarget).getSchemaTableName();
-            }
-            if (writerTarget instanceof TableWriterNode.DeleteHandle) {
-                connectorId = ((TableWriterNode.DeleteHandle) writerTarget).getHandle().getConnectorId();
-                checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.DeleteHandle) writerTarget).getSchemaTableName()),
-                        "cannot have more than a single create, insert or delete in a query");
-                schemaTableName = ((TableWriterNode.DeleteHandle) writerTarget).getSchemaTableName();
-            }
+            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            connectorId = writerTarget.getConnectorId();
+            checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
+                    "cannot have more than a single create, insert or delete in a query");
+            schemaTableName = writerTarget.getSchemaTableName();
             return null;
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, context);

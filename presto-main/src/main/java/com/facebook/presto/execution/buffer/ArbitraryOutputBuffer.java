@@ -73,6 +73,9 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private final ConcurrentMap<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
 
+    //  The index of the first client buffer that should be polled
+    private final AtomicInteger nextClientBufferIndex = new AtomicInteger(0);
+
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
 
@@ -184,6 +187,8 @@ public class ArbitraryOutputBuffer
             for (OutputBufferId outputBufferId : outputBuffers.getBuffers().keySet()) {
                 getBuffer(outputBufferId);
             }
+            // Reset resume from position
+            nextClientBufferIndex.set(0);
 
             // update state if no more buffers is set
             if (outputBuffers.isNoMoreBufferIds()) {
@@ -248,11 +253,20 @@ public class ArbitraryOutputBuffer
         masterBuffer.addPages(serializedPageReferences);
 
         // process any pending reads from the client buffers
-        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+        List<ClientBuffer> buffers = safeGetBuffersSnapshot();
+        if (buffers.isEmpty()) {
+            return;
+        }
+        // handle potential for racy update of next index and client buffers present
+        int index = nextClientBufferIndex.get() % buffers.size();
+        for (int i = 0; i < buffers.size(); i++) {
             if (masterBuffer.isEmpty()) {
+                // Resume from the current client buffer on the next iteration
+                nextClientBufferIndex.set(index);
                 break;
             }
-            clientBuffer.loadPagesIfNecessary(masterBuffer);
+            buffers.get(index).loadPagesIfNecessary(masterBuffer);
+            index = (index + 1) % buffers.size();
         }
     }
 
@@ -395,7 +409,7 @@ public class ArbitraryOutputBuffer
         return buffer;
     }
 
-    private synchronized Collection<ClientBuffer> safeGetBuffersSnapshot()
+    private synchronized List<ClientBuffer> safeGetBuffersSnapshot()
     {
         return ImmutableList.copyOf(this.buffers.values());
     }

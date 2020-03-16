@@ -41,7 +41,7 @@ public abstract class ScalarImplementationDependency
             return functionManager.getFunctionInvokerProvider().createFunctionInvoker(functionHandle, invocationConvention).methodHandle();
         }
         else {
-            return functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle();
+            return functionManager.getBuiltInScalarFunctionImplementation(functionHandle).getMethodHandle();
         }
     }
 

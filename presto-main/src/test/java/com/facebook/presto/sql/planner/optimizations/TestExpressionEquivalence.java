@@ -20,9 +20,11 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -31,9 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -107,8 +107,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
+        TypeProvider types = TypeProvider.viewOf(symbols.stream()
+                .collect(toImmutableMap(Symbol::getName, TestExpressionEquivalence::generateType)));
 
         assertTrue(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
@@ -159,8 +159,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
+        TypeProvider types = TypeProvider.viewOf(symbols.stream()
+                .collect(toImmutableMap(Symbol::getName, TestExpressionEquivalence::generateType)));
 
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
@@ -168,6 +168,15 @@ public class TestExpressionEquivalence
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
                 String.format("Expected (%s) and (%s) to not be equivalent", right, left));
+    }
+
+    private static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
+    {
+        ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
+        for (Expression expression : expressions) {
+            unique.addAll(VariablesExtractor.extractAllSymbols(expression));
+        }
+        return unique.build();
     }
 
     private static Type generateType(Symbol symbol)

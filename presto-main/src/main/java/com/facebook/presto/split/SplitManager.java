@@ -14,19 +14,28 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -35,11 +44,15 @@ public class SplitManager
 {
     private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
+    private final Metadata metadata;
+    private final boolean preferSplitHostAddresses;
 
     @Inject
-    public SplitManager(QueryManagerConfig config)
+    public SplitManager(MetadataManager metadata, QueryManagerConfig config, NodeSchedulerConfig nodeSchedulerConfig)
     {
+        this.metadata = metadata;
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+        this.preferSplitHostAddresses = !nodeSchedulerConfig.getNetworkTopology().equals(LEGACY);
     }
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
@@ -54,20 +67,30 @@ public class SplitManager
         splitManagers.remove(connectorId);
     }
 
-    public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ConnectorId connectorId = layout.getConnectorId();
+        ConnectorId connectorId = table.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        // Now we will fetch the layout handle if it's not presented in TableHandle.
+        // In the future, ConnectorTableHandle will be used to fetch splits since it will contain layout information.
+        ConnectorTableLayoutHandle layout;
+        if (!table.getLayout().isPresent()) {
+            TableLayoutResult result = metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty());
+            layout = result.getLayout().getLayoutHandle();
+        }
+        else {
+            layout = table.getLayout().get();
+        }
 
         ConnectorSplitSource source = splitManager.getSplits(
-                layout.getTransactionHandle(),
+                table.getTransaction(),
                 connectorSession,
-                layout.getConnectorHandle(),
-                splitSchedulingStrategy);
+                layout,
+                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses));
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }

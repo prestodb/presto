@@ -17,10 +17,16 @@ import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.FunctionType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -49,6 +55,7 @@ import io.airlift.slice.SliceUtf8;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -60,6 +67,8 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -94,6 +103,23 @@ public final class LiteralEncoder
         return expressions.build();
     }
 
+    // Unlike toExpression, toRowExpression should be very straightforward given object is serializable
+    public static RowExpression toRowExpression(Object object, Type type)
+    {
+        requireNonNull(type, "type is null");
+
+        if (object instanceof RowExpression) {
+            return (RowExpression) object;
+        }
+
+        if (object == null) {
+            return constantNull(type);
+        }
+
+        return constant(object, type);
+    }
+
+    @Deprecated
     public Expression toExpression(Object object, Type type)
     {
         requireNonNull(type, "type is null");
@@ -211,23 +237,64 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
+            return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(fromBase64));
         }
         Expression rawLiteral = toExpression(object, typeForMagicLiteral(type));
 
-        return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
+        return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(rawLiteral));
     }
 
     public static boolean isSupportedLiteralType(Type type)
     {
+        if (type instanceof FunctionType) {
+            // FunctionType contains compiled lambda thus not serializable.
+            return false;
+        }
+        if (type instanceof ArrayType) {
+            return isSupportedLiteralType(((ArrayType) type).getElementType());
+        }
+        else if (type instanceof RowType) {
+            RowType rowType = (RowType) type;
+            return rowType.getTypeParameters().stream()
+                    .allMatch(LiteralEncoder::isSupportedLiteralType);
+        }
+        else if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            return isSupportedLiteralType(mapType.getKeyType()) && isSupportedLiteralType(mapType.getValueType());
+        }
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
+    }
+
+    public static long estimatedSizeInBytes(Object object)
+    {
+        if (object == null) {
+            return 1;
+        }
+        Class<?> javaType = object.getClass();
+        if (javaType == Long.class) {
+            return Long.BYTES;
+        }
+        else if (javaType == Double.class) {
+            return Double.BYTES;
+        }
+        else if (javaType == Boolean.class) {
+            return 1;
+        }
+        else if (object instanceof Block) {
+            return ((Block) object).getSizeInBytes();
+        }
+        else if (object instanceof Slice) {
+            return ((Slice) object).length();
+        }
+        // unknown for rest of types
+        return Integer.MAX_VALUE;
     }
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
         TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+        return new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature()),
                 SCALAR,
                 type.getTypeSignature(),
                 argumentType);

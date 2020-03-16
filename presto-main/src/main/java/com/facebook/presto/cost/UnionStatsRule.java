@@ -16,12 +16,10 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.google.common.collect.ListMultimap;
 
 import java.util.Optional;
 
@@ -55,7 +53,7 @@ public class UnionStatsRule
             PlanNode source = node.getSources().get(i);
             PlanNodeStatsEstimate sourceStats = statsProvider.getStats(source);
 
-            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getSymbolMapping(), i);
+            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node, i);
 
             if (estimate.isPresent()) {
                 estimate = Optional.of(addStatsAndCollapseDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
@@ -68,13 +66,10 @@ public class UnionStatsRule
         return estimate;
     }
 
-    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, ListMultimap<Symbol, Symbol> mapping, int index)
+    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, UnionNode node, int index)
     {
-        PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(estimate.getOutputRowCount());
-
-        mapping.keySet().stream()
-                .forEach(symbol -> mapped.addSymbolStatistics(symbol, estimate.getSymbolStatistics(mapping.get(symbol).get(index))));
+        PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder().setOutputRowCount(estimate.getOutputRowCount());
+        node.getOutputVariables().forEach(variable -> mapped.addVariableStatistics(variable, estimate.getVariableStatistics(node.getVariableMapping().get(variable).get(index))));
 
         return mapped.build();
     }

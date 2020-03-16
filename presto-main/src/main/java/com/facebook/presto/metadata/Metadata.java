@@ -14,17 +14,22 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -37,7 +42,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -53,11 +58,9 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    boolean isAggregationFunction(QualifiedName name);
+    List<SqlFunction> listFunctions(Session session);
 
-    List<SqlFunction> listFunctions();
-
-    void addFunctions(List<? extends SqlFunction> functions);
+    void registerBuiltInFunctions(List<? extends BuiltInFunction> functions);
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
 
@@ -74,30 +77,58 @@ public interface Metadata
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
-    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
-
-    TableLayout getLayout(Session session, TableLayoutHandle handle);
+    /**
+     * Returns a new table layout that satisfies the given constraint together with unenforced constraint.
+     */
+    @Experimental
+    TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     /**
-     * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
+     * Returns table's layout properties for a given table handle.
+     */
+    @Experimental
+    TableLayout getLayout(Session session, TableHandle handle);
+
+    /**
+     * Return a table handle whose partitioning is converted to the provided partitioning handle,
      * but otherwise identical to the provided table layout handle.
      * The provided table layout handle must be one that the connector can transparently convert to from
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioning}.
      */
-    TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
+    TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle);
+
+    /**
+     * Experimental: if true, the engine will invoke getLayout otherwise, getLayout will not be called.
+     * If filter pushdown is required, use a ConnectorPlanOptimizer in the respective connector in order
+     * to push compute into it's TableScan.
+     */
+    @Deprecated
+    boolean isLegacyGetLayoutSupported(Session session, TableHandle tableHandle);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
+    @Deprecated
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
+
+    /**
+     * Return whether {@code left} is a refined partitioning over {@code right}.
+     * See
+     * {@link com.facebook.presto.spi.connector.ConnectorMetadata#isRefinedPartitioningOver(ConnectorSession, ConnectorPartitioningHandle, ConnectorPartitioningHandle)}
+     * for details about refined partitioning.
+     * <p>
+     * Refined-over relation is reflexive.
+     */
+    @Experimental
+    boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b);
 
     /**
      * Provides partitioning handle for exchange.
      */
     PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
 
-    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+    Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -107,9 +138,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table for given columns and filtering constraint.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -161,9 +192,8 @@ public interface Metadata
      * Creates a temporary table with optional partitioning requirements.
      * Temporary table might have different default storage format, compression scheme, replication factor, etc,
      * and gets automatically dropped when the transaction ends.
-     *
-     * This SPI is unstable and subject to change in the future.
      */
+    @Experimental
     TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata);
 
     /**
@@ -195,6 +225,9 @@ public interface Metadata
 
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
+    @Experimental
+    Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
     /**
      * Begin the atomic creation of a table with data.
      */
@@ -206,6 +239,9 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    @Experimental
+    Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target);
 
     /**
      * Describes statistics that must be collected during a write.
@@ -256,14 +292,14 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Delete the provide table layout
      *
      * @return number of rows deleted, or empty for unknown
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query
@@ -305,7 +341,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace);
 
     /**
      * Drops the specified view.
@@ -377,6 +413,18 @@ public interface Metadata
      * Gets the privileges for the specified table available to the given grantee considering the selected session role
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Commits partition for table creation.
+     */
+    @Experimental
+    ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Commits partition for table insertion.
+     */
+    @Experimental
+    ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     FunctionManager getFunctionManager();
 

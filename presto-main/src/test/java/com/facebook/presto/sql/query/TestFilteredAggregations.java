@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;

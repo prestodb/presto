@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import io.airlift.bytecode.DynamicClassLoader;
 
 import java.io.IOException;
 import java.io.InputStream;

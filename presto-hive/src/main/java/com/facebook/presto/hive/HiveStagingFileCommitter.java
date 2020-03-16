@@ -25,35 +25,35 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static com.google.common.util.concurrent.Futures.catching;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class HiveStagingFileCommitter
         implements StagingFileCommitter
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final ListeningExecutorService commitExecutor;
+    private final ListeningExecutorService fileRenameExecutor;
 
     @Inject
     public HiveStagingFileCommitter(
             HdfsEnvironment hdfsEnvironment,
-            @ForFileRename ExecutorService executorService)
+            @ForFileRename ListeningExecutorService fileRenameExecutor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.commitExecutor = listeningDecorator(executorService);
+        this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
     }
 
     @Override
-    public void commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates)
+    public ListenableFuture<Void> commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        List<ListenableFuture<?>> commitFutures = new ArrayList<>();
+        List<ListenableFuture<Void>> commitFutures = new ArrayList<>();
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             Path path = partitionUpdate.getWritePath();
@@ -62,10 +62,22 @@ public class HiveStagingFileCommitter
                 checkState(!fileWriteInfo.getWriteFileName().equals(fileWriteInfo.getTargetFileName()));
                 Path source = new Path(path, fileWriteInfo.getWriteFileName());
                 Path target = new Path(path, fileWriteInfo.getTargetFileName());
-                commitFutures.add(commitExecutor.submit(() -> renameFile(fileSystem, source, target)));
+                commitFutures.add(fileRenameExecutor.submit(() -> {
+                    renameFile(fileSystem, source, target);
+                    return null;
+                }));
             }
         }
 
-        waitForListenableFutures(commitFutures);
+        ListenableFuture<Void> result = whenAllSucceed(commitFutures).call(() -> null, directExecutor());
+        return catching(
+                result,
+                RuntimeException.class,
+                e -> {
+                    checkState(e != null, "Null exception is caught during commitFiles");
+                    result.cancel(true);
+                    throw e;
+                },
+                directExecutor());
     }
 }

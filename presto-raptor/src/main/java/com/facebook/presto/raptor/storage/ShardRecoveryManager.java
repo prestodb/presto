@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
@@ -25,9 +26,10 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -54,14 +56,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
+import static com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
@@ -79,6 +83,7 @@ public class ShardRecoveryManager
 
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
+    private final Optional<RawLocalFileSystem> localFileSystem;
     private final String nodeIdentifier;
     private final ShardManager shardManager;
     private final Duration missingShardDiscoveryInterval;
@@ -94,12 +99,14 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             StorageManagerConfig config)
     {
         this(storageService,
                 backupStore,
+                environment,
                 nodeManager,
                 shardManager,
                 config.getMissingShardDiscoveryInterval(),
@@ -109,6 +116,7 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             Duration missingShardDiscoveryInterval,
@@ -116,6 +124,8 @@ public class ShardRecoveryManager
     {
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
         this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
@@ -178,14 +188,14 @@ public class ShardRecoveryManager
 
     private Set<ShardMetadata> getMissingShards()
     {
-        return shardManager.getNodeShards(nodeIdentifier).stream()
+        return shardManager.getNodeShardsAndDeltas(nodeIdentifier).stream()
                 .filter(shard -> shardNeedsRecovery(shard.getShardUuid(), shard.getCompressedSize()))
                 .collect(toSet());
     }
 
     private boolean shardNeedsRecovery(UUID shardUuid, long shardSize)
     {
-        File storageFile = storageService.getStorageFile(shardUuid);
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
         return !storageFile.exists() || (storageFile.length() != shardSize);
     }
 
@@ -203,7 +213,7 @@ public class ShardRecoveryManager
     @VisibleForTesting
     void restoreFromBackup(UUID shardUuid, long shardSize, OptionalLong shardXxhash64)
     {
-        File storageFile = storageService.getStorageFile(shardUuid);
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
 
         if (!backupStore.get().shardExists(shardUuid)) {
             stats.incrementShardRecoveryBackupNotFound();
@@ -219,8 +229,8 @@ public class ShardRecoveryManager
         }
 
         // create a temporary file in the staging directory
-        File stagingFile = temporarySuffix(storageService.getStagingFile(shardUuid));
-        storageService.createParents(stagingFile);
+        File stagingFile = temporarySuffix(localFileSystem.get().pathToFile(storageService.getStagingFile(shardUuid)));
+        storageService.createParents(new Path(stagingFile.toURI()));
 
         // copy to temporary file
         log.info("Copying shard %s from backup...", shardUuid);
@@ -243,7 +253,7 @@ public class ShardRecoveryManager
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
         // move to final location
-        storageService.createParents(storageFile);
+        storageService.createParents(new Path(storageFile.toURI()));
         try {
             Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
         }
@@ -275,7 +285,7 @@ public class ShardRecoveryManager
 
     private void quarantineFile(UUID shardUuid, File file, String message)
     {
-        File quarantine = new File(storageService.getQuarantineFile(shardUuid).getPath() + ".corrupt");
+        File quarantine = new File(localFileSystem.get().pathToFile(storageService.getQuarantineFile(shardUuid)) + ".corrupt");
         if (quarantine.exists()) {
             log.warn("%s Quarantine already exists: %s", message, quarantine);
             return;
@@ -291,9 +301,9 @@ public class ShardRecoveryManager
         }
     }
 
-    private static boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
+    private boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
     {
-        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(file) != xxhash64.getAsLong()));
+        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(localFileSystem.get(), new Path(file.toURI())) != xxhash64.getAsLong()));
     }
 
     @VisibleForTesting

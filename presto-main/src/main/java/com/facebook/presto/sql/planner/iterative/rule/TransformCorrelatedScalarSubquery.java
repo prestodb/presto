@@ -15,24 +15,23 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 
@@ -40,11 +39,14 @@ import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
@@ -111,10 +113,10 @@ public class TransformCorrelatedScalarSubquery
                     rewrittenSubquery,
                     lateralJoinNode.getCorrelation(),
                     lateralJoinNode.getType(),
-                    lateralJoinNode.getOriginSubquery()));
+                    lateralJoinNode.getOriginSubqueryError()));
         }
 
-        Symbol unique = context.getSymbolAllocator().newSymbol("unique", BigintType.BIGINT);
+        VariableReferenceExpression unique = context.getVariableAllocator().newVariable("unique", BIGINT);
 
         LateralJoinNode rewrittenLateralJoinNode = new LateralJoinNode(
                 context.getIdAllocator().getNextId(),
@@ -125,21 +127,21 @@ public class TransformCorrelatedScalarSubquery
                 rewrittenSubquery,
                 lateralJoinNode.getCorrelation(),
                 lateralJoinNode.getType(),
-                lateralJoinNode.getOriginSubquery());
+                lateralJoinNode.getOriginSubqueryError());
 
-        Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
+        VariableReferenceExpression isDistinct = context.getVariableAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
                 isDistinct,
-                rewrittenLateralJoinNode.getInput().getOutputSymbols(),
+                rewrittenLateralJoinNode.getInput().getOutputVariables(),
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
-                new SimpleCaseExpression(
-                        isDistinct.toSymbolReference(),
+                castToRowExpression(new SimpleCaseExpression(
+                        new SymbolReference(isDistinct.getName()),
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(
@@ -148,11 +150,11 @@ public class TransformCorrelatedScalarSubquery
                                         ImmutableList.of(
                                                 new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())),
                                                 new StringLiteral("Scalar sub-query has returned multiple rows"))),
-                                BOOLEAN))));
+                                BOOLEAN)))));
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                Assignments.identity(lateralJoinNode.getOutputSymbols())));
+                identityAssignmentsAsSymbolReferences(lateralJoinNode.getOutputVariables())));
     }
 }

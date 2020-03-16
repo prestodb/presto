@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.QueryId;
 
 import java.net.URI;
@@ -26,7 +26,17 @@ public interface LocationFactory
 
     URI createLocalTaskLocation(TaskId taskId);
 
-    URI createTaskLocation(Node node, TaskId taskId);
+    /**
+     * TODO: this method is required since not not all RPC call is supported by thrift.
+     *     It should be merged into {@code createTaskLocation} once full thrift support is in-place for v1/task
+     */
+    @Deprecated
+    URI createLegacyTaskLocation(InternalNode node, TaskId taskId);
 
-    URI createMemoryInfoLocation(Node node);
+    /**
+     * TODO: implement full thrift support for v1/task
+     */
+    URI createTaskLocation(InternalNode node, TaskId taskId);
+
+    URI createMemoryInfoLocation(InternalNode node);
 }

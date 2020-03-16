@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -32,7 +33,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -66,28 +66,29 @@ public class TestPruneAggregationSourceColumns
     public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneAggregationSourceColumns())
-                .on(p -> buildAggregation(p, symbol -> !symbol.getName().equals("unused")))
+                .on(p -> buildAggregation(p, variable -> !variable.getName().equals("unused")))
                 .doesNotFire();
     }
 
-    private AggregationNode buildAggregation(PlanBuilder planBuilder, Predicate<Symbol> sourceSymbolFilter)
+    private AggregationNode buildAggregation(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> sourceVariableFilter)
     {
-        Symbol avg = planBuilder.symbol("avg");
-        Symbol input = planBuilder.symbol("input");
-        Symbol key = planBuilder.symbol("key");
-        Symbol keyHash = planBuilder.symbol("keyHash");
-        Symbol mask = planBuilder.symbol("mask");
-        Symbol unused = planBuilder.symbol("unused");
-        List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask, unused);
+        VariableReferenceExpression avg = planBuilder.variable("avg");
+        VariableReferenceExpression input = planBuilder.variable("input");
+        VariableReferenceExpression key = planBuilder.variable("key");
+        VariableReferenceExpression keyHash = planBuilder.variable("keyHash");
+        VariableReferenceExpression mask = planBuilder.variable("mask");
+        VariableReferenceExpression unused = planBuilder.variable("unused");
+        List<VariableReferenceExpression> filteredSourceVariables = ImmutableList.of(input, key, keyHash, mask, unused).stream()
+                .filter(sourceVariableFilter)
+                .collect(toImmutableList());
+
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
-                .hashSymbol(keyHash)
+                .hashVariable(keyHash)
                 .source(
                         planBuilder.values(
-                                sourceSymbols.stream()
-                                        .filter(sourceSymbolFilter)
-                                        .collect(toImmutableList()),
+                                filteredSourceVariables,
                                 ImmutableList.of())));
     }
 }

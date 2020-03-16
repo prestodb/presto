@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -32,7 +32,8 @@ public class TestInput
         Input expected = new Input(new ConnectorId("connectorId"), "schema", "table", Optional.empty(), ImmutableList.of(
                 new Column("column1", "string"),
                 new Column("column2", "string"),
-                new Column("column3", "string")));
+                new Column("column3", "string")),
+                Optional.empty());
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);

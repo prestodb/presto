@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import io.airlift.stats.QuantileDigest;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -32,67 +32,71 @@ import static com.google.common.base.Preconditions.checkState;
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileAggregations
 {
+    static final double DEFAULT_ACCURACY = 0.01;
+    static final long DEFAULT_WEIGHT = 1;
+
     private ApproximateLongPercentileAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void input(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.DOUBLE) double percentile)
     {
-        QuantileDigest digest = state.getDigest();
-
-        if (digest == null) {
-            digest = new QuantileDigest(0.01);
-            state.setDigest(digest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-        }
-
-        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
-        digest.add(value);
-        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
-        // use last percentile
-        state.setPercentile(percentile);
+        addInput(state, value, DEFAULT_WEIGHT, percentile, DEFAULT_ACCURACY);
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void input(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.DOUBLE) double percentile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
-        checkWeight(weight);
-
-        QuantileDigest digest = state.getDigest();
-
-        if (digest == null) {
-            digest = new QuantileDigest(0.01);
-            state.setDigest(digest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-        }
-
-        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
-        digest.add(value, weight);
-        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
-        // use last percentile
-        state.setPercentile(percentile);
+        addInput(state, value, DEFAULT_WEIGHT, percentile, accuracy);
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         checkWeight(weight);
+        addInput(state, value, weight, percentile, DEFAULT_ACCURACY);
+    }
 
+    @InputFunction
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double percentile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        checkWeight(weight);
+        addInput(state, value, weight, percentile, accuracy);
+    }
+
+    private static void addInput(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double percentile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
         QuantileDigest digest = state.getDigest();
 
-        if (digest == null) {
-            if (accuracy > 0 && accuracy < 1) {
-                digest = new QuantileDigest(accuracy);
-            }
-            else {
-                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
-            }
+        if (state.getDigest() == null) {
+            checkAccuracy(accuracy);
+            digest = new QuantileDigest(accuracy);
             state.setDigest(digest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
+        else {
+            state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
         }
 
-        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
         digest.add(value, weight);
         state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
 
@@ -133,7 +137,12 @@ public final class ApproximateLongPercentileAggregations
         }
     }
 
-    private static void checkWeight(long weight)
+    static void checkAccuracy(double accuracy)
+    {
+        checkCondition(0 < accuracy && accuracy < 1, INVALID_FUNCTION_ARGUMENT, "Percentile accuracy must be strictly between 0 and 1");
+    }
+
+    static void checkWeight(long weight)
     {
         checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
     }

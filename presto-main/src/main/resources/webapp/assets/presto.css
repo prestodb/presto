@@ -207,6 +207,11 @@ pre {
     margin-bottom: 0;
 }
 
+.query-warning {
+    color: #ffcc00;
+    padding-left: 5px;
+}
+
 .nav-disabled {
     pointer-events: none;
     cursor: not-allowed;
@@ -571,6 +576,10 @@ pre {
 #stage-list {
     margin-top: 5px;
     text-align: right;
+}
+
+#stage-list #tasks {
+    text-align: left;
 }
 
 .stage-id {

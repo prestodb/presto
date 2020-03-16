@@ -14,7 +14,7 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.SymbolStatsEstimate;
+import com.facebook.presto.cost.VariableStatsEstimate;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -60,7 +60,7 @@ public final class Metrics
             @Override
             public OptionalDouble getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
             {
-                return asOptional(getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getNullsFraction());
+                return asOptional(getVariableStatistics(planNodeStatsEstimate, columnName, statsContext).getNullsFraction());
             }
 
             @Override
@@ -90,7 +90,7 @@ public final class Metrics
             @Override
             public OptionalDouble getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
             {
-                return asOptional(getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getDistinctValuesCount());
+                return asOptional(getVariableStatistics(planNodeStatsEstimate, columnName, statsContext).getDistinctValuesCount());
             }
 
             @Override
@@ -120,7 +120,7 @@ public final class Metrics
             @Override
             public OptionalDouble getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
             {
-                double lowValue = getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getLowValue();
+                double lowValue = getVariableStatistics(planNodeStatsEstimate, columnName, statsContext).getLowValue();
                 if (isInfinite(lowValue)) {
                     return OptionalDouble.empty();
                 }
@@ -158,7 +158,7 @@ public final class Metrics
             @Override
             public OptionalDouble getValueFromPlanNodeEstimate(PlanNodeStatsEstimate planNodeStatsEstimate, StatsContext statsContext)
             {
-                double highValue = getSymbolStatistics(planNodeStatsEstimate, columnName, statsContext).getHighValue();
+                double highValue = getVariableStatistics(planNodeStatsEstimate, columnName, statsContext).getHighValue();
                 if (isInfinite(highValue)) {
                     return OptionalDouble.empty();
                 }
@@ -189,9 +189,9 @@ public final class Metrics
         };
     }
 
-    private static SymbolStatsEstimate getSymbolStatistics(PlanNodeStatsEstimate planNodeStatsEstimate, String columnName, StatsContext statsContext)
+    private static VariableStatsEstimate getVariableStatistics(PlanNodeStatsEstimate planNodeStatsEstimate, String columnName, StatsContext statsContext)
     {
-        return planNodeStatsEstimate.getSymbolStatistics(statsContext.getSymbolForColumn(columnName));
+        return planNodeStatsEstimate.getVariableStatistics(statsContext.getVariableForColumn(columnName));
     }
 
     private static OptionalDouble asOptional(double value)

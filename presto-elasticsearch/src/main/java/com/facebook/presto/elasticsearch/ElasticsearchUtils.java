@@ -46,7 +46,8 @@ public final class ElasticsearchUtils
         if (MAP.equals(type.getTypeSignature().getBase()) || ARRAY.equals(type.getTypeSignature().getBase())) {
             throw new IllegalArgumentException("Type not supported: " + type.getDisplayName());
         }
-        return serializePrimitive(type, builder, object);
+        serializePrimitive(type, builder, object);
+        return null;
     }
 
     private static Block serializeStruct(Type type, BlockBuilder builder, Object object)
@@ -54,15 +55,20 @@ public final class ElasticsearchUtils
         if (object == null) {
             requireNonNull(builder, "builder is null");
             builder.appendNull();
-            return builder.build();
+            return null;
         }
 
+        List<Type> typeParameters = type.getTypeParameters();
+
+        BlockBuilder currentBuilder;
+
+        boolean builderSynthesized = false;
         if (builder == null) {
+            builderSynthesized = true;
             builder = type.createBlockBuilder(null, 1);
         }
 
-        BlockBuilder currentBuilder = builder.beginBlockEntry();
-        List<Type> typeParameters = type.getTypeParameters();
+        currentBuilder = builder.beginBlockEntry();
 
         for (int i = 0; i < typeParameters.size(); i++) {
             Optional<String> fieldName = type.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName();
@@ -75,16 +81,19 @@ public final class ElasticsearchUtils
         }
 
         builder.closeEntry();
-        return (Block) type.getObject(builder, 0);
+        if (builderSynthesized) {
+            return (Block) type.getObject(builder, 0);
+        }
+        return null;
     }
 
-    private static Block serializePrimitive(Type type, BlockBuilder builder, Object object)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object)
     {
         requireNonNull(builder, "builder is null");
 
         if (object == null) {
             builder.appendNull();
-            return builder.build();
+            return;
         }
 
         if (type.equals(BOOLEAN)) {
@@ -105,6 +114,5 @@ public final class ElasticsearchUtils
         else {
             throw new IllegalArgumentException("Unknown primitive type: " + type.getDisplayName());
         }
-        return builder.build();
     }
 }

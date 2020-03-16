@@ -17,16 +17,21 @@ import com.google.common.collect.ImmutableMap;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
 import static java.util.Objects.requireNonNull;
 
 public class QueryConfiguration
 {
     private final String catalog;
     private final String schema;
-    private final String username;
+    private final Optional<String> username;
     private final Optional<String> password;
     private final Map<String, String> sessionProperties;
 
@@ -34,25 +39,36 @@ public class QueryConfiguration
     public QueryConfiguration(
             @ColumnName("catalog") String catalog,
             @ColumnName("schema") String schema,
-            @ColumnName("username") String username,
+            @ColumnName("username") Optional<String> username,
             @ColumnName("password") Optional<String> password,
             @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties)
-    {
-        this(catalog, schema, username, password, sessionProperties.orElse(ImmutableMap.of()));
-    }
-
-    public QueryConfiguration(
-            String catalog,
-            String schema,
-            String username,
-            Optional<String> password,
-            Map<String, String> sessionProperties)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.username = requireNonNull(username, "username is null");
         this.password = requireNonNull(password, "password is null");
-        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
+        this.sessionProperties = ImmutableMap.copyOf(sessionProperties.orElse(ImmutableMap.of()));
+    }
+
+    public QueryConfiguration applyOverrides(QueryConfigurationOverrides overrides)
+    {
+        Map<String, String> sessionProperties = this.sessionProperties;
+        if (overrides.getSessionPropertiesOverrideStrategy() == OVERRIDE) {
+            sessionProperties = overrides.getSessionPropertiesOverride();
+        }
+        else if (overrides.getSessionPropertiesOverrideStrategy() == SUBSTITUTE) {
+            sessionProperties = new HashMap<>(sessionProperties);
+            for (Entry<String, String> entry : overrides.getSessionPropertiesOverride().entrySet()) {
+                sessionProperties.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return new QueryConfiguration(
+                overrides.getCatalogOverride().orElse(catalog),
+                overrides.getSchemaOverride().orElse(schema),
+                Optional.ofNullable(overrides.getUsernameOverride().orElse(username.orElse(null))),
+                Optional.ofNullable(overrides.getPasswordOverride().orElse(password.orElse(null))),
+                Optional.of(sessionProperties));
     }
 
     public String getCatalog()
@@ -65,7 +81,7 @@ public class QueryConfiguration
         return schema;
     }
 
-    public String getUsername()
+    public Optional<String> getUsername()
     {
         return username;
     }
@@ -78,5 +94,28 @@ public class QueryConfiguration
     public Map<String, String> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        QueryConfiguration o = (QueryConfiguration) obj;
+        return Objects.equals(catalog, o.catalog) &&
+                Objects.equals(schema, o.schema) &&
+                Objects.equals(username, o.username) &&
+                Objects.equals(password, o.password) &&
+                Objects.equals(sessionProperties, o.sessionProperties);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalog, schema, username, password, sessionProperties);
     }
 }

@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SliceOutput;
+
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
@@ -30,7 +33,7 @@ public abstract class AbstractRowBlock
 
     protected abstract int[] getFieldBlockOffsets();
 
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
     protected abstract boolean[] getRowIsNull();
 
@@ -157,14 +160,11 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
         checkReadablePosition(position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks()));
+        return new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks());
     }
 
     @Override
@@ -172,6 +172,22 @@ public abstract class AbstractRowBlock
     {
         checkReadablePosition(position);
         blockBuilder.appendStructureInternal(this, position);
+    }
+
+    @Override
+    public void writePositionTo(int position, SliceOutput output)
+    {
+        if (isNull(position)) {
+            output.writeByte(0);
+        }
+        else {
+            output.writeByte(1);
+            int fieldBlockOffset = getFieldBlockOffset(position);
+            Block[] fieldBlocks = getRawFieldBlocks();
+            for (int i = 0; i < numFields; i++) {
+                fieldBlocks[i].writePositionTo(fieldBlockOffset, output);
+            }
+        }
     }
 
     @Override
@@ -210,6 +226,12 @@ public abstract class AbstractRowBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return getRowIsNull() != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -222,5 +244,20 @@ public abstract class AbstractRowBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return new SingleRowBlock(getFieldBlockOffsets()[internalPosition], getRawFieldBlocks());
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return getRowIsNull()[internalPosition];
     }
 }

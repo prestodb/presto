@@ -14,30 +14,24 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.verifier.framework.QueryOrigin;
+import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryException;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 
 public class ExceededTimeLimitFailureResolver
-        extends AbstractPrestoQueryFailureResolver
+        implements FailureResolver
 {
-    public ExceededTimeLimitFailureResolver()
-    {
-        super(new QueryOrigin(TEST, MAIN));
-    }
+    public static final String NAME = "exceeded-time-limit";
 
     @Override
-    public Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats)
+    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        if (errorCode == EXCEEDED_TIME_LIMIT &&
-                controlQueryStats.getCpuTimeMillis() > testQueryStats.getCpuTimeMillis()) {
-            return Optional.of("Auto Resolved: Test cluster has less computing resource");
-        }
-        return Optional.empty();
+        return mapMatchingPrestoException(queryException, TEST_MAIN, EXCEEDED_TIME_LIMIT,
+                e -> Optional.of("Time limit exceeded on test cluster"));
     }
 }

@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.instruction.InvokeInstruction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.MethodGenerationContext;
-import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
+import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.airlift.bytecode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression
@@ -40,6 +40,16 @@ public class SqlTypeBytecodeExpression
         return new SqlTypeBytecodeExpression(type, binding, BOOTSTRAP_METHOD);
     }
 
+    private static String generateName(Type type)
+    {
+        String name = type.getTypeSignature().toString();
+        if (name.length() > 20) {
+            // Use type base to reduce the identifier size in generated code
+            name = type.getTypeSignature().getBase();
+        }
+        return name.replaceAll("\\W+", "_");
+    }
+
     private final Type type;
     private final Binding binding;
     private final Method bootstrapMethod;
@@ -47,7 +57,6 @@ public class SqlTypeBytecodeExpression
     private SqlTypeBytecodeExpression(Type type, Binding binding, Method bootstrapMethod)
     {
         super(type(Type.class));
-
         this.type = requireNonNull(type, "type is null");
         this.binding = requireNonNull(binding, "binding is null");
         this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
@@ -56,7 +65,7 @@ public class SqlTypeBytecodeExpression
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
-        return InvokeInstruction.invokeDynamic(type.getTypeSignature().toString().replaceAll("\\W+", "_"), binding.getType(), bootstrapMethod, binding.getBindingId());
+        return InvokeInstruction.invokeDynamic(generateName(type), binding.getType(), bootstrapMethod, binding.getBindingId());
     }
 
     @Override

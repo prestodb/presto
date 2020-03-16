@@ -15,12 +15,14 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Marker.Bound;
@@ -33,19 +35,13 @@ import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
@@ -55,12 +51,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -462,10 +458,10 @@ public class IOPlanPrinter
     }
 
     private class IOPlanVisitor
-            extends PlanVisitor<Void, IOPlanBuilder>
+            extends InternalPlanVisitor<Void, IOPlanBuilder>
     {
         @Override
-        protected Void visitPlan(PlanNode node, IOPlanBuilder context)
+        public Void visitPlan(PlanNode node, IOPlanBuilder context)
         {
             return processChildren(node, context);
         }
@@ -486,34 +482,11 @@ public class IOPlanPrinter
         @Override
         public Void visitTableFinish(TableFinishNode node, IOPlanBuilder context)
         {
-            WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateHandle) {
-                CreateHandle createHandle = (CreateHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        createHandle.getHandle().getConnectorId().getCatalogName(),
-                        createHandle.getSchemaTableName().getSchemaName(),
-                        createHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof InsertHandle) {
-                InsertHandle insertHandle = (InsertHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        insertHandle.getHandle().getConnectorId().getCatalogName(),
-                        insertHandle.getSchemaTableName().getSchemaName(),
-                        insertHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof DeleteHandle) {
-                DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        deleteHandle.getHandle().getConnectorId().getCatalogName(),
-                        deleteHandle.getSchemaTableName().getSchemaName(),
-                        deleteHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof CreateName || writerTarget instanceof InsertReference) {
-                throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
-            }
-            else {
-                throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
-            }
+            WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            context.setOutputTable(new CatalogSchemaTableName(
+                    writerTarget.getConnectorId().getCatalogName(),
+                    writerTarget.getSchemaTableName().getSchemaName(),
+                    writerTarget.getSchemaTableName().getTableName()));
             return processChildren(node, context);
         }
 

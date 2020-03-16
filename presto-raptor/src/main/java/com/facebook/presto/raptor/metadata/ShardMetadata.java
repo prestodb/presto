@@ -20,6 +20,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -38,6 +39,8 @@ public class ShardMetadata
     private final long tableId;
     private final long shardId;
     private final UUID shardUuid;
+    private final boolean isDelta;
+    private final Optional<UUID> deltaUuid;
     private final OptionalInt bucketNumber;
     private final long rowCount;
     private final long compressedSize;
@@ -50,6 +53,8 @@ public class ShardMetadata
             long tableId,
             long shardId,
             UUID shardUuid,
+            boolean isDelta,
+            Optional<UUID> deltaUuid,
             OptionalInt bucketNumber,
             long rowCount,
             long compressedSize,
@@ -67,6 +72,8 @@ public class ShardMetadata
         this.tableId = tableId;
         this.shardId = shardId;
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.isDelta = isDelta;
+        this.deltaUuid = deltaUuid;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
@@ -89,6 +96,16 @@ public class ShardMetadata
     public long getShardId()
     {
         return shardId;
+    }
+
+    public boolean isDelta()
+    {
+        return isDelta;
+    }
+
+    public Optional<UUID> getDeltaUuid()
+    {
+        return deltaUuid;
     }
 
     public OptionalInt getBucketNumber()
@@ -132,6 +149,8 @@ public class ShardMetadata
                 tableId,
                 shardId,
                 shardUuid,
+                isDelta,
+                deltaUuid,
                 bucketNumber,
                 rowCount,
                 compressedSize,
@@ -148,10 +167,12 @@ public class ShardMetadata
                 .add("tableId", tableId)
                 .add("shardId", shardId)
                 .add("shardUuid", shardUuid)
+                .add("isDelta", isDelta)
                 .add("rowCount", rowCount)
                 .add("compressedSize", DataSize.succinctBytes(compressedSize))
                 .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize));
 
+        deltaUuid.ifPresent(uuid -> stringHelper.add("deltaUuid", uuid));
         if (bucketNumber.isPresent()) {
             stringHelper.add("bucketNumber", bucketNumber.getAsInt());
         }
@@ -179,6 +200,8 @@ public class ShardMetadata
         ShardMetadata that = (ShardMetadata) o;
         return Objects.equals(tableId, that.tableId) &&
                 Objects.equals(shardId, that.shardId) &&
+                Objects.equals(isDelta, that.isDelta) &&
+                Objects.equals(deltaUuid, that.deltaUuid) &&
                 Objects.equals(bucketNumber, that.bucketNumber) &&
                 Objects.equals(rowCount, that.rowCount) &&
                 Objects.equals(compressedSize, that.compressedSize) &&
@@ -196,6 +219,8 @@ public class ShardMetadata
                 tableId,
                 shardId,
                 shardUuid,
+                isDelta,
+                deltaUuid,
                 bucketNumber,
                 rowCount,
                 compressedSize,
@@ -216,6 +241,8 @@ public class ShardMetadata
                     r.getLong("table_id"),
                     r.getLong("shard_id"),
                     uuidFromBytes(r.getBytes("shard_uuid")),
+                    r.getBoolean("is_delta"),
+                    r.getBytes("delta_uuid") == null ? Optional.empty() : Optional.of(uuidFromBytes(r.getBytes("delta_uuid"))),
                     getOptionalInt(r, "bucket_number"),
                     r.getLong("row_count"),
                     r.getLong("compressed_size"),

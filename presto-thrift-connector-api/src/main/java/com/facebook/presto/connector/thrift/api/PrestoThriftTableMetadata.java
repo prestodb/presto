@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import io.airlift.drift.annotations.ThriftConstructor;
-import io.airlift.drift.annotations.ThriftField;
-import io.airlift.drift.annotations.ThriftStruct;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct

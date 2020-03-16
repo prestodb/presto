@@ -154,6 +154,12 @@ public class SmileCodec<T>
         }
     }
 
+    @Override
+    public T fromBytes(byte[] bytes)
+    {
+        return fromSmile(bytes);
+    }
+
     @SuppressWarnings("unchecked")
     TypeToken<T> getTypeToken()
     {

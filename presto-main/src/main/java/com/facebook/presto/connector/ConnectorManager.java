@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.DelegatingSystemTablesProvider;
 import com.facebook.presto.connector.system.MetadataBasedSystemTablesProvider;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemTablesProvider;
+import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
+import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -26,6 +30,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
@@ -38,21 +43,28 @@ import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
+import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -67,8 +79,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -85,7 +97,8 @@ public class ConnectorManager
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
-    private final NodePartitioningManager nodePartitioningManager;
+    private final PartitioningProviderManager partitioningProviderManager;
+    private final ConnectorPlanOptimizerManager connectorPlanOptimizerManager;
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
@@ -95,6 +108,10 @@ public class ConnectorManager
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
+    private final DomainTranslator domainTranslator;
+    private final PredicateCompiler predicateCompiler;
+    private final DeterminismEvaluator determinismEvaluator;
+    private final FilterStatsCalculator filterStatsCalculator;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -112,7 +129,8 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
-            NodePartitioningManager nodePartitioningManager,
+            PartitioningProviderManager partitioningProviderManager,
+            ConnectorPlanOptimizerManager connectorPlanOptimizerManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -120,23 +138,32 @@ public class ConnectorManager
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            DomainTranslator domainTranslator,
+            PredicateCompiler predicateCompiler,
+            DeterminismEvaluator determinismEvaluator,
+            FilterStatsCalculator filterStatsCalculator)
     {
-        this.metadataManager = metadataManager;
-        this.catalogManager = catalogManager;
-        this.accessControlManager = accessControlManager;
-        this.splitManager = splitManager;
-        this.pageSourceManager = pageSourceManager;
-        this.indexManager = indexManager;
-        this.nodePartitioningManager = nodePartitioningManager;
-        this.pageSinkManager = pageSinkManager;
-        this.handleResolver = handleResolver;
-        this.nodeManager = nodeManager;
-        this.typeManager = typeManager;
-        this.pageSorter = pageSorter;
-        this.pageIndexerFactory = pageIndexerFactory;
-        this.nodeInfo = nodeInfo;
-        this.transactionManager = transactionManager;
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+        this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.indexManager = requireNonNull(indexManager, "indexManager is null");
+        this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.connectorPlanOptimizerManager = requireNonNull(connectorPlanOptimizerManager, "connectorPlanOptimizerManager is null");
+        this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+        this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
+        this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
+        this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
     }
 
     @PreDestroy
@@ -258,7 +285,12 @@ public class ConnectorManager
                 .ifPresent(indexProvider -> indexManager.addIndexProvider(connectorId, indexProvider));
 
         connector.getPartitioningProvider()
-                .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
+                .ifPresent(partitioningProvider -> partitioningProviderManager.addPartitioningProvider(connectorId, partitioningProvider));
+
+        if (nodeManager.getCurrentNode().isCoordinator()) {
+            connector.getPlanOptimizerProvider()
+                    .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
+        }
 
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 
@@ -290,7 +322,7 @@ public class ConnectorManager
         pageSourceManager.removeConnectorPageSourceProvider(connectorId);
         pageSinkManager.removeConnectorPageSinkProvider(connectorId);
         indexManager.removeIndexProvider(connectorId);
-        nodePartitioningManager.removePartitioningProvider(connectorId);
+        partitioningProviderManager.removePartitioningProvider(connectorId);
         metadataManager.getProcedureRegistry().removeProcedures(connectorId);
         accessControlManager.removeCatalogAccessControl(connectorId);
         metadataManager.getTablePropertyManager().removeProperties(connectorId);
@@ -316,8 +348,17 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
+                metadataManager.getFunctionManager(),
+                new FunctionResolution(metadataManager.getFunctionManager()),
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                new ConnectorRowExpressionService(
+                        domainTranslator,
+                        new RowExpressionOptimizer(metadataManager),
+                        predicateCompiler,
+                        determinismEvaluator,
+                        new RowExpressionFormatter(metadataManager.getFunctionManager())),
+                new ConnectorFilterStatsCalculatorService(filterStatsCalculator));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
@@ -335,6 +376,7 @@ public class ConnectorManager
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
+        private final Optional<ConnectorPlanOptimizerProvider> planOptimizerProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
@@ -405,6 +447,15 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             this.partitioningProvider = Optional.ofNullable(partitioningProvider);
+
+            ConnectorPlanOptimizerProvider planOptimizerProvider = null;
+            try {
+                planOptimizerProvider = connector.getConnectorPlanOptimizerProvider();
+                requireNonNull(planOptimizerProvider, format("Connector %s returned a null plan optimizer provider", connectorId));
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.planOptimizerProvider = Optional.ofNullable(planOptimizerProvider);
 
             ConnectorAccessControl accessControl = null;
             try {
@@ -478,6 +529,11 @@ public class ConnectorManager
         public Optional<ConnectorNodePartitioningProvider> getPartitioningProvider()
         {
             return partitioningProvider;
+        }
+
+        public Optional<ConnectorPlanOptimizerProvider> getPlanOptimizerProvider()
+        {
+            return planOptimizerProvider;
         }
 
         public Optional<ConnectorAccessControl> getAccessControl()

@@ -16,4 +16,6 @@ package com.facebook.presto.server.smile;
 public interface Codec<T>
 {
     byte[] toBytes(T instance);
+
+    T fromBytes(byte[] bytes);
 }

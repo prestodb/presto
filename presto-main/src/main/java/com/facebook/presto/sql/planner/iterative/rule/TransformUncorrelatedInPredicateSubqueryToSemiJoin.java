@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -27,6 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -71,20 +72,20 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             return Result.empty();
         }
 
-        Expression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
+        Expression expression = castToExpression(getOnlyElement(applyNode.getSubqueryAssignments().getExpressions()));
         if (!(expression instanceof InPredicate)) {
             return Result.empty();
         }
 
         InPredicate inPredicate = (InPredicate) expression;
-        Symbol semiJoinSymbol = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
+        VariableReferenceExpression semiJoinVariable = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
 
         SemiJoinNode replacement = new SemiJoinNode(context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
-                Symbol.from(inPredicate.getValue()),
-                Symbol.from(inPredicate.getValueList()),
-                semiJoinSymbol,
+                context.getVariableAllocator().toVariableReference(inPredicate.getValue()),
+                context.getVariableAllocator().toVariableReference(inPredicate.getValueList()),
+                semiJoinVariable,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

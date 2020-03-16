@@ -3,7 +3,7 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (i_brand, i_brand_id, t_hour, t_minute)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_brand", "i_brand_id", "t_hour", "t_minute"])
+                    remote exchange (REPARTITION, HASH, [i_brand, i_brand_id, t_hour, t_minute])
                         partial aggregation over (i_brand, i_brand_id, t_hour, t_minute)
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):

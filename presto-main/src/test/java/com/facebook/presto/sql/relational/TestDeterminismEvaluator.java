@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -38,10 +37,11 @@ public class TestDeterminismEvaluator
     public void testDeterminismEvaluator()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(functionManager);
+        RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
 
         CallExpression random = new CallExpression(
-                functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
+                "random",
+                functionManager.lookupFunction("random", fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
@@ -49,10 +49,10 @@ public class TestDeterminismEvaluator
         InputReferenceExpression col0 = field(0, BIGINT);
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
 
-        CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
+        CallExpression lessThanExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));
 
-        CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
+        CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
         assertFalse(determinismEvaluator.isDeterministic(lessThanRandomExpression));
     }
 }

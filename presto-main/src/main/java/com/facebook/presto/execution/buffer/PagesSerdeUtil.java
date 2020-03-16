@@ -25,7 +25,6 @@ import java.util.Iterator;
 
 import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
-import static com.facebook.presto.execution.buffer.PageCompression.lookupCodecFromMarker;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -58,7 +57,7 @@ public class PagesSerdeUtil
     public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
         output.writeInt(page.getPositionCount());
-        output.writeByte(page.getCompression().getMarker());
+        output.writeByte(page.getPageCodecMarkers());
         output.writeInt(page.getUncompressedSizeInBytes());
         output.writeInt(page.getSizeInBytes());
         output.writeBytes(page.getSlice());
@@ -71,7 +70,7 @@ public class PagesSerdeUtil
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
+        return new SerializedPage(slice, codecMarker, positionCount, uncompressedSizeInBytes);
     }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)

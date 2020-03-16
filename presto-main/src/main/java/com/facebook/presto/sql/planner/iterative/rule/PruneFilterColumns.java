@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.google.common.collect.Streams;
 
 import java.util.Optional;
@@ -25,6 +26,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneFilterColumns
@@ -36,11 +38,11 @@ public class PruneFilterColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, FilterNode filterNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FilterNode filterNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        Set<Symbol> prunedFilterInputs = Streams.concat(
+        Set<VariableReferenceExpression> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
-                SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
+                VariablesExtractor.extractUnique(castToExpression(filterNode.getPredicate()), variableAllocator.getTypes()).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);

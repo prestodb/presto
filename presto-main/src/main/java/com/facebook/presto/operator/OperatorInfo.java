@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.exchange.LocalExchangeBufferInfo;
+import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -32,7 +32,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = PartitionedOutputInfo.class, name = "partitionedOutput"),
         @JsonSubTypes.Type(value = JoinOperatorInfo.class, name = "joinOperatorInfo"),
         @JsonSubTypes.Type(value = WindowInfo.class, name = "windowInfo"),
-        @JsonSubTypes.Type(value = TableWriterInfo.class, name = "tableWriter")})
+        @JsonSubTypes.Type(value = TableWriterInfo.class, name = "tableWriter"),
+        @JsonSubTypes.Type(value = TableWriterMergeInfo.class, name = "tableWriterMerge")})
 public interface OperatorInfo
 {
     /**

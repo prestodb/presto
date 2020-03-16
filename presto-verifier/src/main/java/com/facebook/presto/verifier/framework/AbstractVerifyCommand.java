@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.verifier.event.EventClientModule;
 import com.facebook.presto.verifier.source.SourceQueryModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.airline.Arguments;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 
@@ -45,7 +45,7 @@ public abstract class AbstractVerifyCommand
                         getSqlParserOptions(),
                         getCustomQueryFilterClasses(),
                         getSqlExceptionClassifier(),
-                        getFailureResolvers()))
+                        getTablePropertyOverrides()))
                 .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
                 .addAll(getAdditionalModules())
@@ -53,7 +53,6 @@ public abstract class AbstractVerifyCommand
         Injector injector = null;
         try {
             injector = app.strictConfig().initialize();
-            injector.getInstance(VerificationManager.class).start();
         }
         catch (Exception e) {
             throwIfUnchecked(e);

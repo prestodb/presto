@@ -68,6 +68,7 @@ public class DecimalColumnWriter
     private final PresentOutputStream presentStream;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
+    private long columnStatisticsRetainedSizeInBytes;
 
     private ShortDecimalStatisticsBuilder shortDecimalStatisticsBuilder;
     private LongDecimalStatisticsBuilder longDecimalStatisticsBuilder;
@@ -159,6 +160,7 @@ public class DecimalColumnWriter
             longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
         }
         rowGroupColumnStatistics.add(statistics);
+        columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
 
         return ImmutableMap.of(column, statistics);
     }
@@ -239,11 +241,7 @@ public class DecimalColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        long retainedBytes = INSTANCE_SIZE + dataStream.getRetainedBytes() + scaleStream.getRetainedBytes() + presentStream.getRetainedBytes();
-        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
-            retainedBytes += statistics.getRetainedSizeInBytes();
-        }
-        return retainedBytes;
+        return INSTANCE_SIZE + dataStream.getRetainedBytes() + scaleStream.getRetainedBytes() + presentStream.getRetainedBytes() + columnStatisticsRetainedSizeInBytes;
     }
 
     @Override
@@ -254,6 +252,7 @@ public class DecimalColumnWriter
         scaleStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
+        columnStatisticsRetainedSizeInBytes = 0;
         shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
         longDecimalStatisticsBuilder = new LongDecimalStatisticsBuilder();
     }

@@ -30,7 +30,7 @@ import static java.util.stream.Stream.concat;
 
 public final class Signature
 {
-    private final String name;
+    private final QualifiedFunctionName name;
     private final FunctionKind kind;
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
@@ -40,7 +40,7 @@ public final class Signature
 
     @JsonCreator
     public Signature(
-            @JsonProperty("name") String name,
+            @JsonProperty("name") QualifiedFunctionName name,
             @JsonProperty("kind") FunctionKind kind,
             @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
@@ -61,25 +61,25 @@ public final class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
+    public Signature(QualifiedFunctionName name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, kind, returnType, unmodifiableList(Arrays.asList(argumentTypes)));
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public Signature(QualifiedFunctionName name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         this(name, kind, emptyList(), emptyList(), returnType, argumentTypes, false);
     }
 
-    public Signature withAlias(String name)
-    {
-        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, getReturnType(), getArgumentTypes(), variableArity);
-    }
-
     @JsonProperty
-    public String getName()
+    public QualifiedFunctionName getName()
     {
         return name;
+    }
+
+    public String getNameSuffix()
+    {
+        return name.getFunctionName();
     }
 
     @JsonProperty

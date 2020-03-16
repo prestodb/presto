@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -128,7 +129,7 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return 0;
     }
@@ -189,7 +190,7 @@ public class ArrayBlockBuilder
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was closed");
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
         return new SingleArrayBlockWriter(values, values.getPositionCount());
@@ -255,6 +256,24 @@ public class ArrayBlockBuilder
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            int length = input.readInt();
+            SingleArrayBlockWriter singleArrayBlockWriter = beginBlockEntry();
+            for (int i = 0; i < length; i++) {
+                singleArrayBlockWriter.readPositionFrom(input);
+            }
+            closeEntry();
+        }
+        return this;
     }
 
     @Override

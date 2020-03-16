@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -44,7 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
@@ -57,6 +58,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Optional;
 
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -105,7 +107,7 @@ public class TestRaptorConnector
         connector = new RaptorConnector(
                 new LifeCycleManager(ImmutableList.of(), null),
                 new TestingNodeManager(),
-                new RaptorMetadataFactory(connectorId, dbi, shardManager),
+                new RaptorMetadataFactory(connectorId, dbi, shardManager, new TypeRegistry()),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
                 new RaptorPageSinkProvider(storageManager,
@@ -117,7 +119,8 @@ public class TestRaptorConnector
                 new RaptorTableProperties(typeRegistry),
                 ImmutableSet.of(),
                 new AllowAllAccessControl(),
-                dbi);
+                dbi,
+                ImmutableSet.of());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -223,7 +226,8 @@ public class TestRaptorConnector
                 System.currentTimeMillis(),
                 new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(),
                 ImmutableMap.of(),
-                true);
+                true,
+                Optional.empty());
 
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);
         connector.getMetadata(transaction).createTable(
@@ -231,14 +235,14 @@ public class TestRaptorConnector
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", "test"),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
-                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
+                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time", TABLE_SUPPORTS_DELTA_DELETE, false)),
                 false);
         connector.commit(transaction);
 
         ConnectorTransactionHandle txn1 = connector.beginTransaction(READ_COMMITTED, false);
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(txn1), "test");
         ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(txn1).beginInsert(session, handle1);
-        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
+        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle, PageSinkProperties.defaultProperties());
 
         Object timestamp1 = null;
         Object timestamp2 = null;
@@ -272,7 +276,8 @@ public class TestRaptorConnector
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
-                        ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT)),
+                        ImmutableMap.of(TABLE_SUPPORTS_DELTA_DELETE, false)),
                 false);
         connector.commit(transaction);
 

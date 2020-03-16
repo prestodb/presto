@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -25,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.Distribution;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -82,6 +82,8 @@ public class PipelineContext
     private final AtomicLong totalScheduledTime = new AtomicLong();
     private final AtomicLong totalCpuTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
+
+    private final AtomicLong totalAllocation = new AtomicLong();
 
     private final CounterStat rawInputDataSize = new CounterStat();
     private final CounterStat rawInputPositions = new CounterStat();
@@ -188,6 +190,8 @@ public class PipelineContext
 
         totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
 
+        totalAllocation.getAndAdd(driverStats.getTotalAllocation().toBytes());
+
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
@@ -269,6 +273,16 @@ public class PipelineContext
         return taskContext.isCpuTimerEnabled();
     }
 
+    public boolean isPerOperatorAllocationTrackingEnabled()
+    {
+        return taskContext.isPerOperatorAllocationTrackingEnabled();
+    }
+
+    public boolean isAllocationTrackingEnabled()
+    {
+        return taskContext.isAllocationTrackingEnabled();
+    }
+
     public CounterStat getInputDataSize()
     {
         CounterStat stat = new CounterStat();
@@ -345,6 +359,8 @@ public class PipelineContext
         long totalCpuTime = this.totalCpuTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
+        long totalAllocation = this.totalAllocation.get();
+
         long rawInputDataSize = this.rawInputDataSize.getTotalCount();
         long rawInputPositions = this.rawInputPositions.getTotalCount();
 
@@ -369,6 +385,8 @@ public class PipelineContext
             totalScheduledTime += driverStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+
+            totalAllocation += driverStats.getTotalAllocation().toBytes();
 
             List<OperatorStats> operators = ImmutableList.copyOf(transform(driverContext.getOperatorContexts(), OperatorContext::getOperatorStats));
             for (OperatorStats operator : operators) {
@@ -439,6 +457,8 @@ public class PipelineContext
                 succinctNanos(totalBlockedTime),
                 fullyBlocked,
                 blockedReasons,
+
+                succinctBytes(totalAllocation),
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,

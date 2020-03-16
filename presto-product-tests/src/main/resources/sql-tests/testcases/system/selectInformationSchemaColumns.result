@@ -71,13 +71,13 @@ system| runtime| queries| query| varchar| YES| null| null|
 system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
 system| runtime| queries| queued_time_ms| bigint| YES| null| null|
 system| runtime| queries| analysis_time_ms| bigint| YES| null| null|
-system| runtime| queries| distributed_planning_time_ms| bigint| YES| null| null|
 system| runtime| queries| created| timestamp| YES| null| null|
 system| runtime| queries| started| timestamp| YES| null| null|
 system| runtime| queries| last_heartbeat| timestamp| YES| null| null|
 system| runtime| queries| end| timestamp| YES| null| null|
 system| runtime| tasks| node_id| varchar| YES| null| null|
 system| runtime| tasks| task_id| varchar| YES| null| null|
+system| runtime| tasks| stage_execution_id| varchar| YES| null| null|
 system| runtime| tasks| stage_id| varchar| YES| null| null|
 system| runtime| tasks| query_id| varchar| YES| null| null|
 system| runtime| tasks| state| varchar| YES| null| null|

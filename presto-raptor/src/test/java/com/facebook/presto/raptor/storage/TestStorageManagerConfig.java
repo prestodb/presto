@@ -19,15 +19,16 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import javax.validation.constraints.NotNull;
-
-import java.io.File;
+import java.net.URI;
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -46,12 +47,15 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
+                .setFileSystemProvider("file")
                 .setMinAvailableSpace(new DataSize(0, BYTE))
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
                 .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
                 .setOrcTinyStripeThreshold(new DataSize(8, MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
+                .setOrcOptimizedWriterStage(ENABLED)
+                .setOrcCompressionKind(ZSTD)
                 .setDeletionThreads(max(1, getRuntime().availableProcessors() / 2))
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
@@ -67,20 +71,26 @@ public class TestStorageManagerConfig
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
                 .setOneSplitPerBucketThreshold(0)
-                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId()));
+                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId())
+                .setZstdJniDecompressionEnabled(false)
+                .setMaxAllowedFilesPerWriter(Integer.MAX_VALUE));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("storage.data-directory", "/data")
+                .put("storage.data-directory", "file:///data")
+                .put("storage.file-system", "hdfs")
                 .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.orc.max-read-size", "16kB")
                 .put("storage.orc.stream-buffer-size", "16kB")
                 .put("storage.orc.tiny-stripe-threshold", "15kB")
                 .put("storage.orc.lazy-read-small-ranges", "false")
+                .put("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")
+                .put("storage.orc.compression-kind", "SNAPPY")
                 .put("storage.max-deletion-threads", "999")
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
@@ -97,16 +107,21 @@ public class TestStorageManagerConfig
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
                 .put("storage.shard-day-boundary-time-zone", "PST")
+                .put("storage.max-allowed-files-per-writer", "50")
+                .put("storage.zstd-jni-decompression-enabled", "true")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
-                .setDataDirectory(new File("/data"))
+                .setDataDirectory(new URI("file:///data"))
+                .setFileSystemProvider("hdfs")
                 .setMinAvailableSpace(new DataSize(123, GIGABYTE))
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
                 .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))
                 .setOrcTinyStripeThreshold(new DataSize(15, KILOBYTE))
                 .setOrcLazyReadSmallRanges(false)
+                .setOrcOptimizedWriterStage(ENABLED_AND_VALIDATED)
+                .setOrcCompressionKind(SNAPPY)
                 .setDeletionThreads(999)
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
@@ -122,14 +137,10 @@ public class TestStorageManagerConfig
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
                 .setMaxBufferSize(new DataSize(512, MEGABYTE))
                 .setOneSplitPerBucketThreshold(4)
-                .setShardDayBoundaryTimeZone("PST");
+                .setShardDayBoundaryTimeZone("PST")
+                .setMaxAllowedFilesPerWriter(50)
+                .setZstdJniDecompressionEnabled(true);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testValidations()
-    {
-        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
     }
 }

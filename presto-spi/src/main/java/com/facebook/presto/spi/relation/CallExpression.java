@@ -32,23 +32,29 @@ import static java.util.Objects.requireNonNull;
 public final class CallExpression
         extends RowExpression
 {
+    private final String displayName;
     private final FunctionHandle functionHandle;
     private final Type returnType;
     private final List<RowExpression> arguments;
 
     @JsonCreator
     public CallExpression(
+            // The name here should only be used for display (toString)
+            @JsonProperty("displayName") String displayName,
             @JsonProperty("functionHandle") FunctionHandle functionHandle,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("arguments") List<RowExpression> arguments)
     {
-        requireNonNull(functionHandle, "functionHandle is null");
-        requireNonNull(arguments, "arguments is null");
-        requireNonNull(returnType, "returnType is null");
+        this.displayName = requireNonNull(displayName, "displayName is null");
+        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.returnType = requireNonNull(returnType, "returnType is null");
+        this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
+    }
 
-        this.functionHandle = functionHandle;
-        this.returnType = returnType;
-        this.arguments = unmodifiableList(new ArrayList<>(arguments));
+    @JsonProperty
+    public String getDisplayName()
+    {
+        return displayName;
     }
 
     @JsonProperty
@@ -73,7 +79,7 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return functionHandle.getSignature().getName() + "(" + String.join(", ", arguments.stream().map(RowExpression::toString).collect(Collectors.toList())) + ")";
+        return displayName + "(" + String.join(", ", arguments.stream().map(RowExpression::toString).collect(Collectors.toList())) + ")";
     }
 
     @Override

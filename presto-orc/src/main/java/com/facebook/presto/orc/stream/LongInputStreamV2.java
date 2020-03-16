@@ -20,6 +20,8 @@ import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static java.lang.Math.min;
+
 /**
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
@@ -333,6 +335,80 @@ public class LongInputStreamV2
     }
 
     @Override
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            System.arraycopy(literals, used, values, offset, chunkSize);
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            for (int i = 0; i < chunkSize; i++) {
+                long literal = literals[used + i];
+                int value = (int) literal;
+                if (literal != value) {
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                }
+                values[offset + i] = value;
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(short[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            for (int i = 0; i < chunkSize; i++) {
+                long literal = literals[used + i];
+                short value = (short) literal;
+                if (literal != value) {
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                }
+                values[offset + i] = value;
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
     public Class<LongStreamV2Checkpoint> getCheckpointType()
     {
         return LongStreamV2Checkpoint.class;
@@ -367,7 +443,7 @@ public class LongInputStreamV2
                 used = 0;
                 readValues();
             }
-            long consume = Math.min(items, numLiterals - used);
+            long consume = min(items, numLiterals - used);
             used += consume;
             items -= consume;
         }

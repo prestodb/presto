@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestSqlEnvironmentConfig
 {
@@ -29,26 +28,19 @@ public class TestSqlEnvironmentConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlEnvironmentConfig.class)
-                .setPath(null));
+                .setForcedSessionTimeZone(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("sql.path", "a.b, c.d")
+                .put("sql.forced-session-time-zone", "UTC")
                 .build();
 
         SqlEnvironmentConfig expected = new SqlEnvironmentConfig()
-                .setPath("a.b, c.d");
+                .setForcedSessionTimeZone("UTC");
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:9: mismatched input '.'. Expecting: ',', <EOF>\\E")
-    public void testInvalidPath()
-    {
-        SqlEnvironmentConfig config = new SqlEnvironmentConfig().setPath("too.many.qualifiers");
-        new SqlPath(config.getPath()).getParsedPath();
     }
 }

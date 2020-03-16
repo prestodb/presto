@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Memo;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import io.airlift.log.Logger;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -38,22 +37,20 @@ public class CachingCostProvider
     private final StatsProvider statsProvider;
     private final Optional<Memo> memo;
     private final Session session;
-    private final TypeProvider types;
 
     private final Map<PlanNode, PlanCostEstimate> cache = new IdentityHashMap<>();
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session)
     {
-        this(costCalculator, statsProvider, Optional.empty(), session, types);
+        this(costCalculator, statsProvider, Optional.empty(), session);
     }
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session, TypeProvider types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session)
     {
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
         this.memo = requireNonNull(memo, "memo is null");
         this.session = requireNonNull(session, "session is null");
-        this.types = requireNonNull(types, "types is null");
     }
 
     @Override
@@ -106,6 +103,6 @@ public class CachingCostProvider
 
     private PlanCostEstimate calculateCost(PlanNode node)
     {
-        return costCalculator.calculateCost(node, statsProvider, this, session, types);
+        return costCalculator.calculateCost(node, statsProvider, this, session);
     }
 }

@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -36,15 +35,16 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -64,9 +64,9 @@ public class TestEliminateCrossJoins
                 .on(crossJoinAndJoin(INNER))
                 .matches(
                         join(INNER,
-                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
+                                ImmutableList.of(aliases -> new EquiJoinClause(variable("cyVariable"), variable("byVariable"))),
                                 join(INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
+                                        ImmutableList.of(aliases -> new EquiJoinClause(variable("axVariable"), variable("cxVariable"))),
                                         any(),
                                         any()),
                                 any()));
@@ -108,11 +108,11 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values(variable("a")),
+                                values(variable("b"))),
+                        values(variable("c")),
+                        variable("a"), variable("c"),
+                        variable("c"), variable("b"));
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -127,20 +127,20 @@ public class TestEliminateCrossJoins
         PlanNode leftPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("a"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                                values(variable("a")),
+                                values(variable("b"))),
+                        values(variable("c")),
+                        variable("a"), variable("c"),
+                        variable("c"), variable("b"));
 
         PlanNode rightPlan =
                 joinNode(
                         joinNode(
-                                values(symbol("x")),
-                                values(symbol("y"))),
-                        values(symbol("z")),
-                        symbol("x"), symbol("z"),
-                        symbol("z"), symbol("y"));
+                                values(variable("x")),
+                                values(variable("y"))),
+                        values(variable("z")),
+                        variable("x"), variable("z"),
+                        variable("z"), variable("y"));
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
@@ -157,12 +157,12 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b1"), symbol("b2"))),
-                        values(symbol("c1"), symbol("c2")),
-                        symbol("a"), symbol("c1"),
-                        symbol("c1"), symbol("b1"),
-                        symbol("c2"), symbol("b2"));
+                                values(variable("a")),
+                                values(variable("b1"), variable("b2"))),
+                        values(variable("c1"), variable("c2")),
+                        variable("a"), variable("c1"),
+                        variable("c1"), variable("b1"),
+                        variable("c2"), variable("b2"));
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -177,11 +177,11 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b")),
-                                symbol("a"), symbol("b")),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values(variable("a")),
+                                values(variable("b")),
+                                variable("a"), variable("b")),
+                        values(variable("c")),
+                        variable("c"), variable("b"));
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -196,10 +196,10 @@ public class TestEliminateCrossJoins
         PlanNode plan =
                 joinNode(
                         joinNode(
-                                values(symbol("a")),
-                                values(symbol("b"))),
-                        values(symbol("c")),
-                        symbol("c"), symbol("b"));
+                                values(variable("a")),
+                                values(variable("b"))),
+                        values(variable("c")),
+                        variable("c"), variable("b"));
 
         JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
@@ -215,13 +215,13 @@ public class TestEliminateCrossJoins
                 joinNode(
                         projectNode(
                                 joinNode(
-                                        values(symbol("a1")),
-                                        values(symbol("b"))),
-                                symbol("a2"),
+                                        values(variable("a1")),
+                                        values(variable("b"))),
+                                variable("a2"),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
-                        values(symbol("c")),
-                        symbol("a2"), symbol("c"),
-                        symbol("c"), symbol("b"));
+                        values(variable("c")),
+                        variable("a2"), variable("c"),
+                        variable("c"), variable("b"));
 
         assertEquals(JoinGraph.buildFrom(plan).size(), 2);
     }
@@ -229,42 +229,42 @@ public class TestEliminateCrossJoins
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
     {
         return p -> {
-            Symbol axSymbol = p.symbol("axSymbol");
-            Symbol bySymbol = p.symbol("bySymbol");
-            Symbol cxSymbol = p.symbol("cxSymbol");
-            Symbol cySymbol = p.symbol("cySymbol");
+            VariableReferenceExpression axVariable = p.variable("axVariable");
+            VariableReferenceExpression byVariable = p.variable("byVariable");
+            VariableReferenceExpression cxVariable = p.variable("cxVariable");
+            VariableReferenceExpression cyVariable = p.variable("cyVariable");
 
             // (a inner join b) inner join c on c.x = a.x and c.y = b.y
             return p.join(INNER,
                     p.join(secondJoinType,
-                            p.values(axSymbol),
-                            p.values(bySymbol)),
-                    p.values(cxSymbol, cySymbol),
-                    new EquiJoinClause(cxSymbol, axSymbol),
-                    new EquiJoinClause(cySymbol, bySymbol));
+                            p.values(axVariable),
+                            p.values(byVariable)),
+                    p.values(cxVariable, cyVariable),
+                    new EquiJoinClause(p.variable(cxVariable), p.variable(axVariable)),
+                    new EquiJoinClause(p.variable(cyVariable), p.variable(byVariable)));
         };
     }
 
-    private PlanNode projectNode(PlanNode source, String symbol, Expression expression)
+    private PlanNode projectNode(PlanNode source, VariableReferenceExpression variable, Expression expression)
     {
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                assignment(variable, expression));
     }
 
-    private String symbol(String name)
+    private VariableReferenceExpression variable(String name)
     {
-        return name;
+        return new VariableReferenceExpression(name, BIGINT);
     }
 
-    private JoinNode joinNode(PlanNode left, PlanNode right, String... symbols)
+    private JoinNode joinNode(PlanNode left, PlanNode right, VariableReferenceExpression... variables)
     {
-        checkArgument(symbols.length % 2 == 0);
+        checkArgument(variables.length % 2 == 0);
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
-        for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1])));
+        for (int i = 0; i < variables.length; i += 2) {
+            criteria.add(new JoinNode.EquiJoinClause(variables[i], variables[i + 1]));
         }
 
         return new JoinNode(
@@ -273,9 +273,9 @@ public class TestEliminateCrossJoins
                 left,
                 right,
                 criteria.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -283,11 +283,11 @@ public class TestEliminateCrossJoins
                 Optional.empty());
     }
 
-    private ValuesNode values(String... symbols)
+    private ValuesNode values(VariableReferenceExpression... variables)
     {
         return new ValuesNode(
                 idAllocator.getNextId(),
-                Arrays.stream(symbols).map(Symbol::new).collect(toImmutableList()),
+                Arrays.asList(variables),
                 ImmutableList.of());
     }
 }

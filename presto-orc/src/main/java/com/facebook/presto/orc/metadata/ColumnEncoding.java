@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.SortedMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,14 +41,17 @@ public class ColumnEncoding
     // A column can be modeled as multiple sequences that are independently encoded.
     // For example, for a flat map column, each key will have a
     // separate value stream with its own column encoding.
-    private final Optional<List<DwrfSequenceEncoding>> additionalSequenceEncodings;
+    // These additional sequence IDs start from 1 and may not be consecutive, for example, the file may be updated to
+    // remove keys from the flat map without changing the sequence IDs associated with each key.
+    // Sorted so that when we iterate over the map the DwrfSequenceEncodings are returned in ascending Sequence ID order
+    private final Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings;
 
     public ColumnEncoding(ColumnEncodingKind columnEncodingKind, int dictionarySize)
     {
         this(columnEncodingKind, dictionarySize, Optional.empty());
     }
 
-    public ColumnEncoding(ColumnEncodingKind columnEncodingKind, int dictionarySize, Optional<List<DwrfSequenceEncoding>> additionalSequenceEncodings)
+    public ColumnEncoding(ColumnEncodingKind columnEncodingKind, int dictionarySize, Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings)
     {
         this.columnEncodingKind = requireNonNull(columnEncodingKind, "columnEncodingKind is null");
         this.dictionarySize = dictionarySize;
@@ -65,7 +68,7 @@ public class ColumnEncoding
         return dictionarySize;
     }
 
-    public Optional<List<DwrfSequenceEncoding>> getAdditionalSequenceEncodings()
+    public Optional<SortedMap<Integer, DwrfSequenceEncoding>> getAdditionalSequenceEncodings()
     {
         return additionalSequenceEncodings;
     }
@@ -80,7 +83,15 @@ public class ColumnEncoding
                 additionalSequenceEncodings.isPresent(),
                 "Got non-zero sequence: %d, but there are no additional sequence encodings: %s", sequence, this);
 
-        return additionalSequenceEncodings.get().get(sequence - 1).getValueEncoding();
+        DwrfSequenceEncoding sequenceEncoding = additionalSequenceEncodings.get().get(sequence);
+
+        checkState(
+                sequenceEncoding != null,
+                "Non-zero sequence %d is not present in the ColumnEncoding's additional sequences: %s",
+                sequence,
+                additionalSequenceEncodings.get().keySet());
+
+        return sequenceEncoding.getValueEncoding();
     }
 
     @Override

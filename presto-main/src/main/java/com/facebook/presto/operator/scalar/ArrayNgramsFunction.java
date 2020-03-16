@@ -32,7 +32,7 @@ import static java.lang.StrictMath.toIntExact;
 @Description("Return N-grams for the input")
 public final class ArrayNgramsFunction
 {
-    private ArrayNgramsFunction(){}
+    private ArrayNgramsFunction() {}
 
     @TypeParameter("T")
     @SqlType("array(array(T))")

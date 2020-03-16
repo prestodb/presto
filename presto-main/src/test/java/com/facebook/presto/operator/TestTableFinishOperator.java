@@ -13,38 +13,46 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import com.facebook.presto.operator.TableFinishOperator.TableFinisher;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -53,7 +61,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +74,8 @@ public class TestTableFinishOperator
 {
     private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
     private static final InternalAggregationFunction LONG_MAX = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+            functionManager.lookupFunction("max", fromTypes(BIGINT)));
+    private static final JsonCodec<TableCommitContext> TABLE_COMMIT_CONTEXT_CODEC = jsonCodec(TableCommitContext.class);
 
     private ScheduledExecutorService scheduledExecutor;
 
@@ -87,7 +96,8 @@ public class TestTableFinishOperator
     public void testStatisticsAggregation()
             throws Exception
     {
-        TestTableFinisher tableFinisher = new TestTableFinisher();
+        TestingTableFinisher tableFinisher = new TestingTableFinisher();
+        TestingLifespanCommitter lifespanCommitter = new TestingLifespanCommitter();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
@@ -100,27 +110,29 @@ public class TestTableFinishOperator
                 0,
                 new PlanNodeId("node"),
                 tableFinisher,
+                lifespanCommitter,
                 new AggregationOperator.AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(2), Optional.empty())),
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
                         true),
                 descriptor,
-                session);
+                session,
+                TABLE_COMMIT_CONTEXT_CODEC);
         DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
 
-        List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+        List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, VARBINARY, BIGINT);
 
-        operator.addInput(rowPagesBuilder(inputTypes).row(4, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(5, null, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {1}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, new byte[] {2}, null).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
+        byte[] tableCommitContextForStatsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, false);
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, tableCommitContextForStatsPage, 6).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, tableCommitContextForStatsPage, 7).build().get(0));
+        byte[] tableCommitContextForFragmentsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, true);
+        operator.addInput(rowPagesBuilder(inputTypes).row(4, new byte[] {1}, tableCommitContextForFragmentsPage, null).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(5, new byte[] {2}, tableCommitContextForFragmentsPage, null).build().get(0));
 
         assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
         assertEquals(driverContext.getMemoryUsage(), 0);
@@ -154,11 +166,113 @@ public class TestTableFinishOperator
         assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
         assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
 
+        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
-    private static class TestTableFinisher
+    @Test
+    public void testLifespanCommit()
+            throws Exception
+    {
+        TestingTableFinisher tableFinisher = new TestingTableFinisher();
+        TestingLifespanCommitter lifespanCommitter = new TestingLifespanCommitter();
+        ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
+        StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(statisticMetadata, 0));
+        Session session = testSessionBuilder()
+                .setSystemProperty("statistics_cpu_timer_enabled", "true")
+                .build();
+        TableFinishOperatorFactory operatorFactory = new TableFinishOperatorFactory(
+                0,
+                new PlanNodeId("node"),
+                tableFinisher,
+                lifespanCommitter,
+                new AggregationOperator.AggregationOperatorFactory(
+                        1,
+                        new PlanNodeId("test"),
+                        AggregationNode.Step.SINGLE,
+                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
+                        true),
+                descriptor,
+                session,
+                TABLE_COMMIT_CONTEXT_CODEC);
+        DriverContext driverContext = createTaskContext(scheduledExecutor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        TableFinishOperator operator = (TableFinishOperator) operatorFactory.createOperator(driverContext);
+
+        List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, VARBINARY, BIGINT);
+
+        // pages for non-grouped execution
+        // expect lifespan committer not to be called and stats
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, false), 1).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(3, new byte[] {2}, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, true), null).build().get(0));
+        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+
+        // pages for unrecoverable grouped execution
+        // expect lifespan committer not to be called
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, false), 4).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(6, new byte[] {5}, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, true), null).build().get(0));
+        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+
+        // pages for failed recoverable grouped execution
+        // expect lifespan committer not to be called and page ignored
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 2, true, false), 100).build().get(0));
+        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+
+        // pages for successful recoverable grouped execution
+        // expect lifespan committer to be called and pages published
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, false), 9).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, true), null).build().get(0));
+        assertEquals(getOnlyElement(lifespanCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
+
+        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
+
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.needsInput());
+
+        operator.finish();
+        assertFalse(operator.isFinished());
+
+        assertNull(operator.getOutput());
+        List<Type> outputTypes = ImmutableList.of(BIGINT);
+        assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(20).build().get(0));
+
+        assertTrue(operator.isBlocked().isDone());
+        assertFalse(operator.needsInput());
+        assertTrue(operator.isFinished());
+
+        operator.close();
+
+        assertEquals(tableFinisher.getFragments(), ImmutableList.of(Slices.wrappedBuffer(new byte[] {2}), Slices.wrappedBuffer(new byte[] {5}), Slices.wrappedBuffer(new byte[] {
+                10})));
+        assertEquals(tableFinisher.getComputedStatistics().size(), 1);
+        assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
+        Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
+                .writeLong(9)
+                .closeEntry()
+                .build();
+        assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
+
+        TableFinishInfo tableFinishInfo = operator.getInfo();
+        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
+    }
+
+    private static byte[] getTableCommitContextBytes(Lifespan lifespan, int stageId, int taskId, boolean lifespanCommitRequired, boolean lastPage)
+    {
+        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, new TaskId("query", stageId, 0, taskId), lifespanCommitRequired, lastPage));
+    }
+
+    private static class TestingTableFinisher
             implements TableFinisher
     {
         private boolean finished;
@@ -183,6 +297,24 @@ public class TestTableFinishOperator
         public Collection<ComputedStatistics> getComputedStatistics()
         {
             return computedStatistics;
+        }
+    }
+
+    private static class TestingLifespanCommitter
+            implements LifespanCommitter
+    {
+        private List<Collection<Slice>> fragmentsList = new ArrayList<>();
+
+        @Override
+        public ListenableFuture<Void> commitLifespan(Collection<Slice> fragments)
+        {
+            fragmentsList.add(fragments);
+            return immediateFuture(null);
+        }
+
+        public List<Collection<Slice>> getCommittedFragments()
+        {
+            return fragmentsList;
         }
     }
 }

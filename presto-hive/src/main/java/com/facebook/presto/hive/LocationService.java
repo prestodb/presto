@@ -25,11 +25,11 @@ import static java.util.Objects.requireNonNull;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
+    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired);
 
-    LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
+    LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, boolean tempPathRequired);
 
-    LocationHandle forTemporaryTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
+    LocationHandle forTemporaryTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, boolean tempPathRequired);
 
     /**
      * targetPath and writePath will be root directory of all partition and table paths
@@ -49,12 +49,14 @@ public interface LocationService
     {
         private final Path targetPath;
         private final Path writePath;
+        private final Optional<Path> tempPath;
         private final LocationHandle.WriteMode writeMode;
 
-        public WriteInfo(Path targetPath, Path writePath, LocationHandle.WriteMode writeMode)
+        public WriteInfo(Path targetPath, Path writePath, Optional<Path> tempPath, LocationHandle.WriteMode writeMode)
         {
             this.targetPath = requireNonNull(targetPath, "targetPath is null");
             this.writePath = requireNonNull(writePath, "writePath is null");
+            this.tempPath = requireNonNull(tempPath, "tempPath is null");
             this.writeMode = requireNonNull(writeMode, "writeMode is null");
         }
 
@@ -74,6 +76,14 @@ public interface LocationService
         public Path getWritePath()
         {
             return writePath;
+        }
+
+        /**
+         * Temporary path for temp files generated during query processing, for example, sorted table writes.
+         */
+        public Optional<Path> getTempPath()
+        {
+            return tempPath;
         }
 
         public LocationHandle.WriteMode getWriteMode()

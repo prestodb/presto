@@ -19,6 +19,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
@@ -27,7 +28,7 @@ public final class ArrayFunctions
     {
     }
 
-    @ScalarFunction(hidden = true)
+    @ScalarFunction(visibility = HIDDEN)
     @SqlType("array(unknown)")
     public static Block arrayConstructor()
     {

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
@@ -23,17 +22,20 @@ import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -44,15 +46,21 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INDEX_LOADER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class IndexLoader
@@ -73,6 +81,7 @@ public class IndexLoader
     private final List<Type> keyTypes;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
+    private final Duration indexLoaderTimeout;
 
     @GuardedBy("this")
     private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
@@ -93,7 +102,8 @@ public class IndexLoader
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
             PagesIndex.Factory pagesIndexFactory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            Duration indexLoaderTimeout)
     {
         requireNonNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
         checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
@@ -107,6 +117,7 @@ public class IndexLoader
         requireNonNull(stats, "stats is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         requireNonNull(joinCompiler, "joinCompiler is null");
+        requireNonNull(indexLoaderTimeout, "indexLoaderTimeout is null");
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
@@ -118,6 +129,7 @@ public class IndexLoader
         this.stats = stats;
         this.pagesIndexFactory = pagesIndexFactory;
         this.joinCompiler = joinCompiler;
+        this.indexLoaderTimeout = indexLoaderTimeout;
 
         ImmutableList.Builder<Type> keyTypeBuilder = ImmutableList.builder();
         for (int keyOutputChannel : keyOutputChannels) {
@@ -263,7 +275,8 @@ public class IndexLoader
                     expectedPositions,
                     maxIndexMemorySize,
                     pagesIndexFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    indexLoaderTimeout);
         }
     }
 
@@ -280,6 +293,7 @@ public class IndexLoader
         private final JoinCompiler joinCompiler;
 
         private final IndexSnapshotBuilder indexSnapshotBuilder;
+        private final Duration timeout;
 
         private IndexSnapshotLoader(IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
                 PipelineContext pipelineContext,
@@ -291,7 +305,8 @@ public class IndexLoader
                 int expectedPositions,
                 DataSize maxIndexMemorySize,
                 PagesIndex.Factory pagesIndexFactory,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                Duration timeout)
         {
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
@@ -299,6 +314,7 @@ public class IndexLoader
             this.outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexTypes = indexTypes;
             this.joinCompiler = joinCompiler;
+            this.timeout = timeout;
 
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
@@ -334,7 +350,19 @@ public class IndexLoader
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
                     ListenableFuture<?> process = driver.process();
-                    checkState(process.isDone(), "Driver should never block");
+                    try {
+                        process.get(timeout.toMillis(), MILLISECONDS);
+                    }
+                    catch (TimeoutException e) {
+                        throw new PrestoException(INDEX_LOADER_TIMEOUT, format("Exceeded the time limit of %s loading indexes for index join", timeout));
+                    }
+                    catch (ExecutionException e) {
+                        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Error loading index for join", e);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Error loading index for join", e);
+                    }
                 }
             }
 

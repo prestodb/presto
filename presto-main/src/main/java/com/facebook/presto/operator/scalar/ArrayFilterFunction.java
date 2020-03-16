@@ -21,7 +21,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
 import static java.lang.Boolean.TRUE;
@@ -38,21 +37,59 @@ public final class ArrayFilterFunction
     public static Block filterLong(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterLongLambda function)
+            @SqlType("function(T, boolean)") LongToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Long input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getLong(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getLong(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getLong(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getLong(arrayBlock, position)))) {
+                position++;
+            }
+
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getLong(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -62,21 +99,58 @@ public final class ArrayFilterFunction
     public static Block filterDouble(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterDoubleLambda function)
+            @SqlType("function(T, boolean)") DoubleToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Double input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getDouble(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getDouble(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getDouble(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getDouble(arrayBlock, position)))) {
+                position++;
+            }
+
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getDouble(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -86,21 +160,58 @@ public final class ArrayFilterFunction
     public static Block filterBoolean(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterBooleanLambda function)
+            @SqlType("function(T, boolean)") BooleanToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Boolean input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getBoolean(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getBoolean(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getBoolean(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getBoolean(arrayBlock, position)))) {
+                position++;
+            }
+
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getBoolean(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -110,21 +221,58 @@ public final class ArrayFilterFunction
     public static Block filterSlice(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterSliceLambda function)
+            @SqlType("function(T, boolean)") SliceToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Slice input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getSlice(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getSlice(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               elementType.getSlice(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getSlice(arrayBlock, position)))) {
+                position++;
+            }
+
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getSlice(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -134,63 +282,58 @@ public final class ArrayFilterFunction
     public static Block filterBlock(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterBlockLambda function)
+            @SqlType("function(T, boolean)") BlockToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Block input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = (Block) elementType.getObject(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               (Block) elementType.getObject(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(arrayBlock.isNull(position) ?
+                                               null :
+                                               (Block) elementType.getObject(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply((Block) elementType.getObject(arrayBlock, position)))) {
+                position++;
+            }
+
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply((Block) elementType.getObject(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
-    }
-
-    @FunctionalInterface
-    public interface FilterLongLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Long x);
-    }
-
-    @FunctionalInterface
-    public interface FilterDoubleLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Double x);
-    }
-
-    @FunctionalInterface
-    public interface FilterBooleanLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Boolean x);
-    }
-
-    @FunctionalInterface
-    public interface FilterSliceLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Slice x);
-    }
-
-    @FunctionalInterface
-    public interface FilterBlockLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Block x);
-    }
-
-    @FunctionalInterface
-    public interface FilterVoidLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Void x);
     }
 }

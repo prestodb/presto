@@ -40,7 +40,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestFileResourceGroupConfigurationManager
 {
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Test
     public void testInvalid()

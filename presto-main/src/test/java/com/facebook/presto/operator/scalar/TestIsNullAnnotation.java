@@ -38,7 +38,7 @@ public class TestIsNullAnnotation
         registerScalar(getClass());
     }
 
-    @ScalarFunction("test_is_null_simple")
+    @ScalarFunction(value = "test_is_null_simple", calledOnNullInput = true)
     @SqlType(StandardTypes.BIGINT)
     public static long testIsNullSimple(@SqlType(StandardTypes.BIGINT) long value, @IsNull boolean isNull)
     {
@@ -48,7 +48,7 @@ public class TestIsNullAnnotation
         return 2 * value;
     }
 
-    @ScalarFunction("test_is_null")
+    @ScalarFunction(value = "test_is_null", calledOnNullInput = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice testIsNull(
             ConnectorSession session,
@@ -84,7 +84,7 @@ public class TestIsNullAnnotation
         return utf8Slice(builder.toString());
     }
 
-    @ScalarFunction("test_is_null_void")
+    @ScalarFunction(value = "test_is_null_void", calledOnNullInput = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean testIsNullVoid(@SqlType("unknown") boolean value, @IsNull boolean isNull)
     {

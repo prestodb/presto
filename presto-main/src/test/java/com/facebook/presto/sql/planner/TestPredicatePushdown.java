@@ -13,17 +13,25 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.RowExpressionPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -38,8 +46,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 
 public class TestPredicatePushdown
         extends BasePlanTest
@@ -53,7 +64,7 @@ public class TestPredicatePushdown
                                 any(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
-                                        filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
+                                        filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
@@ -411,5 +422,48 @@ public class TestPredicatePushdown
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Override
+    protected void assertPlan(String sql, PlanMatchPattern pattern)
+    {
+        // TODO remove tests with filtered optimizer once we only have RowExpressionPredicatePushDown
+        // Currently we have mixture of Expression/RowExpression based push down, so we disable one of them to make sure test covers both code path.
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
+                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof PredicatePushDown));
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
+                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof RowExpressionPredicatePushDown));
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+    }
+
+    @Test
+    public void testPredicatePushDownCreatesValidJoin()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new RowExpressionPredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
+                .on(p ->
+                        p.join(INNER,
+                                p.filter(p.comparison(OperatorType.EQUAL, p.variable("a1"), constant(1L, INTEGER)),
+                                        p.values(p.variable("a1"))),
+                                p.values(p.variable("b1")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("a1"), p.variable("b1"))),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(PARTITIONED)))
+                .matches(
+                        project(
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.of(REPLICATED),
+                                        project(
+                                                filter("a1=1",
+                                                        values("a1"))),
+                                        project(
+                                                filter("1=b1",
+                                                        values("b1"))))));
     }
 }

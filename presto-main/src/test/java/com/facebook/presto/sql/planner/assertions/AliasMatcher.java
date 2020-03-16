@@ -16,8 +16,9 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Optional;
 
@@ -54,11 +55,11 @@ public class AliasMatcher
     @Override
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
-        if (symbol.isPresent() && alias.isPresent()) {
-            return match(alias.get(), symbol.get().toSymbolReference());
+        Optional<VariableReferenceExpression> variable = matcher.getAssignedVariable(node, session, metadata, symbolAliases);
+        if (variable.isPresent() && alias.isPresent()) {
+            return match(alias.get(), new SymbolReference(variable.get().getName()));
         }
-        return new MatchResult(symbol.isPresent());
+        return new MatchResult(variable.isPresent());
     }
 
     @Override

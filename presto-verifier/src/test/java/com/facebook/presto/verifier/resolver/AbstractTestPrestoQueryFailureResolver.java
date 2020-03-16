@@ -14,8 +14,8 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.verifier.framework.QueryException;
-import com.facebook.presto.verifier.framework.QueryOrigin;
+import com.facebook.presto.verifier.framework.ClusterConnectionException;
+import com.facebook.presto.verifier.framework.PrestoQueryException;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
@@ -23,9 +23,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
 
@@ -47,12 +46,13 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forPresto(
+                new PrestoQueryException(
                         new RuntimeException(),
-                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
-                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_MEMORY_BYTES / 2)),
-                        new QueryOrigin(TEST, SETUP)))
+                        TEST_SETUP,
+                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
+                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_MEMORY_BYTES / 2))),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -61,7 +61,8 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forClusterConnection(new SocketTimeoutException(), new QueryOrigin(TEST, MAIN)))
+                new ClusterConnectionException(new SocketTimeoutException(), TEST_MAIN),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -70,12 +71,13 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forPresto(
+                new PrestoQueryException(
                         new RuntimeException(),
-                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
-                        Optional.empty(),
-                        new QueryOrigin(TEST, MAIN)))
+                        TEST_MAIN,
+                        Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
+                        Optional.empty()),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -84,12 +86,13 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forPresto(
+                new PrestoQueryException(
                         new RuntimeException(),
-                        Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT),
                         false,
-                        Optional.empty(),
-                        new QueryOrigin(TEST, MAIN)))
+                        TEST_MAIN,
+                        Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT),
+                        Optional.empty()),
+                Optional.empty())
                 .isPresent());
     }
 

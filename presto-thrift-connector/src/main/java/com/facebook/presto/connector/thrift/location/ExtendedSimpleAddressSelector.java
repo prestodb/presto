@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.connector.thrift.location;
 
+import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.client.address.SimpleAddressSelector.SimpleAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.drift.client.address.AddressSelector;
-import io.airlift.drift.client.address.SimpleAddressSelector.SimpleAddress;
 
 import java.util.List;
 import java.util.Optional;

@@ -14,9 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -25,94 +27,100 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class InternalHiveSplit
 {
     // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(Properties.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
-    private final String path;
+    private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize();
+
+    private final byte[] relativeUri;
     private final long end;
     private final long fileSize;
-    private final Properties schema;
-    private final List<HivePartitionKey> partitionKeys;
-    private final List<InternalHiveBlock> blocks;
-    private final String partitionName;
-    private final OptionalInt readBucketNumber;
-    private final OptionalInt tableBucketNumber;
+
+    // encode the hive blocks as an array of longs and list of list of addresses to save memory
+    //if all blockAddress lists are empty, store only the empty list
+    private final long[] blockEndOffsets;
+    private final List<List<HostAddress>> blockAddresses;
+
+    // stored as ints rather than Optionals to save memory
+    // -1 indicates an absent value
+    private final int readBucketNumber;
+    private final int tableBucketNumber;
+
     private final boolean splittable;
-    private final boolean forceLocalScheduling;
-    private final Map<Integer, HiveTypeName> columnCoercions;
-    private final Optional<BucketConversion> bucketConversion;
+    private final NodeSelectionStrategy nodeSelectionStrategy;
     private final boolean s3SelectPushdownEnabled;
+    private final HiveSplitPartitionInfo partitionInfo;
+    private final Optional<byte[]> extraFileInfo;
 
     private long start;
     private int currentBlockIndex;
 
     public InternalHiveSplit(
-            String partitionName,
-            String path,
+            String relativeUri,
             long start,
             long end,
             long fileSize,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
-            boolean forceLocalScheduling,
-            Map<Integer, HiveTypeName> columnCoercions,
-            Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            NodeSelectionStrategy nodeSelectionStrategy,
+            boolean s3SelectPushdownEnabled,
+            HiveSplitPartitionInfo partitionInfo,
+            Optional<byte[]> extraFileInfo)
     {
         checkArgument(start >= 0, "start must be positive");
-        checkArgument(end >= 0, "length must be positive");
+        checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
-        requireNonNull(partitionName, "partitionName is null");
-        requireNonNull(path, "path is null");
-        requireNonNull(schema, "schema is null");
-        requireNonNull(partitionKeys, "partitionKeys is null");
-        requireNonNull(blocks, "blocks is null");
+        requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(columnCoercions, "columnCoercions is null");
-        requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
+        requireNonNull(partitionInfo, "partitionInfo is null");
+        requireNonNull(extraFileInfo, "extraFileInfo is null");
 
-        this.partitionName = partitionName;
-        this.path = path;
+        this.relativeUri = relativeUri.getBytes(UTF_8);
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
-        this.schema = schema;
-        this.partitionKeys = ImmutableList.copyOf(partitionKeys);
-        this.blocks = ImmutableList.copyOf(blocks);
-        this.readBucketNumber = readBucketNumber;
-        this.tableBucketNumber = tableBucketNumber;
+        this.readBucketNumber = readBucketNumber.orElse(-1);
+        this.tableBucketNumber = tableBucketNumber.orElse(-1);
         this.splittable = splittable;
-        this.forceLocalScheduling = forceLocalScheduling;
-        this.columnCoercions = ImmutableMap.copyOf(columnCoercions);
-        this.bucketConversion = bucketConversion;
+        this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.partitionInfo = partitionInfo;
+        this.extraFileInfo = extraFileInfo;
+
+        ImmutableList.Builder<List<HostAddress>> addressesBuilder = ImmutableList.builder();
+        blockEndOffsets = new long[blocks.size()];
+        boolean allAddressesEmpty = true;
+        for (int i = 0; i < blocks.size(); i++) {
+            InternalHiveBlock block = blocks.get(i);
+            List<HostAddress> addresses = block.getAddresses();
+            allAddressesEmpty = allAddressesEmpty && addresses.isEmpty();
+            addressesBuilder.add(addresses);
+            blockEndOffsets[i] = block.getEnd();
+        }
+        blockAddresses = allAddressesEmpty ? ImmutableList.of() : addressesBuilder.build();
     }
 
     public String getPath()
     {
-        return path;
+        String relativePathString = new String(relativeUri, UTF_8);
+        return new Path(partitionInfo.getPath().resolve(relativePathString)).toString();
     }
 
     public long getStart()
@@ -135,29 +143,24 @@ public class InternalHiveSplit
         return s3SelectPushdownEnabled;
     }
 
-    public Properties getSchema()
-    {
-        return schema;
-    }
-
     public List<HivePartitionKey> getPartitionKeys()
     {
-        return partitionKeys;
+        return partitionInfo.getPartitionKeys();
     }
 
     public String getPartitionName()
     {
-        return partitionName;
+        return partitionInfo.getPartitionName();
     }
 
     public OptionalInt getReadBucketNumber()
     {
-        return readBucketNumber;
+        return readBucketNumber >= 0 ? OptionalInt.of(readBucketNumber) : OptionalInt.empty();
     }
 
     public OptionalInt getTableBucketNumber()
     {
-        return tableBucketNumber;
+        return tableBucketNumber >= 0 ? OptionalInt.of(tableBucketNumber) : OptionalInt.empty();
     }
 
     public boolean isSplittable()
@@ -165,30 +168,31 @@ public class InternalHiveSplit
         return splittable;
     }
 
-    public boolean isForceLocalScheduling()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return forceLocalScheduling;
+        return nodeSelectionStrategy;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public Map<Integer, Column> getPartitionSchemaDifference()
     {
-        return columnCoercions;
+        return partitionInfo.getPartitionSchemaDifference();
     }
 
     public Optional<BucketConversion> getBucketConversion()
     {
-        return bucketConversion;
+        return partitionInfo.getBucketConversion();
     }
 
     public InternalHiveBlock currentBlock()
     {
         checkState(!isDone(), "All blocks have been consumed");
-        return blocks.get(currentBlockIndex);
+        List<HostAddress> addresses = blockAddresses.isEmpty() ? ImmutableList.of() : blockAddresses.get(currentBlockIndex);
+        return new InternalHiveBlock(blockEndOffsets[currentBlockIndex], addresses);
     }
 
     public boolean isDone()
     {
-        return currentBlockIndex == blocks.size();
+        return currentBlockIndex == blockEndOffsets.length;
     }
 
     public void increaseStart(long value)
@@ -196,29 +200,46 @@ public class InternalHiveSplit
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;
-            if (isDone()) {
-                return;
-            }
-            verify(start == currentBlock().getStart());
         }
     }
 
+    public HiveSplitPartitionInfo getPartitionInfo()
+    {
+        return partitionInfo;
+    }
+
+    public Optional<byte[]> getExtraFileInfo()
+    {
+        return extraFileInfo;
+    }
+
+    public void reset()
+    {
+        currentBlockIndex = 0;
+        start = 0;
+    }
+
+    /**
+     * Estimate the size of this InternalHiveSplit. Note that
+     * PartitionInfo is a shared object, so its memory usage is
+     * tracked separately in HiveSplitSource.
+     */
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += path.length() * Character.BYTES;
-        result += sizeOfObjectArray(partitionKeys.size());
-        for (HivePartitionKey partitionKey : partitionKeys) {
-            result += partitionKey.getEstimatedSizeInBytes();
+        result += sizeOf(relativeUri);
+        result += sizeOf(blockEndOffsets);
+        if (!blockAddresses.isEmpty()) {
+            result += sizeOfObjectArray(blockAddresses.size());
+            for (List<HostAddress> addresses : blockAddresses) {
+                result += sizeOfObjectArray(addresses.size());
+                for (HostAddress address : addresses) {
+                    result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+                }
+            }
         }
-        result += sizeOfObjectArray(blocks.size());
-        for (InternalHiveBlock block : blocks) {
-            result += block.getEstimatedSizeInBytes();
-        }
-        result += partitionName.length() * Character.BYTES;
-        result += sizeOfObjectArray(columnCoercions.size());
-        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
-            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+        if (extraFileInfo.isPresent()) {
+            result += sizeOf(extraFileInfo.get());
         }
         return result;
     }
@@ -227,7 +248,7 @@ public class InternalHiveSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("path", path)
+                .add("relativeUri", new String(relativeUri, UTF_8))
                 .add("start", start)
                 .add("end", end)
                 .add("fileSize", fileSize)
@@ -236,25 +257,14 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveBlock.class).instanceSize();
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize();
-
-        private final long start;
         private final long end;
         private final List<HostAddress> addresses;
 
-        public InternalHiveBlock(long start, long end, List<HostAddress> addresses)
+        public InternalHiveBlock(long end, List<HostAddress> addresses)
         {
-            checkArgument(start <= end, "block end cannot be before block start");
-            this.start = start;
+            checkArgument(end >= 0, "block end must be >= 0");
             this.end = end;
             this.addresses = ImmutableList.copyOf(addresses);
-        }
-
-        public long getStart()
-        {
-            return start;
         }
 
         public long getEnd()
@@ -265,16 +275,6 @@ public class InternalHiveSplit
         public List<HostAddress> getAddresses()
         {
             return addresses;
-        }
-
-        public int getEstimatedSizeInBytes()
-        {
-            int result = INSTANCE_SIZE;
-            result += sizeOfObjectArray(addresses.size());
-            for (HostAddress address : addresses) {
-                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
-            }
-            return result;
         }
     }
 }

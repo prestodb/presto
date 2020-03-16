@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.sun.management.ThreadMXBean;
+
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,35 +30,46 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 class OperationTimer
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final boolean trackOverallCpuTime;
     private final boolean trackOperationCpuTime;
 
+    private final boolean trackOverallAllocation;
+    private final boolean trackOperationAllocation;
+
     private final long wallStart;
     private final long cpuStart;
+    private final long allocationStart;
 
     private long intervalWallStart;
     private long intervalCpuStart;
+    private long intervalAllocationStart;
 
     private boolean finished;
 
     OperationTimer(boolean trackOverallCpuTime)
     {
-        this(trackOverallCpuTime, false);
+        this(trackOverallCpuTime, false, false, false);
     }
 
-    OperationTimer(boolean trackOverallCpuTime, boolean trackOperationCpuTime)
+    OperationTimer(boolean trackOverallCpuTime, boolean trackOperationCpuTime, boolean trackOverallAllocation, boolean trackOperationAllocation)
     {
         this.trackOverallCpuTime = trackOverallCpuTime;
         this.trackOperationCpuTime = trackOperationCpuTime;
         checkArgument(trackOverallCpuTime || !trackOperationCpuTime, "tracking operation cpu time without tracking overall cpu time is not supported");
 
+        this.trackOverallAllocation = trackOverallAllocation;
+        this.trackOperationAllocation = trackOperationAllocation;
+        checkArgument(trackOverallAllocation || !trackOperationAllocation, "tracking operation allocation without tracking overall allocation is not supported");
+
         wallStart = System.nanoTime();
         cpuStart = trackOverallCpuTime ? currentThreadCpuTime() : 0;
+        allocationStart = trackOverallAllocation ? currentThreadAllocation() : 0;
 
         intervalWallStart = wallStart;
         intervalCpuStart = cpuStart;
+        intervalAllocationStart = allocationStart;
     }
 
     void recordOperationComplete(OperationTiming operationTiming)
@@ -67,13 +79,16 @@ class OperationTimer
 
         long intervalCpuEnd = trackOperationCpuTime ? currentThreadCpuTime() : 0;
         long intervalWallEnd = System.nanoTime();
+        long intervalAllocationEnd = trackOperationAllocation ? currentThreadAllocation() : 0;
 
         long operationWallNanos = nanosBetween(intervalWallStart, intervalWallEnd);
         long operationCpuNanos = trackOperationCpuTime ? nanosBetween(intervalCpuStart, intervalCpuEnd) : 0;
-        operationTiming.record(operationWallNanos, operationCpuNanos);
+        long operationAllocation = trackOperationAllocation ? bytesBetween(intervalAllocationStart, intervalAllocationEnd) : 0;
+        operationTiming.record(operationWallNanos, operationCpuNanos, operationAllocation);
 
         intervalWallStart = intervalWallEnd;
         intervalCpuStart = intervalCpuEnd;
+        intervalAllocationStart = intervalAllocationEnd;
     }
 
     void end(OperationTiming overallTiming)
@@ -84,8 +99,9 @@ class OperationTimer
 
         long cpuEnd = trackOverallCpuTime ? currentThreadCpuTime() : 0;
         long wallEnd = System.nanoTime();
+        long allocationEnd = trackOverallAllocation ? currentThreadAllocation() : 0;
 
-        overallTiming.record(nanosBetween(wallStart, wallEnd), nanosBetween(cpuStart, cpuEnd));
+        overallTiming.record(nanosBetween(wallStart, wallEnd), nanosBetween(cpuStart, cpuEnd), bytesBetween(allocationStart, allocationEnd));
     }
 
     private static long currentThreadCpuTime()
@@ -93,7 +109,17 @@ class OperationTimer
         return THREAD_MX_BEAN.getCurrentThreadCpuTime();
     }
 
+    private static long currentThreadAllocation()
+    {
+        return THREAD_MX_BEAN.getThreadAllocatedBytes(Thread.currentThread().getId());
+    }
+
     private static long nanosBetween(long start, long end)
+    {
+        return max(0, end - start);
+    }
+
+    private static long bytesBetween(long start, long end)
     {
         return max(0, end - start);
     }
@@ -104,6 +130,7 @@ class OperationTimer
         private final AtomicLong calls = new AtomicLong();
         private final AtomicLong wallNanos = new AtomicLong();
         private final AtomicLong cpuNanos = new AtomicLong();
+        private final AtomicLong allocationBytes = new AtomicLong();
 
         long getCalls()
         {
@@ -120,11 +147,17 @@ class OperationTimer
             return cpuNanos.get();
         }
 
-        void record(long wallNanos, long cpuNanos)
+        long getAllocationBytes()
+        {
+            return allocationBytes.get();
+        }
+
+        void record(long wallNanos, long cpuNanos, long allocationBytes)
         {
             this.calls.incrementAndGet();
             this.wallNanos.addAndGet(wallNanos);
             this.cpuNanos.addAndGet(cpuNanos);
+            this.allocationBytes.addAndGet(allocationBytes);
         }
 
         @Override
@@ -134,6 +167,7 @@ class OperationTimer
                     .add("calls", calls)
                     .add("wallNanos", wallNanos)
                     .add("cpuNanos", cpuNanos)
+                    .add("allocationBytes", allocationBytes)
                     .toString();
         }
     }

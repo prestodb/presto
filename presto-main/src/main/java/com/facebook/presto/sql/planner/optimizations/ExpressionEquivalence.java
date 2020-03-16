@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -44,10 +44,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -83,14 +81,14 @@ public class ExpressionEquivalence
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
-        Map<Symbol, Integer> symbolInput = new HashMap<>();
+        Map<VariableReferenceExpression, Integer> variableInput = new HashMap<>();
         int inputId = 0;
-        for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
-            symbolInput.put(entry.getKey(), inputId);
+        for (VariableReferenceExpression variable : types.allVariables()) {
+            variableInput.put(variable, inputId);
             inputId++;
         }
-        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, types);
-        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, types);
+        RowExpression leftRowExpression = toRowExpression(session, leftExpression, variableInput, types);
+        RowExpression rightRowExpression = toRowExpression(session, rightExpression, variableInput, types);
 
         RowExpression canonicalizedLeft = leftRowExpression.accept(canonicalizationVisitor, null);
         RowExpression canonicalizedRight = rightRowExpression.accept(canonicalizationVisitor, null);
@@ -98,7 +96,15 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
-    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
+    public boolean areExpressionsEquivalent(RowExpression leftExpression, RowExpression rightExpression)
+    {
+        RowExpression canonicalizedLeft = leftExpression.accept(canonicalizationVisitor, null);
+        RowExpression canonicalizedRight = rightExpression.accept(canonicalizationVisitor, null);
+
+        return canonicalizedLeft.equals(canonicalizedRight);
+    }
+
+    private RowExpression toRowExpression(Session session, Expression expression, Map<VariableReferenceExpression, Integer> variableInput, TypeProvider types)
     {
         // replace qualified names with input references since row expressions do not support these
 
@@ -113,7 +119,7 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, expressionTypes, symbolInput, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
+        return translate(expression, expressionTypes, variableInput, metadata.getFunctionManager(), metadata.getTypeManager(), session);
     }
 
     private static class CanonicalizationVisitor
@@ -130,29 +136,32 @@ public class ExpressionEquivalence
         public RowExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
+                    call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getFunctionHandle().getSignature().getName();
+            QualifiedFunctionName callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
-            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
+            if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
                 // sort arguments
                 return new CallExpression(
+                        call.getDisplayName(),
                         call.getFunctionHandle(),
                         call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
-            if (callName.equals(mangleOperatorName(GREATER_THAN)) || callName.equals(mangleOperatorName(GREATER_THAN_OR_EQUAL))) {
+            if (callName.equals(GREATER_THAN.getFunctionName()) || callName.equals(GREATER_THAN_OR_EQUAL.getFunctionName())) {
                 // convert greater than to less than
 
                 FunctionHandle functionHandle = functionManager.resolveOperator(
-                        callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
+                        callName.equals(GREATER_THAN.getFunctionName()) ? LESS_THAN : LESS_THAN_OR_EQUAL,
                         swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(
+                        call.getDisplayName(),
                         functionHandle,
                         call.getType(),
                         swapPair(call.getArguments()));

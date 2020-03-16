@@ -54,7 +54,7 @@ import static org.testng.Assert.fail;
 public class TestDbResourceGroupConfigurationManager
 {
     private static final String ENVIRONMENT = "test";
-    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     static H2DaoProvider setup(String prefix)
     {
@@ -329,7 +329,7 @@ public class TestDbResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Selectors cannot be fetched from database");
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
         }
 
         try {
@@ -337,7 +337,7 @@ public class TestDbResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Root groups cannot be fetched from database");
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
         }
 
         manager.destroy();

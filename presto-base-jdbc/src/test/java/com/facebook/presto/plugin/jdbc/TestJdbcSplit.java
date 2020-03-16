@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
@@ -32,7 +33,7 @@ public class TestJdbcSplit
     {
         // split uses "example" scheme so no addresses are available and is not remotely accessible
         assertEquals(split.getAddresses(), ImmutableList.of());
-        assertEquals(split.isRemotelyAccessible(), true);
+        assertEquals(split.getNodeSelectionStrategy(), NO_PREFERENCE);
 
         JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
         assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
@@ -49,6 +50,6 @@ public class TestJdbcSplit
         assertEquals(copy.getTableName(), split.getTableName());
 
         assertEquals(copy.getAddresses(), ImmutableList.of());
-        assertEquals(copy.isRemotelyAccessible(), true);
+        assertEquals(copy.getNodeSelectionStrategy(), NO_PREFERENCE);
     }
 }

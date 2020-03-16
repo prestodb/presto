@@ -3,7 +3,7 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["cc_call_center_id", "cc_manager", "cc_name", "cd_education_status", "cd_marital_status"])
+                    remote exchange (REPARTITION, HASH, [cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status])
                         partial aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
                             join (INNER, REPLICATED):
                                 scan call_center

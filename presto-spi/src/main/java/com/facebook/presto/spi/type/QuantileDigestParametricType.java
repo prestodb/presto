@@ -14,11 +14,8 @@
 package com.facebook.presto.spi.type;
 
 import java.util.List;
-
-import static java.lang.String.format;
-
 public class QuantileDigestParametricType
-        implements ParametricType
+        extends StatisticalDigestParametricType
 {
     public static final QuantileDigestParametricType QDIGEST = new QuantileDigestParametricType();
 
@@ -29,22 +26,8 @@ public class QuantileDigestParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type getType(List<TypeParameter> parameters)
     {
-        checkArgument(parameters.size() == 1, "QDIGEST type expects exactly one type as a parameter, got %s", parameters);
-        checkArgument(
-                parameters.get(0).getKind() == ParameterKind.TYPE,
-                "QDIGEST expects type as a parameter, got %s",
-                parameters);
-        // Validation check on the acceptable type (bigint, real, double) intentionally omitted
-        // because this is validated in each function and to allow for consistent error messaging
         return new QuantileDigestType(parameters.get(0).getType());
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 }

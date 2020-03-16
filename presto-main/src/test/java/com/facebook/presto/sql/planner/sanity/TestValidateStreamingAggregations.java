@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -37,8 +36,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest
@@ -47,7 +47,6 @@ public class TestValidateStreamingAggregations
     private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
-    private TableLayoutHandle nationTableLayoutHandle;
 
     @BeforeClass
     public void setup()
@@ -55,14 +54,13 @@ public class TestValidateStreamingAggregations
         metadata = getQueryRunner().getMetadata();
         sqlParser = getQueryRunner().getSqlParser();
 
+        TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
         ConnectorId connectorId = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("nation", 1.0));
-
-        nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+                nationTpchTableHandle,
                 TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
     }
 
     @Test
@@ -71,26 +69,25 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,
-                                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                Optional.of(nationTableLayoutHandle)))));
+                                                ImmutableList.of(p.variable("nationkey", BIGINT)),
+                                                ImmutableMap.of(p.variable("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
 
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("unique"), p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("unique"), p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("unique"), p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("unique"), p.variable("nationkey"))
                                 .source(
-                                        p.assignUniqueId(p.symbol("unique"),
+                                        p.assignUniqueId(
+                                                p.variable("unique"),
                                                 p.tableScan(
                                                         nationTableHandle,
-                                                        ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                        Optional.of(nationTableLayoutHandle))))));
+                                                        ImmutableList.of(p.variable("nationkey", BIGINT)),
+                                                        ImmutableMap.of(p.variable("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")
@@ -99,19 +96,18 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,
-                                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                Optional.of(nationTableLayoutHandle)))));
+                                                ImmutableList.of(p.variable("nationkey", BIGINT)),
+                                                ImmutableMap.of(p.variable("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        PlanBuilder builder = new PlanBuilder(TEST_SESSION, idAllocator, metadata);
         PlanNode planNode = planProvider.apply(builder);
         TypeProvider types = builder.getTypes();
 

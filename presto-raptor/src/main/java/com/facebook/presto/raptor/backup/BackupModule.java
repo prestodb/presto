@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.configuration.ConfigurationAwareModule;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -20,9 +23,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.util.Providers;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.configuration.ConfigurationAwareModule;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.Nullable;
@@ -31,7 +31,7 @@ import javax.inject.Singleton;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class BackupModule

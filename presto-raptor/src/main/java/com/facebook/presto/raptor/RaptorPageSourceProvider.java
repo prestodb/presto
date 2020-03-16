@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
@@ -20,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -29,6 +32,8 @@ import javax.inject.Inject;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -48,39 +53,83 @@ public class RaptorPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split,
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
-
+        HiveFileContext hiveFileContext = new HiveFileContext(splitContext.isCacheable(), Optional.empty());
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);
         OptionalLong transactionId = raptorSplit.getTransactionId();
+        Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
+        boolean tableSupportsDeltaDelete = raptorSplit.isTableSupportsDeltaDelete();
 
+        FileSystemContext context = new FileSystemContext(session);
+
+        Map<UUID, UUID> shardDeltaMap = raptorSplit.getShardDeltaMap();
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+            return createPageSource(
+                    context,
+                    hiveFileContext,
+                    shardUuid,
+                    Optional.ofNullable(shardDeltaMap.get(shardUuid)),
+                    tableSupportsDeltaDelete,
+                    bucketNumber,
+                    columns,
+                    predicate,
+                    attributes,
+                    transactionId,
+                    columnTypes);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .map(shardUuid -> createPageSource(
+                        context,
+                        hiveFileContext,
+                        shardUuid,
+                        Optional.ofNullable(shardDeltaMap.get(shardUuid)),
+                        tableSupportsDeltaDelete,
+                        bucketNumber,
+                        columns,
+                        predicate,
+                        attributes,
+                        transactionId,
+                        columnTypes))
                 .iterator();
 
         return new ConcatPageSource(iterator);
     }
 
+    /**
+     *
+     * @param deltaShardUuid delta of one shard
+     * @param tableSupportsDeltaDelete table property indicating if this table supports delta_delete
+     * In the future, we could have the concept of delta_delete as session property.
+     * Having these two parameters at the same time gives us the flexibility and compatibility to future features.
+     */
     private ConnectorPageSource createPageSource(
+            FileSystemContext context,
+            HiveFileContext hiveFileContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
             ReaderAttributes attributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> allColumnTypes)
     {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
+        return storageManager.getPageSource(context, hiveFileContext, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
     }
 }

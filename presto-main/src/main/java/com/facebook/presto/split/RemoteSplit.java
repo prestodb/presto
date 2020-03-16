@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.net.URI;
 import java.util.List;
 
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -29,17 +32,25 @@ public class RemoteSplit
         implements ConnectorSplit
 {
     private final URI location;
+    private final TaskId remoteSourceTaskId;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("location") URI location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId)
     {
         this.location = requireNonNull(location, "location is null");
+        this.remoteSourceTaskId = requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
     }
 
     @JsonProperty
     public URI getLocation()
     {
         return location;
+    }
+
+    @JsonProperty
+    public TaskId getRemoteSourceTaskId()
+    {
+        return remoteSourceTaskId;
     }
 
     @Override
@@ -49,13 +60,13 @@ public class RemoteSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
+    public NodeSelectionStrategy getNodeSelectionStrategy()
     {
-        return true;
+        return NO_PREFERENCE;
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return ImmutableList.of();
     }
@@ -65,6 +76,7 @@ public class RemoteSplit
     {
         return toStringHelper(this)
                 .add("location", location)
+                .add("remoteSourceTaskId", remoteSourceTaskId)
                 .toString();
     }
 }

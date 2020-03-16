@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -47,6 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+@Deprecated
 public final class ExpressionUtils
 {
     private ExpressionUtils() {}
@@ -233,12 +235,12 @@ public final class ExpressionUtils
 
     public static Expression filterDeterministicConjuncts(Expression expression)
     {
-        return filterConjuncts(expression, DeterminismEvaluator::isDeterministic);
+        return filterConjuncts(expression, ExpressionDeterminismEvaluator::isDeterministic);
     }
 
     public static Expression filterNonDeterministicConjuncts(Expression expression)
     {
-        return filterConjuncts(expression, not(DeterminismEvaluator::isDeterministic));
+        return filterConjuncts(expression, not(ExpressionDeterminismEvaluator::isDeterministic));
     }
 
     public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
@@ -250,31 +252,24 @@ public final class ExpressionUtils
         return combineConjuncts(conjuncts);
     }
 
-    public static boolean referencesAny(Expression expression, Collection<Symbol> variables)
-    {
-        Set<Symbol> references = SymbolsExtractor.extractUnique(expression);
-
-        return variables.stream().anyMatch(references::contains);
-    }
-
-    public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)
+    public static Function<Expression, Expression> expressionOrNullVariables(TypeProvider types, final Predicate<VariableReferenceExpression>... nullVariableScopes)
     {
         return expression -> {
             ImmutableList.Builder<Expression> resultDisjunct = ImmutableList.builder();
             resultDisjunct.add(expression);
 
-            for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = SymbolsExtractor.extractUnique(expression).stream()
-                        .filter(nullSymbolScope)
+            for (Predicate<VariableReferenceExpression> nullVariableScope : nullVariableScopes) {
+                List<VariableReferenceExpression> variables = VariablesExtractor.extractUnique(expression, types).stream()
+                        .filter(nullVariableScope)
                         .collect(toImmutableList());
 
-                if (Iterables.isEmpty(symbols)) {
+                if (Iterables.isEmpty(variables)) {
                     continue;
                 }
 
                 ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-                for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
+                for (VariableReferenceExpression variable : variables) {
+                    nullConjuncts.add(new IsNullPredicate(new SymbolReference(variable.getName())));
                 }
 
                 resultDisjunct.add(and(nullConjuncts.build()));
@@ -294,7 +289,7 @@ public final class ExpressionUtils
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression)) {
+            if (!ExpressionDeterminismEvaluator.isDeterministic(expression)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

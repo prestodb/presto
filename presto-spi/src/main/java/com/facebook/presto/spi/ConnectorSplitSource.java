@@ -26,6 +26,11 @@ public interface ConnectorSplitSource
 {
     CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
 
+    default void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        throw new UnsupportedOperationException("rewind is not supported in this ConnectorSplitSource");
+    }
+
     @Override
     void close();
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
 
 public class EmbeddedDiscoveryConfig
 {

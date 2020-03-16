@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server.security;
 
+import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.google.common.base.CharMatcher;
-import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;

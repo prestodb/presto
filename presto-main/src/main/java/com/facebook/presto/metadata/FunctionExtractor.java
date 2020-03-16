@@ -29,7 +29,7 @@ public final class FunctionExtractor
 {
     private FunctionExtractor() {}
 
-    public static List<? extends SqlFunction> extractFunctions(Collection<Class<?>> classes)
+    public static List<BuiltInFunction> extractFunctions(Collection<Class<?>> classes)
     {
         return classes.stream()
                 .map(FunctionExtractor::extractFunctions)
@@ -37,7 +37,7 @@ public final class FunctionExtractor
                 .collect(toImmutableList());
     }
 
-    public static List<? extends SqlFunction> extractFunctions(Class<?> clazz)
+    public static List<? extends BuiltInFunction> extractFunctions(Class<?> clazz)
     {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
             @SuppressWarnings("unchecked")

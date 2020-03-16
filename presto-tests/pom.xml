@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.219-SNAPSHOT</version>
+        <version>0.234-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -48,37 +48,37 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.discovery</groupId>
+            <groupId>com.facebook.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>node</artifactId>
         </dependency>
 
@@ -88,7 +88,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -103,7 +103,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
 
@@ -176,7 +176,7 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -216,11 +216,17 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <argLine>-Xms4g -Xmx4g</argLine>
                     <!-- these tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
+                        <exclude>**/TestTpchDistributedQueries.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
                         <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
+                        <exclude>**/TestAggregations.java</exclude>
+                        <exclude>**/TestOptimizeMixedDistinctAggregations.java</exclude>
+                        <exclude>**/TestSpilledAggregations.java</exclude>
+                        <exclude>**/TestQueryPlanDeterminism.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -244,7 +250,7 @@
         </profile>
 
         <profile>
-            <id>ci-only</id>
+            <id>ci-only-distributed-non-hash-gen</id>
             <build>
                 <plugins>
                     <plugin>
@@ -254,9 +260,140 @@
                             <excludes combine.self="override" />
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci-only-tpch-distributed-queries</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
+                                <include>**/TestTpchDistributedQueries.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci-only-local-queries</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
                                 <include>**/TestLocalQueries.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci-only-distributed-queries</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
                                 <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci-only-plan-determinism</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
+                                <include>**/TestQueryPlanDeterminism.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>ci-only-aggregation-queries</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
+                                <include>**/TestAggregations.java</include>
+                                <include>**/TestOptimizeMixedDistinctAggregations.java</include>
+                                <include>**/TestSpilledAggregations.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>presto-tests-execution-memory</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/execution/*.java</include>
+                                <include>**/connector/informationschema/*.java</include>
+                                <include>**/memory/*.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>presto-tests-general</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/tests/*.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
+                                <exclude>**/TestTpchDistributedQueries.java</exclude>
+                                <exclude>**/TestLocalQueries.java</exclude>
+                                <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
+                                <exclude>**/TestAggregations.java</exclude>
+                                <exclude>**/TestOptimizeMixedDistinctAggregations.java</exclude>
+                                <exclude>**/TestSpilledAggregations.java</exclude>
+                                <exclude>**/TestQueryPlanDeterminism.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>

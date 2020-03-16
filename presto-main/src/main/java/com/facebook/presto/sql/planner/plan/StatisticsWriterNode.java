@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.AnalyzeTableHandle;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -28,27 +27,27 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsWriterNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Symbol rowCountSymbol;
-    private final WriteStatisticsTarget target;
+    private final TableHandle tableHandle;
+    private final VariableReferenceExpression rowCountVariable;
     private final boolean rowCountEnabled;
-    private final StatisticAggregationsDescriptor<Symbol> descriptor;
+    private final StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor;
 
     @JsonCreator
     public StatisticsWriterNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") WriteStatisticsTarget target,
-            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
+            @JsonProperty("tableHandle") TableHandle tableHandle,
+            @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
-            @JsonProperty("descriptor") StatisticAggregationsDescriptor<Symbol> descriptor)
+            @JsonProperty("descriptor") StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
-        this.target = requireNonNull(target, "target is null");
-        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.rowCountEnabled = rowCountEnabled;
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
     }
@@ -60,21 +59,21 @@ public class StatisticsWriterNode
     }
 
     @JsonProperty
-    public WriteStatisticsTarget getTarget()
+    public TableHandle getTableHandle()
     {
-        return target;
+        return tableHandle;
     }
 
     @JsonProperty
-    public StatisticAggregationsDescriptor<Symbol> getDescriptor()
+    public StatisticAggregationsDescriptor<VariableReferenceExpression> getDescriptor()
     {
         return descriptor;
     }
 
     @JsonProperty
-    public Symbol getRowCountSymbol()
+    public VariableReferenceExpression getRowCountVariable()
     {
-        return rowCountSymbol;
+        return rowCountVariable;
     }
 
     @JsonProperty
@@ -90,9 +89,9 @@ public class StatisticsWriterNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.of(rowCountSymbol);
+        return ImmutableList.of(rowCountVariable);
     }
 
     @Override
@@ -101,72 +100,15 @@ public class StatisticsWriterNode
         return new StatisticsWriterNode(
                 getId(),
                 Iterables.getOnlyElement(newChildren),
-                target,
-                rowCountSymbol,
+                tableHandle,
+                rowCountVariable,
                 rowCountEnabled,
                 descriptor);
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitStatisticsWriterNode(this, context);
-    }
-
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = WriteStatisticsHandle.class, name = "WriteStatisticsHandle")})
-    @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
-    public abstract static class WriteStatisticsTarget
-    {
-        @Override
-        public abstract String toString();
-    }
-
-    public static class WriteStatisticsHandle
-            extends WriteStatisticsTarget
-    {
-        private final AnalyzeTableHandle handle;
-
-        @JsonCreator
-        public WriteStatisticsHandle(@JsonProperty("handle") AnalyzeTableHandle handle)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-        }
-
-        @JsonProperty
-        public AnalyzeTableHandle getHandle()
-        {
-            return handle;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.toString();
-        }
-    }
-
-    // only used during planning -- will not be serialized
-    public static class WriteStatisticsReference
-            extends WriteStatisticsTarget
-    {
-        private final TableHandle handle;
-
-        public WriteStatisticsReference(TableHandle handle)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-        }
-
-        public TableHandle getHandle()
-        {
-            return handle;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.toString();
-        }
     }
 }

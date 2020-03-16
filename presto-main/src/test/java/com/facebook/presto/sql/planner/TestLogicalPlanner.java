@@ -14,26 +14,26 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
-import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
@@ -52,7 +52,11 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -79,13 +83,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -728,7 +730,7 @@ public class TestLogicalPlanner
                                 anyTree(tableScan("orders")))));
     }
 
-    @Test
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Given correlated subquery is not supported.*")
     public void testDoubleNestedCorrelatedSubqueries()
     {
         assertPlan(
@@ -747,7 +749,7 @@ public class TestLogicalPlanner
                                                 any(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
+                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class).negate());
     }
 
     @Test
@@ -845,13 +847,13 @@ public class TestLogicalPlanner
                 countOfMatchingNodes(
                         plan,
                         node -> node instanceof AggregationNode
-                                && ((AggregationNode) node).getGroupingKeys().contains(new Symbol("unique"))
+                                && ((AggregationNode) node).getGroupingKeys().contains(new VariableReferenceExpression("unique", BIGINT))
                                 && ((AggregationNode) node).isStreamable()),
                 1);
 
         // region is unpartitioned, AssignUniqueId should provide satisfying partitioning for count(*) after LEFT JOIN
         assertPlanWithSession(
-                "SELECT (SELECT count(*) FROM region r2 WHERE r2.regionkey > r1.regionkey) FROM region r1",
+                "SELECT (SELECT COUNT(*) FROM region r2 WHERE r2.regionkey > r1.regionkey) FROM region r1",
                 broadcastJoin,
                 false,
                 joinBuildSideWithRemoteExchange,
@@ -859,8 +861,8 @@ public class TestLogicalPlanner
 
         // orders is naturally partitioned, AssignUniqueId should not overwrite its natural partitioning
         assertPlanWithSession(
-                "SELECT count(count) " +
-                        "FROM (SELECT o1.orderkey orderkey, (SELECT count(*) FROM orders o2 WHERE o2.orderkey > o1.orderkey) count FROM orders o1) " +
+                "SELECT COUNT(COUNT) " +
+                        "FROM (SELECT o1.orderkey orderkey, (SELECT COUNT(*) FROM orders o2 WHERE o2.orderkey > o1.orderkey) COUNT FROM orders o1) " +
                         "GROUP BY orderkey",
                 broadcastJoin,
                 false,
@@ -952,5 +954,119 @@ public class TestLogicalPlanner
                                         exchange(REMOTE_STREAMING, GATHER,
                                                 tableScan("orders", ImmutableMap.of(
                                                         "ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testEqualityInference()
+    {
+        assertPlan("" +
+                        "SELECT l.comment, p.partkey " +
+                        "FROM lineitem l " +
+                        "JOIN partsupp p " +
+                        "ON l.suppkey = p.suppkey " +
+                        "AND l.partkey = p.partkey " +
+                        "WHERE l.partkey = 42",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
+                                anyTree(
+                                        filter(
+                                                "l_partkey = 42",
+                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_suppkey", "suppkey", "l_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "p_partkey = 42",
+                                                tableScan("partsupp", ImmutableMap.of("p_partkey", "partkey", "p_suppkey", "suppkey")))))));
+        assertPlan("" +
+                        "SELECT l.comment, p.partkey " +
+                        "FROM lineitem l " +
+                        "JOIN partsupp p " +
+                        "ON l.suppkey = p.suppkey " +
+                        "AND l.comment = p.comment " +
+                        "WHERE l.comment = '42'",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
+                                anyTree(
+                                        filter(
+                                                "l_comment = '42'",
+                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "p_comment = '42'",
+                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+    }
+
+    @Test
+    public void testLimitZero()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey ASC LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT DISTINCT orderkey FROM orders LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT * FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey > r1.regionkey LIMIT 0",
+                output(
+                        values("expr_8", "expr_9", "expr_10", "expr_11")));
+    }
+
+    @Test
+    public void testTopN()
+    {
+        ImmutableList<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 1",
+                output(
+                        topN(1, orderBy,
+                                anyTree(
+                                        topN(1, orderBy,
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "ORDERKEY", "orderkey")))))));
+
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 1",
+                output(
+                        topN(1, orderBy,
+                                anyTree(
+                                        topN(1, orderBy,
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY", "orderkey"))))))));
+    }
+
+    @Test
+    public void testComplexOrderBy()
+    {
+        assertDistributedPlan("SELECT COUNT(*) " +
+                        "FROM (values ARRAY['a', 'b']) as t(col1) " +
+                        "ORDER BY " +
+                        "  IF( " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) > 0, " +
+                        "    COUNT(*), " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
+                        "  )",
+                output(
+                        project(
+                                exchange(
+                                        exchange(
+                                                sort(
+                                                        exchange(
+                                                                project(
+                                                                        aggregation(ImmutableMap.of(),
+                                                                                project(values("col1")))))))))));
     }
 }

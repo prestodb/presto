@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.SliceInput;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -39,7 +40,6 @@ public class MapBlockBuilder
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
     private final MethodHandle keyBlockEquals;
-    private final MethodHandle keyBlockHashCode;
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -49,7 +49,7 @@ public class MapBlockBuilder
     private boolean[] mapIsNull;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private int[] hashTables;
+    private HashTables hashTables;
 
     private boolean currentEntryOpened;
 
@@ -88,12 +88,11 @@ public class MapBlockBuilder
             BlockBuilder valueBlockBuilder,
             int[] offsets,
             boolean[] mapIsNull,
-            int[] hashTables)
+            int[] rawHashTables)
     {
-        super(keyType, keyNativeHashCode, keyBlockNativeEquals);
+        super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
 
         this.keyBlockEquals = requireNonNull(keyBlockEquals, "keyBlockEquals is null");
-        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
@@ -101,7 +100,7 @@ public class MapBlockBuilder
         this.mapIsNull = requireNonNull(mapIsNull, "mapIsNull is null");
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
-        this.hashTables = requireNonNull(hashTables, "hashTables is null");
+        this.hashTables = new HashTables(Optional.of(requireNonNull(rawHashTables, "hashTables is null")), 0, rawHashTables.length);
     }
 
     @Override
@@ -117,7 +116,7 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected int[] getHashTables()
+    protected HashTables getHashTables()
     {
         return hashTables;
     }
@@ -129,7 +128,7 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return 0;
     }
@@ -151,13 +150,19 @@ public class MapBlockBuilder
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() +
                 (Integer.BYTES + Byte.BYTES) * (long) positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount();
+                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount() +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
+        long size = INSTANCE_SIZE
+                + keyBlockBuilder.getRetainedSizeInBytes()
+                + valueBlockBuilder.getRetainedSizeInBytes()
+                + sizeOf(offsets)
+                + sizeOf(mapIsNull)
+                + hashTables.getRetainedSizeInBytes();
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -171,7 +176,7 @@ public class MapBlockBuilder
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -199,7 +204,16 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
+        Optional<int[]> rawHashTables = hashTables.get();
+        verify(rawHashTables.isPresent(), "rawHashTables is empty");
+        buildHashTable(
+                keyBlockBuilder,
+                previousAggregatedEntryCount,
+                entryCount,
+                keyBlockHashCode,
+                rawHashTables.get(),
+                previousAggregatedEntryCount * HASH_MULTIPLIER,
+                entryCount * HASH_MULTIPLIER);
         return this;
     }
 
@@ -224,19 +238,21 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
+        Optional<int[]> rawHashTables = hashTables.get();
+        verify(rawHashTables.isPresent(), "rawHashTables is empty");
         buildHashTableStrict(
                 keyBlockBuilder,
                 previousAggregatedEntryCount,
                 entryCount,
                 keyBlockEquals,
                 keyBlockHashCode,
-                hashTables,
+                rawHashTables.get(),
                 previousAggregatedEntryCount * HASH_MULTIPLIER,
                 entryCount * HASH_MULTIPLIER);
         return this;
     }
 
-    private BlockBuilder closeEntry(int[] providedHashTable, int providedHashTableOffset)
+    private BlockBuilder closeEntry(@Nullable int[] providedHashTable, int providedHashTableOffset)
     {
         if (!currentEntryOpened) {
             throw new IllegalStateException("Expected entry to be opened but was closed");
@@ -246,14 +262,31 @@ public class MapBlockBuilder
         currentEntryOpened = false;
 
         ensureHashTableSize();
+        int previousAggregatedEntryCount = offsets[positionCount - 1];
+        int aggregatedEntryCount = offsets[positionCount];
 
-        // Directly copy instead of building hashtable
-        int hashTableOffset = offsets[positionCount - 1] * HASH_MULTIPLIER;
-        int hashTableSize = (offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER;
-        for (int i = 0; i < hashTableSize; i++) {
-            hashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
+        Optional<int[]> rawHashTables = hashTables.get();
+        verify(rawHashTables.isPresent(), "rawHashTables is empty");
+        if (providedHashTable != null) {
+            // Directly copy instead of building hashtable if providedHashTable is not null
+            int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
+            int hashTableSize = (aggregatedEntryCount - previousAggregatedEntryCount) * HASH_MULTIPLIER;
+            for (int i = 0; i < hashTableSize; i++) {
+                rawHashTables.get()[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
+            }
         }
-
+        else {
+            // Build hash table for this map entry.
+            int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
+            buildHashTable(
+                    keyBlockBuilder,
+                    previousAggregatedEntryCount,
+                    entryCount,
+                    keyBlockHashCode,
+                    rawHashTables.get(),
+                    previousAggregatedEntryCount * HASH_MULTIPLIER,
+                    entryCount * HASH_MULTIPLIER);
+        }
         return this;
     }
 
@@ -290,12 +323,33 @@ public class MapBlockBuilder
 
     private void ensureHashTableSize()
     {
-        if (hashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
+        Optional<int[]> rawHashTables = hashTables.get();
+        verify(rawHashTables.isPresent(), "rawHashTables is empty");
+        if (rawHashTables.get().length < offsets[positionCount] * HASH_MULTIPLIER) {
             int newSize = BlockUtil.calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
-            int oldSize = hashTables.length;
-            hashTables = Arrays.copyOf(hashTables, newSize);
-            Arrays.fill(hashTables, oldSize, hashTables.length, -1);
+            int[] newRawHashTables = Arrays.copyOf(rawHashTables.get(), newSize);
+            Arrays.fill(newRawHashTables, rawHashTables.get().length, newSize, -1);
+            hashTables.set(newRawHashTables);
         }
+    }
+
+    @Override
+    public BlockBuilder readPositionFrom(SliceInput input)
+    {
+        boolean isNull = input.readByte() == 0;
+        if (isNull) {
+            appendNull();
+        }
+        else {
+            int length = input.readInt();
+            SingleMapBlockWriter singleMapBlockWriter = beginBlockEntry();
+            for (int i = 0; i < length; i++) {
+                singleMapBlockWriter.readPositionFrom(input);
+                singleMapBlockWriter.readPositionFrom(input);
+            }
+            closeEntry();
+        }
+        return this;
     }
 
     @Override
@@ -304,6 +358,10 @@ public class MapBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
+
+        Optional<int[]> rawHashTables = hashTables.get();
+        verify(rawHashTables.isPresent(), "rawHashTables is empty");
+        int hashTablesEntries = offsets[positionCount] * HASH_MULTIPLIER;
         return createMapBlockInternal(
                 0,
                 positionCount,
@@ -311,9 +369,11 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                Arrays.copyOf(hashTables, offsets[positionCount] * HASH_MULTIPLIER),
+                new HashTables(Optional.of(Arrays.copyOf(rawHashTables.get(), hashTablesEntries)), positionCount, hashTablesEntries),
                 keyType,
-                keyBlockNativeEquals, keyNativeHashCode);
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     @Override
@@ -355,7 +415,7 @@ public class MapBlockBuilder
             }
         }
 
-        closeEntry(singleMapBlock.getHashTable(), singleMapBlock.getOffset() / 2 * HASH_MULTIPLIER);
+        closeEntry(singleMapBlock.getHashTable(), singleMapBlock.getOffsetBase() / 2 * HASH_MULTIPLIER);
         return this;
     }
 
@@ -388,7 +448,7 @@ public class MapBlockBuilder
             }
         }
 
-        closeEntry(mapBlock.getHashTables(), startValueOffset * HASH_MULTIPLIER);
+        closeEntry(mapBlock.getHashTables().get().orElse(null), startValueOffset * HASH_MULTIPLIER);
         return this;
     }
 
@@ -409,6 +469,9 @@ public class MapBlockBuilder
                 new boolean[newSize],
                 newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
     }
+
+    @Override
+    protected void ensureHashTableLoaded() {}
 
     private static int[] newNegativeOneFilledArray(int size)
     {
@@ -512,5 +575,12 @@ public class MapBlockBuilder
     static int computePosition(long hashcode, int hashTableSize)
     {
         return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) >> 32);
+    }
+
+    static void verify(boolean assertion, String message)
+    {
+        if (!assertion) {
+            throw new AssertionError(message);
+        }
     }
 }

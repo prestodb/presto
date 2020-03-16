@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
@@ -46,7 +47,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        assignment(p.variable("x"), new ExistsPredicate(new LongLiteral("1"))),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -58,14 +59,14 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(
-                                p.symbol("x"),
+                        assignment(
+                                p.variable("x"),
                                 new InPredicate(
                                         new SymbolReference("y"),
                                         new SymbolReference("z"))),
                         emptyList(),
-                        p.values(p.symbol("y")),
-                        p.values(p.symbol("z"))))
+                        p.values(p.variable("y")),
+                        p.values(p.variable("z"))))
                 .matches(node(SemiJoinNode.class, values("y"), values("z")));
     }
 }

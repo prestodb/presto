@@ -15,8 +15,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
@@ -39,14 +38,14 @@ public class LowMemoryKillerTestingUtils
 
     static List<MemoryInfo> toNodeMemoryInfoList(long maxReservedPoolBytes, long maxGeneralPoolBytes, String reservedQuery, Map<String, Map<String, Long>> queries)
     {
-        Map<Node, NodeReservation> nodeReservations = new HashMap<>();
+        Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             QueryId queryId = new QueryId(entry.getKey());
             Map<String, Long> reservationByNode = entry.getValue();
 
             for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
-                PrestoNode node = new PrestoNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
+                InternalNode node = new InternalNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
                     continue;
@@ -61,7 +60,7 @@ public class LowMemoryKillerTestingUtils
         }
 
         ImmutableList.Builder<MemoryInfo> result = ImmutableList.builder();
-        for (Map.Entry<Node, NodeReservation> entry : nodeReservations.entrySet()) {
+        for (Map.Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
             NodeReservation nodeReservation = entry.getValue();
             ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> pools = ImmutableMap.builder();
             if (nodeReservation.getGeneral().getTotalReservedBytes() > 0) {

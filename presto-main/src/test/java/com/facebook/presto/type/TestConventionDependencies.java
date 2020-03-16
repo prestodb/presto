@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
@@ -30,6 +31,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -57,7 +59,7 @@ public class TestConventionDependencies
         assertFunction("block_position_convention(ARRAY [56, 275, 36])", INTEGER, 367);
     }
 
-    @ScalarFunction("regular_convention")
+    @ScalarFunction(value = "regular_convention")
     public static class RegularConvention
     {
         @SqlType(StandardTypes.INTEGER)
@@ -65,12 +67,12 @@ public class TestConventionDependencies
                 @FunctionDependency(name = "add",
                         returnType = StandardTypes.INTEGER,
                         argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
-                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL)) MethodHandle function,
+                        convention = @Convention(arguments = {NEVER_NULL, BOXED_NULLABLE}, result = FAIL_ON_NULL)) MethodHandle function,
                 @SqlType(StandardTypes.INTEGER) long left,
                 @SqlType(StandardTypes.INTEGER) long right)
         {
             try {
-                return (long) function.invokeExact(left, right);
+                return (long) function.invokeExact(left, Long.valueOf(right));
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -107,15 +109,15 @@ public class TestConventionDependencies
         }
     }
 
-    @ScalarFunction("add")
+    @ScalarFunction(value = "add", calledOnNullInput = true)
     public static class Add
     {
         @SqlType(StandardTypes.INTEGER)
         public static long add(
                 @SqlType(StandardTypes.INTEGER) long left,
-                @SqlType(StandardTypes.INTEGER) long right)
+                @SqlNullable @SqlType(StandardTypes.INTEGER) Long right)
         {
-            return Math.addExact((int) left, (int) right);
+            return Math.addExact((int) left, (int) right.longValue());
         }
 
         @SqlType(StandardTypes.INTEGER)

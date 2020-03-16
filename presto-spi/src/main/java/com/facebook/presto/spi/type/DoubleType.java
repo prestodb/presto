@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
@@ -59,14 +60,14 @@ public final class DoubleType
         if (block.isNull(position)) {
             return null;
         }
-        return longBitsToDouble(block.getLong(position, 0));
+        return longBitsToDouble(block.getLong(position));
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
+        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
+        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
 
         // direct equality is correct here
         // noinspection FloatingPointEquality
@@ -77,14 +78,14 @@ public final class DoubleType
     public long hash(Block block, int position)
     {
         // convert to canonical NaN if necessary
-        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position, 0))));
+        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position))));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
+        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
+        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
         return Double.compare(leftValue, rightValue);
     }
 
@@ -95,14 +96,20 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
         }
     }
 
     @Override
     public double getDouble(Block block, int position)
     {
-        return longBitsToDouble(block.getLong(position, 0));
+        return longBitsToDouble(block.getLong(position));
+    }
+
+    @Override
+    public double getDoubleUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return longBitsToDouble(block.getLongUnchecked(internalPosition));
     }
 
     @Override

@@ -64,9 +64,10 @@ public class TupleDomainOrcPredicate<C>
 
     private final boolean orcBloomFiltersEnabled;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled, Optional<Integer> domainCompactionThreshold)
     {
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.effectivePredicate = domainCompactionThreshold.map(effectivePredicate::compact).orElse(effectivePredicate);
         this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
     }

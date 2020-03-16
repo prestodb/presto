@@ -13,198 +13,66 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
-import com.facebook.presto.verifier.checksum.ColumnMatchResult;
-import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
-import com.facebook.presto.verifier.framework.VerificationResult.MatchType;
-import com.facebook.presto.verifier.resolver.FailureResolver;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
+import com.facebook.presto.verifier.rewrite.QueryRewriter;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalLong;
 
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.COLUMN_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.MATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.ROW_COUNT_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.SCHEMA_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
         extends AbstractVerification
 {
+    private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
 
     public DataVerification(
+            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
-            List<FailureResolver> failureResolvers,
-            VerifierConfig config,
+            DeterminismAnalyzer determinismAnalyzer,
+            FailureResolverManager failureResolverManager,
+            VerificationContext verificationContext,
+            VerifierConfig verifierConfig,
+            TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(prestoAction, sourceQuery, queryRewriter, failureResolvers, config);
+        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, verificationContext, verifierConfig);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
 
     @Override
-    public VerificationResult verify(QueryBundle control, QueryBundle test)
+    public MatchResult verify(QueryBundle control, QueryBundle test)
     {
-        setQueryStats(setupAndRun(control, CONTROL), CONTROL);
-        setQueryStats(setupAndRun(test, TEST), TEST);
-        List<Column> controlColumns = getColumns(control.getTableName(), CONTROL);
-        List<Column> testColumns = getColumns(test.getTableName(), TEST);
-        return produceResult(
-                controlColumns,
-                testColumns,
-                computeChecksum(control, controlColumns, CONTROL),
-                computeChecksum(test, testColumns, TEST));
-    }
+        List<Column> controlColumns = getColumns(getPrestoAction(), typeManager, control.getTableName());
+        List<Column> testColumns = getColumns(getPrestoAction(), typeManager, test.getTableName());
 
-    @Override
-    protected Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksumResult)
-    {
-        List<Column> columns = getColumns(control.getTableName(), CONTROL);
-        ChecksumQueryAndResult firstChecksum = new ChecksumQueryAndResult(
-                checksumValidator.generateChecksumQuery(control.getTableName(), columns),
-                firstChecksumResult);
+        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
 
-        QueryBundle secondRun = null;
-        QueryBundle thirdRun = null;
-        try {
-            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
-            setupAndRun(secondRun, CONTROL);
-            if (!produceResult(columns, columns, firstChecksum, computeChecksum(secondRun, columns, CONTROL)).isMatched()) {
-                return Optional.of(false);
-            }
+        getVerificationContext().setControlChecksumQuery(formatSql(controlChecksumQuery));
+        getVerificationContext().setTestChecksumQuery(formatSql(testChecksumQuery));
 
-            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
-            setupAndRun(thirdRun, CONTROL);
-            if (!produceResult(columns, columns, firstChecksum, computeChecksum(thirdRun, columns, CONTROL)).isMatched()) {
-                return Optional.of(false);
-            }
+        QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
+                () -> getPrestoAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
+                stats -> getVerificationContext().setControlChecksumQueryId(stats.getQueryId()));
+        QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
+                () -> getPrestoAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
+                stats -> getVerificationContext().setTestChecksumQueryId(stats.getQueryId()));
 
-            return Optional.of(true);
-        }
-        catch (Throwable t) {
-            return Optional.empty();
-        }
-        finally {
-            if (secondRun != null) {
-                teardownSafely(secondRun, CONTROL);
-            }
-            if (thirdRun != null) {
-                teardownSafely(thirdRun, CONTROL);
-            }
-        }
-    }
-
-    private QueryStats setupAndRun(QueryBundle control, QueryGroup group)
-    {
-        setup(control, group);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(group), new QueryOrigin(group, MAIN), getVerificationContext());
-    }
-
-    private VerificationResult produceResult(
-            List<Column> controlColumns,
-            List<Column> testColumns,
-            ChecksumQueryAndResult controlChecksum,
-            ChecksumQueryAndResult testChecksum)
-    {
-        if (!controlColumns.equals(testColumns)) {
-            return new VerificationResult(
-                    SCHEMA_MISMATCH,
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    OptionalLong.empty(),
-                    OptionalLong.empty(),
-                    ImmutableMap.of());
-        }
-
-        Optional<String> controlChecksumQuery = Optional.of(formatSql(controlChecksum.getQuery()));
-        Optional<String> testChecksumQuery = Optional.of(formatSql(controlChecksum.getQuery()));
-        OptionalLong controlRowCount = OptionalLong.of(controlChecksum.getResult().getRowCount());
-        OptionalLong testRowCount = OptionalLong.of(testChecksum.getResult().getRowCount());
-
-        MatchType matchType;
-        Map<Column, ColumnMatchResult> mismatchedColumns;
-        if (controlChecksum.getResult().getRowCount() != testChecksum.getResult().getRowCount()) {
-            mismatchedColumns = ImmutableMap.of();
-            matchType = ROW_COUNT_MISMATCH;
-        }
-        else {
-            mismatchedColumns = checksumValidator.getMismatchedColumns(controlColumns, controlChecksum.getResult(), testChecksum.getResult());
-            matchType = mismatchedColumns.isEmpty() ? MATCH : COLUMN_MISMATCH;
-        }
-        return new VerificationResult(
-                matchType,
-                controlChecksumQuery,
-                testChecksumQuery,
-                Optional.of(controlChecksum.getResult()),
-                controlRowCount,
-                testRowCount,
-                mismatchedColumns);
-    }
-
-    private List<Column> getColumns(QualifiedName tableName, QueryGroup group)
-    {
-        return getPrestoAction()
-                .execute(
-                        new ShowColumns(tableName),
-                        getConfiguration(group),
-                        new QueryOrigin(group, DESCRIBE),
-                        getVerificationContext(),
-                        Column::fromResultSet)
-                .getResults();
-    }
-
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, QueryGroup group)
-    {
-        Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
-        return new ChecksumQueryAndResult(
-                checksumQuery,
-                getOnlyElement(getPrestoAction()
-                        .execute(
-                                checksumQuery,
-                                getConfiguration(group),
-                                new QueryOrigin(group, CHECKSUM),
-                                getVerificationContext(),
-                                ChecksumResult::fromResultSet)
-                        .getResults()));
-    }
-
-    private class ChecksumQueryAndResult
-    {
-        private final Query query;
-        private final ChecksumResult result;
-
-        public ChecksumQueryAndResult(Query query, ChecksumResult result)
-        {
-            this.query = requireNonNull(query, "query is null");
-            this.result = requireNonNull(result, "result is null");
-        }
-
-        public Query getQuery()
-        {
-            return query;
-        }
-
-        public ChecksumResult getResult()
-        {
-            return result;
-        }
+        return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }
 }

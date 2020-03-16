@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.verifier.source;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.CreationException;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -29,8 +29,6 @@ import static org.testng.Assert.assertTrue;
 public class TestSourceQueryModule
 {
     private static final Map<String, String> DEFAULT_CONFIGURATION_PROPERTIES = ImmutableMap.<String, String>builder()
-            .put("control.jdbc-url", "test")
-            .put("test.jdbc-url", "test")
             .put("test-id", "test")
             .build();
 

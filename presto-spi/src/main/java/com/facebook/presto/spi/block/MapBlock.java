@@ -26,12 +26,14 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
+import static com.facebook.presto.spi.block.MapBlockBuilder.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MapBlock
         extends AbstractMapBlock
+        implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
 
@@ -42,7 +44,7 @@ public class MapBlock
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
-    private final int[] hashTables; // hash to location in map;
+    private HashTables hashTables;
 
     private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
@@ -56,6 +58,7 @@ public class MapBlock
      * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     public static MapBlock fromKeyValueBlock(
+            int positionCount,
             Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
@@ -65,35 +68,20 @@ public class MapBlock
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode)
     {
-        validateConstructorArguments(0, offsets.length - 1, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
-
-        int mapCount = offsets.length - 1;
-        int elementCount = keyBlock.getPositionCount();
-        int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
-        Arrays.fill(hashTables, -1);
-        for (int i = 0; i < mapCount; i++) {
-            int keyOffset = offsets[i];
-            int keyCount = offsets[i + 1] - keyOffset;
-            if (keyCount < 0) {
-                throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
-            }
-            if (mapIsNull.isPresent() && mapIsNull.get()[i] && keyCount != 0) {
-                throw new IllegalArgumentException("A null map must have zero entries");
-            }
-            buildHashTable(keyBlock, keyOffset, keyCount, keyBlockHashCode, hashTables, keyOffset * HASH_MULTIPLIER, keyCount * HASH_MULTIPLIER);
-        }
+        validateConstructorArguments(0, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
 
         return createMapBlockInternal(
                 0,
-                mapCount,
+                positionCount,
                 mapIsNull,
                 offsets,
                 keyBlock,
                 valueBlock,
-                hashTables,
+                new HashTables(Optional.empty(), positionCount, keyBlock.getPositionCount() * HASH_MULTIPLIER),
                 mapType.getKeyType(),
                 keyBlockNativeEquals,
-                keyNativeHashCode);
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     /**
@@ -112,13 +100,26 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            int[] hashTables,
+            HashTables hashTables,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode)
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode)
     {
         validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, keyType, keyBlockNativeEquals, keyNativeHashCode);
-        return new MapBlock(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, hashTables, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        requireNonNull(hashTables, "hashTables is null");
+        return new MapBlock(
+                startOffset,
+                positionCount,
+                mapIsNull.orElse(null),
+                offsets,
+                keyBlock,
+                valueBlock,
+                hashTables,
+                keyType,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     private static void validateConstructorArguments(
@@ -171,16 +172,17 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            int[] hashTables,
+            HashTables hashTables,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode)
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockHashCode)
     {
-        super(keyType, keyNativeHashCode, keyBlockNativeEquals);
+        super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
 
-        requireNonNull(hashTables, "hashTables is null");
-        if (hashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
-            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), hashTables.length));
+        int[] rawHashTables = hashTables.get().orElse(null);
+        if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
+            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), rawHashTables.length));
         }
 
         this.startOffset = startOffset;
@@ -190,9 +192,17 @@ public class MapBlock
         this.keyBlock = keyBlock;
         this.valueBlock = valueBlock;
         this.hashTables = hashTables;
-
         this.sizeInBytes = -1;
-        this.retainedSizeInBytes = INSTANCE_SIZE + keyBlock.getRetainedSizeInBytes() + valueBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(mapIsNull) + sizeOf(hashTables);
+
+        // We will add the hashtable size to the retained size even if it's not built yet. This could be overestimating
+        // but is necessary to avoid reliability issues. Currently the memory counting framework only pull the retained
+        // size once for each operator so updating in the middle of the processing would not work.
+        this.retainedSizeInBytes = INSTANCE_SIZE
+                + keyBlock.getRetainedSizeInBytes()
+                + valueBlock.getRetainedSizeInBytes()
+                + sizeOf(offsets)
+                + sizeOf(mapIsNull)
+                + hashTables.getRetainedSizeInBytes();
     }
 
     @Override
@@ -208,7 +218,7 @@ public class MapBlock
     }
 
     @Override
-    protected int[] getHashTables()
+    protected HashTables getHashTables()
     {
         return hashTables;
     }
@@ -220,7 +230,7 @@ public class MapBlock
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return startOffset;
     }
@@ -255,7 +265,8 @@ public class MapBlock
         sizeInBytes = keyBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
@@ -271,7 +282,7 @@ public class MapBlock
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -306,6 +317,47 @@ public class MapBlock
                 hashTables,
                 keyType,
                 keyBlockNativeEquals,
-                keyNativeHashCode);
+                keyNativeHashCode,
+                keyBlockHashCode);
+    }
+
+    @Override
+    protected void ensureHashTableLoaded()
+    {
+        if (this.hashTables.get().isPresent()) {
+            return;
+        }
+
+        // We need to synchronize access to the hashTables field as it may be shared by multiple MapBlock instances.
+        synchronized (hashTables) {
+            if (this.hashTables.get().isPresent()) {
+                return;
+            }
+
+            int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
+            Arrays.fill(hashTables, -1);
+
+            verify(this.hashTables.getExpectedHashTableCount() <= offsets.length, "incorrect offsets size");
+
+            for (int i = 0; i < this.hashTables.getExpectedHashTableCount(); i++) {
+                int keyOffset = offsets[i];
+                int keyCount = offsets[i + 1] - keyOffset;
+                if (keyCount < 0) {
+                    throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+                }
+                if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
+                    throw new IllegalArgumentException("A null map must have zero entries");
+                }
+                buildHashTable(
+                        getRawKeyBlock(),
+                        keyOffset,
+                        keyCount,
+                        keyBlockHashCode,
+                        hashTables,
+                        keyOffset * HASH_MULTIPLIER,
+                        keyCount * HASH_MULTIPLIER);
+            }
+            this.hashTables.set(hashTables);
+        }
     }
 }

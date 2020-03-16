@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,42 +33,42 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class UnnestNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> replicateSymbols;
-    private final Map<Symbol, List<Symbol>> unnestSymbols;
-    private final Optional<Symbol> ordinalitySymbol;
+    private final List<VariableReferenceExpression> replicateVariables;
+    private final Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables;
+    private final Optional<VariableReferenceExpression> ordinalityVariable;
 
     @JsonCreator
     public UnnestNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
-            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols,
-            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
+            @JsonProperty("replicateVariables") List<VariableReferenceExpression> replicateVariables,
+            @JsonProperty("unnestVariables") Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables,
+            @JsonProperty("ordinalityVariable") Optional<VariableReferenceExpression> ordinalityVariable)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
-        this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
-        checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
-        requireNonNull(unnestSymbols, "unnestSymbols is null");
-        checkArgument(!unnestSymbols.isEmpty(), "unnestSymbols is empty");
-        ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
+        this.replicateVariables = ImmutableList.copyOf(requireNonNull(replicateVariables, "replicateVariables is null"));
+        checkArgument(source.getOutputVariables().containsAll(replicateVariables), "Source does not contain all replicateSymbols");
+        requireNonNull(unnestVariables, "unnestVariables is null");
+        checkArgument(!unnestVariables.isEmpty(), "unnestVariables is empty");
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> builder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : unnestVariables.entrySet()) {
             builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
         }
-        this.unnestSymbols = builder.build();
-        this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
+        this.unnestVariables = builder.build();
+        this.ordinalityVariable = requireNonNull(ordinalityVariable, "ordinalityVariable is null");
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.<Symbol>builder()
-                .addAll(replicateSymbols)
-                .addAll(Iterables.concat(unnestSymbols.values()));
-        ordinalitySymbol.ifPresent(outputSymbolsBuilder::add);
+        ImmutableList.Builder<VariableReferenceExpression> outputSymbolsBuilder = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(replicateVariables)
+                .addAll(Iterables.concat(unnestVariables.values()));
+        ordinalityVariable.ifPresent(outputSymbolsBuilder::add);
         return outputSymbolsBuilder.build();
     }
 
@@ -77,21 +79,21 @@ public class UnnestNode
     }
 
     @JsonProperty
-    public List<Symbol> getReplicateSymbols()
+    public List<VariableReferenceExpression> getReplicateVariables()
     {
-        return replicateSymbols;
+        return replicateVariables;
     }
 
     @JsonProperty
-    public Map<Symbol, List<Symbol>> getUnnestSymbols()
+    public Map<VariableReferenceExpression, List<VariableReferenceExpression>> getUnnestVariables()
     {
-        return unnestSymbols;
+        return unnestVariables;
     }
 
     @JsonProperty
-    public Optional<Symbol> getOrdinalitySymbol()
+    public Optional<VariableReferenceExpression> getOrdinalityVariable()
     {
-        return ordinalitySymbol;
+        return ordinalityVariable;
     }
 
     @Override
@@ -101,7 +103,7 @@ public class UnnestNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitUnnest(this, context);
     }
@@ -109,6 +111,6 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol);
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
     }
 }

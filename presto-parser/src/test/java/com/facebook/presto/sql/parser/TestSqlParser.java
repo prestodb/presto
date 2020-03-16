@@ -16,6 +16,8 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -31,6 +33,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -46,6 +49,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -87,8 +91,6 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.sql.tree.PathElement;
-import com.facebook.presto.sql.tree.PathSpecification;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.Property;
@@ -100,14 +102,15 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -122,6 +125,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -135,6 +139,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -159,10 +164,16 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -292,6 +303,14 @@ public class TestSqlParser
         catch (RuntimeException e) {
             // Expected
         }
+    }
+
+    @Test
+    public void testRowSubscript()
+    {
+        assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
+                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
+                new LongLiteral("1")));
     }
 
     @Test
@@ -570,8 +589,8 @@ public class TestSqlParser
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(DIVIDE,
+                new ArithmeticBinaryExpression(DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
@@ -1324,6 +1343,22 @@ public class TestSqlParser
     }
 
     @Test
+    public void testDropFunction()
+    {
+        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false));
+
+        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false));
+
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), true));
+    }
+
+    @Test
     public void testInsertInto()
     {
         QualifiedName table = QualifiedName.of("a");
@@ -1406,6 +1441,85 @@ public class TestSqlParser
         assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false));
         assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false));
         assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false));
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        assertStatement(
+                "CREATE FUNCTION tan (x double)\n" +
+                        "RETURNS double\n" +
+                        "COMMENT 'tangent trigonometric function'\n" +
+                        "LANGUAGE SQL\n" +
+                        "DETERMINISTIC\n" +
+                        "RETURNS NULL ON NULL INPUT\n" +
+                        "RETURN sin(x) / cos(x)",
+                new CreateFunction(
+                        QualifiedName.of("tan"),
+                        false,
+                        ImmutableList.of(new SqlParameterDeclaration(identifier("x"), "double")),
+                        "double",
+                        Optional.of("tangent trigonometric function"),
+                        new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
+                        new Return(new ArithmeticBinaryExpression(
+                                DIVIDE,
+                                new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(identifier("x"))),
+                                new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(identifier("x")))))));
+
+        CreateFunction createFunctionRand = new CreateFunction(
+                QualifiedName.of("dev", "testing", "rand"),
+                true,
+                ImmutableList.of(),
+                "double",
+                Optional.empty(),
+                new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
+                new Return(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())));
+        assertStatement(
+                "CREATE OR REPLACE FUNCTION dev.testing.rand ()\n" +
+                        "RETURNS double\n" +
+                        "LANGUAGE SQL\n" +
+                        "NOT DETERMINISTIC\n" +
+                        "CALLED ON NULL INPUT\n" +
+                        "RETURN rand()",
+                createFunctionRand);
+        assertStatement(
+                "CREATE OR REPLACE FUNCTION dev.testing.rand ()\n" +
+                        "RETURNS double\n" +
+                        "RETURN rand()",
+                createFunctionRand);
+
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double LANGUAGE SQL LANGUAGE SQL RETURN rand()",
+                "Duplicate language clause: SQL");
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double DETERMINISTIC DETERMINISTIC RETURN rand()",
+                "Duplicate determinism characteristics: DETERMINISTIC");
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double CALLED ON NULL INPUT CALLED ON NULL INPUT RETURN rand()",
+                "Duplicate null-call clause: CALLEDONNULLINPUT");
+    }
+
+    @Test
+    public void testAlterFunction()
+    {
+        QualifiedName functionName = QualifiedName.of("testing", "default", "tan");
+        assertStatement(
+                "ALTER FUNCTION testing.default.tan\n" +
+                        "CALLED ON NULL INPUT",
+                new AlterFunction(functionName, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(CALLED_ON_NULL_INPUT))));
+        assertStatement(
+                "ALTER FUNCTION testing.default.tan(double)\n" +
+                        "RETURNS NULL ON NULL INPUT",
+                new AlterFunction(functionName, Optional.of(ImmutableList.of("double")), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT))));
+
+        assertInvalidStatement(
+                "ALTER FUNCTION testing.default.tan",
+                "No alter routine characteristics specified");
+        assertInvalidStatement(
+                "ALTER FUNCTION testing.default.tan\n" +
+                        "RETURNS NULL ON NULL INPUT\n" +
+                        "RETURNS NULL ON NULL INPUT",
+                "Duplicate null-call clause: RETURNSNULLONNULLINPUT");
     }
 
     @Test
@@ -1510,42 +1624,6 @@ public class TestSqlParser
                 new ShowRoleGrants(Optional.empty(), Optional.empty()));
         assertStatement("SHOW ROLE GRANTS FROM catalog",
                 new ShowRoleGrants(Optional.of(new Identifier("catalog"))));
-    }
-
-    @Test
-    public void testSetPath()
-    {
-        assertStatement("SET PATH iLikeToEat.apples, andBananas",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("iLikeToEat")), new Identifier("apples")),
-                        new PathElement(Optional.empty(), new Identifier("andBananas"))))));
-
-        assertStatement("SET PATH \"schemas,with\".\"grammar.in\", \"their!names\"",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("schemas,with")), new Identifier("grammar.in")),
-                        new PathElement(Optional.empty(), new Identifier("their!names"))))));
-
-        assertStatement("SET PATH \"\"",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.empty(), new Identifier(""))))));
-
-        try {
-            assertStatement("SET PATH one.too.many, qualifiers",
-                    new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                            new PathElement(Optional.empty(), new Identifier("dummyValue"))))));
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - schema can only be qualified by catalog
-        }
-
-        try {
-            SQL_PARSER.createStatement("SET PATH ", new ParsingOptions());
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - some form of parameter is required
-        }
     }
 
     @Test
@@ -2041,6 +2119,7 @@ public class TestSqlParser
                                                         new LongLiteral("4"))),
                                                 Optional.empty(),
                                                 false,
+                                                false,
                                                 ImmutableList.of(new Identifier("x")))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -2297,6 +2376,29 @@ public class TestSqlParser
         assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
     }
 
+    @Test
+    public void testNullTreatment()
+    {
+        assertExpression("lead(x, 1) ignore nulls over()",
+                new FunctionCall(
+                        QualifiedName.of("lead"),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        true,
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+        assertExpression("lead(x, 1) respect nulls over()",
+                new FunctionCall(
+                        QualifiedName.of("lead"),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);
@@ -2325,6 +2427,19 @@ public class TestSqlParser
                     indent(input),
                     indent(formatSql(expected, Optional.empty())),
                     indent(formatSql(parsed, Optional.empty()))));
+        }
+    }
+
+    private static void assertInvalidStatement(String expression, String expectedErrorMessageRegex)
+    {
+        try {
+            Statement result = SQL_PARSER.createStatement(expression, ParsingOptions.builder().build());
+            fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
+        }
+        catch (ParsingException e) {
+            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
+                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
+            }
         }
     }
 

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.testing.EquivalenceTester;
 import com.facebook.presto.spi.SchemaTableName;
-import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.TABLE_CODEC;

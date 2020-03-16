@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.storage.BackupStats;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -35,9 +38,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -51,23 +56,27 @@ public class BackupManager
     private final Optional<BackupStore> backupStore;
     private final StorageService storageService;
     private final ExecutorService executorService;
+    private final Optional<RawLocalFileSystem> localFileSystem;
 
     private final AtomicInteger pendingBackups = new AtomicInteger();
     private final BackupStats stats = new BackupStats();
 
     @Inject
-    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, BackupConfig config)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, OrcDataEnvironment environment, BackupConfig config)
     {
-        this(backupStore, storageService, config.getBackupThreads());
+        this(backupStore, storageService, environment, config.getBackupThreads());
     }
 
-    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, int backupThreads)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, OrcDataEnvironment environment, int backupThreads)
     {
         checkArgument(backupThreads > 0, "backupThreads must be > 0");
 
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
     }
 
     @PreDestroy
@@ -76,7 +85,7 @@ public class BackupManager
         executorService.shutdownNow();
     }
 
-    public CompletableFuture<?> submit(UUID uuid, File source)
+    public CompletableFuture<?> submit(UUID uuid, Path source)
     {
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
@@ -87,7 +96,7 @@ public class BackupManager
 
         // TODO: decrement when the running task is finished (not immediately on cancel)
         pendingBackups.incrementAndGet();
-        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
+        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, localFileSystem.get().pathToFile(source)), executorService);
         future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
         return future;
     }
@@ -115,13 +124,13 @@ public class BackupManager
                 backupStore.get().backupShard(uuid, source);
                 stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
 
-                File restored = new File(storageService.getStagingFile(uuid) + ".validate");
+                File restored = new File(localFileSystem.get().pathToFile(storageService.getStagingFile(uuid)) + ".validate");
                 backupStore.get().restoreShard(uuid, restored);
 
                 if (!filesEqual(source, restored)) {
                     stats.incrementBackupCorruption();
 
-                    File quarantineBase = storageService.getQuarantineFile(uuid);
+                    File quarantineBase = localFileSystem.get().pathToFile(storageService.getQuarantineFile(uuid));
                     File quarantineOriginal = new File(quarantineBase.getPath() + ".original");
                     File quarantineRestored = new File(quarantineBase.getPath() + ".restored");
 

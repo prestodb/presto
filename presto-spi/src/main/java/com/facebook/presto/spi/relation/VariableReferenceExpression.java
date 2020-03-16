@@ -26,14 +26,15 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class VariableReferenceExpression
         extends RowExpression
+        implements Comparable<VariableReferenceExpression>
 {
     private final String name;
     private final Type type;
 
     @JsonCreator
     public VariableReferenceExpression(
-            @JsonProperty String name,
-            @JsonProperty Type type)
+            @JsonProperty("name") String name,
+            @JsonProperty("type") Type type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -81,5 +82,15 @@ public final class VariableReferenceExpression
         }
         VariableReferenceExpression other = (VariableReferenceExpression) obj;
         return Objects.equals(this.name, other.name) && Objects.equals(this.type, other.type);
+    }
+
+    @Override
+    public int compareTo(VariableReferenceExpression o)
+    {
+        int nameComparison = name.compareTo(o.name);
+        if (nameComparison != 0) {
+            return nameComparison;
+        }
+        return type.getTypeSignature().toString().compareTo(o.type.getTypeSignature().toString());
     }
 }

@@ -83,6 +83,7 @@ public class TestClusterMemoryLeakDetector
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
+                        12,
                         13,
                         14,
                         15,
@@ -97,9 +98,11 @@ public class TestClusterMemoryLeakDetector
                         Duration.valueOf("24m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
+                        DataSize.valueOf("123MB"),
                         OptionalDouble.of(20)),
                 null,
                 null,
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 }

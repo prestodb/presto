@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
@@ -30,8 +32,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -58,13 +58,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DbResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
@@ -116,9 +118,8 @@ public class DbResourceGroupConfigurationManager
     @Override
     protected List<ResourceGroupSpec> getRootGroups()
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
-        }
+        checkMaxRefreshInterval();
+
         if (this.selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No root groups are configured");
         }
@@ -136,7 +137,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1, 1, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::load, 10, 10, TimeUnit.SECONDS);
         }
     }
 
@@ -156,9 +157,8 @@ public class DbResourceGroupConfigurationManager
     @Override
     public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
-        }
+        checkMaxRefreshInterval();
+
         if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
@@ -173,9 +173,8 @@ public class DbResourceGroupConfigurationManager
     @VisibleForTesting
     public List<ResourceGroupSelector> getSelectors()
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
-        }
+        checkMaxRefreshInterval();
+
         if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
@@ -237,11 +236,11 @@ public class DbResourceGroupConfigurationManager
             lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
-            if (succinctNanos(System.nanoTime() - lastRefresh.get()).compareTo(maxRefreshInterval) > 0) {
-                lastRefresh.set(0);
-            }
             refreshFailures.update(1);
             log.error(e, "Error loading configuration from db");
+            if (lastRefresh.get() != 0) {
+                log.debug("Last successful configuration loading was %s ago", succinctNanos(System.nanoTime() - lastRefresh.get()).toString());
+            }
         }
     }
 
@@ -365,6 +364,18 @@ public class DbResourceGroupConfigurationManager
         }
         // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
         return groups.get(groupId);
+    }
+
+    private void checkMaxRefreshInterval()
+    {
+        if (System.nanoTime() - lastRefresh.get() > maxRefreshInterval.toMillis() * MILLISECONDS.toNanos(1)) {
+            String message = "Resource group configuration cannot be fetched from database.";
+            if (lastRefresh.get() != 0) {
+                message += format(" Current resource group configuration is loaded %s ago", succinctNanos(System.nanoTime() - lastRefresh.get()).toString());
+            }
+
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, message);
+        }
     }
 
     @Managed

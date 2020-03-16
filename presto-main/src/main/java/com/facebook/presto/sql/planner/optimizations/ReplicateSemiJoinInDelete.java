@@ -15,11 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
@@ -30,7 +30,7 @@ public class ReplicateSemiJoinInDelete
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
@@ -51,11 +51,11 @@ public class ReplicateSemiJoinInDelete
                     node.getId(),
                     sourceRewritten,
                     filteringSourceRewritten,
-                    node.getSourceJoinSymbol(),
-                    node.getFilteringSourceJoinSymbol(),
+                    node.getSourceJoinVariable(),
+                    node.getFilteringSourceJoinVariable(),
                     node.getSemiJoinOutput(),
-                    node.getSourceHashSymbol(),
-                    node.getFilteringSourceHashSymbol(),
+                    node.getSourceHashVariable(),
+                    node.getFilteringSourceHashVariable(),
                     node.getDistributionType());
 
             if (isDeleteQuery) {
@@ -75,9 +75,8 @@ public class ReplicateSemiJoinInDelete
             return new DeleteNode(
                     node.getId(),
                     rewrittenSource,
-                    node.getTarget(),
                     node.getRowId(),
-                    node.getOutputSymbols());
+                    node.getOutputVariables());
         }
     }
 }

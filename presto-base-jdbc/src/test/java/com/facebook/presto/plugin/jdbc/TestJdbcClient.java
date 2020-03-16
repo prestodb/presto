@@ -27,6 +27,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -75,17 +76,18 @@ public class TestJdbcClient
     @Test
     public void testMetadata()
     {
-        assertTrue(jdbcClient.getSchemaNames().containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        assertTrue(jdbcClient.getSchemaNames(identity).containsAll(ImmutableSet.of("example", "tpch")));
+        assertEquals(jdbcClient.getTableNames(identity, Optional.of("example")), ImmutableList.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
-        assertEquals(jdbcClient.getTableNames("tpch"), ImmutableList.of(
+        assertEquals(jdbcClient.getTableNames(identity, Optional.of("tpch")), ImmutableList.of(
                 new SchemaTableName("tpch", "lineitem"),
                 new SchemaTableName("tpch", "orders")));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(identity, schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(table.getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.getSchemaName(), "EXAMPLE");
@@ -101,7 +103,7 @@ public class TestJdbcClient
     public void testMetadataWithSchemaPattern()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR, true),
@@ -112,7 +114,7 @@ public class TestJdbcClient
     public void testMetadataWithFloatAndDoubleCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT, true),
@@ -132,9 +134,9 @@ public class TestJdbcClient
                 new ColumnMetadata("columnC", BigintType.BIGINT, false, null, null, false, emptyMap()),
                 new ColumnMetadata("columnD", DateType.DATE, false, null, null, false, emptyMap()));
 
-        jdbcClient.createTable(new ConnectorTableMetadata(schemaTableName, expectedColumns));
+        jdbcClient.createTable(session, new ConnectorTableMetadata(schemaTableName, expectedColumns));
 
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
 
         try {
             assertEquals(tableHandle.getTableName(), tableName);
@@ -145,7 +147,7 @@ public class TestJdbcClient
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false)));
         }
         finally {
-            jdbcClient.dropTable(tableHandle);
+            jdbcClient.dropTable(JdbcIdentity.from(session), tableHandle);
         }
     }
 
@@ -157,26 +159,26 @@ public class TestJdbcClient
         List<ColumnMetadata> expectedColumns = ImmutableList.of(
                 new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false));
 
-        jdbcClient.createTable(new ConnectorTableMetadata(schemaTableName, expectedColumns));
+        jdbcClient.createTable(session, new ConnectorTableMetadata(schemaTableName, expectedColumns));
 
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
 
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true)));
 
-            jdbcClient.addColumn(tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
+            jdbcClient.addColumn(JdbcIdentity.from(session), tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true),
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true)));
 
-            jdbcClient.dropColumn(tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true));
+            jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true));
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
                     new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true)));
         }
         finally {
-            jdbcClient.dropTable(tableHandle);
+            jdbcClient.dropTable(JdbcIdentity.from(session), tableHandle);
         }
     }
 }
