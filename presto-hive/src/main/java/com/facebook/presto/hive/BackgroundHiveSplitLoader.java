@@ -165,7 +165,7 @@ public class BackgroundHiveSplitLoader
         this.partitions = new ConcurrentLazyQueue<>(requireNonNull(partitions, "partitions is null"));
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
-        this.hoodiePathFilterSupplier = Suppliers.memoize(HoodieROTablePathFilter::new);
+        this.hoodiePathFilterSupplier = Suppliers.memoize(() -> new HoodieROTablePathFilter(hdfsEnvironment.getBaseConfiguration()));
     }
 
     @Override

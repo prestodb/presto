@@ -76,6 +76,12 @@ public class HiveCachingHdfsConfiguration
         return config;
     }
 
+    @Override
+    public Configuration getBaseConfiguration()
+    {
+        return hiveHdfsConfiguration.getBaseConfiguration();
+    }
+
     private static class CachingJobConf
             extends JobConf
             implements FileSystemFactory
