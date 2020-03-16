@@ -95,7 +95,9 @@ public class PrestoSparkQueryExecutionFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
+    private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -112,7 +114,8 @@ public class PrestoSparkQueryExecutionFactory
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
-            Set<PrestoSparkCredentialsProvider> credentialsProviders)
+            Set<PrestoSparkCredentialsProvider> credentialsProviders,
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -128,6 +131,7 @@ public class PrestoSparkQueryExecutionFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
+        this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
 
     @Override
@@ -138,7 +142,10 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider)
     {
         QueryId queryId = queryIdGenerator.createNextQueryId();
-        SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(prestoSparkSession, credentialsProviders);
+        SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
+                prestoSparkSession,
+                credentialsProviders,
+                authenticatorProviders);
         TransactionId transactionId = transactionManager.beginTransaction(true);
         Session session = sessionSupplier.createSession(queryId, sessionContext)
                 .beginTransactionId(transactionId, transactionManager, accessControl);

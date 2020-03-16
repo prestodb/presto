@@ -368,8 +368,9 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkService.class).in(Scopes.SINGLETON);
 
-        // extra credentials for Presto-on-Spark
+        // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);
+        newSetBinder(binder, PrestoSparkAuthenticatorProvider.class);
     }
 
     @Provides

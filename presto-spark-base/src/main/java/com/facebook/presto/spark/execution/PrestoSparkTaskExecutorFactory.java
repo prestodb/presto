@@ -34,6 +34,7 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -44,6 +45,7 @@ import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spark.execution.PrestoSparkOutputOperator.PrestoSparkOutputFactory;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -65,6 +67,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -88,6 +91,8 @@ public class PrestoSparkTaskExecutorFactory
 
     private final LocalExecutionPlanner localExecutionPlanner;
 
+    private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
+
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
     private final DataSize maxSpillMemory;
@@ -107,6 +112,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig)
@@ -118,6 +124,7 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor,
                 yieldExecutor,
                 localExecutionPlanner,
+                authenticatorProviders,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
@@ -135,6 +142,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxSpillMemory,
@@ -150,6 +158,7 @@ public class PrestoSparkTaskExecutorFactory
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
+        this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
@@ -169,8 +178,13 @@ public class PrestoSparkTaskExecutorFactory
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
+        ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
+        authenticatorProviders.forEach(provider -> extraAuthenticators.putAll(provider.getTokenAuthenticators()));
 
-        Session session = taskDescriptor.getSession().toSession(sessionPropertyManager, taskDescriptor.getExtraCredentials());
+        Session session = taskDescriptor.getSession().toSession(
+                sessionPropertyManager,
+                taskDescriptor.getExtraCredentials(),
+                extraAuthenticators.build());
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
         // TODO: include attemptId in taskId
