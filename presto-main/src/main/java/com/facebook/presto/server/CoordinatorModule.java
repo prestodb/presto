@@ -21,6 +21,8 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.dynamicCatalog.DynamicAddCatalogController;
+import com.facebook.presto.dynamicCatalog.ResponseParser;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
@@ -190,6 +192,9 @@ public class CoordinatorModule
         newExporter(binder).export(StatementResource.class).withGeneratedName();
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+        jaxrsBinder(binder).bind(DynamicAddCatalogController.class);
+        newExporter(binder).export(DynamicAddCatalogController.class).withGeneratedName();
+        binder.bind(ResponseParser.class).in(Scopes.SINGLETON);
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
