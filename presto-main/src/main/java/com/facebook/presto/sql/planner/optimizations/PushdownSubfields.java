@@ -500,6 +500,7 @@ public class PushdownSubfields
 
                     if (indexExpression instanceof ConstantExpression) {
                         Object index = ((ConstantExpression) indexExpression).getValue();
+                        verify(index != null, "Struct field index cannot be null");
                         if (index instanceof Number) {
                             Optional<String> fieldName = baseType.getFields().get(((Number) index).intValue()).getName();
                             if (fieldName.isPresent()) {
@@ -520,6 +521,9 @@ public class PushdownSubfields
 
                     if (indexExpression instanceof ConstantExpression) {
                         Object index = ((ConstantExpression) indexExpression).getValue();
+                        if (index == null) {
+                            return Optional.empty();
+                        }
                         if (index instanceof Number) {
                             elements.add(new Subfield.LongSubscript(((Number) index).longValue()));
                             expression = arguments.get(0);
