@@ -140,7 +140,7 @@ public class MySqlFunctionNamespaceManager
         }
         checkFieldLength("Function name", functionName.getFunctionName(), MAX_FUNCTION_NAME_LENGTH);
         checkFieldLength(
-                "Parameter types",
+                "Parameter type list",
                 function.getFunctionId().getArgumentTypes().stream()
                         .map(TypeSignature::toString)
                         .collect(joining(",")),
