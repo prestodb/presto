@@ -38,9 +38,9 @@ public class LongArrayBlockEncodingBuffer
     private byte[] valuesBuffer;
     private int valuesBufferIndex;
 
-    public LongArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator)
+    public LongArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator, boolean isNested)
     {
-        super(bufferAllocator);
+        super(bufferAllocator, isNested);
     }
 
     @Override
