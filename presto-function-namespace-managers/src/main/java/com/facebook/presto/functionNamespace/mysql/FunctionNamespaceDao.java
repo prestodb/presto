@@ -64,8 +64,8 @@ public interface FunctionNamespaceDao
             "  description text,\n" +
             "  deleted boolean NOT NULL DEFAULT false,\n" +
             "  delete_time TIMESTAMP NULL DEFAULT NULL,\n" +
-            "  create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" +
-            "  update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
+            "  create_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,\n" +
+            "  update_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
             "  PRIMARY KEY (id),\n" +
             "  KEY function_id_hash_version (function_id_hash, version),\n" +
             "  KEY qualified_function_name (catalog_name, schema_name, function_name))")
