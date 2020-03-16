@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
@@ -44,11 +45,17 @@ public class PrestoSparkSessionContext
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
 
-    public static PrestoSparkSessionContext createFromSessionInfo(PrestoSparkSession prestoSparkSession, Set<PrestoSparkCredentialsProvider> credentialsProviders)
+    public static PrestoSparkSessionContext createFromSessionInfo(
+            PrestoSparkSession prestoSparkSession,
+            Set<PrestoSparkCredentialsProvider> credentialsProviders,
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
         ImmutableMap.Builder<String, String> extraCredentials = ImmutableMap.builder();
         extraCredentials.putAll(prestoSparkSession.getExtraCredentials());
         credentialsProviders.forEach(provider -> extraCredentials.putAll(provider.getCredentials()));
+
+        ImmutableMap.Builder<String, TokenAuthenticator> extraTokenAuthenticators = ImmutableMap.builder();
+        authenticatorProviders.forEach(provider -> extraTokenAuthenticators.putAll(provider.getTokenAuthenticators()));
 
         return new PrestoSparkSessionContext(
                 new Identity(
@@ -56,7 +63,7 @@ public class PrestoSparkSessionContext
                         prestoSparkSession.getPrincipal(),
                         ImmutableMap.of(),  // presto on spark does not support role management
                         extraCredentials.build(),
-                        ImmutableMap.of()),
+                        extraTokenAuthenticators.build()),
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),

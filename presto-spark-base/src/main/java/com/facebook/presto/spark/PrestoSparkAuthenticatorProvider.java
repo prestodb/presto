@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.security;
+package com.facebook.presto.spark;
 
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 
-public interface TokenAuthenticator
+import java.util.Map;
+
+public interface PrestoSparkAuthenticatorProvider
 {
-    Slice getAuthenticationToken(Slice authenticationTokenRequest);
+    Map<String, TokenAuthenticator> getTokenAuthenticators();
 }
