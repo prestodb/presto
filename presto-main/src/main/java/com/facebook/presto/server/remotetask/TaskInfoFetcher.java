@@ -146,7 +146,8 @@ public class TaskInfoFetcher
     {
         running = false;
         if (future != null) {
-            future.cancel(true);
+            // do not terminate if the request is already running to avoid closing pooled connections
+            future.cancel(false);
             future = null;
         }
         if (scheduledFuture != null) {
