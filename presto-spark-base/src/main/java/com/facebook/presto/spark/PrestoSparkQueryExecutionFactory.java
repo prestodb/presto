@@ -304,8 +304,8 @@ public class PrestoSparkQueryExecutionFactory
 
         private void queryCompletedEvent(Optional<Throwable> failure)
         {
-            QueryInfo queryInfo = createQueryInfo(failure);
-            // TODO: implement query monitor
+            // TODO: implement query monitor and collect query info
+            // QueryInfo queryInfo = createQueryInfo(failure);
             // queryMonitor.queryCompletedEvent(queryInfo);
         }
 
