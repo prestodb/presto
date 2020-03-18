@@ -210,16 +210,12 @@ public class JdbcPrestoAction
                 throws SQLException
         {
             ImmutableList.Builder<R> rows = ImmutableList.builder();
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             try (ResultSet resultSet = statement.executeQuery(query)) {
-                for (int i = 1; i <= resultSet.getMetaData().getColumnCount(); i++) {
-                    columnNames.add(resultSet.getMetaData().getColumnName(i));
-                }
                 while (resultSet.next()) {
                     converter.apply(resultSet).ifPresent(rows::add);
                 }
                 checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-                return new QueryResult<>(rows.build(), columnNames.build(), progressMonitor.getLastQueryStats().get());
+                return new QueryResult<>(rows.build(), resultSet.getMetaData(), progressMonitor.getLastQueryStats().get());
             }
         }
 

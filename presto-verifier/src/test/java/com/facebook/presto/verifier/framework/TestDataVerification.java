@@ -286,6 +286,14 @@ public class TestDataVerification
     }
 
     @Test
+    public void testSelectDate()
+    {
+        Optional<VerifierQueryEvent> event = createVerification("SELECT date '2020-01-01', date(now()) today", "SELECT date '2020-01-01', date(now()) today").run();
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
     public void testChecksumQueryCompilerError()
     {
         List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
