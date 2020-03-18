@@ -26,11 +26,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -54,97 +57,109 @@ public class TestQueues
 {
     public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
+    private DistributedQueryRunner queryRunner;
+
+    @BeforeMethod
+    public void setup()
+            throws Exception
+    {
+        queryRunner = createQueryRunner();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        closeQuietly(queryRunner);
+        queryRunner = null;
+    }
+
     @Test(timeOut = 240_000)
     public void testResourceGroupManager()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            // submit first "dashboard" query
-            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
+        // submit first "dashboard" query
+        QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
 
-            // wait for the first "dashboard" query to start
-            waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+        // wait for the first "dashboard" query to start
+        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            // submit second "dashboard" query
-            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
+        // submit second "dashboard" query
+        QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
-            // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
-            waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
+        // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
+        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            // submit first non "dashboard" query
-            QueryId firstNonDashboardQuery = createAdHocQuery(queryRunner);
+        // submit first non "dashboard" query
+        QueryId firstNonDashboardQuery = createAdHocQuery(queryRunner);
 
-            // wait for the first non "dashboard" query to start
-            waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
+        // wait for the first non "dashboard" query to start
+        waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
 
-            // submit second non "dashboard" query
-            QueryId secondNonDashboardQuery = createAdHocQuery(queryRunner);
+        // submit second non "dashboard" query
+        QueryId secondNonDashboardQuery = createAdHocQuery(queryRunner);
 
-            // wait for the second non "dashboard" query to start
-            waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
+        // wait for the second non "dashboard" query to start
+        waitForQueryState(queryRunner, secondNonDashboardQuery, RUNNING);
 
-            // cancel first "dashboard" query, second "dashboard" query and second non "dashboard" query should start running
-            cancelQuery(queryRunner, firstDashboardQuery);
-            waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-            waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
-        }
+        // cancel first "dashboard" query, second "dashboard" query and second non "dashboard" query should start running
+        cancelQuery(queryRunner, firstDashboardQuery);
+        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
+        waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
     }
 
     @Test(timeOut = 240_000)
     public void testExceedSoftLimits()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_soft_limits.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_soft_limits.json")));
 
-            QueryId scheduled1 = createScheduledQuery(queryRunner);
-            waitForQueryState(queryRunner, scheduled1, RUNNING);
+        QueryId scheduled1 = createScheduledQuery(queryRunner);
+        waitForQueryState(queryRunner, scheduled1, RUNNING);
 
-            QueryId scheduled2 = createScheduledQuery(queryRunner);
-            waitForQueryState(queryRunner, scheduled2, RUNNING);
+        QueryId scheduled2 = createScheduledQuery(queryRunner);
+        waitForQueryState(queryRunner, scheduled2, RUNNING);
 
-            QueryId scheduled3 = createScheduledQuery(queryRunner);
-            waitForQueryState(queryRunner, scheduled3, RUNNING);
+        QueryId scheduled3 = createScheduledQuery(queryRunner);
+        waitForQueryState(queryRunner, scheduled3, RUNNING);
 
-            // cluster is now 'at capacity' - scheduled is running 3 (i.e. over soft limit)
+        // cluster is now 'at capacity' - scheduled is running 3 (i.e. over soft limit)
 
-            QueryId backfill1 = createBackfill(queryRunner);
-            QueryId scheduled4 = createScheduledQuery(queryRunner);
+        QueryId backfill1 = createBackfill(queryRunner);
+        QueryId scheduled4 = createScheduledQuery(queryRunner);
 
-            cancelQuery(queryRunner, scheduled1);
+        cancelQuery(queryRunner, scheduled1);
 
-            // backfill should be chosen to run next
-            waitForQueryState(queryRunner, backfill1, RUNNING);
+        // backfill should be chosen to run next
+        waitForQueryState(queryRunner, backfill1, RUNNING);
 
-            cancelQuery(queryRunner, scheduled2);
-            cancelQuery(queryRunner, scheduled3);
-            cancelQuery(queryRunner, scheduled4);
+        cancelQuery(queryRunner, scheduled2);
+        cancelQuery(queryRunner, scheduled3);
+        cancelQuery(queryRunner, scheduled4);
 
-            QueryId backfill2 = createBackfill(queryRunner);
-            waitForQueryState(queryRunner, backfill2, RUNNING);
+        QueryId backfill2 = createBackfill(queryRunner);
+        waitForQueryState(queryRunner, backfill2, RUNNING);
 
-            QueryId backfill3 = createBackfill(queryRunner);
-            waitForQueryState(queryRunner, backfill3, RUNNING);
+        QueryId backfill3 = createBackfill(queryRunner);
+        waitForQueryState(queryRunner, backfill3, RUNNING);
 
-            // cluster is now 'at capacity' - backfills is running 3 (i.e. over soft limit)
+        // cluster is now 'at capacity' - backfills is running 3 (i.e. over soft limit)
 
-            QueryId backfill4 = createBackfill(queryRunner);
-            QueryId scheduled5 = createScheduledQuery(queryRunner);
-            cancelQuery(queryRunner, backfill1);
+        QueryId backfill4 = createBackfill(queryRunner);
+        QueryId scheduled5 = createScheduledQuery(queryRunner);
+        cancelQuery(queryRunner, backfill1);
 
-            // scheduled should be chosen to run next
-            waitForQueryState(queryRunner, scheduled5, RUNNING);
-            cancelQuery(queryRunner, backfill2);
-            cancelQuery(queryRunner, backfill3);
-            cancelQuery(queryRunner, backfill4);
-            cancelQuery(queryRunner, scheduled5);
+        // scheduled should be chosen to run next
+        waitForQueryState(queryRunner, scheduled5, RUNNING);
+        cancelQuery(queryRunner, backfill2);
+        cancelQuery(queryRunner, backfill3);
+        cancelQuery(queryRunner, backfill4);
+        cancelQuery(queryRunner, scheduled5);
 
-            waitForQueryState(queryRunner, scheduled5, FAILED);
-        }
+        waitForQueryState(queryRunner, scheduled5, FAILED);
     }
 
     private QueryId createBackfill(DistributedQueryRunner queryRunner)
@@ -161,36 +176,32 @@ public class TestQueues
     public void testResourceGroupManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
-            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
+        QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
+        QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
-            ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
-            waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
-            waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
-        }
+        ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
+        waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
+        waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
     }
 
     @Test(timeOut = 240_000)
     public void testResourceGroupManagerWithTooManyQueriesScheduled()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
-            waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+        QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
+        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
-            waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
+        QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
+        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            QueryId thirdDashboardQuery = createDashboardQuery(queryRunner);
-            waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
-        }
+        QueryId thirdDashboardQuery = createDashboardQuery(queryRunner);
+        waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
     }
 
     @Test(timeOut = 240_000)
@@ -204,75 +215,71 @@ public class TestQueues
     public void testClientTagsBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "default"));
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
-            assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "c"));
-        }
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get()
+                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_client_tags_based_config.json")));
+        assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "default"));
+        assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
+        assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "c"));
     }
 
     @Test(timeOut = 240_000)
     public void testSelectorResourceEstimateBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_resource_estimate_based_config.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get()
+                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_resource_estimate_based_config.json")));
 
-            assertResourceGroup(
-                    queryRunner,
-                    newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(Duration.valueOf("4m")),
-                            Optional.empty(),
-                            Optional.of(DataSize.valueOf("400MB")),
-                            Optional.empty())),
-                    LONG_LASTING_QUERY,
-                    createResourceGroupId("global", "small"));
+        assertResourceGroup(
+                queryRunner,
+                newSessionWithResourceEstimates(new ResourceEstimates(
+                        Optional.of(Duration.valueOf("4m")),
+                        Optional.empty(),
+                        Optional.of(DataSize.valueOf("400MB")),
+                        Optional.empty())),
+                LONG_LASTING_QUERY,
+                createResourceGroupId("global", "small"));
 
-            assertResourceGroup(
-                    queryRunner,
-                    newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(Duration.valueOf("4m")),
-                            Optional.empty(),
-                            Optional.of(DataSize.valueOf("600MB")),
-                            Optional.empty())),
-                    LONG_LASTING_QUERY,
-                    createResourceGroupId("global", "other"));
+        assertResourceGroup(
+                queryRunner,
+                newSessionWithResourceEstimates(new ResourceEstimates(
+                        Optional.of(Duration.valueOf("4m")),
+                        Optional.empty(),
+                        Optional.of(DataSize.valueOf("600MB")),
+                        Optional.empty())),
+                LONG_LASTING_QUERY,
+                createResourceGroupId("global", "other"));
 
-            assertResourceGroup(
-                    queryRunner,
-                    newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(Duration.valueOf("4m")),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty())),
-                    LONG_LASTING_QUERY,
-                    createResourceGroupId("global", "other"));
+        assertResourceGroup(
+                queryRunner,
+                newSessionWithResourceEstimates(new ResourceEstimates(
+                        Optional.of(Duration.valueOf("4m")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())),
+                LONG_LASTING_QUERY,
+                createResourceGroupId("global", "other"));
 
-            assertResourceGroup(
-                    queryRunner,
-                    newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(Duration.valueOf("1s")),
-                            Optional.of(Duration.valueOf("1s")),
-                            Optional.of(DataSize.valueOf("6TB")),
-                            Optional.empty())),
-                    LONG_LASTING_QUERY,
-                    createResourceGroupId("global", "huge_memory"));
+        assertResourceGroup(
+                queryRunner,
+                newSessionWithResourceEstimates(new ResourceEstimates(
+                        Optional.of(Duration.valueOf("1s")),
+                        Optional.of(Duration.valueOf("1s")),
+                        Optional.of(DataSize.valueOf("6TB")),
+                        Optional.empty())),
+                LONG_LASTING_QUERY,
+                createResourceGroupId("global", "huge_memory"));
 
-            assertResourceGroup(
-                    queryRunner,
-                    newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(Duration.valueOf("100h")),
-                            Optional.empty(),
-                            Optional.of(DataSize.valueOf("4TB")),
-                            Optional.empty())),
-                    LONG_LASTING_QUERY,
-                    createResourceGroupId("global", "other"));
-        }
+        assertResourceGroup(
+                queryRunner,
+                newSessionWithResourceEstimates(new ResourceEstimates(
+                        Optional.of(Duration.valueOf("100h")),
+                        Optional.empty(),
+                        Optional.of(DataSize.valueOf("4TB")),
+                        Optional.empty())),
+                LONG_LASTING_QUERY,
+                createResourceGroupId("global", "other"));
     }
 
     @Test(timeOut = 240_000)
