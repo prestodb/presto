@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -86,7 +87,7 @@ public class TestQueuesDb
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
-        queryRunner.close();
+        closeQuietly(queryRunner);
         queryRunner = null;
     }
 
