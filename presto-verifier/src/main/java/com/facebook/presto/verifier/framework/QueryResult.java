@@ -16,6 +16,7 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.jdbc.QueryStats;
 import com.google.common.collect.ImmutableList;
 
+import java.sql.ResultSetMetaData;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -23,13 +24,13 @@ import static java.util.Objects.requireNonNull;
 public class QueryResult<R>
 {
     private final List<R> results;
-    private final List<String> columnNames;
+    private final ResultSetMetaData metadata;
     private final QueryStats queryStats;
 
-    public QueryResult(List<R> results, List<String> columnNames, QueryStats queryStats)
+    public QueryResult(List<R> results, ResultSetMetaData metadata, QueryStats queryStats)
     {
         this.results = ImmutableList.copyOf(results);
-        this.columnNames = ImmutableList.copyOf(columnNames);
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
     }
 
@@ -38,9 +39,9 @@ public class QueryResult<R>
         return results;
     }
 
-    public List<String> getColumnNames()
+    public ResultSetMetaData getMetadata()
     {
-        return columnNames;
+        return metadata;
     }
 
     public QueryStats getQueryStats()
