@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.dynamicCatalog;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.StatusResponseHandler;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.testing.Closeables;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.StatusResponseHandler;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
-import io.airlift.testing.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,16 +30,15 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -85,11 +84,6 @@ public class TestDynamicCatalogController
     private URI uriFor(String path)
     {
         return uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
-    }
-
-    private URI uriForDelete(String catalogName)
-    {
-        return uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/catalog/delete").addParameter("catalogName", catalogName).build();
     }
 
     private CatalogVo getFakeCatalogObject(String connectorName, String catalogName)
@@ -141,7 +135,6 @@ public class TestDynamicCatalogController
                 .setHeader(PRESTO_SOURCE, "source")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
-                .setHeader(PRESTO_PATH, "path")
                 .setHeader(PRESTO_TIME_ZONE, "invalid time zone")
                 .setHeader("Content-Type", "application/json")
                 .build();

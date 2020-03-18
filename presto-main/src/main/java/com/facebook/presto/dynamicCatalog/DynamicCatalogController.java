@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.dynamicCatalog;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.airlift.discovery.client.Announcer;
+import com.facebook.airlift.discovery.client.ServiceAnnouncement;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
+import com.facebook.presto.spi.ConnectorId;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import io.airlift.discovery.client.Announcer;
-import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -41,8 +41,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 
 @Path("/v1/catalog")
 public class DynamicCatalogController
