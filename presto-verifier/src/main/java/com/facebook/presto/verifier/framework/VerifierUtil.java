@@ -14,14 +14,23 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Functions.identity;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class VerifierUtil
 {
@@ -59,8 +68,48 @@ public class VerifierUtil
         }
     }
 
+    public static List<String> getColumnNames(ResultSetMetaData metadata)
+    {
+        return callUnchecked(() ->
+                IntStream.rangeClosed(1, metadata.getColumnCount())
+                        .mapToObj(i -> callUnchecked(() -> metadata.getColumnName(i)))
+                        .collect(toImmutableList()));
+    }
+
+    public static Map<String, Integer> getColumnIndices(ResultSetMetaData metadata)
+    {
+        return callUnchecked(() ->
+                IntStream.rangeClosed(1, metadata.getColumnCount())
+                        .boxed()
+                        .collect(toImmutableMap(i -> callUnchecked(() -> metadata.getColumnName(i)), i -> i - 1)));
+    }
+
+    public static List<TypeSignature> getColumnTypes(ResultSetMetaData metadata)
+    {
+        return callUnchecked(() ->
+                IntStream.rangeClosed(1, metadata.getColumnCount())
+                        .mapToObj(i -> callUnchecked(() -> parseTypeSignature(metadata.getColumnTypeName(i))))
+                        .collect(toImmutableList()));
+    }
+
+    private static <V> V callUnchecked(SqlExceptionCallable<V> callable)
+    {
+        try {
+            return callable.call();
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public interface Callable<V>
     {
         V call();
+    }
+
+    public interface SqlExceptionCallable<V>
+    {
+        V call()
+                throws SQLException;
     }
 }

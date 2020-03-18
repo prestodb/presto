@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +49,7 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
+import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnIndices;
 import static com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -274,12 +274,7 @@ public class LimitQueryDeterminismAnalyzer
         List<Object> row2 = result.getResults().get(1);
         checkState(row1.size() == row2.size(), "Rows have different sizes: %s %s", row1.size(), row2.size());
 
-        List<String> columnNames = result.getColumnNames();
-        Map<String, Integer> columnIndices = new HashMap<>();
-        for (int i = 0; i < columnNames.size(); i++) {
-            columnIndices.putIfAbsent(columnNames.get(i), i);
-        }
-
+        Map<String, Integer> columnIndices = getColumnIndices(result.getMetadata());
         for (ColumnNameOrIndex orderByKey : orderByKeys) {
             int columnIndex = orderByKey.getIndex().isPresent()
                     ? orderByKey.getIndex().get()

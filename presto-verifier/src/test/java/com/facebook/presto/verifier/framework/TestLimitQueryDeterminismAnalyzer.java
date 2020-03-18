@@ -18,13 +18,17 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.TestingResultSetMetaData;
+import com.facebook.presto.verifier.TestingResultSetMetaData.ColumnInfo;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.sql.ResultSetMetaData;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -44,13 +48,13 @@ public class TestLimitQueryDeterminismAnalyzer
             implements PrestoAction
     {
         private final List<Object> rows;
-        private final List<String> columnNames;
+        private final ResultSetMetaData metadata;
         private Statement lastStatement;
 
-        public MockPrestoAction(List<?> rows, List<String> columnNames)
+        public MockPrestoAction(List<?> rows, List<ColumnInfo> columns)
         {
             this.rows = ImmutableList.copyOf(rows);
-            this.columnNames = ImmutableList.copyOf(columnNames);
+            this.metadata = new TestingResultSetMetaData(columns);
         }
 
         @Override
@@ -64,7 +68,7 @@ public class TestLimitQueryDeterminismAnalyzer
         public <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter)
         {
             lastStatement = statement;
-            return new QueryResult(rows, columnNames, QUERY_STATS);
+            return new QueryResult(rows, metadata, QUERY_STATS);
         }
 
         public Statement getLastStatement()
@@ -92,7 +96,14 @@ public class TestLimitQueryDeterminismAnalyzer
             "    c + d DESC\n" +
             "LIMIT\n" +
             "    1000";
-    private static final List<String> TIE_INSPECTOR_COLUMNS = ImmutableList.of("b", "c", "e", "x", "y", "$$sort_key$$0", "$$sort_key$$3");
+    private static final List<ColumnInfo> TIE_INSPECTOR_COLUMNS = ImmutableList.of(
+            new ColumnInfo("b", INTEGER),
+            new ColumnInfo("c", INTEGER),
+            new ColumnInfo("e", INTEGER),
+            new ColumnInfo("x", INTEGER),
+            new ColumnInfo("y", INTEGER),
+            new ColumnInfo("$$sort_key$$0", INTEGER),
+            new ColumnInfo("$$sort_key$$3", INTEGER));
 
     @Test
     public void testNotRunLimitNoOrderBy()
@@ -194,9 +205,9 @@ public class TestLimitQueryDeterminismAnalyzer
         return new MockPrestoAction(ImmutableList.of(rowCount), ImmutableList.of());
     }
 
-    private static MockPrestoAction createPrestoAction(List<List<Object>> rows, List<String> columnNames)
+    private static MockPrestoAction createPrestoAction(List<List<Object>> rows, List<ColumnInfo> columns)
     {
-        return new MockPrestoAction(rows, columnNames);
+        return new MockPrestoAction(rows, columns);
     }
 
     private static void assertAnalysis(PrestoAction prestoAction, String query, LimitQueryDeterminismAnalysis expectedAnalysis)
