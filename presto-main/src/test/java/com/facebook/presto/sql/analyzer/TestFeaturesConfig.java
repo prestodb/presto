@@ -131,7 +131,7 @@ public class TestFeaturesConfig
                 .setListBuiltInFunctionsOnly(true)
                 .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC)
                 .setExperimentalFunctionsEnabled(false)
-                .setUseLegacyScheduler(false));
+                .setUseLegacyScheduler(true));
     }
 
     @Test
@@ -218,7 +218,7 @@ public class TestFeaturesConfig
                 .put("list-built-in-functions-only", "false")
                 .put("partitioning-precision-strategy", "PREFER_EXACT_PARTITIONING")
                 .put("experimental-functions-enabled", "true")
-                .put("use-legacy-scheduler", "true")
+                .put("use-legacy-scheduler", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -302,7 +302,7 @@ public class TestFeaturesConfig
                 .setListBuiltInFunctionsOnly(false)
                 .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING)
                 .setExperimentalFunctionsEnabled(true)
-                .setUseLegacyScheduler(true);
+                .setUseLegacyScheduler(false);
         assertFullMapping(properties, expected);
     }
 

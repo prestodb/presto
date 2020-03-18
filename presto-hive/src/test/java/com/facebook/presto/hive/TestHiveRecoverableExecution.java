@@ -111,7 +111,8 @@ public class TestHiveRecoverableExecution
                 // set the timeout of the task update requests to something low to improve overall test latency
                 .put("scheduler.http-client.request-timeout", "5s")
                 // this effectively disables the retries
-                .put("query.remote-task.max-error-duration", "1s");
+                .put("query.remote-task.max-error-duration", "1s")
+                .put("use-legacy-scheduler", "false");
 
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS),
