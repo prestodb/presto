@@ -443,9 +443,9 @@ public class ActualProperties
                     false);
         }
 
-        public static Global partitionedOnCoalesce(Partitioning one, Partitioning other)
+        public static Global partitionedOnCoalesce(Partitioning one, Partitioning other, Metadata metadata, Session session)
         {
-            return new Global(one.translateToCoalesce(other), Optional.empty(), false);
+            return new Global(one.translateToCoalesce(other, metadata, session), Optional.empty(), false);
         }
 
         public Global withReplicatedNulls(boolean replicatedNulls)
