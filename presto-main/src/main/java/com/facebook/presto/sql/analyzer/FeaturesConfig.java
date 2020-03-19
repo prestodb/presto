@@ -67,7 +67,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = PARTITIONED;
     private DataSize joinMaxBroadcastTableSize;
-    private boolean colocatedJoinsEnabled;
+    private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean groupedExecutionForEligibleTableScansEnabled;
     private boolean dynamicScheduleForGroupedExecution;
