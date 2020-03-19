@@ -294,6 +294,14 @@ public class TestDataVerification
     }
 
     @Test
+    public void testSelectUnknown()
+    {
+        Optional<VerifierQueryEvent> event = createVerification("SELECT null, null unknown", "SELECT null, null unknown").run();
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
     public void testChecksumQueryCompilerError()
     {
         List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
