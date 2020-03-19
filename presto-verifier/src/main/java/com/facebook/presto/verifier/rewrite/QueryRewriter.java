@@ -51,9 +51,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
@@ -259,6 +261,9 @@ public class QueryRewriter
     {
         if (type.equals(DATE.getTypeSignature())) {
             return Optional.of(TIMESTAMP.getTypeSignature());
+        }
+        if (type.equals(UNKNOWN.getTypeSignature())) {
+            return Optional.of(BIGINT.getTypeSignature());
         }
         return Optional.empty();
     }

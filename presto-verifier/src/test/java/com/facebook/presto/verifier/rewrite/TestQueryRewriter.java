@@ -177,6 +177,15 @@ public class TestQueryRewriter
                 ", CAST(date(now()) AS timestamp) today");
     }
 
+    @Test
+    public void testRewriteUnknown()
+    {
+        QueryBundle queryBundle = getQueryRewriter(DEFAULT_PREFIX).rewriteQuery("SELECT null, null unknown", CONTROL);
+        assertCreateTableAs(queryBundle.getQuery(), "SELECT\n" +
+                "  CAST(null AS bigint)\n" +
+                ", CAST(null AS bigint) unknown");
+    }
+
     private void assertShadowed(
             QueryRewriter queryRewriter,
             @Language("SQL") String query,
