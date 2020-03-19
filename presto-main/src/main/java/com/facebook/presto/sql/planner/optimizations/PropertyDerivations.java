@@ -42,6 +42,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
@@ -449,9 +450,16 @@ public class PropertyDerivations
                                 .build();
                     }
 
-                    if (isOptimizeFullOuterJoinWithCoalesce(session) && probeProperties.getNodePartitioning().isPresent() && buildProperties.getNodePartitioning().isPresent()) {
+                    if (isOptimizeFullOuterJoinWithCoalesce(session) &&
+                            probeProperties.getNodePartitioning().isPresent() &&
+                            buildProperties.getNodePartitioning().isPresent() &&
+                            arePartitionHandlesCompatibleForCoalesce(
+                                    probeProperties.getNodePartitioning().get().getHandle(),
+                                    buildProperties.getNodePartitioning().get().getHandle(),
+                                    metadata,
+                                    session)) {
                         return ActualProperties.builder()
-                                .global(partitionedOnCoalesce(probeProperties.getNodePartitioning().get(), buildProperties.getNodePartitioning().get()))
+                                .global(partitionedOnCoalesce(probeProperties.getNodePartitioning().get(), buildProperties.getNodePartitioning().get(), metadata, session))
                                 .build();
                     }
 
@@ -866,5 +874,10 @@ public class PropertyDerivations
         }
 
         return Optional.empty();
+    }
+
+    public static boolean arePartitionHandlesCompatibleForCoalesce(PartitioningHandle a, PartitioningHandle b, Metadata metadata, Session session)
+    {
+        return a.equals(b) || metadata.isRefinedPartitioningOver(session, a, b) || metadata.isRefinedPartitioningOver(session, b, a);
     }
 }
