@@ -30,8 +30,8 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Base64;
 
-import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockJsonSerde

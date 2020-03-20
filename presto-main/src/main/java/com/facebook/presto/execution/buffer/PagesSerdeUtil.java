@@ -23,8 +23,8 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

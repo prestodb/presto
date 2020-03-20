@@ -11,21 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class BlockSerdeUtil
 {
-    public static final MethodHandle READ_BLOCK = methodHandle(BlockSerdeUtil.class, "readBlock", BlockEncodingSerde.class, Slice.class);
+    public static final MethodHandle READ_BLOCK;
+    static {
+        try {
+            READ_BLOCK = MethodHandles.lookup().unreflect(BlockSerdeUtil.class.getMethod("readBlock", BlockEncodingSerde.class, Slice.class));
+        }
+        catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+        }
+    }
 
     private BlockSerdeUtil()
     {

@@ -35,8 +35,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;

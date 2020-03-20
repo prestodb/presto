@@ -69,10 +69,10 @@ import static com.facebook.presto.block.BlockAssertions.createRandomSmallintsBlo
 import static com.facebook.presto.block.BlockAssertions.createRandomStringBlock;
 import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
 import static com.facebook.presto.block.BlockAssertions.wrapBlock;
-import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.decodeBlock;
 import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.spi.block.MapBlock.fromKeyValueBlock;
 import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
 import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
