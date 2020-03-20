@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.BlockSerdeUtil;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.RowExpression;
