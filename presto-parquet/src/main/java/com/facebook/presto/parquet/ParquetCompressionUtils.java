@@ -16,12 +16,10 @@ package com.facebook.presto.parquet;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,6 +27,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -75,15 +75,25 @@ public final class ParquetCompressionUtils
             return EMPTY_SLICE;
         }
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(uncompressedSize);
         byte[] buffer = new byte[uncompressedSize];
-        try (InputStream gzipInputStream = new GZIPInputStream(input.getInput(), GZIP_BUFFER_SIZE)) {
-            int bytesRead;
-            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                sliceOutput.write(buffer, 0, bytesRead);
-            }
-            return sliceOutput.getUnderlyingSlice();
+        int bytesRead = 0;
+        boolean eos = false;
+        try (GZIPInputStream gzipInputStream = new GZIPInputStream(input.getInput(), min(GZIP_BUFFER_SIZE, input.length()))) {
+            int n;
+            do {
+                n = gzipInputStream.read(buffer, bytesRead, buffer.length - bytesRead);
+                if (n < 0) {
+                    eos = true;
+                    break;
+                }
+                bytesRead += n;
+            } while (bytesRead < buffer.length);
+            checkArgument(eos || gzipInputStream.read() == -1, "Invalid uncompressedSize for GZIP input. Actual size exceeds %s bytes", uncompressedSize);
         }
+        if (bytesRead != uncompressedSize) {
+            throw new IllegalArgumentException(format("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s", uncompressedSize, bytesRead));
+        }
+        return wrappedBuffer(buffer, 0, bytesRead);
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)
