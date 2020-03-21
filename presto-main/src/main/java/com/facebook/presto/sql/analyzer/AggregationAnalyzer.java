@@ -474,7 +474,7 @@ class AggregationAnalyzer
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
-                return isGroupingKey(node);
+                return isGroupingKey(node) || isFieldFromOuterScope(node);
             }
 
             // Allow SELECT col1.f1 FROM table1 GROUP BY col1
@@ -491,6 +491,21 @@ class AggregationAnalyzer
             }
 
             return groupingFields.contains(fieldId);
+        }
+
+        private boolean isFieldFromOuterScope(Expression node)
+        {
+            FieldId fieldId = columnReferences.get(NodeRef.of(node));
+            requireNonNull(fieldId, () -> "No FieldId for " + node);
+
+            Optional<ResolvedField> resolvedField = sourceScope.tryResolveField(node);
+            boolean isFieldFromOuterScope = false;
+
+            if (resolvedField.isPresent()) {
+                isFieldFromOuterScope = FieldId.from(resolvedField.get()).equals(fieldId);
+            }
+
+            return isFieldFromOuterScope;
         }
 
         @Override
