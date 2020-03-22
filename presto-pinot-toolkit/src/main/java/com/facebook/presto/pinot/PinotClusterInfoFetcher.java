@@ -81,6 +81,7 @@ public class PinotClusterInfoFetcher
     private final JsonCodec<GetTables> tablesJsonCodec;
     private final JsonCodec<BrokersForTable> brokersForTableJsonCodec;
     private final JsonCodec<RoutingTables> routingTablesJsonCodec;
+    private final JsonCodec<RoutingTablesV2> routingTablesV2JsonCodec;
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
 
     @Inject
@@ -91,10 +92,12 @@ public class PinotClusterInfoFetcher
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
             JsonCodec<RoutingTables> routingTablesJsonCodec,
+            JsonCodec<RoutingTablesV2> routingTablesV2JsonCodec,
             JsonCodec<TimeBoundary> timeBoundaryJsonCodec)
     {
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokers for table json codec is null");
         this.routingTablesJsonCodec = requireNonNull(routingTablesJsonCodec, "routing tables json codec is null");
+        this.routingTablesV2JsonCodec = requireNonNull(routingTablesV2JsonCodec, "routing tables v2 json codec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "time boundary json codec is null");
         final long cacheExpiryMs = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "json codec is null");
@@ -114,6 +117,7 @@ public class PinotClusterInfoFetcher
         jsonCodecBinder.bindJsonCodec(BrokersForTable.class);
         jsonCodecBinder.bindJsonCodec(RoutingTables.class);
         jsonCodecBinder.bindJsonCodec(RoutingTables.RoutingTableSnapshot.class);
+        jsonCodecBinder.bindJsonCodec(RoutingTablesV2.class);
         jsonCodecBinder.bindJsonCodec(TimeBoundary.class);
         return jsonCodecBinder;
     }
@@ -344,11 +348,43 @@ public class PinotClusterInfoFetcher
         }
     }
 
+    /**
+     * RoutingTableV2 is a full snapshot of segments in one table replica. It maintains a mapping from Table name
+     * (e.g. myTable_OFFLINE/myTable_REALTIME) to a map from Pinot Server to List of segments in that server to query)
+     */
+    public static class RoutingTablesV2
+    {
+        private final Map<String, Map<String, List<String>>> routingTable;
+
+        @JsonCreator
+        public RoutingTablesV2(Map<String, Map<String, List<String>>> routingTable)
+        {
+            this.routingTable = routingTable;
+        }
+
+        public Map<String, Map<String, List<String>>> getRoutingTable()
+        {
+            return routingTable;
+        }
+    }
+
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         log.debug("Trying to get routingTable for %s from broker", tableName);
         String responseBody = sendHttpGetToBroker(tableName, String.format(ROUTING_TABLE_API_TEMPLATE, tableName));
+        // New Pinot Broker API (>=0.3.0) directly return a valid routing table.
+        // Will always check with new API response format first, then fail over to old routing table format.
+        try {
+            return routingTablesV2JsonCodec.fromJson(responseBody).getRoutingTable();
+        }
+        catch (Exception e) {
+            return getRoutingTableV1(tableName, responseBody);
+        }
+    }
+
+    private Map<String, Map<String, List<String>>> getRoutingTableV1(String tableName, String responseBody)
+    {
+        ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         routingTablesJsonCodec.fromJson(responseBody).getRoutingTableSnapshot().forEach(snapshot -> {
             String tableNameWithType = snapshot.getTableName();
             // Response could contain info for tableName that matches the original table by prefix.
@@ -359,10 +395,8 @@ public class PinotClusterInfoFetcher
             else {
                 List<Map<String, List<String>>> routingTableEntriesList = snapshot.getRoutingTableEntries();
                 if (routingTableEntriesList.isEmpty()) {
-                    throw new PinotException(
-                            PINOT_UNEXPECTED_RESPONSE,
-                            Optional.empty(),
-                            String.format("Empty routingTableEntries for %s. RoutingTable: %s", tableName, responseBody));
+                    throw new PinotException(PINOT_UNEXPECTED_RESPONSE, Optional.empty(),
+                        String.format("Empty routingTableEntries for %s. RoutingTable: %s", tableName, responseBody));
                 }
 
                 // We are given multiple routing tables for a table, each with different segment to host assignments
@@ -426,7 +460,21 @@ public class PinotClusterInfoFetcher
 
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
-        String responseBody = sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
-        return timeBoundaryJsonCodec.fromJson(responseBody);
+        try {
+            String responseBody = sendHttpGetToBroker(table, String.format(TIME_BOUNDARY_API_TEMPLATE, table));
+            return timeBoundaryJsonCodec.fromJson(responseBody);
+        }
+        catch (Exception e) {
+            if ((e instanceof PinotException)) {
+                // New Pinot broker will set response code 404 if time boundary is not set.
+                // This is backward incompatible with old version, as it returns an empty json object.
+                // In order to gracefully handle this, below check will extract response code and return empty json
+                // if not found time boundary.
+                if (e.getMessage().split(" ")[3].equalsIgnoreCase("404")) {
+                    return timeBoundaryJsonCodec.fromJson("{}");
+                }
+            }
+            throw e;
+        }
     }
 }
