@@ -48,6 +48,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
+import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
@@ -231,6 +232,7 @@ public class TestQueryRewriter
     {
         return new QueryRewriter(
                 sqlParser,
+                createTypeManager(),
                 new JdbcPrestoAction(
                         PrestoExceptionClassifier.createDefault(),
                         CONFIGURATION,

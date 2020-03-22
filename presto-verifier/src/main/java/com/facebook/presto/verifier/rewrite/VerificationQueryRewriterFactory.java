@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.verifier.annotation.ForControl;
@@ -32,6 +33,7 @@ public class VerificationQueryRewriterFactory
         implements QueryRewriterFactory
 {
     private final SqlParser sqlParser;
+    private final TypeManager typeManager;
     private final List<Property> tablePropertyOverrides;
     private final QueryRewriteConfig controlConfig;
     private final QueryRewriteConfig testConfig;
@@ -39,11 +41,13 @@ public class VerificationQueryRewriterFactory
     @Inject
     public VerificationQueryRewriterFactory(
             SqlParser sqlParser,
+            TypeManager typeManager,
             List<Property> tablePropertyOverrides,
             @ForControl QueryRewriteConfig controlConfig,
             @ForTest QueryRewriteConfig testConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
         this.controlConfig = requireNonNull(controlConfig, "controlConfig is null");
         this.testConfig = requireNonNull(testConfig, "testConfig is null");
@@ -54,6 +58,7 @@ public class VerificationQueryRewriterFactory
     {
         return new QueryRewriter(
                 sqlParser,
+                typeManager,
                 prestoAction,
                 tablePropertyOverrides,
                 ImmutableMap.of(
