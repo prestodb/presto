@@ -2103,6 +2103,30 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testNullBucket()
+    {
+        Session session = getSession();
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE table_with_null_buckets WITH (bucket_count=2, bucketed_by = ARRAY['key']) AS " +
+                "SELECT 10 x, CAST(NULL AS INTEGER) AS key UNION ALL SELECT 20 x, 1 key");
+
+        try {
+            assertQuery(session, "SELECT COUNT() FROM table_with_null_buckets WHERE key IS NULL", "SELECT 1");
+            assertQuery(session, "SELECT x FROM table_with_null_buckets WHERE key IS NULL", "SELECT 10");
+            assertQuery(session, "SELECT key FROM table_with_null_buckets WHERE x = 10", "SELECT NULL");
+            assertQuery(session, "SELECT x FROM table_with_null_buckets WHERE key = 1", "SELECT 20");
+            assertQuery(session, "SELECT key FROM table_with_null_buckets WHERE key IS NULL AND x = 10", "SELECT NULL");
+            assertQuery(session, "SELECT COUNT() FROM table_with_null_buckets WHERE key IS NULL AND x = 1", "SELECT 0");
+            assertQuery(session, "SELECT COUNT() FROM table_with_null_buckets WHERE key = 10", "SELECT 0");
+            assertQuery(session, "SELECT COUNT() FROM table_with_null_buckets WHERE key IN (NULL, 1)", "SELECT 1");
+            assertQuery(session, "SELECT COUNT() FROM table_with_null_buckets WHERE key IS NULL OR key = 1", "SELECT 2");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE table_with_null_buckets");
+        }
+    }
+
+    @Test
     public void testWriteSortedTable()
     {
         testWriteSortedTable(getSession());
