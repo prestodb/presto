@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
+import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
@@ -203,7 +204,7 @@ public class TestVerificationManager
                 new VerificationFactory(
                         SQL_PARSER,
                         (sourceQuery, verificationContext) -> prestoAction,
-                        presto -> new QueryRewriter(SQL_PARSER, presto, ImmutableList.of(), ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX)),
+                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableList.of(), ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX)),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
                         new MockNodeResourceClient(),
                         createChecksumValidator(verifierConfig),

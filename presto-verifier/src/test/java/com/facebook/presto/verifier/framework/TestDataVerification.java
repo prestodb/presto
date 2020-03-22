@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
@@ -50,6 +50,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
+import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
@@ -99,6 +100,7 @@ public class TestDataVerification
         VerificationContext verificationContext = new VerificationContext();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
+        TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.createDefault(),
                 configuration,
@@ -110,12 +112,12 @@ public class TestDataVerification
                 retryConfig);
         QueryRewriter queryRewriter = new QueryRewriter(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
+                typeManager,
                 prestoAction,
                 ImmutableList.of(),
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")));
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
-        TypeRegistry typeManager = new TypeRegistry();
         return new DataVerification(
                 (verification, e) -> false,
                 prestoAction,

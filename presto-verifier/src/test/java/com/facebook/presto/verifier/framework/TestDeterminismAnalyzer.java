@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -36,6 +36,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
+import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static org.testng.Assert.assertFalse;
@@ -64,6 +65,7 @@ public class TestDeterminismAnalyzer
         VerificationContext verificationContext = new VerificationContext();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
+        TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.createDefault(),
                 configuration,
@@ -73,12 +75,12 @@ public class TestDeterminismAnalyzer
                 retryConfig);
         QueryRewriter queryRewriter = new QueryRewriter(
                 sqlParser,
+                typeManager,
                 prestoAction,
                 ImmutableList.of(),
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")));
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery("test", "", "", "", configuration, configuration);
-        TypeRegistry typeManager = new TypeRegistry();
 
         return new DeterminismAnalyzer(
                 sourceQuery,
