@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
@@ -74,13 +75,20 @@ import static java.util.UUID.randomUUID;
 public class QueryRewriter
 {
     private final SqlParser sqlParser;
+    private final TypeManager typeManager;
     private final PrestoAction prestoAction;
     private final List<Property> tablePropertyOverrides;
     private final Map<ClusterType, QualifiedName> prefixes;
 
-    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, Map<ClusterType, QualifiedName> tablePrefixes)
+    public QueryRewriter(
+            SqlParser sqlParser,
+            TypeManager typeManager,
+            PrestoAction prestoAction,
+            List<Property> tablePropertyOverrides,
+            Map<ClusterType, QualifiedName> tablePrefixes)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
         this.prefixes = ImmutableMap.copyOf(tablePrefixes);
@@ -213,7 +221,7 @@ public class QueryRewriter
     private Query rewriteNonStorableColumns(Query query, ResultSetMetaData metadata)
     {
         // Skip if all columns are storable
-        List<TypeSignature> columnTypes = getColumnTypes(metadata);
+        List<Type> columnTypes = getColumnTypes(typeManager, metadata);
         if (columnTypes.stream().noneMatch(type -> getColumnTypeRewrite(type).isPresent())) {
             return query;
         }
@@ -234,9 +242,9 @@ public class QueryRewriter
         checkState(selectItems.size() == columnTypes.size(), "SelectItem count (%s) mismatches column count (%s)", selectItems.size(), columnTypes.size());
         for (int i = 0; i < selectItems.size(); i++) {
             SingleColumn singleColumn = (SingleColumn) selectItems.get(i);
-            Optional<TypeSignature> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
+            Optional<Type> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
             if (columnTypeRewrite.isPresent()) {
-                newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.get().toString()), singleColumn.getAlias()));
+                newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.get().getTypeSignature().toString()), singleColumn.getAlias()));
             }
             else {
                 newItems.add(singleColumn);
@@ -257,13 +265,13 @@ public class QueryRewriter
                 query.getLimit());
     }
 
-    private static Optional<TypeSignature> getColumnTypeRewrite(TypeSignature type)
+    private static Optional<Type> getColumnTypeRewrite(Type type)
     {
-        if (type.equals(DATE.getTypeSignature())) {
-            return Optional.of(TIMESTAMP.getTypeSignature());
+        if (type.equals(DATE)) {
+            return Optional.of(TIMESTAMP);
         }
-        if (type.equals(UNKNOWN.getTypeSignature())) {
-            return Optional.of(BIGINT.getTypeSignature());
+        if (type.equals(UNKNOWN)) {
+            return Optional.of(BIGINT);
         }
         return Optional.empty();
     }
