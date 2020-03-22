@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static com.facebook.presto.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.ROUTING_TABLES_JSON_CODEC;
+import static com.facebook.presto.pinot.MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.TABLES_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
 
@@ -38,6 +39,7 @@ public class MockPinotClusterInfoFetcher
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 ROUTING_TABLES_JSON_CODEC,
+                ROUTING_TABLES_V2_JSON_CODEC,
                 TIME_BOUNDARY_JSON_CODEC);
     }
 
