@@ -155,9 +155,14 @@ public final class TupleDomain<T>
             return Optional.empty();
         }
 
-        return Optional.of(ranges.stream()
+        Set<NullableValue> fixedValueSet = ranges.stream()
                 .map(range -> new NullableValue(domain.getType(), range.getSingleValue()))
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet());
+        if (domain.isNullAllowed()) {
+            fixedValueSet.add(new NullableValue(domain.getType(), null));
+        }
+
+        return Optional.of(fixedValueSet);
     }
 
     /**
