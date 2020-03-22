@@ -187,6 +187,36 @@ public class TestQueryRewriter
                 ", CAST(null AS bigint) unknown");
     }
 
+    @Test
+    public void testRewriteNonStorableStructuredTypes()
+    {
+        QueryBundle queryBundle = getQueryRewriter(DEFAULT_PREFIX).rewriteQuery(
+                "SELECT\n" +
+                        "    ARRAY[DATE '2020-01-01'],\n" +
+                        "    ARRAY[NULL],\n" +
+                        "    MAP(\n" +
+                        "        ARRAY[DATE '2020-01-01'], ARRAY[\n" +
+                        "            CAST(ROW(1, 'a', DATE '2020-01-01') AS ROW(x int, y VARCHAR, z date))\n" +
+                        "        ]\n" +
+                        "    ),\n" +
+                        "    ROW(NULL)",
+                CONTROL);
+        assertCreateTableAs(
+                queryBundle.getQuery(),
+                "SELECT\n" +
+                        "    CAST(ARRAY[DATE '2020-01-01'] AS ARRAY(timestamp)),\n" +
+                        "    CAST(ARRAY[NULL] AS ARRAY(BIGINT)),\n" +
+                        "    CAST(\n" +
+                        "        \"map\"(\n" +
+                        "            ARRAY[DATE '2020-01-01'],\n" +
+                        "            ARRAY[\n" +
+                        "                CAST(ROW (1, 'a', DATE '2020-01-01') AS ROW(x int, y VARCHAR, z date))\n" +
+                        "            ]\n" +
+                        "        ) AS MAP(timestamp, ROW(x INTEGER, y VARCHAR, z timestamp))\n" +
+                        "    ),\n" +
+                        "    CAST(ROW (NULL) AS ROW(BIGINT))");
+    }
+
     private void assertShadowed(
             QueryRewriter queryRewriter,
             @Language("SQL") String query,

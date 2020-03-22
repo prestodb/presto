@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
@@ -54,6 +59,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.RowType.Field;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -265,13 +272,40 @@ public class QueryRewriter
                 query.getLimit());
     }
 
-    private static Optional<Type> getColumnTypeRewrite(Type type)
+    private Optional<Type> getColumnTypeRewrite(Type type)
     {
         if (type.equals(DATE)) {
             return Optional.of(TIMESTAMP);
         }
         if (type.equals(UNKNOWN)) {
             return Optional.of(BIGINT);
+        }
+        if (type instanceof ArrayType) {
+            return getColumnTypeRewrite(((ArrayType) type).getElementType()).map(ArrayType::new);
+        }
+        if (type instanceof MapType) {
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+            Optional<Type> keyTypeRewrite = getColumnTypeRewrite(keyType);
+            Optional<Type> valueTypeRewrite = getColumnTypeRewrite(valueType);
+            if (keyTypeRewrite.isPresent() || valueTypeRewrite.isPresent()) {
+                return Optional.of(typeManager.getType(new TypeSignature(
+                        MAP,
+                        TypeSignatureParameter.of(keyTypeRewrite.orElse(keyType).getTypeSignature()),
+                        TypeSignatureParameter.of(valueTypeRewrite.orElse(valueType).getTypeSignature()))));
+            }
+            return Optional.empty();
+        }
+        if (type instanceof RowType) {
+            List<Field> fields = ((RowType) type).getFields();
+            List<Field> fieldsRewrite = new ArrayList<>();
+            boolean rewrite = false;
+            for (Field field : fields) {
+                Optional<Type> fieldTypeRewrite = getColumnTypeRewrite(field.getType());
+                rewrite = rewrite || fieldTypeRewrite.isPresent();
+                fieldsRewrite.add(new Field(field.getName(), fieldTypeRewrite.orElse(field.getType())));
+            }
+            return rewrite ? Optional.of(RowType.from(fieldsRewrite)) : Optional.empty();
         }
         return Optional.empty();
     }

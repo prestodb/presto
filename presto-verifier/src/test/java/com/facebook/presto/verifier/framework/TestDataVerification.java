@@ -304,6 +304,23 @@ public class TestDataVerification
     }
 
     @Test
+    public void testSelectNonStorableStructuredColumns()
+    {
+        String query = "SELECT\n" +
+                "    ARRAY[DATE '2020-01-01'],\n" +
+                "    ARRAY[NULL],\n" +
+                "    MAP(\n" +
+                "        ARRAY[DATE '2020-01-01'], ARRAY[\n" +
+                "            CAST(ROW(1, 'a', DATE '2020-01-01') AS ROW(x int, y VARCHAR, z date))\n" +
+                "        ]\n" +
+                "    ),\n" +
+                "    ROW(NULL)";
+        Optional<VerifierQueryEvent> event = createVerification(query, query).run();
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
     public void testChecksumQueryCompilerError()
     {
         List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
