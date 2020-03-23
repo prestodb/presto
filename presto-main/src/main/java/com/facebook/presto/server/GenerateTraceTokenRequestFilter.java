@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.http.client.Request.Builder.fromRequest;
 import static com.facebook.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -29,6 +28,8 @@ import static java.util.UUID.randomUUID;
 public class GenerateTraceTokenRequestFilter
         implements HttpRequestFilter
 {
+    private static final int SEQUENCE_NUMBER_HEX_LENGTH = 10;
+
     private final String prefix = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     private final AtomicLong sequence = new AtomicLong();
 
@@ -36,15 +37,19 @@ public class GenerateTraceTokenRequestFilter
     public Request filterRequest(Request request)
     {
         requireNonNull(request, "request is null");
-        String newToken = createToken(sequence.getAndIncrement());
         return fromRequest(request)
-                .setHeader(TRACETOKEN_HEADER, newToken)
-                .build();
+                       .setHeader(TRACETOKEN_HEADER, createToken(sequence.getAndIncrement()))
+                       .build();
     }
 
     private String createToken(long value)
     {
-        return prefix + format("%010x", value);
+        StringBuilder builder = new StringBuilder(prefix.length() + SEQUENCE_NUMBER_HEX_LENGTH).append(prefix);
+        String sequenceNumHex = Long.toHexString(value);
+        for (int i = sequenceNumHex.length(); i < SEQUENCE_NUMBER_HEX_LENGTH; i++) {
+            builder.append('0');
+        }
+        return builder.append(sequenceNumHex).toString();
     }
 
     @VisibleForTesting
