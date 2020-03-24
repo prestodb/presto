@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.drift.transport.client.MessageTooLargeException;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.google.common.util.concurrent.Futures;
@@ -57,7 +57,7 @@ public final class ThriftRpcShuffleClient
     @Override
     public ListenableFuture<PagesResponse> getResults(long token, DataSize maxResponseSize)
     {
-        ListenableFuture<BufferResult> future = thriftClient.getResults(taskId, outputBufferId, token, maxResponseSize.toBytes());
+        ListenableFuture<ThriftBufferResult> future = thriftClient.getResults(taskId, outputBufferId, token, maxResponseSize.toBytes());
         return Futures.transform(
                 future,
                 result -> createPagesResponse(

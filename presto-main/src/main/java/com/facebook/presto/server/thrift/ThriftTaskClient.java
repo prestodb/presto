@@ -16,8 +16,8 @@ package com.facebook.presto.server.thrift;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.google.common.util.concurrent.ListenableFuture;
 
 // TODO: the client currently only supports exchange; more methods (for /v1/task) should be supported
@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface ThriftTaskClient
 {
     @ThriftMethod
-    ListenableFuture<BufferResult> getResults(TaskId taskId, OutputBufferId bufferId, long token, long maxSizeInBytes);
+    ListenableFuture<ThriftBufferResult> getResults(TaskId taskId, OutputBufferId bufferId, long token, long maxSizeInBytes);
 
     @ThriftMethod
     ListenableFuture<Void> acknowledgeResults(TaskId taskId, OutputBufferId bufferId, long token);
