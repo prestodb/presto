@@ -231,8 +231,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
-                        new InlineProjections(metadata.getFunctionManager()),
-                        new RemoveRedundantIdentityProjections()));
+                        new InlineProjections(metadata.getFunctionManager())));
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 ruleStats,
@@ -357,7 +356,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new InlineProjections(metadata.getFunctionManager()),
-                                new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
                 new CheckSubqueryNodesAreRewritten(),
                 predicatePushDown,
