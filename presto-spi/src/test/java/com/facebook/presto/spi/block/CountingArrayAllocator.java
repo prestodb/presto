@@ -20,25 +20,39 @@ package com.facebook.presto.spi.block;
 public class CountingArrayAllocator
         implements ArrayAllocator
 {
-    private int borrowedArrays;
+    private int borrowedIntArrays;
+    private int borrowedByteArrays;
 
     @Override
     public int[] borrowIntArray(int positionCount)
     {
-        borrowedArrays++;
+        borrowedIntArrays++;
         return new int[positionCount];
     }
 
     @Override
     public void returnArray(int[] array)
     {
-        borrowedArrays--;
+        borrowedIntArrays--;
+    }
+
+    @Override
+    public byte[] borrowByteArray(int positionCount)
+    {
+        borrowedByteArrays++;
+        return new byte[positionCount];
+    }
+
+    @Override
+    public void returnArray(byte[] array)
+    {
+        borrowedByteArrays--;
     }
 
     @Override
     public int getBorrowedArrayCount()
     {
-        return borrowedArrays;
+        return borrowedIntArrays + borrowedByteArrays;
     }
 
     @Override

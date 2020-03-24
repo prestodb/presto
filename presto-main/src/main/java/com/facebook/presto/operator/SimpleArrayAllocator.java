@@ -45,6 +45,10 @@ public class SimpleArrayAllocator
 
     private final Deque<int[]> intArrays = new ArrayDeque<>();
     private final Set<int[]> borrowedIntArrays = newSetFromMap(new IdentityHashMap<>());
+
+    private final Deque<byte[]> byteArrays = new ArrayDeque<>();
+    private final Set<byte[]> borrowedByteArrays = newSetFromMap(new IdentityHashMap<>());
+
     private long estimatedSizeInBytes;
 
     public SimpleArrayAllocator()
@@ -61,7 +65,7 @@ public class SimpleArrayAllocator
     @Override
     public int[] borrowIntArray(int positionCount)
     {
-        checkState(borrowedIntArrays.size() < maxOutstandingArrays, "Requested too many arrays: %s", borrowedIntArrays.size());
+        checkState(getBorrowedArrayCount() < maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
         int[] array;
         while (!intArrays.isEmpty() && intArrays.peek().length < positionCount) {
             array = intArrays.pop();
@@ -87,9 +91,37 @@ public class SimpleArrayAllocator
     }
 
     @Override
+    public byte[] borrowByteArray(int positionCount)
+    {
+        checkState(getBorrowedArrayCount() < maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
+        byte[] array;
+        while (!byteArrays.isEmpty() && byteArrays.peek().length < positionCount) {
+            array = byteArrays.pop();
+            estimatedSizeInBytes -= sizeOf(array);
+        }
+        if (byteArrays.isEmpty()) {
+            array = new byte[positionCount];
+            estimatedSizeInBytes += sizeOf(array);
+        }
+        else {
+            array = byteArrays.pop();
+        }
+        verify(borrowedByteArrays.add(array), "Attempted to borrow array which was already borrowed");
+        return array;
+    }
+
+    @Override
+    public void returnArray(byte[] array)
+    {
+        requireNonNull(array, "array is null");
+        checkArgument(borrowedByteArrays.remove(array), "Returned byte array which was not borrowed");
+        byteArrays.push(array);
+    }
+
+    @Override
     public int getBorrowedArrayCount()
     {
-        return borrowedIntArrays.size();
+        return borrowedIntArrays.size() + borrowedByteArrays.size();
     }
 
     @Override
@@ -104,6 +136,8 @@ public class SimpleArrayAllocator
         return toStringHelper(this)
                 .add("intArraysSize", intArrays.size())
                 .add("borrowedIntArraysSize", borrowedIntArrays.size())
+                .add("byteArraysSize", byteArrays.size())
+                .add("borrowedByteArraysSize", borrowedByteArrays.size())
                 .add("estimatedSizeInBytes", estimatedSizeInBytes)
                 .toString();
     }
