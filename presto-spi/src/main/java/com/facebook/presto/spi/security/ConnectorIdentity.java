@@ -75,20 +75,6 @@ public class ConnectorIdentity
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        // TODO: remove equals completely after a few months
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        // TODO remove hashCode completely after a few months
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ConnectorIdentity{");
