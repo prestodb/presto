@@ -13,25 +13,32 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class SerializedPage
+@ThriftStruct
+public class ThriftSerializedPage
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
-
     private final Slice slice;
     private final int positionCount;
     private final int uncompressedSizeInBytes;
     private final byte pageCodecMarkers;
 
-    public SerializedPage(
+    public ThriftSerializedPage(SerializedPage serializedPage)
+    {
+        this(serializedPage.getSlice(), serializedPage.getPageCodecMarkers(), serializedPage.getPositionCount(), serializedPage.getUncompressedSizeInBytes());
+    }
+
+    private ThriftSerializedPage(
             Slice slice,
             byte pageCodecMarkers,
             int positionCount,
@@ -53,44 +60,52 @@ public class SerializedPage
         }
     }
 
+    /**
+     * Thrift deserialization only, there should be no explicit call on this method.
+     */
+    @ThriftConstructor
+    public ThriftSerializedPage(
+            byte[] data,
+            byte pageCodecMarkers,
+            int positionCount,
+            int uncompressedSizeInBytes)
+    {
+        this(Slices.wrappedBuffer(data), pageCodecMarkers, positionCount, uncompressedSizeInBytes);
+    }
+
+    @ThriftField(1)
+    public byte[] getData()
+    {
+        if (slice.isCompact()) {
+            Object base = slice.getBase();
+            checkState(base instanceof byte[], "unexpected serialization type %s", base.getClass());
+            return (byte[]) base;
+        }
+
+        // do a copy
+        return slice.getBytes();
+    }
+
+    @ThriftField(2)
     public byte getPageCodecMarkers()
     {
         return pageCodecMarkers;
     }
 
+    @ThriftField(3)
     public int getPositionCount()
     {
         return positionCount;
     }
 
+    @ThriftField(4)
     public int getUncompressedSizeInBytes()
     {
         return uncompressedSizeInBytes;
     }
 
-    public int getSizeInBytes()
+    public SerializedPage toSerializedPage()
     {
-        return slice.length();
-    }
-
-    public long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + slice.getRetainedSize();
-    }
-
-    public Slice getSlice()
-    {
-        return slice;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("pageCodecMarkers", PageCodecMarker.toSummaryString(pageCodecMarkers))
-                .add("sizeInBytes", slice.length())
-                .add("uncompressedSizeInBytes", uncompressedSizeInBytes)
-                .toString();
+        return new SerializedPage(slice, pageCodecMarkers, positionCount, uncompressedSizeInBytes);
     }
 }

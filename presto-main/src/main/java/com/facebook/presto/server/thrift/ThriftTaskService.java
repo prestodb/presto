@@ -19,6 +19,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,6 +33,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -50,18 +52,23 @@ public class ThriftTaskService
     }
 
     @ThriftMethod
-    public ListenableFuture<BufferResult> getResults(TaskId taskId, OutputBufferId bufferId, long token, long maxSizeInBytes)
+    public ListenableFuture<ThriftBufferResult> getResults(TaskId taskId, OutputBufferId bufferId, long token, long maxSizeInBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, new DataSize(maxSizeInBytes, BYTE));
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
-        return addTimeout(
+        bufferResultFuture = addTimeout(
                 bufferResultFuture,
                 () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
                 waitTime,
                 timeoutExecutor);
+
+        return Futures.transform(
+                bufferResultFuture,
+                ThriftBufferResult::fromThriftBufferResult,
+                directExecutor());
     }
 
     @ThriftMethod

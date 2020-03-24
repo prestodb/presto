@@ -36,6 +36,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
@@ -114,7 +115,7 @@ public class TestThriftTaskIntegration
             ThriftTaskClient client = clientFactory.createDriftClient(ThriftTaskClient.class).get();
 
             // get buffer result
-            ListenableFuture<BufferResult> result = client.getResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 0, 100);
+            ListenableFuture<ThriftBufferResult> result = client.getResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 0, 100);
             assertTrue(result.get().isBufferComplete());
             assertTrue(result.get().getSerializedPages().isEmpty());
             assertEquals(result.get().getToken(), 1);
