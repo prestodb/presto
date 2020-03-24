@@ -72,6 +72,18 @@ public class BenchmarkBlockFlattener
         }
 
         @Override
+        public byte[] borrowByteArray(int positionCount)
+        {
+            return new byte[positionCount];
+        }
+
+        @Override
+        public void returnArray(byte[] array)
+        {
+            // no op
+        }
+
+        @Override
         public int getBorrowedArrayCount()
         {
             return 0;
