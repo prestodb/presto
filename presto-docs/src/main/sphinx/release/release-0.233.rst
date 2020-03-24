@@ -2,6 +2,11 @@
 Release 0.233
 =============
 
+.. warning::
+
+   There is a bug in this release that will cause queries with the predicate ``IS NULL`` on
+   bucketed columns to produce incorrect results.
+
 General Changes
 _______________
 * Fix an optimizer failure introduced in ``0.229``, where a ``LIKE`` pattern is deduced into a constant, e.g., ``col LIKE 'a' and col = 'b'``.
