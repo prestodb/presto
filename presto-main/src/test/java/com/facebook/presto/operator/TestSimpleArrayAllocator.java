@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -27,25 +28,43 @@ public class TestSimpleArrayAllocator
     @Test
     public void testNewLease()
     {
-        SimpleArrayAllocator allocator = new SimpleArrayAllocator(5);
+        SimpleArrayAllocator allocator = new SimpleArrayAllocator(10);
 
-        Deque<int[]> arrayList = new ArrayDeque<>();
+        Deque<int[]> intArrayList = new ArrayDeque<>();
         for (int i = 0; i < 5; i++) {
-            arrayList.push(allocator.borrowIntArray(10));
+            intArrayList.push(allocator.borrowIntArray(10));
         }
         assertEquals(allocator.getBorrowedArrayCount(), 5);
         assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(10) * 5);
 
+        Deque<byte[]> byteArrayList = new ArrayDeque<>();
         for (int i = 0; i < 5; i++) {
-            allocator.returnArray(arrayList.pop());
+            byteArrayList.push(allocator.borrowByteArray(10));
+        }
+        assertEquals(allocator.getBorrowedArrayCount(), 10);
+        assertEquals(allocator.getEstimatedSizeInBytes(), (sizeOfIntArray(10) + sizeOfByteArray(10)) * 5);
+
+        for (int i = 0; i < 5; i++) {
+            allocator.returnArray(intArrayList.pop());
+        }
+        assertEquals(allocator.getBorrowedArrayCount(), 5);
+        assertEquals(allocator.getEstimatedSizeInBytes(), (sizeOfIntArray(10) + sizeOfByteArray(10)) * 5);
+
+        for (int i = 0; i < 5; i++) {
+            allocator.returnArray(byteArrayList.pop());
         }
         assertEquals(allocator.getBorrowedArrayCount(), 0);
-        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(10) * 5);
+        assertEquals(allocator.getEstimatedSizeInBytes(), (sizeOfIntArray(10) + sizeOfByteArray(10)) * 5);
 
-        int[] borrowed = allocator.borrowIntArray(101);
-        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101));
-        allocator.returnArray(borrowed);
-        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101));
+        int[] intBorrowed = allocator.borrowIntArray(101);
+        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(10) * 5);
+        allocator.returnArray(intBorrowed);
+        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(10) * 5);
+
+        byte[] byteBorrowed = allocator.borrowByteArray(101);
+        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(101));
+        allocator.returnArray(byteBorrowed);
+        assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(101));
     }
 
     @Test
