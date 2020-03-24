@@ -2,6 +2,11 @@
 Release 0.231
 =============
 
+.. warning::
+
+   There is a bug in this release that will cause queries with the predicate ``IS NULL`` on
+   bucketed columns to produce incorrect results.
+
 General Changes
 _______________
 * Fix failures caused by invalid plans for queries with repeated lambda expressions in the order by clause.

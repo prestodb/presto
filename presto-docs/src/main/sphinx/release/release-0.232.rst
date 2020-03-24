@@ -2,6 +2,11 @@
 Release 0.232
 =============
 
+.. warning::
+
+   There is a bug in this release that will cause queries with the predicate ``IS NULL`` on
+   bucketed columns to produce incorrect results.
+
 General Changes
 _______________
 * Fix an issue where ``DATE_TRUNC`` may produce incorrect results at certain timestamp in ``America/Sao_Paulo``.
