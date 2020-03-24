@@ -174,15 +174,15 @@ public class RowBlockEncodingBuffer
     @Override
     public void noMoreBatches()
     {
+        for (int i = fieldBuffers.length - 1; i >= 0; i--) {
+            fieldBuffers[i].noMoreBatches();
+        }
+
         super.noMoreBatches();
 
         if (offsets != null) {
             bufferAllocator.returnArray(offsets);
             offsets = null;
-        }
-
-        for (int i = 0; i < fieldBuffers.length; i++) {
-            fieldBuffers[i].noMoreBatches();
         }
     }
 

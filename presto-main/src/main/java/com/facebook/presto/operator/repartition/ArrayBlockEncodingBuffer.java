@@ -154,14 +154,12 @@ public class ArrayBlockEncodingBuffer
     @Override
     public void noMoreBatches()
     {
+        valuesBuffers.noMoreBatches();
         super.noMoreBatches();
-
         if (offsets != null) {
             bufferAllocator.returnArray(offsets);
             offsets = null;
         }
-
-        valuesBuffers.noMoreBatches();
     }
 
     @Override

@@ -196,15 +196,14 @@ public class MapBlockEncodingBuffer
     @Override
     public void noMoreBatches()
     {
+        valueBuffers.noMoreBatches();
+        keyBuffers.noMoreBatches();
         super.noMoreBatches();
 
         if (offsets != null) {
             bufferAllocator.returnArray(offsets);
             offsets = null;
         }
-
-        keyBuffers.noMoreBatches();
-        valueBuffers.noMoreBatches();
     }
 
     @Override
