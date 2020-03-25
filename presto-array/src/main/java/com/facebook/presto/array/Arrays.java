@@ -104,6 +104,32 @@ public class Arrays
         return buffer;
     }
 
+    public static byte[] ensureCapacity(byte[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption, ArrayAllocator allocator)
+    {
+        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+
+        byte[] newBuffer;
+        if (buffer == null) {
+            newBuffer = allocator.borrowByteArray(newCapacity);
+        }
+        else if (buffer.length < capacity) {
+            newBuffer = allocator.borrowByteArray(newCapacity);
+            if (expansionOption == PRESERVE) {
+                System.arraycopy(buffer, 0, newBuffer, 0, Math.min(buffer.length, capacity));
+            }
+            allocator.returnArray(buffer);
+        }
+        else {
+            newBuffer = buffer;
+        }
+
+        if (expansionOption == INITIALIZE) {
+            java.util.Arrays.fill(newBuffer, (byte) 0);
+        }
+
+        return newBuffer;
+    }
+
     public static int[][] ensureCapacity(int[][] buffer, int capacity)
     {
         if (buffer == null || buffer.length < capacity) {
