@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.spi.page.SerializedPage;
+
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicInteger;

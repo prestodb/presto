@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
