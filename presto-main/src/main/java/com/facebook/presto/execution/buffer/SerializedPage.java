@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.spi.page.PageCodecMarker;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
