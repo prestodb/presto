@@ -604,13 +604,14 @@ public class OptimizedPartitionedOutputOperator
                 blockEncodingBuffers[i].setupDecodedBlocksAndPositions(decodedBlocks[i], positions, positionCount);
             }
 
-            int[] serializedRowSizes = ensureCapacity(null, positionCount, SMALL, INITIALIZE, bufferAllocator);
+            int[] serializedRowSizes = ensureCapacity((int[]) null, positionCount, SMALL, INITIALIZE, bufferAllocator);
             try {
                 populateSerializedRowSizes(fixedWidthRowSize, variableWidthChannels, serializedRowSizes);
 
                 // Due to the limitation of buffer size, we append the data batch by batch
                 int offset = 0;
                 do {
+                    bufferFull = false;
                     int batchSize = calculateNextBatchSize(fixedWidthRowSize, variableWidthChannels, offset, serializedRowSizes);
 
                     for (int i = 0; i < channelCount; i++) {
@@ -623,7 +624,6 @@ public class OptimizedPartitionedOutputOperator
 
                     if (bufferFull) {
                         flush(outputBuffer);
-                        bufferFull = false;
                     }
                 }
                 while (offset < positionCount);

@@ -40,7 +40,6 @@ import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.setBytes;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
 
@@ -125,16 +124,32 @@ public class VariableWidthBlockEncodingBuffer
         sliceBufferIndex = 0;
         offsetsBufferIndex = 0;
         lastOffset = 0;
+        flushed = true;
         resetNullsBuffer();
+    }
+
+    @Override
+    public void noMoreBatches()
+    {
+        super.noMoreBatches();
+
+        if (flushed) {
+            if (sliceBuffer != null) {
+                bufferAllocator.returnArray(sliceBuffer);
+                sliceBuffer = null;
+            }
+
+            if (offsetsBuffer != null) {
+                bufferAllocator.returnArray(offsetsBuffer);
+                offsetsBuffer = null;
+            }
+        }
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE +
-                sizeOf(offsetsBuffer) +
-                getNullsBufferRetainedSizeInBytes() +
-                sizeOf(sliceBuffer);
+        return INSTANCE_SIZE;
     }
 
     @Override
@@ -179,7 +194,7 @@ public class VariableWidthBlockEncodingBuffer
     // This implementation uses variableWidthBlock.getRawSlice() and variableWidthBlock.getPositionOffset() to achieve high performance
     private void appendOffsetsAndSlices()
     {
-        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE);
+        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
 
         AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) decodedBlock;
         int[] positions = getPositions();
@@ -204,7 +219,7 @@ public class VariableWidthBlockEncodingBuffer
             offsetsBufferIndex = setIntUnchecked(offsetsBuffer, offsetsBufferIndex, lastOffset);
 
             if (length > 0) {
-                sliceBuffer = ensureCapacity(sliceBuffer, sliceBufferIndex + length, LARGE, PRESERVE);
+                sliceBuffer = ensureCapacity(sliceBuffer, sliceBufferIndex + length, LARGE, PRESERVE, bufferAllocator);
 
                 // The slice address may be greater than 0. Since we are reading from the raw slice, we need to read from beginOffset + sliceAddress.
                 sliceBufferIndex = setBytes(sliceBuffer, sliceBufferIndex, sliceBase, beginOffset + sliceAddress, length);

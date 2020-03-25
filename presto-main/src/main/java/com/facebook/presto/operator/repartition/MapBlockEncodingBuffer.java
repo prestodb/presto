@@ -45,7 +45,6 @@ import static com.facebook.presto.operator.MoreByteArrays.setInts;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
 
@@ -102,7 +101,7 @@ public class MapBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
             ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
@@ -120,6 +119,7 @@ public class MapBlockEncodingBuffer
     {
         this.positionsOffset = positionsOffset;
         this.batchSize = batchSize;
+        this.flushed = false;
 
         if (this.positionCount == 0) {
             return;
@@ -187,6 +187,7 @@ public class MapBlockEncodingBuffer
         lastOffset = 0;
         hashTableBufferIndex = 0;
         noHashTables = false;
+        flushed = true;
         resetNullsBuffer();
 
         keyBuffers.resetBuffers();
@@ -198,6 +199,19 @@ public class MapBlockEncodingBuffer
     {
         valueBuffers.noMoreBatches();
         keyBuffers.noMoreBatches();
+
+        if (flushed) {
+            if (hashTablesBuffer != null) {
+                bufferAllocator.returnArray(hashTablesBuffer);
+                hashTablesBuffer = null;
+            }
+
+            if (offsetsBuffer != null) {
+                bufferAllocator.returnArray(offsetsBuffer);
+                offsetsBuffer = null;
+            }
+        }
+
         super.noMoreBatches();
 
         if (offsets != null) {
@@ -212,11 +226,8 @@ public class MapBlockEncodingBuffer
         // columnarMap is counted as part of DecodedBlockNode in OptimizedPartitionedOutputOperator and won't be counted here.
         // This is because the same columnarMap would be hold in all partitions/AbstractBlockEncodingBuffer and thus counting it here would be counting it multiple times.
         return INSTANCE_SIZE +
-                sizeOf(offsetsBuffer) +
-                getNullsBufferRetainedSizeInBytes() +
                 keyBuffers.getRetainedSizeInBytes() +
-                valueBuffers.getRetainedSizeInBytes() +
-                sizeOf(hashTablesBuffer);
+                valueBuffers.getRetainedSizeInBytes();
     }
 
     @Override
@@ -281,7 +292,7 @@ public class MapBlockEncodingBuffer
         }
 
         // positionOffsets might be modified by the next level. Save it for the valueBuffers first.
-        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
 
@@ -325,7 +336,7 @@ public class MapBlockEncodingBuffer
 
     private void appendOffsets()
     {
-        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE);
+        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
 
         int baseOffset = lastOffset - offsets[positionsOffset];
         for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {
@@ -350,7 +361,7 @@ public class MapBlockEncodingBuffer
         }
 
         int hashTablesSize = (offsets[positionsOffset + batchSize] - offsets[positionsOffset]) * HASH_MULTIPLIER;
-        hashTablesBuffer = ensureCapacity(hashTablesBuffer, hashTableBufferIndex + hashTablesSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE);
+        hashTablesBuffer = ensureCapacity(hashTablesBuffer, hashTableBufferIndex + hashTablesSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
 
         int[] positions = getPositions();
 
