@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spiller.SpillCipher;
 import io.airlift.compress.Compressor;

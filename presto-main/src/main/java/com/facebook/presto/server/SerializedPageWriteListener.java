@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.Slice;
 
 import javax.servlet.AsyncContext;
@@ -44,7 +44,8 @@ public class SerializedPageWriteListener
     private final Slice slice;
     private SerializedPage page;
 
-    public SerializedPageWriteListener(List<SerializedPage> serializedPages,
+    public SerializedPageWriteListener(
+            List<SerializedPage> serializedPages,
             AsyncContext asyncContext,
             ServletOutputStream output)
     {
