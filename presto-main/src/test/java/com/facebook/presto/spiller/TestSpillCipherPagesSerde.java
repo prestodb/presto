@@ -14,11 +14,11 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.Assert.ThrowingRunnable;

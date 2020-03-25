@@ -15,9 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;

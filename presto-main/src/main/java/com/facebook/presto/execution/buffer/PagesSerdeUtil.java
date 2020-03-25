@@ -16,6 +16,7 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
