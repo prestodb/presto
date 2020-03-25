@@ -37,7 +37,7 @@ public class ThriftBufferResult
     private final boolean bufferComplete;
     private final List<ThriftSerializedPage> thriftSerializedPages;
 
-    public static ThriftBufferResult fromThriftBufferResult(BufferResult bufferResult)
+    public static ThriftBufferResult fromBufferResult(BufferResult bufferResult)
     {
         requireNonNull(bufferResult, "bufferResult is null");
 

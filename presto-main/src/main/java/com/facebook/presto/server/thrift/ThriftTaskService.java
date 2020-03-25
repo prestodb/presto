@@ -67,7 +67,7 @@ public class ThriftTaskService
 
         return Futures.transform(
                 bufferResultFuture,
-                ThriftBufferResult::fromThriftBufferResult,
+                ThriftBufferResult::fromBufferResult,
                 directExecutor());
     }
 
