@@ -15,6 +15,7 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spiller.SpillCipher;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
@@ -29,10 +30,10 @@ import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
-import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
+import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
