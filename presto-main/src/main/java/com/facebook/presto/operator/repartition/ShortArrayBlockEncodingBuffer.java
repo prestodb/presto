@@ -37,7 +37,6 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setShortUnchecked;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static sun.misc.Unsafe.ARRAY_SHORT_INDEX_SCALE;
 
 public class ShortArrayBlockEncodingBuffer
@@ -95,15 +94,25 @@ public class ShortArrayBlockEncodingBuffer
     {
         bufferedPositionCount = 0;
         valuesBufferIndex = 0;
+        flushed = true;
         resetNullsBuffer();
+    }
+
+    @Override
+    public void noMoreBatches()
+    {
+        super.noMoreBatches();
+
+        if (flushed && valuesBuffer != null) {
+            bufferAllocator.returnArray(valuesBuffer);
+            valuesBuffer = null;
+        }
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE +
-                sizeOf(valuesBuffer) +
-                getNullsBufferRetainedSizeInBytes();
+        return INSTANCE_SIZE;
     }
 
     @Override
@@ -134,7 +143,7 @@ public class ShortArrayBlockEncodingBuffer
 
     private void appendValuesToBuffer()
     {
-        valuesBuffer = ensureCapacity(valuesBuffer, valuesBufferIndex + batchSize * ARRAY_SHORT_INDEX_SCALE, LARGE, PRESERVE);
+        valuesBuffer = ensureCapacity(valuesBuffer, valuesBufferIndex + batchSize * ARRAY_SHORT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
 
         int[] positions = getPositions();
         if (decodedBlock.mayHaveNull()) {

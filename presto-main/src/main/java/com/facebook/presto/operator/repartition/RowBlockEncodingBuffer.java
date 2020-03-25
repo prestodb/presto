@@ -43,7 +43,6 @@ import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
 
@@ -89,7 +88,7 @@ public class RowBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             for (int i = 0; i < fieldBuffers.length; i++) {
                 System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
@@ -106,6 +105,7 @@ public class RowBlockEncodingBuffer
     {
         this.positionsOffset = positionsOffset;
         this.batchSize = batchSize;
+        this.flushed = false;
 
         // The nested level positionCount could be 0.
         if (this.positionCount == 0) {
@@ -164,6 +164,7 @@ public class RowBlockEncodingBuffer
         bufferedPositionCount = 0;
         offsetsBufferIndex = 0;
         lastOffset = 0;
+        flushed = true;
         resetNullsBuffer();
 
         for (int i = 0; i < fieldBuffers.length; i++) {
@@ -178,6 +179,11 @@ public class RowBlockEncodingBuffer
             fieldBuffers[i].noMoreBatches();
         }
 
+        if (flushed && offsetsBuffer != null) {
+            bufferAllocator.returnArray(offsetsBuffer);
+            offsetsBuffer = null;
+        }
+
         super.noMoreBatches();
 
         if (offsets != null) {
@@ -189,15 +195,12 @@ public class RowBlockEncodingBuffer
     @Override
     public long getRetainedSizeInBytes()
     {
-        int size = 0;
+        int size = INSTANCE_SIZE;
         for (int i = 0; i < fieldBuffers.length; i++) {
             size += fieldBuffers[i].getRetainedSizeInBytes();
         }
 
-        return INSTANCE_SIZE +
-                sizeOf(offsetsBuffer) +
-                getNullsBufferRetainedSizeInBytes() +
-                size;
+        return size;
     }
 
     @Override
@@ -265,7 +268,7 @@ public class RowBlockEncodingBuffer
             positionOffsets[i + 1] = this.offsets[offset];
         }
 
-        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             for (int i = 0; i < fieldBuffers.length; i++) {
                 System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
@@ -311,7 +314,7 @@ public class RowBlockEncodingBuffer
 
     private void appendOffsets()
     {
-        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE);
+        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
 
         int baseOffset = lastOffset - offsets[positionsOffset];
         for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {
