@@ -19,8 +19,8 @@ import com.facebook.drift.annotations.ThriftStruct;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

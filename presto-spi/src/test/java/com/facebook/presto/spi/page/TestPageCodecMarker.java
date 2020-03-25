@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.buffer;
+package com.facebook.presto.spi.page;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
