@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.spi.page.PageCodecMarker;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Objects;
+
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPage
@@ -85,13 +85,31 @@ public class SerializedPage
     }
 
     @Override
-    public String toString()
+    public boolean equals(Object o)
     {
-        return toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("pageCodecMarkers", PageCodecMarker.toSummaryString(pageCodecMarkers))
-                .add("sizeInBytes", slice.length())
-                .add("uncompressedSizeInBytes", uncompressedSizeInBytes)
-                .toString();
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SerializedPage that = (SerializedPage) o;
+        return Objects.equals(slice, that.slice) &&
+                Objects.equals(positionCount, that.positionCount) &&
+                Objects.equals(uncompressedSizeInBytes, that.uncompressedSizeInBytes) &&
+                Objects.equals(pageCodecMarkers, that.pageCodecMarkers);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(slice, positionCount, uncompressedSizeInBytes, pageCodecMarkers);
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(message, messageArgs));
+        }
     }
 }
