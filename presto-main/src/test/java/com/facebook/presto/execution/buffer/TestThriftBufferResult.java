@@ -17,7 +17,7 @@ import com.facebook.presto.spi.page.PageCodecMarker;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.execution.buffer.ThriftBufferResult.fromThriftBufferResult;
+import static com.facebook.presto.execution.buffer.ThriftBufferResult.fromBufferResult;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static org.testng.Assert.assertEquals;
 
@@ -29,14 +29,14 @@ public class TestThriftBufferResult
         SerializedPage serializedPage = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0);
         ThriftSerializedPage thriftSerializedPage = new ThriftSerializedPage((serializedPage));
         SerializedPage newSerializedPage = thriftSerializedPage.toSerializedPage();
-        assertEquals(serializedPage.toString(), newSerializedPage.toString());
+        assertEquals(serializedPage, newSerializedPage);
     }
 
     @Test
     public void testThriftBufferResult()
     {
         BufferResult bufferResult = new BufferResult("task-instance-id", 0, 0, false, ImmutableList.of());
-        ThriftBufferResult thriftBufferResult = fromThriftBufferResult(bufferResult);
+        ThriftBufferResult thriftBufferResult = fromBufferResult(bufferResult);
         BufferResult newBufferResult = thriftBufferResult.toBufferResult();
         assertEquals(bufferResult, newBufferResult);
     }
