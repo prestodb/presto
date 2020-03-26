@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.spi.block;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnarArray
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnarArray.class).instanceSize();
+
     private final Block nullCheckBlock;
     private final int offsetsOffset;
     private final int[] offsets;
     private final Block elementsBlock;
+    private final long retainedSizeInBytes;
 
     public static ColumnarArray toColumnarArray(Block block)
     {
@@ -50,7 +55,7 @@ public class ColumnarArray
         }
         elementsBlock = elementsBlock.getRegion(elementsOffset, elementsLength);
 
-        return new ColumnarArray(block, arrayBlock.getOffsetBase(), arrayBlock.getOffsets(), elementsBlock);
+        return new ColumnarArray(block, arrayBlock.getOffsetBase(), arrayBlock.getOffsets(), elementsBlock, INSTANCE_SIZE + block.getRetainedSizeInBytes());
     }
 
     private static ColumnarArray toColumnarArray(DictionaryBlock dictionaryBlock)
@@ -82,7 +87,8 @@ public class ColumnarArray
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds),
+                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
     }
 
     private static ColumnarArray toColumnarArray(RunLengthEncodedBlock rleBlock)
@@ -110,15 +116,17 @@ public class ColumnarArray
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds),
+                INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
     }
 
-    private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock)
+    private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock, long retainedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.elementsBlock = elementsBlock;
+        this.retainedSizeInBytes = retainedSizeInBytes;
     }
 
     public int getPositionCount()
@@ -153,7 +161,7 @@ public class ColumnarArray
 
     public long getRetainedSizeInBytes()
     {
-        return nullCheckBlock.getRetainedSizeInBytes() + elementsBlock.getRetainedSizeInBytes() + sizeOf(offsets);
+        return retainedSizeInBytes;
     }
 
     @Override

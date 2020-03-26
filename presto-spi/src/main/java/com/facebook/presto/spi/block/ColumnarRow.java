@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.spi.block;
 
+import org.openjdk.jol.info.ClassLayout;
+
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnarRow.class).instanceSize();
+
     private final Block nullCheckBlock;
     private final Block[] fields;
+    private final long retainedSizeInBytes;
 
     public static ColumnarRow toColumnarRow(Block block)
     {
@@ -45,7 +51,7 @@ public final class ColumnarRow
             fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
 
-        return new ColumnarRow(block, fieldBlocks);
+        return new ColumnarRow(block, fieldBlocks, block.getRetainedSizeInBytes());
     }
 
     private static ColumnarRow toColumnarRow(DictionaryBlock dictionaryBlock)
@@ -77,7 +83,7 @@ public final class ColumnarRow
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
             fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
-        return new ColumnarRow(dictionaryBlock, fields);
+        return new ColumnarRow(dictionaryBlock, fields, INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(dictionaryIds));
     }
 
     private static ColumnarRow toColumnarRow(RunLengthEncodedBlock rleBlock)
@@ -99,13 +105,14 @@ public final class ColumnarRow
                 fields[i] = new RunLengthEncodedBlock(nullSuppressedField, rleBlock.getPositionCount());
             }
         }
-        return new ColumnarRow(rleBlock, fields);
+        return new ColumnarRow(rleBlock, fields, INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes());
     }
 
-    private ColumnarRow(Block nullCheckBlock, Block[] fields)
+    private ColumnarRow(Block nullCheckBlock, Block[] fields, long retainedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.fields = fields.clone();
+        this.retainedSizeInBytes = retainedSizeInBytes;
     }
 
     public int getPositionCount()
@@ -147,11 +154,7 @@ public final class ColumnarRow
 
     public long getRetainedSizeInBytes()
     {
-        int fieldsRetainedSize = 0;
-        for (int i = 0; i < fields.length; i++) {
-            fieldsRetainedSize += fields[i].getRetainedSizeInBytes();
-        }
-        return nullCheckBlock.getRetainedSizeInBytes() + fieldsRetainedSize;
+        return retainedSizeInBytes;
     }
 
     @Override
