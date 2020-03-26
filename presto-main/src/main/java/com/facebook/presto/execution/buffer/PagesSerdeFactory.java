@@ -14,10 +14,15 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.page.PageCompressor;
+import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import io.airlift.compress.Compressor;
+import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -46,7 +51,57 @@ public class PagesSerdeFactory
     private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
     {
         if (compressionEnabled) {
-            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()), spillCipher);
+            return new PagesSerde(
+                    blockEncodingSerde,
+                    Optional.of(new PageCompressor()
+                    {
+                        Compressor compressor = new Lz4Compressor();
+                        @Override
+                        public int maxCompressedLength(int uncompressedSize)
+                        {
+                            return compressor.maxCompressedLength(uncompressedSize);
+                        }
+
+                        @Override
+                        public int compress(
+                                byte[] input,
+                                int inputOffset,
+                                int inputLength,
+                                byte[] output,
+                                int outputOffset,
+                                int maxOutputLength)
+                        {
+                            return compressor.compress(input, inputOffset, inputLength, output, outputOffset, maxOutputLength);
+                        }
+
+                        @Override
+                        public void compress(ByteBuffer input, ByteBuffer output)
+                        {
+                            compressor.compress(input, output);
+                        }
+                    }),
+                    Optional.of(new PageDecompressor()
+                    {
+                        Decompressor decompressor = new Lz4Decompressor();
+                        @Override
+                        public int decompress(
+                                byte[] input,
+                                int inputOffset,
+                                int inputLength,
+                                byte[] output,
+                                int outputOffset,
+                                int maxOutputLength)
+                        {
+                            return decompressor.decompress(input, inputOffset, inputLength, output, outputOffset, maxOutputLength);
+                        }
+
+                        @Override
+                        public void decompress(ByteBuffer input, ByteBuffer output)
+                        {
+                            decompressor.decompress(input, output);
+                        }
+                    }),
+                    spillCipher);
         }
 
         return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher);
