@@ -17,12 +17,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
@@ -108,7 +108,7 @@ public class PagesSerdeUtil
     }
 
     private static class PageReader
-            extends AbstractIterator<Page>
+            implements Iterator<Page>
     {
         private final PagesSerde serde;
         private final SliceInput input;
@@ -120,12 +120,17 @@ public class PagesSerdeUtil
         }
 
         @Override
-        protected Page computeNext()
+        public boolean hasNext()
         {
-            if (!input.isReadable()) {
-                return endOfData();
-            }
+            return input.isReadable();
+        }
 
+        @Override
+        public Page next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
             return serde.deserialize(readSerializedPage(input));
         }
     }
@@ -136,7 +141,7 @@ public class PagesSerdeUtil
     }
 
     private static class SerializedPageReader
-            extends AbstractIterator<SerializedPage>
+            implements Iterator<SerializedPage>
     {
         private final SliceInput input;
 
@@ -146,12 +151,17 @@ public class PagesSerdeUtil
         }
 
         @Override
-        protected SerializedPage computeNext()
+        public boolean hasNext()
         {
-            if (!input.isReadable()) {
-                return endOfData();
-            }
+            return input.isReadable();
+        }
 
+        @Override
+        public SerializedPage next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
             return readSerializedPage(input);
         }
     }
