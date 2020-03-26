@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.spi.spiller;
 
 import java.nio.ByteBuffer;
 
