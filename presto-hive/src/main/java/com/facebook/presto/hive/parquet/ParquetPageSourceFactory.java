@@ -58,6 +58,7 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -95,7 +96,6 @@ import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -318,19 +318,16 @@ public class ParquetPageSourceFactory
             switch (prestoType) {
                 case ROW:
                     if (groupType.getFields().size() == type.getTypeParameters().size()) {
-                        checkState(type instanceof RowType, "It must be a RowType here.");
                         RowType rowType = (RowType) type;
                         Map<String, Type> prestoFieldMap = rowType.getFields().stream().collect(
                                 Collectors.toMap(
-                                        f -> f.getName().get(),
-                                        f -> f.getType()));
+                                        field -> field.getName().get().toLowerCase(Locale.ENGLISH),
+                                        field -> field.getType()));
                         for (int i = 0; i < groupType.getFields().size(); i++) {
                             org.apache.parquet.schema.Type parquetFieldType = groupType.getFields().get(i);
-                            Type prestoFieldType = prestoFieldMap.get(parquetFieldType.getName());
-                            if (prestoFieldType == null) {
-                                prestoFieldType = prestoFieldMap.get(parquetFieldType.getName() + "_");
-                            }
-                            if (!checkSchemaMatch(parquetFieldType, prestoFieldType)) {
+                            String fieldName = parquetFieldType.getName().toLowerCase(Locale.ENGLISH);
+                            Type prestoFieldType = prestoFieldMap.get(fieldName);
+                            if (prestoFieldType != null && !checkSchemaMatch(parquetFieldType, prestoFieldType)) {
                                 return false;
                             }
                         }
