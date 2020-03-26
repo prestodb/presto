@@ -11,14 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.buffer;
+package com.facebook.presto.spi.page;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.page.PageCodecMarker;
-import com.facebook.presto.spi.page.PageCompressor;
-import com.facebook.presto.spi.page.PageDecompressor;
-import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,13 +26,10 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.readRawPage;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeRawPage;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +90,7 @@ public class PagesSerde
 
             decompressor.get().decompress(slice.toByteBuffer(), decompressionBuffer);
             decompressionBuffer.flip();
-            checkState(decompressionBuffer.remaining() == uncompressedSize);
+            checkState(decompressionBuffer.remaining() == uncompressedSize, "page size changed after decompression into decompressionBuffer");
 
             slice = Slices.wrappedBuffer(decompressionBuffer);
         }
@@ -146,5 +139,28 @@ public class PagesSerde
         }
 
         return new SerializedPage(slice, markers, positionCount, uncompressedSize);
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private static void checkState(boolean test, String message)
+    {
+        if (!test) {
+            throw new IllegalStateException(message);
+        }
+    }
+
+    private static byte[] ensureCapacity(byte[] buffer, int capacity)
+    {
+        if (buffer == null || buffer.length < capacity) {
+            return new byte[capacity];
+        }
+
+        return buffer;
     }
 }

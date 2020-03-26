@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
