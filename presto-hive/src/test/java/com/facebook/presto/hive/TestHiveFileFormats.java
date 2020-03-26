@@ -58,6 +58,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -718,6 +719,90 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(rowLongColumn))
                 .withReadColumns(ImmutableList.of(nestColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageRowLongNest);
+    }
+
+    @Test
+    public void testSchemaMismatchOnNestedStruct()
+            throws Exception
+    {
+        //test out of order fields in nested Row type
+        TestColumn writeColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                        javaStringObjectInspector,
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("s_int", "s_double"),
+                                        ImmutableList.of(javaIntObjectInspector, javaDoubleObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(1, 5.0))),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE))),
+                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE)), rowBlockOf(ImmutableList.of(INTEGER, DOUBLE), 1L, 5.0))));
+        TestColumn readColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                        javaStringObjectInspector,
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("s_double", "s_int"),  //out of order
+                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
+                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withRowsCount(1)
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+
+        //test field name case sensitivity in nested Row type
+        readColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                        javaStringObjectInspector,
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("s_DOUBLE", "s_INT"),  //out of order
+                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
+                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withRowsCount(1)
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+
+        //test field name mismatch in nested Row type
+        readColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                        javaStringObjectInspector,
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("s_double_old_name", "s_int"),  //rename a sub-field
+                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
+                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+
+        HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
+        String expectedMessageRowLongNest = "The column column_name is declared as type map<string,array<struct<s_double_old_name:double,s_int:int>>>, but the Parquet file declares the column as type optional group column_name (MAP) {\n" +
+                "  repeated group map (MAP_KEY_VALUE) {\n" +
+                "    required binary key (UTF8);\n" +
+                "    optional group value (LIST) {\n" +
+                "      repeated group bag {\n" +
+                "        optional group array_element {\n" +
+                "          optional int32 s_int;\n" +
+                "          optional double s_double;\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withRowsCount(1)
                 .withSession(parquetPageSourceSession)
                 .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageRowLongNest);
     }
