@@ -74,9 +74,6 @@ class DecodedBlockNode
             size += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
         }
 
-        for (DecodedBlockNode child : children) {
-            size += child.getRetainedSizeInBytes();
-        }
         return size;
     }
 
