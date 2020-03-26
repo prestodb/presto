@@ -42,6 +42,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -111,6 +113,18 @@ public class DispatchManager
         this.boundedQueryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getBoundedExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        queryTracker.start();
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryTracker.stop();
     }
 
     @Managed
