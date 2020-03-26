@@ -14,6 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.spiller.SpillCipher;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
