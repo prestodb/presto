@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spiller.SpillCipher;
+import com.facebook.presto.spi.spiller.SpillCipher;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
