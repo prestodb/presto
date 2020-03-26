@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import com.facebook.presto.spi.type.TestingTypeManager;

@@ -35,7 +35,7 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPages;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPages;
 
 @Provider
 @Produces(PRESTO_PAGES)

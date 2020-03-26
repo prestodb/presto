@@ -15,7 +15,6 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
@@ -38,6 +37,7 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;

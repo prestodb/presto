@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import com.facebook.presto.spi.type.Type;

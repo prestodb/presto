@@ -15,12 +15,12 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
