@@ -16,10 +16,10 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCodecMarker;
+import com.facebook.presto.spi.page.PageCompressor;
+import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -48,13 +48,13 @@ public class PagesSerde
     private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
     private final BlockEncodingSerde blockEncodingSerde;
-    private final Optional<Compressor> compressor;
-    private final Optional<Decompressor> decompressor;
+    private final Optional<PageCompressor> compressor;
+    private final Optional<PageDecompressor> decompressor;
     private final Optional<SpillCipher> spillCipher;
 
     private byte[] compressionBuffer;
 
-    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
+    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
