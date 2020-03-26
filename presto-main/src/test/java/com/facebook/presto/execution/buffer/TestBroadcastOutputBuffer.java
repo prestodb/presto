@@ -19,6 +19,7 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

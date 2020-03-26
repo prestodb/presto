@@ -18,6 +18,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
