@@ -307,6 +307,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.myanmartools</groupId>
+            <artifactId>myanmar-tools</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>

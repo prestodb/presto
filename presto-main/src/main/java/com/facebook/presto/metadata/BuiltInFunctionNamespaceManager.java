@@ -127,6 +127,7 @@ import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
+import com.facebook.presto.operator.scalar.MyanmarFunctions;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -558,6 +559,7 @@ public class BuiltInFunctionNamespaceManager
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
                 .scalars(IpPrefixFunctions.class)
                 .scalars(IpPrefixOperators.class)
+                .scalars(MyanmarFunctions.class)
                 .scalar(IpPrefixOperators.IpPrefixDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)

@@ -30,3 +30,4 @@ Functions and Operators
     functions/color
     functions/session
     functions/teradata
+    functions/myanmar
