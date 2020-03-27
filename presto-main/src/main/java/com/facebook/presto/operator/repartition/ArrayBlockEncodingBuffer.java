@@ -66,12 +66,12 @@ public class ArrayBlockEncodingBuffer
     private int lastOffset;
 
     // The AbstractBlockEncodingBuffer for the nested values Block of the ArrayBlock
-    private final BlockEncodingBuffer valuesBuffers;
+    private final AbstractBlockEncodingBuffer valuesBuffers;
 
     public ArrayBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
         super(bufferAllocator, isNested);
-        valuesBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
+        valuesBuffers = (AbstractBlockEncodingBuffer) createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ArrayBlockEncodingBuffer
         int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-            ((AbstractBlockEncodingBuffer) valuesBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            valuesBuffers.accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
         }
         finally {
             bufferAllocator.returnArray(offsetsCopy);
@@ -211,7 +211,7 @@ public class ArrayBlockEncodingBuffer
 
         populateNestedPositions(columnarArray);
 
-        ((AbstractBlockEncodingBuffer) valuesBuffers).setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0));
+        valuesBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0));
     }
 
     @Override
@@ -229,13 +229,13 @@ public class ArrayBlockEncodingBuffer
             positionOffsets[i + 1] = offsets[offset];
         }
 
-        ((AbstractBlockEncodingBuffer) valuesBuffers).accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
+        valuesBuffers.accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
     }
 
     private void populateNestedPositions(ColumnarArray columnarArray)
     {
         // Reset nested level positions before checking positionCount. Failing to do so may result in valuesBuffers having stale values when positionCount is 0.
-        ((AbstractBlockEncodingBuffer) valuesBuffers).resetPositions();
+        valuesBuffers.resetPositions();
 
         if (positionCount == 0) {
             return;
@@ -256,7 +256,7 @@ public class ArrayBlockEncodingBuffer
 
             if (length > 0) {
                 // beginOffset is the absolute position in the nested block. We need to subtract the base offset from it to get the logical position.
-                ((AbstractBlockEncodingBuffer) valuesBuffers).appendPositionRange(beginOffset, length);
+                valuesBuffers.appendPositionRange(beginOffset, length);
             }
         }
     }
