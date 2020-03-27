@@ -21,7 +21,7 @@ public interface BlockEncodingBuffer
     /**
      * Pass in the decoded block and positions in this block to copy. Called when a new page is being processed.
      */
-    void setupDecodedBlocksAndPositions(DecodedBlockNode decodedBlockNode, int[] positions, int positionCount);
+    void setupDecodedBlocksAndPositions(DecodedBlockNode decodedBlockNode, int[] positions, int positionCount, int partitionBufferCapacity, long estimatedSerializedPageSize);
 
     /**
      * Adds serialized row sizes to serializedRowSizes array. Called for top level columns.

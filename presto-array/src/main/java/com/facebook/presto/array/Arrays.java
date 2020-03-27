@@ -19,6 +19,8 @@ import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 public class Arrays
 {
@@ -104,9 +106,9 @@ public class Arrays
         return buffer;
     }
 
-    public static byte[] ensureCapacity(byte[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption, ArrayAllocator allocator)
+    public static byte[] ensureCapacity(byte[] buffer, int capacity, int estimatedMaxCapacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption, ArrayAllocator allocator)
     {
-        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+        int newCapacity = max(capacity, min((int) (capacity * expansionFactor.expansionFactor), estimatedMaxCapacity));
 
         byte[] newBuffer;
         if (buffer == null) {
@@ -115,7 +117,7 @@ public class Arrays
         else if (buffer.length < capacity) {
             newBuffer = allocator.borrowByteArray(newCapacity);
             if (expansionOption == PRESERVE) {
-                System.arraycopy(buffer, 0, newBuffer, 0, Math.min(buffer.length, capacity));
+                System.arraycopy(buffer, 0, newBuffer, 0, buffer.length);
             }
             allocator.returnArray(buffer);
         }

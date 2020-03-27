@@ -355,7 +355,7 @@ public class TestBlockEncodingBuffers
 
     private static void copyPositions(DecodedBlockNode decodedBlock, BlockEncodingBuffer buffer, int[] positions, int[] expectedRowSizes)
     {
-        buffer.setupDecodedBlocksAndPositions(decodedBlock, positions, positions.length);
+        buffer.setupDecodedBlocksAndPositions(decodedBlock, positions, positions.length, (int) decodedBlock.getRetainedSizeInBytes(), decodedBlock.getEstimatedSerializedSizeInBytes());
 
         ((AbstractBlockEncodingBuffer) buffer).checkValidPositions();
 

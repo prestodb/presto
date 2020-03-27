@@ -28,6 +28,7 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.spi.block.ArrayAllocator;
+import com.facebook.presto.spi.block.Block;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
@@ -37,6 +38,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setShortUnchecked;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_SHORT_INDEX_SCALE;
 
 public class ShortArrayBlockEncodingBuffer
@@ -50,6 +52,7 @@ public class ShortArrayBlockEncodingBuffer
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;
+    private int estimatedValueBufferMaxCapacity;
 
     public ShortArrayBlockEncodingBuffer(ArrayAllocator bufferAllocator, boolean isNested)
     {
@@ -134,6 +137,22 @@ public class ShortArrayBlockEncodingBuffer
     }
 
     @Override
+    protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
+    {
+        requireNonNull(decodedBlockNode, "decodedBlockNode is null");
+        decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
+
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
+        if (decodedBlock.mayHaveNull()) {
+            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
+            estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Byte.BYTES / POSITION_SIZE);
+        }
+        else {
+            estimatedValueBufferMaxCapacity = (int) targetBufferSize;
+        }
+    }
+
+    @Override
     protected void accumulateSerializedRowSizes(int[] positionOffsets, int positionCount, int[] serializedRowSizes)
     {
         for (int i = 0; i < positionCount; i++) {
@@ -143,7 +162,7 @@ public class ShortArrayBlockEncodingBuffer
 
     private void appendValuesToBuffer()
     {
-        valuesBuffer = ensureCapacity(valuesBuffer, valuesBufferIndex + batchSize * ARRAY_SHORT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
+        valuesBuffer = ensureCapacity(valuesBuffer, valuesBufferIndex + batchSize * ARRAY_SHORT_INDEX_SCALE, estimatedValueBufferMaxCapacity, LARGE, PRESERVE, bufferAllocator);
 
         int[] positions = getPositions();
         if (decodedBlock.mayHaveNull()) {

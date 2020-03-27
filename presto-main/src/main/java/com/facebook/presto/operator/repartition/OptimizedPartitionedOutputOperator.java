@@ -479,13 +479,15 @@ public class OptimizedPartitionedOutputOperator
             }
 
             // Decode the page just once. The decoded blocks will be fed to each PartitionBuffer object to set up AbstractBlockEncodingBuffer.
+            long estimatedSerializedPageSize = 0;
             for (int i = 0; i < decodedBlocks.length; i++) {
                 decodedBlocks[i] = decodeBlock(flattener, blockLeaseCloser, page.getBlock(i));
+                estimatedSerializedPageSize += decodedBlocks[i].getEstimatedSerializedSizeInBytes();
             }
 
             // Copy the data to their destination partitions and flush when the buffer is full.
             for (int i = 0; i < partitionBuffers.length; i++) {
-                partitionBuffers[i].appendData(decodedBlocks, fixedWidthRowSize, variableWidthChannels, outputBuffer);
+                partitionBuffers[i].appendData(decodedBlocks, estimatedSerializedPageSize, fixedWidthRowSize, variableWidthChannels, outputBuffer);
             }
 
             // Return all borrowed arrays
@@ -595,7 +597,7 @@ public class OptimizedPartitionedOutputOperator
             positions[positionCount++] = position;
         }
 
-        private void appendData(DecodedBlockNode[] decodedBlocks, int fixedWidthRowSize, List<Integer> variableWidthChannels, OutputBuffer outputBuffer)
+        private void appendData(DecodedBlockNode[] decodedBlocks, long estimatedSerializedPageSize, int fixedWidthRowSize, List<Integer> variableWidthChannels, OutputBuffer outputBuffer)
         {
             if (decodedBlocks.length != channelCount) {
                 throw new IllegalArgumentException(format("Unexpected number of decoded blocks %d. It should be %d.", decodedBlocks.length, channelCount));
@@ -613,10 +615,10 @@ public class OptimizedPartitionedOutputOperator
             initializeBlockEncodingBuffers(decodedBlocks);
 
             for (int i = 0; i < channelCount; i++) {
-                blockEncodingBuffers[i].setupDecodedBlocksAndPositions(decodedBlocks[i], positions, positionCount);
+                blockEncodingBuffers[i].setupDecodedBlocksAndPositions(decodedBlocks[i], positions, positionCount, capacity, estimatedSerializedPageSize);
             }
 
-            int[] serializedRowSizes = ensureCapacity((int[]) null, positionCount, SMALL, INITIALIZE, bufferAllocator);
+            int[] serializedRowSizes = ensureCapacity(null, positionCount, SMALL, INITIALIZE, bufferAllocator);
             try {
                 populateSerializedRowSizes(fixedWidthRowSize, variableWidthChannels, serializedRowSizes);
 
