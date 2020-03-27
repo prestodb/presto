@@ -41,11 +41,27 @@ class DecodedBlockNode
     // The decodedBlock could be primitive block, Dictionary/Rle block, or ColumnarArray/Map/Row object
     private final Object decodedBlock;
     private final List<DecodedBlockNode> children;
+    private final long retainedSizeInBytes;
 
     public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children)
     {
         this.decodedBlock = requireNonNull(decodedBlock, "decodedBlock is null");
         this.children = requireNonNull(children, "children is null");
+
+        long retainedSize = INSTANCE_SIZE;
+        if (decodedBlock instanceof Block) {
+            retainedSize += ((Block) decodedBlock).getRetainedSizeInBytes();
+        }
+        else if (decodedBlock instanceof ColumnarArray) {
+            retainedSize += ((ColumnarArray) decodedBlock).getRetainedSizeInBytes();
+        }
+        else if (decodedBlock instanceof ColumnarMap) {
+            retainedSize += ((ColumnarMap) decodedBlock).getRetainedSizeInBytes();
+        }
+        else if (decodedBlock instanceof ColumnarRow) {
+            retainedSize += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
+        }
+        retainedSizeInBytes = retainedSize;
     }
 
     public Object getDecodedBlock()
@@ -60,21 +76,7 @@ class DecodedBlockNode
 
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE;
-        if (decodedBlock instanceof Block) {
-            size += ((Block) decodedBlock).getRetainedSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarArray) {
-            size += ((ColumnarArray) decodedBlock).getRetainedSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarMap) {
-            size += ((ColumnarMap) decodedBlock).getRetainedSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarRow) {
-            size += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
-        }
-
-        return size;
+        return retainedSizeInBytes;
     }
 
     @Override
