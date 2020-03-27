@@ -61,6 +61,9 @@ public class RowBlockEncodingBuffer
     // The address next offset value will be written to.
     private int offsetsBufferIndex;
 
+    // The estimated maximum size for offsetsBuffer
+    private int estimatedOffsetBufferMaxCapacity;
+
     // This array holds the condensed offsets for each position for the incoming block.
     private int[] offsets;
 
@@ -88,7 +91,7 @@ public class RowBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             for (int i = 0; i < fieldBuffers.length; i++) {
                 System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
@@ -236,7 +239,7 @@ public class RowBlockEncodingBuffer
     }
 
     @Override
-    protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode)
+    protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
 
@@ -244,10 +247,20 @@ public class RowBlockEncodingBuffer
         ColumnarRow columnarRow = (ColumnarRow) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarRow.getNullCheckBlock();
 
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
+
+        if (decodedBlock.mayHaveNull()) {
+            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
+            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
+        }
+        else {
+            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
+        }
+
         populateNestedPositions(columnarRow);
 
         for (int i = 0; i < fieldBuffers.length; i++) {
-            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i));
+            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i), partitionBufferCapacity, decodedBlockPageSizeFraction);
         }
     }
 
@@ -268,7 +281,7 @@ public class RowBlockEncodingBuffer
             positionOffsets[i + 1] = this.offsets[offset];
         }
 
-        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             for (int i = 0; i < fieldBuffers.length; i++) {
                 System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
@@ -314,7 +327,7 @@ public class RowBlockEncodingBuffer
 
     private void appendOffsets()
     {
-        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
+        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, estimatedOffsetBufferMaxCapacity, LARGE, PRESERVE, bufferAllocator);
 
         int baseOffset = lastOffset - offsets[positionsOffset];
         for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {

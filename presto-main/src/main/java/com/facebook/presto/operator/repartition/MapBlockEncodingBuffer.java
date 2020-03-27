@@ -65,6 +65,9 @@ public class MapBlockEncodingBuffer
     // The address that the next hashtable entry will be written to.
     private int hashTableBufferIndex;
 
+    // The estimated maximum size for hashTablesBuffer
+    private int estimatedHashTableBufferMaxCapacity;
+
     // If any of the incoming blocks do not contain the hashtable, noHashTables is set to true.
     private boolean noHashTables;
 
@@ -73,6 +76,9 @@ public class MapBlockEncodingBuffer
 
     // The address that the next offset value will be written to.
     private int offsetsBufferIndex;
+
+    // The estimated maximum size for offsetsBuffer
+    private int estimatedOffsetBufferMaxCapacity;
 
     // This array holds the condensed offsets for each position for the incoming block.
     private int[] offsets;
@@ -101,7 +107,7 @@ public class MapBlockEncodingBuffer
             serializedRowSizes[i] += POSITION_SIZE;
         }
 
-        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
             keyBuffers.accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
@@ -260,7 +266,7 @@ public class MapBlockEncodingBuffer
     }
 
     @Override
-    protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode)
+    protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
 
@@ -268,10 +274,28 @@ public class MapBlockEncodingBuffer
         columnarMap = (ColumnarMap) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarMap.getNullCheckBlock();
 
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
+
+        if (!noHashTables && columnarMap.getHashTables().isPresent()) {
+            estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * columnarMap.getHashTables().get().length / columnarMap.getRetainedSizeInBytes());
+            targetBufferSize -= estimatedHashTableBufferMaxCapacity;
+        }
+        else {
+            estimatedHashTableBufferMaxCapacity = 0;
+        }
+
+        if (decodedBlock.mayHaveNull()) {
+            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
+            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
+        }
+        else {
+            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
+        }
+
         populateNestedPositions();
 
-        keyBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0));
-        valueBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1));
+        keyBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0), partitionBufferCapacity, decodedBlockPageSizeFraction);
+        valueBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1), partitionBufferCapacity, decodedBlockPageSizeFraction);
     }
 
     @Override
@@ -292,7 +316,7 @@ public class MapBlockEncodingBuffer
         }
 
         // positionOffsets might be modified by the next level. Save it for the valueBuffers first.
-        int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
+        int[] offsetsCopy = ensureCapacity(null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
 
@@ -336,7 +360,7 @@ public class MapBlockEncodingBuffer
 
     private void appendOffsets()
     {
-        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
+        offsetsBuffer = ensureCapacity(offsetsBuffer, offsetsBufferIndex + batchSize * ARRAY_INT_INDEX_SCALE, estimatedOffsetBufferMaxCapacity, LARGE, PRESERVE, bufferAllocator);
 
         int baseOffset = lastOffset - offsets[positionsOffset];
         for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {
@@ -361,7 +385,7 @@ public class MapBlockEncodingBuffer
         }
 
         int hashTablesSize = (offsets[positionsOffset + batchSize] - offsets[positionsOffset]) * HASH_MULTIPLIER;
-        hashTablesBuffer = ensureCapacity(hashTablesBuffer, hashTableBufferIndex + hashTablesSize * ARRAY_INT_INDEX_SCALE, LARGE, PRESERVE, bufferAllocator);
+        hashTablesBuffer = ensureCapacity(hashTablesBuffer, hashTableBufferIndex + hashTablesSize * ARRAY_INT_INDEX_SCALE, estimatedHashTableBufferMaxCapacity, LARGE, PRESERVE, bufferAllocator);
 
         int[] positions = getPositions();
 

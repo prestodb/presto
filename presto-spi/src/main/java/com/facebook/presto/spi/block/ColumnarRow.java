@@ -59,10 +59,9 @@ public final class ColumnarRow
     {
         // build a mapping from the old dictionary to a new dictionary with nulls removed
         Block dictionary = dictionaryBlock.getDictionary();
-        int positionCount = dictionary.getPositionCount();
-        int[] newDictionaryIndex = new int[positionCount];
+        int[] newDictionaryIndex = new int[dictionary.getPositionCount()];
         int nextNewDictionaryIndex = 0;
-        for (int position = 0; position < positionCount; position++) {
+        for (int position = 0; position < dictionary.getPositionCount(); position++) {
             if (!dictionary.isNull(position)) {
                 newDictionaryIndex[position] = nextNewDictionaryIndex;
                 nextNewDictionaryIndex++;
@@ -70,6 +69,7 @@ public final class ColumnarRow
         }
 
         // reindex the dictionary
+        int positionCount = dictionaryBlock.getPositionCount();
         int[] dictionaryIds = new int[positionCount];
         int nonNullPositionCount = 0;
         for (int position = 0; position < positionCount; position++) {

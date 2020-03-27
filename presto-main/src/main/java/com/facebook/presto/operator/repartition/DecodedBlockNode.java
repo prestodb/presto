@@ -43,6 +43,7 @@ class DecodedBlockNode
     private final List<DecodedBlockNode> children;
     private final long retainedSizeInBytes;
     private final long estimatedSerializedSizeInBytes;
+    private final long childrenEstimatedSerializedSizeInBytes;
 
     public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children)
     {
@@ -51,6 +52,7 @@ class DecodedBlockNode
 
         long retainedSize = INSTANCE_SIZE;
         long estimatedSerializedSize = 0;
+
         if (decodedBlock instanceof Block) {
             retainedSize += ((Block) decodedBlock).getRetainedSizeInBytes();
             // We use logical size as an estimation of the serialized size. For DictionaryBlock and RunLengthEncodedBlock, the logical size accounts for the size as if they were inflated.
@@ -68,8 +70,15 @@ class DecodedBlockNode
             retainedSize += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
             estimatedSerializedSize += ((ColumnarRow) decodedBlock).getEstimatedSerializedSizeInBytes();
         }
+
         retainedSizeInBytes = retainedSize;
         estimatedSerializedSizeInBytes = estimatedSerializedSize;
+
+        long childrenEstimatedSerializedSize = 0;
+        for (int i = 0; i < children.size(); i++) {
+            childrenEstimatedSerializedSize += children.get(i).getEstimatedSerializedSizeInBytes();
+        }
+        childrenEstimatedSerializedSizeInBytes = childrenEstimatedSerializedSize;
     }
 
     public Object getDecodedBlock()
@@ -80,6 +89,11 @@ class DecodedBlockNode
     public List<DecodedBlockNode> getChildren()
     {
         return children;
+    }
+
+    public long getChildrenEstimatedSerializedSizeInBytes()
+    {
+        return childrenEstimatedSerializedSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()
