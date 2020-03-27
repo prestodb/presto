@@ -412,12 +412,12 @@ public class OptimizedPartitionedOutputOperator
 
             int partitionCount = partitionFunction.getPartitionCount();
 
-            int pageSize = max(1, min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, toIntExact(maxMemory.toBytes()) / partitionCount));
+            int partitionBufferCapacity = max(1, min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, toIntExact(maxMemory.toBytes()) / partitionCount));
             bufferAllocator = new SimpleArrayAllocator(maxBufferCount);
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {
-                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), pageSize, pagesAdded, rowsAdded, serde, lifespan, bufferAllocator);
+                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), partitionBufferCapacity, pagesAdded, rowsAdded, serde, lifespan, bufferAllocator);
             }
 
             this.sourceTypes = sourceTypes;
