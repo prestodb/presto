@@ -68,7 +68,7 @@ public class RowBlockEncodingBuffer
     private int lastOffset;
 
     // The AbstractBlockEncodingBuffer for the nested field blocks of the RowBlock
-    private final BlockEncodingBuffer[] fieldBuffers;
+    private final AbstractBlockEncodingBuffer[] fieldBuffers;
 
     public RowBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
@@ -77,7 +77,7 @@ public class RowBlockEncodingBuffer
         List<DecodedBlockNode> childrenNodes = decodedBlockNode.getChildren();
         fieldBuffers = new AbstractBlockEncodingBuffer[childrenNodes.size()];
         for (int i = 0; i < childrenNodes.size(); i++) {
-            fieldBuffers[i] = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(i), bufferAllocator, true);
+            fieldBuffers[i] = (AbstractBlockEncodingBuffer) createBlockEncodingBuffers(decodedBlockNode.getChildren().get(i), bufferAllocator, true);
         }
     }
 
@@ -247,7 +247,7 @@ public class RowBlockEncodingBuffer
         populateNestedPositions(columnarRow);
 
         for (int i = 0; i < fieldBuffers.length; i++) {
-            ((AbstractBlockEncodingBuffer) fieldBuffers[i]).setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i));
+            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i));
         }
     }
 
@@ -272,7 +272,7 @@ public class RowBlockEncodingBuffer
         try {
             for (int i = 0; i < fieldBuffers.length; i++) {
                 System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
-                ((AbstractBlockEncodingBuffer) fieldBuffers[i]).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+                fieldBuffers[i].accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
             }
         }
         finally {
@@ -284,7 +284,7 @@ public class RowBlockEncodingBuffer
     {
         // Reset nested level positions before checking positionCount. Failing to do so may result in elementsBuffers having stale values when positionCount is 0.
         for (int i = 0; i < fieldBuffers.length; i++) {
-            ((AbstractBlockEncodingBuffer) fieldBuffers[i]).resetPositions();
+            fieldBuffers[i].resetPositions();
         }
 
         if (positionCount == 0) {
@@ -306,7 +306,7 @@ public class RowBlockEncodingBuffer
 
             if (currentRowSize > 0) {
                 for (int j = 0; j < fieldBuffers.length; j++) {
-                    ((AbstractBlockEncodingBuffer) fieldBuffers[j]).appendPositionRange(beginOffset - columnarRowBaseOffset, currentRowSize);
+                    fieldBuffers[j].appendPositionRange(beginOffset - columnarRowBaseOffset, currentRowSize);
                 }
             }
         }

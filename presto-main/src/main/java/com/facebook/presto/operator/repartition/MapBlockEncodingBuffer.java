@@ -84,14 +84,14 @@ public class MapBlockEncodingBuffer
     private ColumnarMap columnarMap;
 
     // The AbstractBlockEncodingBuffer for the nested key and value Block of the MapBlock
-    private final BlockEncodingBuffer keyBuffers;
-    private final BlockEncodingBuffer valueBuffers;
+    private final AbstractBlockEncodingBuffer keyBuffers;
+    private final AbstractBlockEncodingBuffer valueBuffers;
 
     public MapBlockEncodingBuffer(DecodedBlockNode decodedBlockNode, ArrayAllocator bufferAllocator, boolean isNested)
     {
         super(bufferAllocator, isNested);
-        keyBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
-        valueBuffers = createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1), bufferAllocator, true);
+        keyBuffers = (AbstractBlockEncodingBuffer) createBlockEncodingBuffers(decodedBlockNode.getChildren().get(0), bufferAllocator, true);
+        valueBuffers = (AbstractBlockEncodingBuffer) createBlockEncodingBuffers(decodedBlockNode.getChildren().get(1), bufferAllocator, true);
     }
 
     @Override
@@ -104,10 +104,10 @@ public class MapBlockEncodingBuffer
         int[] offsetsCopy = ensureCapacity((int[]) null, positionCount + 1, SMALL, NONE, bufferAllocator);
         try {
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-            ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            keyBuffers.accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
 
             System.arraycopy(offsets, 0, offsetsCopy, 0, positionCount + 1);
-            ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            valueBuffers.accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
         }
         finally {
             bufferAllocator.returnArray(offsetsCopy);
@@ -270,8 +270,8 @@ public class MapBlockEncodingBuffer
 
         populateNestedPositions();
 
-        ((AbstractBlockEncodingBuffer) keyBuffers).setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0));
-        ((AbstractBlockEncodingBuffer) valueBuffers).setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1));
+        keyBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0));
+        valueBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1));
     }
 
     @Override
@@ -296,8 +296,8 @@ public class MapBlockEncodingBuffer
         try {
             System.arraycopy(positionOffsets, 0, offsetsCopy, 0, positionCount + 1);
 
-            ((AbstractBlockEncodingBuffer) keyBuffers).accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
-            ((AbstractBlockEncodingBuffer) valueBuffers).accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
+            keyBuffers.accumulateSerializedRowSizes(positionOffsets, positionCount, serializedRowSizes);
+            valueBuffers.accumulateSerializedRowSizes(offsetsCopy, positionCount, serializedRowSizes);
         }
         finally {
             bufferAllocator.returnArray(offsetsCopy);
@@ -307,8 +307,8 @@ public class MapBlockEncodingBuffer
     private void populateNestedPositions()
     {
         // Reset nested level positions before checking positionCount. Failing to do so may result in elementsBuffers having stale values when positionCount is 0.
-        ((AbstractBlockEncodingBuffer) keyBuffers).resetPositions();
-        ((AbstractBlockEncodingBuffer) valueBuffers).resetPositions();
+        keyBuffers.resetPositions();
+        valueBuffers.resetPositions();
 
         if (positionCount == 0) {
             return;
@@ -328,8 +328,8 @@ public class MapBlockEncodingBuffer
             offsets[i + 1] = offsets[i] + currentRowSize;
 
             if (currentRowSize > 0) {
-                ((AbstractBlockEncodingBuffer) keyBuffers).appendPositionRange(beginOffset, currentRowSize);
-                ((AbstractBlockEncodingBuffer) valueBuffers).appendPositionRange(beginOffset, currentRowSize);
+                keyBuffers.appendPositionRange(beginOffset, currentRowSize);
+                valueBuffers.appendPositionRange(beginOffset, currentRowSize);
             }
         }
     }
