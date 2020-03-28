@@ -140,7 +140,9 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
@@ -230,6 +232,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpression;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -255,9 +258,13 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteWithCSEByLevel;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -1267,38 +1274,92 @@ public class LocalExecutionPlanner
                     .map(expression -> bindChannels(expression, sourceLayout))
                     .collect(toImmutableList());
 
+            Type rowType = RowType.from(projections.stream().map(RowExpression::getType).map(RowType::field).collect(toImmutableList()));
+            RowExpression wrapProjections = projections.size() == 1 ? projections.get(0) : new SpecialFormExpression(ROW_CONSTRUCTOR, rowType, projections);
+            VariableReferenceExpression wrappedRowVariable = new VariableReferenceExpression("fake_row", rowType);
+            Map<VariableReferenceExpression, Integer> wrappedRowOutputMapping = projections.size() == 1 ? outputMappings : ImmutableMap.of(wrappedRowVariable, 0);
+            Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel = isOptimizeCommonSubExpression(session) ? rewriteWithCSEByLevel(wrapProjections) : ImmutableMap.of();
+
             try {
-                if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
+                if (cseByLevel.isEmpty()) {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    if (columns != null) {
+                        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
+                        SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
+                                context.getNextOperatorId(),
+                                planNodeId,
+                                sourceNode.getId(),
+                                pageSourceProvider,
+                                cursorProcessor,
+                                pageProcessor,
+                                table,
+                                columns,
+                                projections.stream().map(RowExpression::getType).collect(toImmutableList()),
+                                getFilterAndProjectMinOutputPageSize(session),
+                                getFilterAndProjectMinOutputPageRowCount(session));
 
-                    SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
-                            context.getNextOperatorId(),
-                            planNodeId,
-                            sourceNode.getId(),
-                            pageSourceProvider,
-                            cursorProcessor,
-                            pageProcessor,
-                            table,
-                            columns,
-                            projections.stream().map(RowExpression::getType).collect(toImmutableList()),
-                            getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                        return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+                    }
+                    else {
+                        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                                context.getNextOperatorId(),
+                                planNodeId,
+                                pageProcessor,
+                                projections.stream().map(RowExpression::getType).collect(toImmutableList()),
+                                getFilterAndProjectMinOutputPageSize(session),
+                                getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+                        return new PhysicalOperation(operatorFactory, outputMappings, context, source);
+                    }
                 }
                 else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessorWithCSE(session.getSqlFunctionProperties(), filterExpression, wrapProjections, Optional.of(context.getStageExecutionId() + "_" + planNodeId), cseByLevel);
+                    PhysicalOperation operation;
+                    if (columns != null) {
+                        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
 
+                        SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
+                                context.getNextOperatorId(),
+                                planNodeId,
+                                sourceNode.getId(),
+                                pageSourceProvider,
+                                cursorProcessor,
+                                pageProcessor,
+                                table,
+                                columns,
+                                ImmutableList.of(wrapProjections.getType()),
+                                getFilterAndProjectMinOutputPageSize(session),
+                                getFilterAndProjectMinOutputPageRowCount(session));
+
+                        operation = new PhysicalOperation(operatorFactory, wrappedRowOutputMapping, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
+                    }
+                    else {
+                        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                                context.getNextOperatorId(),
+                                planNodeId,
+                                pageProcessor,
+                                ImmutableList.of(wrapProjections.getType()),
+                                getFilterAndProjectMinOutputPageSize(session),
+                                getFilterAndProjectMinOutputPageRowCount(session));
+
+                        operation = new PhysicalOperation(operatorFactory, wrappedRowOutputMapping, context, source);
+                    }
+                    if (outputVariables.size() == 1) {
+                        return operation;
+                    }
+                    ImmutableList.Builder<RowExpression> projectionFromRow = ImmutableList.builder();
+                    for (int i = 0; i < outputVariables.size(); i++) {
+                        projectionFromRow.add(new SpecialFormExpression(DEREFERENCE, outputVariables.get(i).getType(), new InputReferenceExpression(0, rowType), constant((long) i, INTEGER)));
+                    }
+                    Supplier<PageProcessor> extractPageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), Optional.empty(), projectionFromRow.build());
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
-                            planNodeId,
-                            pageProcessor,
-                            projections.stream().map(RowExpression::getType).collect(toImmutableList()),
+                            new PlanNodeId("fake"),
+                            extractPageProcessor,
+                            outputVariables.stream().map(VariableReferenceExpression::getType).collect(toImmutableList()),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
-
-                    return new PhysicalOperation(operatorFactory, outputMappings, context, source);
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, operation);
                 }
             }
             catch (PrestoException e) {

@@ -23,6 +23,7 @@ import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -34,6 +35,7 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -94,6 +96,17 @@ public class ExpressionCompiler
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
         return compilePageProcessor(sqlFunctionProperties, filter, projections, classNameSuffix, OptionalInt.empty());
+    }
+
+    public Supplier<PageProcessor> compilePageProcessorWithCSE(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, RowExpression wrapProjections, Optional<String> classNameSuffix, Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel)
+    {
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix));
+        Supplier<PageProjection> pageProjectionSupplier = pageFunctionCompiler.compileProjectionWithCSE(sqlFunctionProperties, wrapProjections, classNameSuffix, cseByLevel);
+        return () -> {
+            Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            List<PageProjection> pageProjections = ImmutableList.of(pageProjectionSupplier.get());
+            return new PageProcessor(filterFunction, pageProjections, OptionalInt.empty());
+        };
     }
 
     private Supplier<PageProcessor> compilePageProcessor(

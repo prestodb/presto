@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -40,12 +41,15 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.Expressions;
@@ -54,12 +58,15 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Primitives;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,6 +79,7 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.BytecodeUtils.dumpBytecodeTree;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
@@ -86,16 +94,23 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArr
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteWithCSEByLevel;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
 {
+    private static final Logger log = Logger.get(PageFunctionCompiler.class);
+
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
@@ -120,7 +135,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty(), ImmutableMap.of())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -160,12 +175,17 @@ public class PageFunctionCompiler
     public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
-            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix);
+            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix, ImmutableMap.of());
         }
         return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection));
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjectionWithCSE(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix, Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel)
+    {
+        return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix, cseByLevel);
+    }
+
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix, Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel)
     {
         requireNonNull(projection, "projection is null");
 
@@ -186,7 +206,8 @@ public class PageFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, result.getRewrittenExpression(), callSiteBinder, classNameSuffix, cseByLevel);
+        log.warn(dumpBytecodeTree(pageProjectionWorkDefinition));
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
@@ -208,7 +229,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix, Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -234,7 +255,7 @@ public class PageFunctionCompiler
 
         // evaluate
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, metadata, sqlFunctionProperties);
-        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
+        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField, cseByLevel);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -318,7 +339,8 @@ public class PageFunctionCompiler
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression projection,
-            FieldDefinition blockBuilder)
+            FieldDefinition blockBuilder,
+            Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -343,19 +365,64 @@ public class PageFunctionCompiler
         declareBlockVariables(projection, page, scope, body);
 
         scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
-        body.append(outputBlockVariable.set(thisVariable.getField(blockBuilder)))
-                .append(compiler.compile(projection, scope, Optional.of(outputBlockVariable)))
-                .ret();
+        body.append(outputBlockVariable.set(thisVariable.getField(blockBuilder)));
+        if (cseByLevel.isEmpty()) {
+            RowExpressionCompiler compiler = new RowExpressionCompiler(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    fieldReferenceCompiler(callSiteBinder),
+                    metadata,
+                    sqlFunctionProperties,
+                    compiledLambdaMap);
+            body.append(compiler.compile(projection, scope, Optional.of(outputBlockVariable))).ret();
+        }
+        else {
+            cseByLevel = rewriteWithCSEByLevel(projection);
+            int startLevel = cseByLevel.keySet().stream().reduce(Math::min).get();
+            int maxLevel = cseByLevel.keySet().stream().reduce(Math::max).get();
+            Map<RowExpression, VariableReferenceExpression> commonSubExpressions = new HashMap<>();
+            Map<VariableReferenceExpression, Variable> variableMap = new HashMap<>();
+            for (int i = startLevel; i <= maxLevel; i++) {
+                if (cseByLevel.containsKey(i)) {
+                    RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
+                            classDefinition,
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                            metadata,
+                            sqlFunctionProperties,
+                            compiledLambdaMap);
+                    for (Map.Entry<RowExpression, VariableReferenceExpression> entry : cseByLevel.get(i).entrySet()) {
+                        RowExpression cse = entry.getKey();
+                        commonSubExpressions.put(cse, entry.getValue());
+                        Class<?> type = Primitives.wrap(cse.getType().getJavaType());
+                        Variable cseVariable = scope.createTempVariable(type);
+                        variableMap.put(entry.getValue(), cseVariable);
+                        body.append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                .append(boxPrimitiveIfNecessary(scope, type))
+                                .putVariable(cseVariable);
+                    }
+                }
+            }
+            RowExpression rewrittenProjection = rewriteExpressionWithCSE(projection, commonSubExpressions);
+            RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                    metadata,
+                    sqlFunctionProperties,
+                    compiledLambdaMap);
+            body.append(cseCompiler.compile(rewrittenProjection, scope, Optional.of(outputBlockVariable))).ret();
+            log.warn("Extracted CSE:");
+            for (Map.Entry<RowExpression, VariableReferenceExpression> cse : commonSubExpressions.entrySet()) {
+                log.warn(format("\t%s = %s", cse.getValue(), cse.getKey()));
+            }
+            log.warn(format("Final expression: %s", rewrittenProjection));
+        }
         return method;
     }
 
@@ -596,6 +663,59 @@ public class PageFunctionCompiler
                 (scope, field) -> scope.getVariable("block_" + field),
                 (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
+    }
+
+    private static class FieldAndVariableReferenceCompiler
+            implements RowExpressionVisitor<BytecodeNode, Scope>
+    {
+        private final InputReferenceCompiler inputReferenceCompiler;
+        private final Map<VariableReferenceExpression, Variable> variableMap;
+
+        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, Variable> variableMap)
+        {
+            this.inputReferenceCompiler = new InputReferenceCompiler(
+                    (scope, field) -> scope.getVariable("block_" + field),
+                    (scope, field) -> scope.getVariable("position"),
+                    callSiteBinder);
+            this.variableMap = ImmutableMap.copyOf(variableMap);
+        }
+        @Override
+        public BytecodeNode visitCall(CallExpression call, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitInputReference(InputReferenceExpression reference, Scope context)
+        {
+            return inputReferenceCompiler.visitInputReference(reference, context);
+        }
+
+        @Override
+        public BytecodeNode visitConstant(ConstantExpression literal, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+        {
+            return new BytecodeBlock()
+                    .append(variableMap.get(reference))
+                    .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
+        }
+
+        @Override
+        public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class CacheKey
