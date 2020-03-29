@@ -67,11 +67,22 @@ public class ServerSecurityModule
                 throw new AssertionError("Unhandled auth type: " + authType);
             }
         }
+
+        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
+                .to(AuthorizationFilter.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, Authorizer.class);
     }
 
     @Provides
     List<Authenticator> getAuthenticatorList(Set<Authenticator> authenticators)
     {
         return ImmutableList.copyOf(authenticators);
+    }
+
+    @Provides
+    List<Authorizer> getAuthorizerList(Set<Authorizer> authorizers)
+    {
+        return ImmutableList.copyOf(authorizers);
     }
 }
