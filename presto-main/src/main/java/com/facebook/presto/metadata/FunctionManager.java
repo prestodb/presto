@@ -222,7 +222,7 @@ public class FunctionManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
         if (functionNamespaceManager.isPresent()) {
-            functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
+            functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists, true);
         }
         else if (!exists) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getFunctionNamespace()));

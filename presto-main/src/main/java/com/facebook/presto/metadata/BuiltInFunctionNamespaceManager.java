@@ -727,7 +727,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists, boolean test)
     {
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot drop function in built-in function namespace: %s", functionName));
     }

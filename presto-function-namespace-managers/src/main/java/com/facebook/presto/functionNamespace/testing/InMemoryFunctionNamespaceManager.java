@@ -73,7 +73,7 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public synchronized void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public synchronized void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists, boolean test)
     {
         throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in InMemoryFunctionNamespaceManager");
     }

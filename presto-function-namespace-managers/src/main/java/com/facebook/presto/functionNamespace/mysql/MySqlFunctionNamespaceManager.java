@@ -198,7 +198,7 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists, boolean test)
     {
         checkCatalog(functionName);
         jdbi.useTransaction(handle -> {

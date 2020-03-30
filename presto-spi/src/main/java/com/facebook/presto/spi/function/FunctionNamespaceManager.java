@@ -56,7 +56,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * Drop the specified function.
      * TODO: Support transaction
      */
-    void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists);
+    void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists, boolean test);
 
     /**
      * List all functions managed by the {@link FunctionNamespaceManager}.

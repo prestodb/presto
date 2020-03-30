@@ -418,7 +418,7 @@ public class TestMySqlFunctionNamespaceManager
 
     private void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
-        functionNamespaceManager.dropFunction(functionName, parameterTypes, exists);
+        functionNamespaceManager.dropFunction(functionName, parameterTypes, exists, true);
     }
 
     private FunctionHandle getLatestFunctionHandle(SqlFunctionId functionId)
