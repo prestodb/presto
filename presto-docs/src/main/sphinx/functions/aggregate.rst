@@ -268,6 +268,11 @@ Approximate Aggregate Functions
 
     See :doc:`hyperloglog`.
 
+.. function:: khyperloglog_agg(x) -> KHyperLogLog
+    :noindex:
+
+    See :doc:`khyperloglog`.
+
 .. function:: merge(qdigest(T)) -> qdigest(T)
     :noindex:
 
