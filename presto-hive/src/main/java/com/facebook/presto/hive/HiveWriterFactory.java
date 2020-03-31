@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.getSortedWriteTempPathSubdirectoryCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
+import static com.facebook.presto.hive.HiveWriteUtils.checkPartitionIsWritable;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
@@ -385,142 +386,124 @@ public class HiveWriterFactory
 
     private WriterParameters getWriterParameters(Optional<String> partitionName, OptionalInt bucketNumber)
     {
-        // attempt to get the existing partition (if this is an existing partitioned table)
-        Optional<Partition> partition = Optional.empty();
-        if (partitionName.isPresent() && table != null) {
-            partition = pageSinkMetadataProvider.getPartition(toPartitionValues(partitionName.get()));
+        // new table
+        if (table == null) {
+            // partitioned
+            if (partitionName.isPresent()) {
+                return getWriterParametersForNewPartitionedTable(partitionName.get());
+            }
+            // unpartitioned
+            return getWriterParametersForNewUnpartitionedTable();
         }
 
-        UpdateMode updateMode;
-        Properties schema;
-        WriteInfo writeInfo;
-        StorageFormat outputStorageFormat;
+        // existing unpartitioned table
+        if (!partitionName.isPresent()) {
+            return getWriterParametersForExistingUnpartitionedTable(bucketNumber);
+        }
+
+        // existing partitioned table
+        return getWriterParametersForExistingPartitionedTable(partitionName.get(), bucketNumber);
+    }
+
+    private WriterParameters getWriterParametersForNewUnpartitionedTable()
+    {
+        return new WriterParameters(
+                UpdateMode.NEW,
+                createHiveSchema(dataColumns),
+                locationService.getTableWriteInfo(locationHandle),
+                fromHiveStorageFormat(tableStorageFormat));
+    }
+
+    private WriterParameters getWriterParametersForNewPartitionedTable(String partitionName)
+    {
+        WriteInfo writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
+        if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
+            // When target path is different from write path,
+            // verify that the target directory for the partition does not already exist
+            if (MetastoreUtil.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+                throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
+                        "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
+                        partitionName,
+                        schemaName,
+                        tableName,
+                        writeInfo.getTargetPath()));
+            }
+        }
+        return new WriterParameters(
+                UpdateMode.NEW,
+                createHiveSchema(dataColumns),
+                writeInfo,
+                fromHiveStorageFormat(partitionStorageFormat));
+    }
+
+    private WriterParameters getWriterParametersForExistingUnpartitionedTable(OptionalInt bucketNumber)
+    {
+        // Note: temporary table is always empty at this step
+        if (!table.getTableType().equals(TEMPORARY_TABLE)) {
+            if (bucketNumber.isPresent()) {
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+            }
+            if (immutablePartitions) {
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
+            }
+        }
+        return new WriterParameters(
+                UpdateMode.APPEND,
+                getHiveSchema(table),
+                locationService.getTableWriteInfo(locationHandle),
+                fromHiveStorageFormat(tableStorageFormat));
+    }
+
+    private WriterParameters getWriterParametersForExistingPartitionedTable(String partitionName, OptionalInt bucketNumber)
+    {
+        // attempt to get the existing partition (if this is an existing partitioned table)
+        Optional<Partition> partition = pageSinkMetadataProvider.getPartition(toPartitionValues(partitionName));
+
         if (!partition.isPresent()) {
-            if (table == null) {
-                // Write to: a new partition in a new partitioned table,
-                //           or a new unpartitioned table.
-                updateMode = UpdateMode.NEW;
-                schema = createHiveSchema(dataColumns);
-
-                if (!partitionName.isPresent()) {
-                    // new unpartitioned table
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
-                }
-                else {
-                    // a new partition in a new partitioned table
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-
-                    if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
-                        // When target path is different from write path,
-                        // verify that the target directory for the partition does not already exist
-                        if (MetastoreUtil.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
-                            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
-                                    "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
-                                    partitionName,
-                                    schemaName,
-                                    tableName,
-                                    writeInfo.getTargetPath()));
-                        }
-                    }
-                }
-            }
-            else {
-                // Write to: a new partition in an existing partitioned table,
-                //           or an existing unpartitioned table
-                if (partitionName.isPresent()) {
-                    // a new partition in an existing partitioned table
-                    updateMode = UpdateMode.NEW;
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-                }
-                else if (table.getTableType().equals(TEMPORARY_TABLE)) {
-                    // Note: temporary table is always empty at this step
-                    updateMode = UpdateMode.APPEND;
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
-                }
-                else {
-                    if (bucketNumber.isPresent()) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
-                    }
-                    if (immutablePartitions) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
-                    }
-                    updateMode = UpdateMode.APPEND;
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
-                }
-
-                schema = getHiveSchema(table);
-            }
-
-            if (partitionName.isPresent()) {
-                // Write to a new partition
-                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
-            }
-            else {
-                // Write to a new/existing unpartitioned table
-                outputStorageFormat = fromHiveStorageFormat(tableStorageFormat);
-            }
+            return new WriterParameters(
+                    UpdateMode.NEW,
+                    getHiveSchema(table),
+                    locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName),
+                    fromHiveStorageFormat(partitionStorageFormat));
         }
         else {
-            // Write to: an existing partition in an existing partitioned table
-            if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
-                // Append to an existing partition
-                checkState(!immutablePartitions);
-                if (bucketNumber.isPresent()) {
-                    throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName.get());
-                }
-                updateMode = UpdateMode.APPEND;
-                // Check the column types in partition schema match the column types in table schema
-                List<Column> tableColumns = table.getDataColumns();
-                List<Column> existingPartitionColumns = partition.get().getColumns();
-                for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
-                    HiveType tableType = tableColumns.get(i).getType();
-                    HiveType partitionType = existingPartitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                        "You are trying to write into an existing partition in a table. " +
-                                        "The table schema has changed since the creation of the partition. " +
-                                        "Inserting rows into such partition is not supported. " +
-                                        "The column '%s' in table '%s' is declared as type '%s', " +
-                                        "but partition '%s' declared column '%s' as type '%s'.",
-                                tableColumns.get(i).getName(),
-                                tableName,
-                                tableType,
-                                partitionName,
-                                existingPartitionColumns.get(i).getName(),
-                                partitionType));
+            switch (insertExistingPartitionsBehavior) {
+                case APPEND: {
+                    // Append to an existing partition
+                    checkState(!immutablePartitions);
+                    if (bucketNumber.isPresent()) {
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName);
                     }
+                    // Check the column types in partition schema match the column types in table schema
+                    checkPartitionSchemeSameAsTableScheme(tableName, partitionName, table.getDataColumns(), partition.get().getColumns());
+                    checkPartitionIsWritable(partitionName, partition.get());
+
+                    return new WriterParameters(
+                            UpdateMode.APPEND,
+                            getHiveSchema(partition.get(), table),
+                            locationService.getPartitionWriteInfo(locationHandle, partition, partitionName),
+                            partition.get().getStorage().getStorageFormat());
                 }
-
-                HiveWriteUtils.checkPartitionIsWritable(partitionName.get(), partition.get());
-
-                outputStorageFormat = partition.get().getStorage().getStorageFormat();
-                schema = getHiveSchema(partition.get(), table);
-
-                writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
-            }
-            else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.OVERWRITE) {
-                // Overwrite an existing partition
-                //
-                // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
-                // * No partition writable check is required.
-                // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
-                updateMode = UpdateMode.OVERWRITE;
-
-                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
-                schema = getHiveSchema(table);
-
-                writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-                checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
-            }
-            else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.ERROR) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
-            }
-            else {
-                throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+                case OVERWRITE: {
+                    // Overwrite an existing partition
+                    //
+                    // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
+                    // * No partition writable check is required.
+                    // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
+                    WriteInfo writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
+                    checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+                    return new WriterParameters(
+                            UpdateMode.OVERWRITE,
+                            getHiveSchema(table),
+                            writeInfo,
+                            fromHiveStorageFormat(partitionStorageFormat));
+                }
+                case ERROR:
+                    throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName);
+                default:
+                    throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
             }
         }
-
-        return new WriterParameters(updateMode, schema, writeInfo, outputStorageFormat);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)
@@ -639,6 +622,32 @@ public class HiveWriterFactory
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));
         return schema;
+    }
+
+    private static void checkPartitionSchemeSameAsTableScheme(
+            String tableName,
+            String partitionName,
+            List<Column> tableColumns,
+            List<Column> existingPartitionColumns)
+    {
+        for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
+            HiveType tableType = tableColumns.get(i).getType();
+            HiveType partitionType = existingPartitionColumns.get(i).getType();
+            if (!tableType.equals(partitionType)) {
+                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                "You are trying to write into an existing partition in a table. " +
+                                "The table schema has changed since the creation of the partition. " +
+                                "Inserting rows into such partition is not supported. " +
+                                "The column '%s' in table '%s' is declared as type '%s', " +
+                                "but partition '%s' declared column '%s' as type '%s'.",
+                        tableColumns.get(i).getName(),
+                        tableName,
+                        tableType,
+                        partitionName,
+                        existingPartitionColumns.get(i).getName(),
+                        partitionType));
+            }
+        }
     }
 
     private static class DataColumn
