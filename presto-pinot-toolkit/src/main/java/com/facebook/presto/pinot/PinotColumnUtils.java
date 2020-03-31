@@ -15,22 +15,34 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import org.apache.pinot.common.data.DateTimeFieldSpec;
 import org.apache.pinot.common.data.FieldSpec;
 import org.apache.pinot.common.data.FieldSpec.DataType;
 import org.apache.pinot.common.data.Schema;
+import org.apache.pinot.common.data.TimeFieldSpec;
+import org.apache.pinot.common.data.TimeGranularitySpec;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PinotColumnUtils
 {
+    private static boolean DEFAULT_PINOT_COLUMN_IS_NULLABLE = false;
+
+    private static String DAYS_SINCE_EPOCH_TIME_FORMAT = "1:DAYS:EPOCH";
+    private static String MILLISECONDS_SINCE_EPOCH_TIME_FORMAT = "1:MILLISECONDS:EPOCH";
+
     private PinotColumnUtils()
     {
     }
@@ -39,13 +51,57 @@ public class PinotColumnUtils
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
+                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)), isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
+                        getCommentFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
+    }
+
+    private static String getCommentFromPinotType(FieldSpec field)
+    {
+        return field.getFieldType().name();
+    }
+
+    private static boolean isNullableColumnFromPinotType(FieldSpec field)
+    {
+        return DEFAULT_PINOT_COLUMN_IS_NULLABLE;
     }
 
     public static Type getPrestoTypeFromPinotType(FieldSpec field)
     {
         if (field.isSingleValueField()) {
+            switch (field.getFieldType()) {
+                case TIME:
+                    TimeFieldSpec timeFieldSpec = (TimeFieldSpec) field;
+                    TimeGranularitySpec outSpec = timeFieldSpec.getOutgoingGranularitySpec();
+                    if (outSpec != null) {
+                        if (outSpec.getTimeFormat().equalsIgnoreCase(TimeGranularitySpec.TimeFormat.EPOCH.name())) {
+                            if ((TimeUnit.DAYS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                                return DateType.DATE;
+                            }
+                            if ((TimeUnit.MILLISECONDS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                                return TimestampType.TIMESTAMP;
+                            }
+                        }
+                    }
+                    else {
+                        TimeGranularitySpec inSpec = timeFieldSpec.getIncomingGranularitySpec();
+                        if ((TimeUnit.DAYS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                            return DateType.DATE;
+                        }
+                        if ((TimeUnit.MILLISECONDS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                            return TimestampType.TIMESTAMP;
+                        }
+                    }
+                    return getPrestoTypeFromPinotType(field.getDataType());
+                case DATE_TIME:
+                    DateTimeFieldSpec dateTimeFieldSpec = (DateTimeFieldSpec) field;
+                    if (dateTimeFieldSpec.getFormat().equalsIgnoreCase(DAYS_SINCE_EPOCH_TIME_FORMAT)) {
+                        return DateType.DATE;
+                    }
+                    if (dateTimeFieldSpec.getFormat().equalsIgnoreCase(MILLISECONDS_SINCE_EPOCH_TIME_FORMAT)) {
+                        return TimestampType.TIMESTAMP;
+                    }
+            }
             return getPrestoTypeFromPinotType(field.getDataType());
         }
         return VarcharType.VARCHAR;
@@ -65,6 +121,8 @@ public class PinotColumnUtils
                 return BigintType.BIGINT;
             case STRING:
                 return VarcharType.VARCHAR;
+            case BYTES:
+                return VarbinaryType.VARBINARY;
             default:
                 break;
         }
