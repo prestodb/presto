@@ -19,7 +19,6 @@ import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.plain.PlainValuesReader.FloatPlainValuesReader;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -34,8 +33,7 @@ public class FloatDictionary
         super(dictionaryPage.getEncoding());
         content = new float[dictionaryPage.getDictionarySize()];
         FloatPlainValuesReader floatReader = new FloatPlainValuesReader();
-        ByteBuffer byteBuffer = ByteBuffer.wrap(dictionaryPage.getSlice().getBytes());
-        ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer));
+        ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(dictionaryPage.getSlice().toByteBuffer()));
         floatReader.initFromPage(dictionaryPage.getDictionarySize(), inputStream);
         for (int i = 0; i < content.length; i++) {
             content[i] = floatReader.readFloat();
