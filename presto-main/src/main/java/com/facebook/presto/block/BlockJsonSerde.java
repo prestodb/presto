@@ -15,6 +15,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -22,16 +23,17 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.util.Base64;
 
 import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockJsonSerde
@@ -53,10 +55,11 @@ public final class BlockJsonSerde
         public void serialize(Block block, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            SliceOutput output = new DynamicSliceOutput(64);
+            //  Encoding name is length prefixed as are other block data encodings
+            SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
             writeBlock(blockEncodingSerde, output, block);
-            String encoded = Base64.getEncoder().encodeToString(output.slice().getBytes());
-            jsonGenerator.writeString(encoded);
+            Slice slice = output.slice();
+            jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 
@@ -75,7 +78,7 @@ public final class BlockJsonSerde
         public Block deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            byte[] decoded = Base64.getDecoder().decode(jsonParser.getText());
+            byte[] decoded = jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS);
             return readBlock(blockEncodingSerde, Slices.wrappedBuffer(decoded));
         }
     }
