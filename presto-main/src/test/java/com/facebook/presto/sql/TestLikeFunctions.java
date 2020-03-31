@@ -36,11 +36,20 @@ import static org.testng.Assert.assertTrue;
 public class TestLikeFunctions
         extends AbstractTestFunctions
 {
+    private static Slice offsetHeapSlice(String value)
+    {
+        Slice source = Slices.utf8Slice(value);
+        Slice result = Slices.allocate(source.length() + 5);
+        result.setBytes(2, source);
+        return result.slice(2, source.length());
+    }
+
     @Test
     public void testLikeBasic()
     {
         Regex regex = likePattern(utf8Slice("f%b__"));
         assertTrue(likeVarchar(utf8Slice("foobar"), regex));
+        assertTrue(likeVarchar(offsetHeapSlice("foobar"), regex));
 
         assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
         assertFunction("'foob' LIKE 'f%b'", BOOLEAN, true);
@@ -51,8 +60,11 @@ public class TestLikeFunctions
     {
         Regex regex = likePattern(utf8Slice("f%b__"));
         assertTrue(likeChar(6L, utf8Slice("foobar"), regex));
+        assertTrue(likeChar(6L, offsetHeapSlice("foobar"), regex));
         assertTrue(likeChar(6L, utf8Slice("foob"), regex));
+        assertTrue(likeChar(6L, offsetHeapSlice("foob"), regex));
         assertFalse(likeChar(7L, utf8Slice("foob"), regex));
+        assertFalse(likeChar(7L, offsetHeapSlice("foob"), regex));
 
         assertFunction("cast('foob' as char(6)) LIKE 'f%b__'", BOOLEAN, true);
         assertFunction("cast('foob' as char(7)) LIKE 'f%b__'", BOOLEAN, false);
