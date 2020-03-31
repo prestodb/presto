@@ -10,6 +10,7 @@ Presto Documentation
     installation
     security
     admin
+    cache
     optimizer
     connector
     functions
