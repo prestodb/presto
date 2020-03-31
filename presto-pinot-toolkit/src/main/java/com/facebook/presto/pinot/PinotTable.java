@@ -39,8 +39,7 @@ public class PinotTable
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = requireNonNull(name, "name is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-
-        this.columnsMetadata = columns.stream().map(c -> new PinotColumnMetadata(c.getName(), c.getType())).collect(Collectors.toList());
+        this.columnsMetadata = columns.stream().map(c -> new PinotColumnMetadata(c.getName(), c.getType(), c.isNullable(), c.getComment())).collect(Collectors.toList());
     }
 
     @JsonProperty
