@@ -38,6 +38,7 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -55,6 +56,7 @@ public class SqlParser
             throw new ParsingException(message, e, line, charPositionInLine);
         }
     };
+    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
 
     private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
             .specialRule(SqlBaseParser.RULE_expression, "<expression>")
@@ -69,6 +71,7 @@ public class SqlParser
             .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
 
+    private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
     private boolean enhancedErrorHandlerEnabled;
 
@@ -80,6 +83,12 @@ public class SqlParser
     @Inject
     public SqlParser(SqlParserOptions options)
     {
+        this(options, DEFAULT_PARSER_INITIALIZER);
+    }
+
+    public SqlParser(SqlParserOptions options, BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
+    {
+        this.initializer = requireNonNull(initializer, "initializer is null");
         requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
         enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
@@ -124,6 +133,7 @@ public class SqlParser
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
+            initializer.accept(lexer, parser);
 
             // Override the default error strategy to not attempt inserting or deleting a token.
             // Otherwise, it messes up error reporting
