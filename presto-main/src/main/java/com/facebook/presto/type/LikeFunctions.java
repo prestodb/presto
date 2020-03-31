@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
+import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
@@ -70,8 +71,17 @@ public final class LikeFunctions
     {
         // Joni can infinite loop with UTF8Encoding when invalid UTF-8 is encountered.
         // NonStrictUTF8Encoding must be used to avoid this issue.
-        byte[] bytes = value.getBytes();
-        return regexMatches(pattern, bytes);
+        Matcher matcher;
+        int offset;
+        if (value.hasByteArray()) {
+            offset = value.byteArrayOffset();
+            matcher = pattern.matcher(value.byteArray(), offset, offset + value.length());
+        }
+        else {
+            offset = 0;
+            matcher = pattern.matcher(value.getBytes());
+        }
+        return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
     }
 
     @ScalarOperator(OperatorType.CAST)
@@ -158,11 +168,6 @@ public final class LikeFunctions
     private static void checkEscape(boolean condition)
     {
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
-    }
-
-    private static boolean regexMatches(Regex regex, byte[] bytes)
-    {
-        return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
     }
 
     @SuppressWarnings("NestedSwitchStatement")
