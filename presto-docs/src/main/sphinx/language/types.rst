@@ -279,6 +279,17 @@ Calculating the approximate distinct count can be done much more cheaply than an
     A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
     in the dense representation.
 
+KHyperLogLog
+------------
+
+``KHyperLogLog``
+^^^^^^^^^^^^^^^^
+
+    A KHyperLogLog is a data sketch that can be used to compactly represents the association of two
+    columns. See :doc:`/functions/khyperloglog`.
+
+.. _khyperloglog_type:
+
 Quantile Digest
 ---------------
 
