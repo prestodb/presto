@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
@@ -308,10 +309,86 @@ public class HiveWriterFactory
             partitionName = Optional.empty();
         }
 
+        WriterParameters writerParameters = getWriterParameters(partitionName, bucketNumber);
+
+        validateSchema(partitionName, writerParameters.getSchema());
+
+        String extension = getFileExtension(writerParameters.getOutputStorageFormat(), compressionCodec);
+        String targetFileName;
+        if (bucketNumber.isPresent()) {
+            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+        }
+        else {
+            targetFileName = filePrefix + "_" + randomUUID() + extension;
+        }
+
+        String writeFileName;
+        if (partitionCommitRequired) {
+            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
+        }
+        else {
+            writeFileName = targetFileName;
+        }
+
+        Path path = new Path(writerParameters.getWriteInfo().getWritePath(), writeFileName);
+
+        HiveFileWriter hiveFileWriter = null;
+        for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
+            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+                    path,
+                    dataColumns.stream()
+                            .map(DataColumn::getName)
+                            .collect(toList()),
+                    writerParameters.getOutputStorageFormat(),
+                    writerParameters.getSchema(),
+                    conf,
+                    session);
+            if (fileWriter.isPresent()) {
+                hiveFileWriter = fileWriter.get();
+                break;
+            }
+        }
+
+        if (hiveFileWriter == null) {
+            hiveFileWriter = new RecordFileWriter(
+                    path,
+                    dataColumns.stream()
+                            .map(DataColumn::getName)
+                            .collect(toList()),
+                    writerParameters.getOutputStorageFormat(),
+                    writerParameters.getSchema(),
+                    partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
+                    conf,
+                    typeManager,
+                    session);
+        }
+
+        if (sortingFileWriterFactory.isPresent()) {
+            checkState(bucketNumber.isPresent(), "missing bucket number for sorted table write");
+            hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(
+                    path,
+                    hiveFileWriter,
+                    bucketNumber.getAsInt(),
+                    writerParameters.getWriteInfo().getTempPath());
+        }
+
+        return new HiveWriter(
+                hiveFileWriter,
+                partitionName,
+                writerParameters.getUpdateMode(),
+                new FileWriteInfo(writeFileName, targetFileName),
+                writerParameters.getWriteInfo().getWritePath().toString(),
+                writerParameters.getWriteInfo().getTargetPath().toString(),
+                createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),
+                hiveWriterStats);
+    }
+
+    private WriterParameters getWriterParameters(Optional<String> partitionName, OptionalInt bucketNumber)
+    {
         // attempt to get the existing partition (if this is an existing partitioned table)
         Optional<Partition> partition = Optional.empty();
-        if (!partitionValues.isEmpty() && table != null) {
-            partition = pageSinkMetadataProvider.getPartition(partitionValues);
+        if (partitionName.isPresent() && table != null) {
+            partition = pageSinkMetadataProvider.getPartition(toPartitionValues(partitionName.get()));
         }
 
         UpdateMode updateMode;
@@ -323,15 +400,7 @@ public class HiveWriterFactory
                 // Write to: a new partition in a new partitioned table,
                 //           or a new unpartitioned table.
                 updateMode = UpdateMode.NEW;
-                schema = new Properties();
-                schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
-                        .map(DataColumn::getName)
-                        .collect(joining(",")));
-                schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
-                        .map(DataColumn::getHiveType)
-                        .map(HiveType::getHiveTypeName)
-                        .map(HiveTypeName::toString)
-                        .collect(joining(":")));
+                schema = createHiveSchema(dataColumns);
 
                 if (!partitionName.isPresent()) {
                     // new unpartitioned table
@@ -339,7 +408,7 @@ public class HiveWriterFactory
                 }
                 else {
                     // a new partition in a new partitioned table
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
 
                     if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
@@ -361,7 +430,7 @@ public class HiveWriterFactory
                 if (partitionName.isPresent()) {
                     // a new partition in an existing partitioned table
                     updateMode = UpdateMode.NEW;
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
                 }
                 else if (table.getTableType().equals(TEMPORARY_TABLE)) {
                     // Note: temporary table is always empty at this step
@@ -451,101 +520,7 @@ public class HiveWriterFactory
             }
         }
 
-        validateSchema(partitionName, schema);
-
-        String extension = getFileExtension(outputStorageFormat, compressionCodec);
-        String targetFileName;
-        if (bucketNumber.isPresent()) {
-            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
-        }
-        else {
-            targetFileName = filePrefix + "_" + randomUUID() + extension;
-        }
-
-        String writeFileName;
-        if (partitionCommitRequired) {
-            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
-        }
-        else {
-            writeFileName = targetFileName;
-        }
-
-        Path path = new Path(writeInfo.getWritePath(), writeFileName);
-
-        HiveFileWriter hiveFileWriter = null;
-        for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
-            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                    path,
-                    dataColumns.stream()
-                            .map(DataColumn::getName)
-                            .collect(toList()),
-                    outputStorageFormat,
-                    schema,
-                    conf,
-                    session);
-            if (fileWriter.isPresent()) {
-                hiveFileWriter = fileWriter.get();
-                break;
-            }
-        }
-
-        if (hiveFileWriter == null) {
-            hiveFileWriter = new RecordFileWriter(
-                    path,
-                    dataColumns.stream()
-                            .map(DataColumn::getName)
-                            .collect(toList()),
-                    outputStorageFormat,
-                    schema,
-                    partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
-                    conf,
-                    typeManager,
-                    session);
-        }
-
-        String writerImplementation = hiveFileWriter.getClass().getName();
-
-        Consumer<HiveWriter> onCommit = hiveWriter -> {
-            Optional<Long> size;
-            try {
-                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
-            }
-            catch (IOException | RuntimeException e) {
-                // Do not fail the query if file system is not available
-                size = Optional.empty();
-            }
-
-            eventClient.post(new WriteCompletedEvent(
-                    session.getQueryId(),
-                    path.toString(),
-                    schemaName,
-                    tableName,
-                    partitionName.orElse(null),
-                    outputStorageFormat.getOutputFormat(),
-                    writerImplementation,
-                    nodeManager.getCurrentNode().getVersion(),
-                    nodeManager.getCurrentNode().getHost(),
-                    session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
-                    nodeManager.getEnvironment(),
-                    sessionProperties,
-                    size.orElse(null),
-                    hiveWriter.getRowCount()));
-        };
-
-        if (sortingFileWriterFactory.isPresent()) {
-            checkState(bucketNumber.isPresent(), "missing bucket number for sorted table write");
-            hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(path, hiveFileWriter, bucketNumber.getAsInt(), writeInfo.getTempPath());
-        }
-
-        return new HiveWriter(
-                hiveFileWriter,
-                partitionName,
-                updateMode,
-                new FileWriteInfo(writeFileName, targetFileName),
-                writeInfo.getWritePath().toString(),
-                writeInfo.getTargetPath().toString(),
-                onCommit,
-                hiveWriterStats);
+        return new WriterParameters(updateMode, schema, writeInfo, outputStorageFormat);
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)
@@ -594,6 +569,40 @@ public class HiveWriterFactory
         }
     }
 
+    private Consumer<HiveWriter> createCommitEventListener(
+            Path path,
+            Optional<String> partitionName,
+            HiveFileWriter hiveFileWriter,
+            WriterParameters writerParameters)
+    {
+        return hiveWriter -> {
+            Optional<Long> size;
+            try {
+                size = Optional.of(hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen());
+            }
+            catch (IOException | RuntimeException e) {
+                // Do not fail the query if file system is not available
+                size = Optional.empty();
+            }
+
+            eventClient.post(new WriteCompletedEvent(
+                    session.getQueryId(),
+                    path.toString(),
+                    schemaName,
+                    tableName,
+                    partitionName.orElse(null),
+                    writerParameters.getOutputStorageFormat().getOutputFormat(),
+                    hiveFileWriter.getClass().getName(),
+                    nodeManager.getCurrentNode().getVersion(),
+                    nodeManager.getCurrentNode().getHost(),
+                    session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
+                    nodeManager.getEnvironment(),
+                    sessionProperties,
+                    size.orElse(null),
+                    hiveWriter.getRowCount()));
+        };
+    }
+
     public static String computeBucketedFileName(String filePrefix, int bucket)
     {
         return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
@@ -618,6 +627,20 @@ public class HiveWriterFactory
         }
     }
 
+    private static Properties createHiveSchema(List<DataColumn> dataColumns)
+    {
+        Properties schema = new Properties();
+        schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
+                .map(DataColumn::getName)
+                .collect(joining(",")));
+        schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
+                .map(DataColumn::getHiveType)
+                .map(HiveType::getHiveTypeName)
+                .map(HiveTypeName::toString)
+                .collect(joining(":")));
+        return schema;
+    }
+
     private static class DataColumn
     {
         private final String name;
@@ -637,6 +660,46 @@ public class HiveWriterFactory
         public HiveType getHiveType()
         {
             return hiveType;
+        }
+    }
+
+    private static class WriterParameters
+    {
+        private final UpdateMode updateMode;
+        private final Properties schema;
+        private final WriteInfo writeInfo;
+        private final StorageFormat outputStorageFormat;
+
+        private WriterParameters(
+                UpdateMode updateMode,
+                Properties schema,
+                WriteInfo writeInfo,
+                StorageFormat outputStorageFormat)
+        {
+            this.updateMode = requireNonNull(updateMode, "updateMode is null");
+            this.schema = requireNonNull(schema, "schema is null");
+            this.writeInfo = requireNonNull(writeInfo, "writeInfo is null");
+            this.outputStorageFormat = requireNonNull(outputStorageFormat, "outputStorageFormat is null");
+        }
+
+        public UpdateMode getUpdateMode()
+        {
+            return updateMode;
+        }
+
+        public Properties getSchema()
+        {
+            return schema;
+        }
+
+        public WriteInfo getWriteInfo()
+        {
+            return writeInfo;
+        }
+
+        public StorageFormat getOutputStorageFormat()
+        {
+            return outputStorageFormat;
         }
     }
 }
