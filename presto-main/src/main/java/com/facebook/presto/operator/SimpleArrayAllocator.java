@@ -65,7 +65,7 @@ public class SimpleArrayAllocator
     @Override
     public int[] borrowIntArray(int positionCount)
     {
-        checkState(getBorrowedArrayCount() < maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
+        checkState(getBorrowedArrayCount() <= maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
         int[] array;
         while (!intArrays.isEmpty() && intArrays.peek().length < positionCount) {
             array = intArrays.pop();
@@ -93,7 +93,7 @@ public class SimpleArrayAllocator
     @Override
     public byte[] borrowByteArray(int positionCount)
     {
-        checkState(getBorrowedArrayCount() < maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
+        checkState(getBorrowedArrayCount() <= maxOutstandingArrays, "Requested too many arrays: %s", getBorrowedArrayCount());
         byte[] array;
         while (!byteArrays.isEmpty() && byteArrays.peek().length < positionCount) {
             array = byteArrays.pop();
