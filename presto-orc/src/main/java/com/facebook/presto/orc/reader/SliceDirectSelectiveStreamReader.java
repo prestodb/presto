@@ -500,12 +500,24 @@ public class SliceDirectSelectiveStreamReader
             lengthVector = ensureCapacity(lengthVector, nonNullCount);
             lengthStream.nextIntVector(nonNullCount, lengthVector, 0);
 
-            //TODO calculate totalLength for only requested positions
-            for (int i = 0; i < nonNullCount; i++) {
-                totalLength += lengthVector[i];
-                maxLength = Math.max(maxLength, lengthVector[i]);
+            int positionIndex = 0;
+            int lengthIndex = 0;
+            for (int i = 0; i < totalPositions; i++) {
+                boolean isNotNull = nullCount == 0 || !isNullVector[i];
+                if (i == positions[positionIndex]) {
+                    if (isNotNull) {
+                        totalLength += lengthVector[lengthIndex];
+                        maxLength = Math.max(maxLength, lengthVector[lengthIndex]);
+                        lengthIndex++;
+                    }
+                    positionIndex++;
+                }
+                else if (isNotNull) {
+                    lengthIndex++;
+                }
             }
 
+            // TODO Do not throw if outputRequired == false
             if (totalLength > ONE_GIGABYTE) {
                 throw new PrestoException(
                         GENERIC_INTERNAL_ERROR,
