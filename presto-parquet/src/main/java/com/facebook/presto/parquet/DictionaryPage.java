@@ -14,11 +14,9 @@
 package com.facebook.presto.parquet;
 
 import io.airlift.slice.Slice;
-
-import java.util.Arrays;
+import io.airlift.slice.Slices;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryPage
@@ -61,7 +59,7 @@ public class DictionaryPage
 
     public DictionaryPage copy()
     {
-        return new DictionaryPage(wrappedBuffer(Arrays.copyOf(slice.getBytes(), slice.length())), getUncompressedSize(), dictionarySize, encoding);
+        return new DictionaryPage(Slices.copyOf(slice), getUncompressedSize(), dictionarySize, encoding);
     }
 
     @Override
