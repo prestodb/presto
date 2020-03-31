@@ -36,9 +36,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -268,16 +266,10 @@ public abstract class PrimitiveColumnReader
         repetitionReader = new LevelValuesReader(repetitionLevelReader);
         definitionReader = new LevelValuesReader(definitionLevelReader);
         try {
-            byte[] bytes = page.getSlice().getBytes();
-            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ImmutableList.of(ByteBuffer.wrap(bytes)));
+            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(page.getSlice().toByteBuffer());
             repetitionLevelReader.initFromPage(page.getValueCount(), bufferInputStream);
-            int offset = bytes.length - bufferInputStream.available();
-            ByteBuffer definitionLevelByteBuffer = ByteBuffer.wrap(bytes, offset, bytes.length - offset);
-            ByteBufferInputStream definitionLevelInputStream = ByteBufferInputStream.wrap(ImmutableList.of(definitionLevelByteBuffer));
-            definitionLevelReader.initFromPage(page.getValueCount(), definitionLevelInputStream);
-            offset = bytes.length - definitionLevelInputStream.available();
-            ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, offset, bytes.length - offset);
-            return initDataReader(page.getValueEncoding(), ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer)), page.getValueCount());
+            definitionLevelReader.initFromPage(page.getValueCount(), bufferInputStream);
+            return initDataReader(page.getValueEncoding(), bufferInputStream, page.getValueCount());
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
@@ -288,8 +280,7 @@ public abstract class PrimitiveColumnReader
     {
         repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
-        ByteBuffer byteBuffer = ByteBuffer.wrap(page.getSlice().getBytes());
-        return initDataReader(page.getDataEncoding(), ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer)), page.getValueCount());
+        return initDataReader(page.getDataEncoding(), ByteBufferInputStream.wrap(ImmutableList.of(page.getSlice().toByteBuffer())), page.getValueCount());
     }
 
     private LevelReader buildLevelRLEReader(int maxLevel, Slice slice)
@@ -298,7 +289,7 @@ public abstract class PrimitiveColumnReader
             return new LevelNullReader();
         }
 
-        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), new ByteArrayInputStream(slice.getBytes())));
+        return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), slice.getInput()));
     }
 
     private ValuesReader initDataReader(ParquetEncoding dataEncoding, ByteBufferInputStream inputStream, int valueCount)

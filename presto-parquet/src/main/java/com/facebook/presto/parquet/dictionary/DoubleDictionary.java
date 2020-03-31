@@ -19,7 +19,6 @@ import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -34,8 +33,7 @@ public class DoubleDictionary
         super(dictionaryPage.getEncoding());
         content = new double[dictionaryPage.getDictionarySize()];
         DoublePlainValuesReader doubleReader = new DoublePlainValuesReader();
-        ByteBuffer byteBuffer = ByteBuffer.wrap(dictionaryPage.getSlice().getBytes());
-        ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer));
+        ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(dictionaryPage.getSlice().toByteBuffer()));
         doubleReader.initFromPage(dictionaryPage.getDictionarySize(), inputStream);
         for (int i = 0; i < content.length; i++) {
             content[i] = doubleReader.readDouble();
