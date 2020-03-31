@@ -53,9 +53,17 @@ public final class JoniRegexpFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean regexpLike(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) Regex pattern)
     {
-        Matcher m = pattern.matcher(source.getBytes());
-        int offset = m.search(0, source.length(), Option.DEFAULT);
-        return offset != -1;
+        Matcher matcher;
+        int offset;
+        if (source.hasByteArray()) {
+            offset = source.byteArrayOffset();
+            matcher = pattern.matcher(source.byteArray(), offset, offset + source.length());
+        }
+        else {
+            offset = 0;
+            matcher = pattern.matcher(source.getBytes());
+        }
+        return matcher.search(offset, offset + source.length(), Option.DEFAULT) != -1;
     }
 
     @Description("removes substrings matching a regular expression")

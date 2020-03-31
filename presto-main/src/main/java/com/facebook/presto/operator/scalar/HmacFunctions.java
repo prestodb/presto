@@ -17,6 +17,8 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 
@@ -31,7 +33,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice hmacMd5(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
     {
-        return wrappedBuffer(Hashing.hmacMd5(key.getBytes()).hashBytes(slice.getBytes()).asBytes());
+        return computeHash(Hashing.hmacMd5(key.getBytes()), slice);
     }
 
     @Description("Compute HMAC with SHA1")
@@ -39,7 +41,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice hmacSha1(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
     {
-        return wrappedBuffer(Hashing.hmacSha1(key.getBytes()).hashBytes(slice.getBytes()).asBytes());
+        return computeHash(Hashing.hmacSha1(key.getBytes()), slice);
     }
 
     @Description("Compute HMAC with SHA256")
@@ -47,7 +49,7 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice hmacSha256(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
     {
-        return wrappedBuffer(Hashing.hmacSha256(key.getBytes()).hashBytes(slice.getBytes()).asBytes());
+        return computeHash(Hashing.hmacSha256(key.getBytes()), slice);
     }
 
     @Description("Compute HMAC with SHA512")
@@ -55,6 +57,18 @@ public final class HmacFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice hmacSha512(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
     {
-        return wrappedBuffer(Hashing.hmacSha512(key.getBytes()).hashBytes(slice.getBytes()).asBytes());
+        return computeHash(Hashing.hmacSha512(key.getBytes()), slice);
+    }
+
+    static Slice computeHash(HashFunction hash, Slice data)
+    {
+        HashCode result;
+        if (data.hasByteArray()) {
+            result = hash.hashBytes(data.byteArray(), data.byteArrayOffset(), data.length());
+        }
+        else {
+            result = hash.hashBytes(data.getBytes());
+        }
+        return wrappedBuffer(result.asBytes());
     }
 }
