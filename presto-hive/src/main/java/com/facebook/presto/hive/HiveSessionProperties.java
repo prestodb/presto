@@ -96,6 +96,7 @@ public final class HiveSessionProperties
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
+    public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -422,6 +423,11 @@ public final class HiveSessionProperties
                         SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE,
                         "Shuffle the data on partitioned columns",
                         false,
+                        false),
+                booleanProperty(
+                        FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED,
+                        "Fail fast when trying to insert into an immutable partition. Increases load on the metastore",
+                        hiveClientConfig.isFailFastOnInsertIntoImmutablePartitionsEnabled(),
                         false));
     }
 
@@ -736,5 +742,10 @@ public final class HiveSessionProperties
         }
 
         return hiveClientConfig.isInsertOverwriteImmutablePartitionEnabled() ? OVERWRITE : ERROR;
+    }
+
+    public static boolean isFailFastOnInsertIntoImmutablePartitionsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED, Boolean.class);
     }
 }
