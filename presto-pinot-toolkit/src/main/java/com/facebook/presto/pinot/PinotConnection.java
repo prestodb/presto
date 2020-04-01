@@ -63,7 +63,7 @@ public class PinotConnection
                                     throws Exception
                             {
                                 Schema tablePinotSchema = pinotClusterInfoFetcher.getTableSchema(tableName);
-                                return PinotColumnUtils.getPinotColumnsForPinotSchema(tablePinotSchema);
+                                return PinotColumnUtils.getPinotColumnsForPinotSchema(tablePinotSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
                             }
                         }, executor));
 
