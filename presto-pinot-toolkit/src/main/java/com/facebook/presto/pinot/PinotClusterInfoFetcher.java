@@ -69,6 +69,7 @@ public class PinotClusterInfoFetcher
     private static final String TABLE_SCHEMA_API_TEMPLATE = "tables/%s/schema";
     private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
     private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
+    private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
 
     private final PinotConfig pinotConfig;
     private final PinotMetrics pinotMetrics;
@@ -395,8 +396,10 @@ public class PinotClusterInfoFetcher
             else {
                 List<Map<String, List<String>>> routingTableEntriesList = snapshot.getRoutingTableEntries();
                 if (routingTableEntriesList.isEmpty()) {
-                    throw new PinotException(PINOT_UNEXPECTED_RESPONSE, Optional.empty(),
-                        String.format("Empty routingTableEntries for %s. RoutingTable: %s", tableName, responseBody));
+                    throw new PinotException(
+                            PINOT_UNEXPECTED_RESPONSE,
+                            Optional.empty(),
+                            String.format("Empty routingTableEntries for %s. RoutingTable: %s", tableName, responseBody));
                 }
 
                 // We are given multiple routing tables for a table, each with different segment to host assignments
@@ -466,11 +469,16 @@ public class PinotClusterInfoFetcher
         }
         catch (Exception e) {
             if ((e instanceof PinotException)) {
-                // New Pinot broker will set response code 404 if time boundary is not set.
-                // This is backward incompatible with old version, as it returns an empty json object.
-                // In order to gracefully handle this, below check will extract response code and return empty json
-                // if not found time boundary.
-                if (e.getMessage().split(" ")[3].equalsIgnoreCase("404")) {
+                /** New Pinot broker will set response code 404 if time boundary is not set.
+                 * This is backward incompatible with old version, as it returns an empty json object.
+                 * In order to gracefully handle this, below check will extract response code and return empty json
+                 * if not found time boundary.
+                 *
+                 * Sample error message:
+                 *     Unexpected response status: 404 for request  to url http://127.0.0.1:8000/debug/timeBoundary/baseballStats, with headers ...
+                 */
+                String[] errMsgSplits = e.getMessage().split(" ");
+                if (errMsgSplits.length >= 4 && errMsgSplits[3].equalsIgnoreCase(TIME_BOUNDARY_NOT_FOUND_ERROR_CODE)) {
                     return timeBoundaryJsonCodec.fromJson("{}");
                 }
             }
