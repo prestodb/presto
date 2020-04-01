@@ -69,7 +69,7 @@ public class TestPinotSegmentPageSource
         for (int i = 0; i < numColumns; i++) {
             DataSchema.ColumnDataType columnDataType = columnDataTypes[i];
             String columnName = "column" + i;
-            handles.add(new PinotColumnHandle(columnName, PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnName, columnDataType)), PinotColumnHandle.PinotColumnType.REGULAR));
+            handles.add(new PinotColumnHandle(columnName, PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnName, columnDataType), false, false), PinotColumnHandle.PinotColumnType.REGULAR));
         }
         return handles.build();
     }
@@ -347,7 +347,7 @@ public class TestPinotSegmentPageSource
             Page page = requireNonNull(pinotSegmentPageSource.getNextPage(), "Expected a valid page");
             for (int j = 0; j < ALL_TYPES.size(); ++j) {
                 Block block = page.getBlock(j);
-                Type type = PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec("dontcare", ALL_TYPES.get(j)));
+                Type type = PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec("dontcare", ALL_TYPES.get(j)), false, false);
                 long maxHashCode = Long.MIN_VALUE;
                 for (int k = 0; k < NUM_ROWS; ++k) {
                     maxHashCode = Math.max(type.hash(block, k), maxHashCode);
