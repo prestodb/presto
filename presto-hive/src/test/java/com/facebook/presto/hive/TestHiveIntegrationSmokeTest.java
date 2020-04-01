@@ -1548,6 +1548,86 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertPartitionedTableImmutableExistingPartition()
+    {
+        testInsertPartitionedTableImmutableExistingPartition(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
+                        .build(),
+                HiveStorageFormat.ORC);
+        testInsertPartitionedTableImmutableExistingPartition(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
+                        .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
+                        .build(),
+                HiveStorageFormat.ORC);
+    }
+
+    public void testInsertPartitionedTableImmutableExistingPartition(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_insert_partitioned_table_immutable_existing_partition";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  order_key BIGINT," +
+                "  comment VARCHAR," +
+                "  order_status VARCHAR" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'order_status' ]" +
+                ") ";
+
+        assertUpdate(session, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("order_status"));
+
+        assertUpdate(
+                session,
+                format(
+                        "INSERT INTO " + tableName + " " +
+                                "SELECT orderkey, comment, orderstatus " +
+                                "FROM tpch.tiny.orders " +
+                                "WHERE orderkey %% 3 = %d",
+                        0),
+                format("SELECT count(*) from orders where orderkey %% 3 = %d", 0));
+
+        // verify the partitions
+        List<?> partitions = getPartitions(tableName);
+        assertEquals(partitions.size(), 3);
+
+        assertQuery(
+                session,
+                "SELECT * from " + tableName,
+                format("SELECT orderkey, comment, orderstatus FROM orders where orderkey %% 3 = %d", 0));
+
+        assertQueryFails(
+                session,
+                format(
+                        "INSERT INTO " + tableName + " " +
+                                "SELECT orderkey, comment, orderstatus " +
+                                "FROM tpch.tiny.orders " +
+                                "WHERE orderkey %% 3 = %d",
+                        0),
+                ".*Cannot insert into an existing partition of Hive table.*");
+
+        partitions = getPartitions(tableName);
+        assertEquals(partitions.size(), 3);
+
+        assertQuery(
+                session,
+                "SELECT * from " + tableName,
+                format("SELECT orderkey, comment, orderstatus FROM orders where orderkey %% 3 = %d", 0));
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test
     public void testNullPartitionValues()
     {
         assertUpdate("" +
