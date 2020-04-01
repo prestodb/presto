@@ -50,7 +50,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPrestoExceptionClassifier
 {
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
-    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, Optional.empty());
+    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty());
 
     private final SqlExceptionClassifier classifier = PrestoExceptionClassifier.createDefault();
 

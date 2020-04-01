@@ -39,6 +39,8 @@ public final class QueryStats
     private final long processedRows;
     private final long processedBytes;
     private final long peakMemoryBytes;
+    private final long peakTotalMemoryBytes;
+    private final long peakTaskTotalMemoryBytes;
     private final Optional<StageStats> rootStage;
 
     public QueryStats(
@@ -58,6 +60,8 @@ public final class QueryStats
             long processedRows,
             long processedBytes,
             long peakMemoryBytes,
+            long peakTotalMemoryBytes,
+            long peakTaskTotalMemoryBytes,
             Optional<StageStats> rootStage)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -76,6 +80,8 @@ public final class QueryStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.peakMemoryBytes = peakMemoryBytes;
+        this.peakTotalMemoryBytes = peakTotalMemoryBytes;
+        this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
@@ -98,6 +104,8 @@ public final class QueryStats
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
                 stats.getPeakMemoryBytes(),
+                stats.getPeakTotalMemoryBytes(),
+                stats.getPeakTaskTotalMemoryBytes(),
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
     }
 
@@ -179,6 +187,16 @@ public final class QueryStats
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
+    }
+
+    public long getPeakTotalMemoryBytes()
+    {
+        return peakTotalMemoryBytes;
+    }
+
+    public long getPeakTaskTotalMemoryBytes()
+    {
+        return peakTaskTotalMemoryBytes;
     }
 
     public Optional<StageStats> getRootStage()

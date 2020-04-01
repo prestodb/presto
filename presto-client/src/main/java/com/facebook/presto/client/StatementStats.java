@@ -43,6 +43,8 @@ public class StatementStats
     private final long processedRows;
     private final long processedBytes;
     private final long peakMemoryBytes;
+    private final long peakTotalMemoryBytes;
+    private final long peakTaskTotalMemoryBytes;
     private final long spilledBytes;
     private final StageStats rootStage;
 
@@ -63,6 +65,8 @@ public class StatementStats
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
+            @JsonProperty("peakTotalMemoryBytes") long peakTotalMemoryBytes,
+            @JsonProperty("peakTaskTotalMemoryBytes") long peakTaskTotalMemoryBytes,
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
@@ -81,6 +85,8 @@ public class StatementStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.peakMemoryBytes = peakMemoryBytes;
+        this.peakTotalMemoryBytes = peakTotalMemoryBytes;
+        this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
         this.spilledBytes = spilledBytes;
         this.rootStage = rootStage;
     }
@@ -175,6 +181,18 @@ public class StatementStats
         return peakMemoryBytes;
     }
 
+    @JsonProperty
+    public long getPeakTotalMemoryBytes()
+    {
+        return peakTotalMemoryBytes;
+    }
+
+    @JsonProperty
+    public long getPeakTaskTotalMemoryBytes()
+    {
+        return peakTaskTotalMemoryBytes;
+    }
+
     @Nullable
     @JsonProperty
     public StageStats getRootStage()
@@ -216,6 +234,8 @@ public class StatementStats
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("peakMemoryBytes", peakMemoryBytes)
+                .add("peakTotalMemoryBytes", peakTotalMemoryBytes)
+                .add("peakTaskTotalMemoryBytes", peakTaskTotalMemoryBytes)
                 .add("spilledBytes", spilledBytes)
                 .add("rootStage", rootStage)
                 .toString();
@@ -243,6 +263,8 @@ public class StatementStats
         private long processedRows;
         private long processedBytes;
         private long peakMemoryBytes;
+        private long peakTotalMemoryBytes;
+        private long peakTaskTotalMemoryBytes;
         private long spilledBytes;
         private StageStats rootStage;
 
@@ -338,6 +360,18 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPeakTotalMemoryBytes(long peakTotalMemoryBytes)
+        {
+            this.peakTotalMemoryBytes = peakTotalMemoryBytes;
+            return this;
+        }
+
+        public Builder setPeakTaskTotalMemoryBytes(long peakTaskTotalMemoryBytes)
+        {
+            this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
+            return this;
+        }
+
         public Builder setSpilledBytes(long spilledBytes)
         {
             this.spilledBytes = spilledBytes;
@@ -368,6 +402,8 @@ public class StatementStats
                     processedRows,
                     processedBytes,
                     peakMemoryBytes,
+                    peakTotalMemoryBytes,
+                    peakTaskTotalMemoryBytes,
                     spilledBytes,
                     rootStage);
         }
