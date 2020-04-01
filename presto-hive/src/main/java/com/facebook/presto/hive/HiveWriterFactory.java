@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.getSortedWriteTempPathSubdirectoryCount;
+import static com.facebook.presto.hive.HiveSessionProperties.isFailFastOnInsertIntoImmutablePartitionsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.checkPartitionIsWritable;
@@ -456,7 +457,20 @@ public class HiveWriterFactory
 
     private WriterParameters getWriterParametersForExistingPartitionedTable(String partitionName, OptionalInt bucketNumber)
     {
-        // attempt to get the existing partition (if this is an existing partitioned table)
+        switch (insertExistingPartitionsBehavior) {
+            case APPEND:
+                return getWriterParametersForAppendPartition(partitionName, bucketNumber);
+            case OVERWRITE:
+                return getWriterParametersForOverwritePartition(partitionName);
+            case ERROR:
+                return getWriterParametersForImmutablePartition(partitionName);
+            default:
+                throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+        }
+    }
+
+    private WriterParameters getWriterParametersForAppendPartition(String partitionName, OptionalInt bucketNumber)
+    {
         Optional<Partition> partition = pageSinkMetadataProvider.getPartition(toPartitionValues(partitionName));
 
         if (!partition.isPresent()) {
@@ -466,44 +480,56 @@ public class HiveWriterFactory
                     locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName),
                     fromHiveStorageFormat(partitionStorageFormat));
         }
-        else {
-            switch (insertExistingPartitionsBehavior) {
-                case APPEND: {
-                    // Append to an existing partition
-                    checkState(!immutablePartitions);
-                    if (bucketNumber.isPresent()) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName);
-                    }
-                    // Check the column types in partition schema match the column types in table schema
-                    checkPartitionSchemeSameAsTableScheme(tableName, partitionName, table.getDataColumns(), partition.get().getColumns());
-                    checkPartitionIsWritable(partitionName, partition.get());
+        // Append to an existing partition
+        checkState(!immutablePartitions);
+        if (bucketNumber.isPresent()) {
+            throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName);
+        }
+        // Check the column types in partition schema match the column types in table schema
+        checkPartitionSchemeSameAsTableScheme(tableName, partitionName, table.getDataColumns(), partition.get().getColumns());
+        checkPartitionIsWritable(partitionName, partition.get());
 
-                    return new WriterParameters(
-                            UpdateMode.APPEND,
-                            getHiveSchema(partition.get(), table),
-                            locationService.getPartitionWriteInfo(locationHandle, partition, partitionName),
-                            partition.get().getStorage().getStorageFormat());
-                }
-                case OVERWRITE: {
-                    // Overwrite an existing partition
-                    //
-                    // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
-                    // * No partition writable check is required.
-                    // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
-                    WriteInfo writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
-                    checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
-                    return new WriterParameters(
-                            UpdateMode.OVERWRITE,
-                            getHiveSchema(table),
-                            writeInfo,
-                            fromHiveStorageFormat(partitionStorageFormat));
-                }
-                case ERROR:
-                    throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName);
-                default:
-                    throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+        return new WriterParameters(
+                UpdateMode.APPEND,
+                getHiveSchema(partition.get(), table),
+                locationService.getPartitionWriteInfo(locationHandle, partition, partitionName),
+                partition.get().getStorage().getStorageFormat());
+    }
+
+    private WriterParameters getWriterParametersForOverwritePartition(String partitionName)
+    {
+        // Overwrite an existing partition
+        //
+        // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
+        // * No partition writable check is required.
+        // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
+        WriteInfo writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
+        checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+        return new WriterParameters(
+                UpdateMode.OVERWRITE,
+                getHiveSchema(table),
+                writeInfo,
+                fromHiveStorageFormat(partitionStorageFormat));
+    }
+
+    private WriterParameters getWriterParametersForImmutablePartition(String partitionName)
+    {
+        WriteInfo writerInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName);
+        // Check if partition exist here to avoid adding any data to an existing partition
+        if (writerInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY || isFailFastOnInsertIntoImmutablePartitionsEnabled(session)) {
+            Optional<Partition> partition = pageSinkMetadataProvider.getPartition(toPartitionValues(partitionName));
+            if (partition.isPresent()) {
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName);
             }
         }
+        // Otherwise defer the "partition exist" check to be done on
+        // coordinator to avoid stressing the metastore by calling it
+        // for every partition on every worker
+        return new WriterParameters(
+                UpdateMode.NEW,
+                getHiveSchema(table),
+                writerInfo,
+                fromHiveStorageFormat(partitionStorageFormat));
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

@@ -102,6 +102,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
@@ -153,6 +154,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
@@ -295,6 +297,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final int maxPartitionBatchSize;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -310,6 +313,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            int maxPartitionBatchSize,
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
@@ -341,6 +345,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -1548,6 +1553,8 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
+        Set<String> existingPartitions = getExistingPartitionNames(handle.getSchemaName(), handle.getTableName(), partitionUpdates);
+
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
@@ -1587,8 +1594,13 @@ public class HiveMetadata
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
-                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
+                if (existingPartitions.contains(partitionUpdate.getName())) {
+                    if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                        metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues());
+                    }
+                    else {
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionUpdate.getName());
+                    }
                 }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
@@ -1657,6 +1669,35 @@ public class HiveMetadata
         return Optional.ofNullable(partitionComputedStatistics.get(partitionValues))
                 .map(ComputedStatistics::getColumnStatistics)
                 .orElse(ImmutableMap.of());
+    }
+
+    private Set<String> getExistingPartitionNames(String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)
+    {
+        ImmutableSet.Builder<String> existingPartitions = ImmutableSet.builder();
+        ImmutableSet.Builder<String> potentiallyNewPartitions = ImmutableSet.builder();
+
+        for (PartitionUpdate update : partitionUpdates) {
+            switch (update.getUpdateMode()) {
+                case APPEND:
+                    existingPartitions.add(update.getName());
+                    break;
+                case NEW:
+                case OVERWRITE:
+                    potentiallyNewPartitions.add(update.getName());
+                    break;
+                default:
+                    throw new IllegalArgumentException("unexpected update mode: " + update.getUpdateMode());
+            }
+        }
+
+        // try to load potentially new partitions in batches to check if any of them exist
+        Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
+                .flatMap(partitionNames -> metastore.getPartitionsByNames(databaseName, tableName, partitionNames).entrySet().stream()
+                        .filter(entry -> entry.getValue().isPresent())
+                        .map(Map.Entry::getKey))
+                .forEach(existingPartitions::add);
+
+        return existingPartitions.build();
     }
 
     @Override
