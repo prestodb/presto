@@ -38,20 +38,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PinotColumnUtils
 {
-    private static boolean DEFAULT_PINOT_COLUMN_IS_NULLABLE = false;
-
-    private static String DAYS_SINCE_EPOCH_TIME_FORMAT = "1:DAYS:EPOCH";
-    private static String MILLISECONDS_SINCE_EPOCH_TIME_FORMAT = "1:MILLISECONDS:EPOCH";
+    private static final String DAYS_SINCE_EPOCH_TIME_FORMAT = "1:DAYS:EPOCH";
+    private static final String MILLISECONDS_SINCE_EPOCH_TIME_FORMAT = "1:MILLISECONDS:EPOCH";
 
     private PinotColumnUtils()
     {
     }
 
-    public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema)
+    public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema, boolean inferDateType, boolean inferTimestampType)
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)), isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
+                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), inferDateType, inferTimestampType), isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
                         getCommentFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
     }
@@ -63,10 +61,10 @@ public class PinotColumnUtils
 
     private static boolean isNullableColumnFromPinotType(FieldSpec field)
     {
-        return DEFAULT_PINOT_COLUMN_IS_NULLABLE;
+        return false;
     }
 
-    public static Type getPrestoTypeFromPinotType(FieldSpec field)
+    public static Type getPrestoTypeFromPinotType(FieldSpec field, boolean inferDateType, boolean inferTimestampType)
     {
         if (field.isSingleValueField()) {
             switch (field.getFieldType()) {
@@ -75,30 +73,30 @@ public class PinotColumnUtils
                     TimeGranularitySpec outSpec = timeFieldSpec.getOutgoingGranularitySpec();
                     if (outSpec != null) {
                         if (outSpec.getTimeFormat().equalsIgnoreCase(TimeGranularitySpec.TimeFormat.EPOCH.name())) {
-                            if ((TimeUnit.DAYS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                            if (inferDateType && (TimeUnit.DAYS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
                                 return DateType.DATE;
                             }
-                            if ((TimeUnit.MILLISECONDS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                            if (inferTimestampType && (TimeUnit.MILLISECONDS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
                                 return TimestampType.TIMESTAMP;
                             }
                         }
                     }
                     else {
                         TimeGranularitySpec inSpec = timeFieldSpec.getIncomingGranularitySpec();
-                        if ((TimeUnit.DAYS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                        if (inferDateType && (TimeUnit.DAYS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
                             return DateType.DATE;
                         }
-                        if ((TimeUnit.MILLISECONDS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                        if (inferTimestampType && (TimeUnit.MILLISECONDS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
                             return TimestampType.TIMESTAMP;
                         }
                     }
                     return getPrestoTypeFromPinotType(field.getDataType());
                 case DATE_TIME:
                     DateTimeFieldSpec dateTimeFieldSpec = (DateTimeFieldSpec) field;
-                    if (dateTimeFieldSpec.getFormat().equalsIgnoreCase(DAYS_SINCE_EPOCH_TIME_FORMAT)) {
+                    if (inferDateType && dateTimeFieldSpec.getFormat().equalsIgnoreCase(DAYS_SINCE_EPOCH_TIME_FORMAT)) {
                         return DateType.DATE;
                     }
-                    if (dateTimeFieldSpec.getFormat().equalsIgnoreCase(MILLISECONDS_SINCE_EPOCH_TIME_FORMAT)) {
+                    if (inferTimestampType && dateTimeFieldSpec.getFormat().equalsIgnoreCase(MILLISECONDS_SINCE_EPOCH_TIME_FORMAT)) {
                         return TimestampType.TIMESTAMP;
                     }
             }
