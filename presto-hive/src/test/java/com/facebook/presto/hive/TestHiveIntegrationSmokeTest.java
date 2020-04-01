@@ -1102,8 +1102,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testCreateEmptyBucketedPartition(storageFormat);
         }
     }
 
@@ -1570,8 +1570,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
-        testWithStorageFormat(storageFormat, this::testPartitionPerScanLimit);
+        testPartitionPerScanLimit(getSession(), HiveStorageFormat.DWRF);
     }
 
     private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
@@ -4704,59 +4703,8 @@ public class TestHiveIntegrationSmokeTest
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testWithStorageFormat(storageFormat, test);
-        }
-    }
-
-    private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
-    {
-        requireNonNull(storageFormat, "storageFormat is null");
-        requireNonNull(test, "test is null");
-        Session session = storageFormat.getSession();
-        try {
-            test.accept(session, storageFormat.getFormat());
-        }
-        catch (Exception | AssertionError e) {
-            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getConnectorProperties()), e);
-        }
-    }
-
-    private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
-    {
-        Session session = getSession();
-        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
-        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
-            formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
-        }
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
-                HiveStorageFormat.ORC));
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
-                HiveStorageFormat.DWRF));
-        return formats.build();
-    }
-
-    private static class TestingHiveStorageFormat
-    {
-        private final Session session;
-        private final HiveStorageFormat format;
-
-        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.format = requireNonNull(format, "format is null");
-        }
-
-        public Session getSession()
-        {
-            return session;
-        }
-
-        public HiveStorageFormat getFormat()
-        {
-            return format;
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            test.accept(getSession(), storageFormat);
         }
     }
 }
