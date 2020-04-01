@@ -1561,6 +1561,12 @@ public class TestHiveIntegrationSmokeTest
                         .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                         .build(),
                 HiveStorageFormat.ORC);
+        testInsertPartitionedTableImmutableExistingPartition(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
+                        .setCatalogSessionProperty(catalog, "fail_fast_on_insert_into_immutable_partitions_enabled", "false")
+                        .build(),
+                HiveStorageFormat.ORC);
     }
 
     public void testInsertPartitionedTableImmutableExistingPartition(Session session, HiveStorageFormat storageFormat)
