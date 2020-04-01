@@ -310,6 +310,7 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
+    private final int maxPagePartitioningBufferCount;
     private final DataSize maxLocalExchangeBufferSize;
     private final SpillerFactory spillerFactory;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -365,6 +366,7 @@ public class LocalExecutionPlanner
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
+        this.maxPagePartitioningBufferCount = taskManagerConfig.getMaxPagePartitioningBufferCount();
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
@@ -427,7 +429,7 @@ public class LocalExecutionPlanner
         }
 
         if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
-            return new OptimizedPartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);
+            return new OptimizedPartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize, maxPagePartitioningBufferCount);
         }
         else {
             return new PartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);

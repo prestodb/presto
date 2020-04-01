@@ -787,7 +787,7 @@ public class TestOptimizedPartitionedOutputOperator
                 false,
                 nullChannel);
 
-        OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, maxMemory);
+        OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, maxMemory, 10_000);
 
         return (OptimizedPartitionedOutputOperator) operatorFactory
                 .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.of(outputPartitioning), serdeFactory)
