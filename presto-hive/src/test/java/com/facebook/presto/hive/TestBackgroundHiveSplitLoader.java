@@ -201,10 +201,17 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
-    public void testCachedDirectoryLister()
+    public void testCachingDirectoryLister()
             throws Exception
     {
-        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableSet.of(new SchemaTableName("test_dbname", "test_table")));
+        testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("test_dbname.test_table")));
+        testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("*")));
+        assertThrows(IllegalArgumentException.class, () -> testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("*", "test_dbname.test_table"))));
+    }
+
+    private void testCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+            throws Exception
+    {
         assertEquals(cachingDirectoryLister.getRequestCount(), 0);
 
         int totalCount = 1000;
