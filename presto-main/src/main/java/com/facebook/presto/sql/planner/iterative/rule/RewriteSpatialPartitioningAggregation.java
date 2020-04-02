@@ -52,16 +52,16 @@ import static java.util.Objects.requireNonNull;
 /**
  * Re-writes spatial_partitioning(geometry) aggregations into spatial_partitioning(envelope, partition_count)
  * on top of ST_Envelope(geometry) projection, e.g.
- *
+ * <p>
  * - Aggregation: spatial_partitioning(geometry)
- *    - source
- *
+ * - source
+ * <p>
  * becomes
- *
+ * <p>
  * - Aggregation: spatial_partitioning(envelope, partition_count)
- *    - Project: envelope := ST_Envelope(geometry)
- *        - source
- *
+ * - Project: envelope := ST_Envelope(geometry)
+ * - source
+ * <p>
  * , where partition_count is the value of session property hash_partition_count
  */
 public class RewriteSpatialPartitioningAggregation

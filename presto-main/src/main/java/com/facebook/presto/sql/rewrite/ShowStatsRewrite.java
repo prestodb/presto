@@ -186,8 +186,8 @@ public class ShowStatsRewrite
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columns.isEmpty()) {
                 columnHandles = columnHandles.entrySet().stream()
-                    .filter(entry -> columns.contains(entry.getKey()))
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .filter(entry -> columns.contains(entry.getKey()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             }
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), constraint);
             List<String> statsColumnNames = buildColumnsNames();

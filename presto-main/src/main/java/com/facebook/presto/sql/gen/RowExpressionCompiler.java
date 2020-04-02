@@ -126,7 +126,7 @@ public class RowExpressionCompiler
                     // it would be compiled again. Do not put these in the new map in this case.
                     Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> newCompiledLambdaMap = new HashMap<>(compiledLambdaMap);
                     generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, function, metadata, sqlFunctionProperties, "sql")
-                        .forEach(newCompiledLambdaMap::putIfAbsent);
+                            .forEach(newCompiledLambdaMap::putIfAbsent);
 
                     // generate bytecode for SQL function
                     RowExpressionCompiler newRowExpressionCompiler = new RowExpressionCompiler(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, ImmutableMap.copyOf(newCompiledLambdaMap));

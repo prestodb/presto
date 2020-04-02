@@ -102,6 +102,7 @@ public class DistinctLimitNode
         hashVariable.ifPresent(outputVariables::add);
         return outputVariables.build();
     }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
