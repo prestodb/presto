@@ -202,7 +202,7 @@ public class LogicalPlanner
     {
         if (explain || isPrintStatsForNonJoinQuery(session) ||
                 PlanNodeSearcher.searchFrom(root).where(node ->
-                    (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
+                        (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
             return StatsAndCosts.create(root, statsProvider, costProvider);

@@ -11,33 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class MarkDistinctNode
-        extends InternalPlanNode
+public final class MarkDistinctNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final VariableReferenceExpression markerVariable;
 
     private final Optional<VariableReferenceExpression> hashVariable;
     private final List<VariableReferenceExpression> distinctVariables;
+    private final List<VariableReferenceExpression> output;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
@@ -52,22 +51,22 @@ public class MarkDistinctNode
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
         requireNonNull(distinctVariables, "distinctVariables is null");
         checkArgument(!distinctVariables.isEmpty(), "distinctVariables cannot be empty");
-        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
+        this.distinctVariables = unmodifiableList(new ArrayList<>(distinctVariables));
+        List<VariableReferenceExpression> variableReferenceExpressions = new ArrayList<>(source.getOutputVariables());
+        variableReferenceExpressions.add(markerVariable);
+        this.output = unmodifiableList(variableReferenceExpressions);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(source.getOutputVariables())
-                .add(markerVariable)
-                .build();
+        return output;
     }
 
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return unmodifiableList(Collections.singletonList(source));
     }
 
     @JsonProperty
@@ -95,7 +94,7 @@ public class MarkDistinctNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMarkDistinct(this, context);
     }
@@ -103,6 +102,14 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctVariables, hashVariable);
+        checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
+        return new MarkDistinctNode(getId(), newChildren.get(0), markerVariable, distinctVariables, hashVariable);
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }

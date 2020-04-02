@@ -35,7 +35,6 @@ public final class VariableToChannelTranslator
     private VariableToChannelTranslator() {}
 
     /**
-     *
      * Given an {@param expression} and a {@param layout}, translate the symbols in the expression to the corresponding channel.
      */
     public static RowExpression translate(RowExpression expression, Map<VariableReferenceExpression, Integer> layout)
