@@ -37,9 +37,9 @@ public class PruneOutputColumns
     public Result apply(OutputNode outputNode, Captures captures, Context context)
     {
         return restrictChildOutputs(
-                    context.getIdAllocator(),
-                    outputNode,
-                    ImmutableSet.copyOf(outputNode.getOutputVariables()))
+                context.getIdAllocator(),
+                outputNode,
+                ImmutableSet.copyOf(outputNode.getOutputVariables()))
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

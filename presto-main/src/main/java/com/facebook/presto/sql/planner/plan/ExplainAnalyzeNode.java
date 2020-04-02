@@ -39,7 +39,7 @@ public class ExplainAnalyzeNode
     public ExplainAnalyzeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("outputVariable")VariableReferenceExpression outputVariable,
+            @JsonProperty("outputVariable") VariableReferenceExpression outputVariable,
             @JsonProperty("verbose") boolean verbose)
     {
         super(id);
