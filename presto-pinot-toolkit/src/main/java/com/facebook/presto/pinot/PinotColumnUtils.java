@@ -31,10 +31,12 @@ import org.apache.pinot.common.data.TimeGranularitySpec;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.pinot.common.data.TimeGranularitySpec.TimeFormat.EPOCH;
 
 public class PinotColumnUtils
 {
@@ -49,7 +51,10 @@ public class PinotColumnUtils
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), inferDateType, inferTimestampType), isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
+                .map(columnName -> new PinotColumn(
+                        columnName,
+                        getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), inferDateType, inferTimestampType),
+                        isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
                         getCommentFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
     }
@@ -72,21 +77,21 @@ public class PinotColumnUtils
                     TimeFieldSpec timeFieldSpec = (TimeFieldSpec) field;
                     TimeGranularitySpec outSpec = timeFieldSpec.getOutgoingGranularitySpec();
                     if (outSpec != null) {
-                        if (outSpec.getTimeFormat().equalsIgnoreCase(TimeGranularitySpec.TimeFormat.EPOCH.name())) {
-                            if (inferDateType && (TimeUnit.DAYS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                        if (outSpec.getTimeFormat().equalsIgnoreCase(EPOCH.name())) {
+                            if (inferDateType && (DAYS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
                                 return DateType.DATE;
                             }
-                            if (inferTimestampType && (TimeUnit.MILLISECONDS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
+                            if (inferTimestampType && (MILLISECONDS == outSpec.getTimeType()) && (outSpec.getTimeUnitSize() == 1)) {
                                 return TimestampType.TIMESTAMP;
                             }
                         }
                     }
                     else {
                         TimeGranularitySpec inSpec = timeFieldSpec.getIncomingGranularitySpec();
-                        if (inferDateType && (TimeUnit.DAYS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                        if (inferDateType && (DAYS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
                             return DateType.DATE;
                         }
-                        if (inferTimestampType && (TimeUnit.MILLISECONDS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
+                        if (inferTimestampType && (MILLISECONDS == inSpec.getTimeType()) && (inSpec.getTimeUnitSize() == 1)) {
                             return TimestampType.TIMESTAMP;
                         }
                     }
