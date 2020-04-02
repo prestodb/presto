@@ -228,12 +228,18 @@ public class DruidQueryGeneratorContext
         }
 
         if (!groupByColumns.isEmpty()) {
-            String groupByExpression = groupByColumns.stream().map(x -> selections.get(x).getDefinition()).collect(Collectors.joining(", "));
+            String groupByExpression = groupByColumns.stream()
+                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getDefinition() : expression.getName())
+                    .collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpression;
             pushdown = true;
         }
 
-        if (!hasAggregation() && limit.isPresent()) {
+        if (hasAggregation()) {
+            pushdown = true;
+        }
+
+        if (limit.isPresent()) {
             query += " LIMIT " + limit.getAsLong();
             pushdown = true;
         }
