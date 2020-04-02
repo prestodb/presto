@@ -32,6 +32,129 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
+Map Pinot Schema to Presto Schema
+---------------------------------
+
+In general Pinot schema to Presto schema mapping are pretty straight forward.
+By default, the data type mapping follows the table below.
+
+.. list-table::
+   :widths: 100 100
+   :header-rows: 1
+
+   * - Pinot Data Type
+     - Presto Data Type
+   * - INT
+     - INTEGER
+   * - LONG
+     - BIGINT
+   * - FLOAT
+     - DOUBLE
+   * - DOUBLE
+     - DOUBLE
+   * - BYTES
+     - VARBINARY
+   * - STRING
+     - VARCHAR
+
+Since Pinot defines each field as dimension, metric or time(date_time) field,
+it's possible to infer Presto data type ``DATE`` and ``TIMESTAMP``:
+
+- A Pinot ``TIME`` field with timeGranularity ``{ "TimeFormat":"EPOCH", "TimeUnit":"DAYS", "TimeUnitSize": 1 }`` could be map to a ``DATE`` type.
+- A Pinot ``TIME`` field with timeGranularity ``{ "TimeFormat":"EPOCH", "TimeUnit":"MILLISECONDS", "TimeUnitSize": 1 }`` could be map to a ``TIMESTAMP`` type.
+- A Pinot ``DATE_TIME`` field with format ``1:DAYS:EPOCH`` could be map to a ``DATE`` type.
+- A Pinot ``DATE_TIME`` field with format ``1:MILLISECONDS:EPOCH`` could be map to a ``TIMESTAMP`` type.
+
+There are a few configurations that control this behavior:
+
+* ``pinot.infer-date-type-in-schema``: This config is false by default.
+  Setting it to true will infer a Pinot ``TIME``/``DATE_TIME`` field to ``DATE`` in Presto if possible.
+
+* ``pinot.infer-timestamp-type-in-schema``: This config is false by default.
+  Setting it to true will infer a Pinot ``TIME``/``DATE_TIME`` field to ``TIMESTAMP`` in Presto if possible.
+
+Below is an example with config: ``pinot.infer-timestamp-type-in-schema=true``.
+
+Sample Pinot Schema:
+
+.. code-block:: JSON
+
+  {
+    "schemaName": "meetupRsvp",
+    "dimensionFieldSpecs": [
+      {
+        "name": "venue_name",
+        "dataType": "STRING"
+      },
+      {
+        "name": "event_name",
+        "dataType": "STRING"
+      },
+      {
+        "name": "event_id",
+        "dataType": "STRING"
+      },
+      {
+        "name": "event_time",
+        "dataType": "LONG"
+      },
+      {
+        "name": "group_city",
+        "dataType": "STRING"
+      },
+      {
+        "name": "group_country",
+        "dataType": "STRING"
+      },
+      {
+        "name": "group_id",
+        "dataType": "LONG"
+      },
+      {
+        "name": "group_name",
+        "dataType": "STRING"
+      }
+    ],
+    "metricFieldSpecs": [
+      {
+        "name": "rsvp_count",
+        "dataType": "INT"
+      }
+    ],
+    "timeFieldSpec": {
+      "incomingGranularitySpec": {
+        "name": "mtime",
+        "dataType": "LONG",
+        "timeType": "MILLISECONDS"
+      }
+    }
+  }
+
+Sample Presto Schema:
+
+.. code-block:: none
+
+  $ ./presto-cli --catalog pinot --schema default
+
+  presto:default> select * from "pinot"."information_schema"."columns" WHERE table_schema LIKE 'default' AND table_name LIKE 'meetuprsvp' ESCAPE '\';
+  table_catalog | table_schema | table_name |  column_name  | ordinal_position | column_default | is_nullable | data_type |  comment  | extra_info
+  ---------------+--------------+------------+---------------+------------------+----------------+-------------+-----------+-----------+------------
+  pinot         | default      | meetuprsvp | venue_name    |                1 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | rsvp_count    |                2 | NULL           | YES         | integer   | METRIC    | NULL
+  pinot         | default      | meetuprsvp | group_city    |                3 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | event_id      |                4 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | group_country |                5 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | group_id      |                6 | NULL           | YES         | bigint    | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | group_name    |                7 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | event_name    |                8 | NULL           | YES         | varchar   | DIMENSION | NULL
+  pinot         | default      | meetuprsvp | mtime         |                9 | NULL           | YES         | timestamp | TIME      | NULL
+  pinot         | default      | meetuprsvp | event_time    |               10 | NULL           | YES         | bigint    | DIMENSION | NULL
+  (10 rows)
+  Query 20200401_184245_00014_u9xs6, FINISHED, 1 node
+  Splits: 17 total, 17 done (100.00%)
+  0:00 [10 rows, 1.01KB] [127 rows/s, 12.9KB/s]
+
+
 Querying Pinot
 --------------
 
