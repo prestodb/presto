@@ -126,6 +126,9 @@ public class TestDruidQueryGenerator
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(v("regionid")))),
                 "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
         testDQL(
+                planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(v("regionid"))))),
+                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId LIMIT 5");
+        testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(v("regionid"), v("city")))),
                 "SELECT regionId, city, count(*) FROM realtimeOnly WHERE ((secondsSinceEpoch BETWEEN 200 AND 300) AND (regionId >= 40)) GROUP BY regionId, city");
     }
