@@ -134,9 +134,6 @@ Sample Presto Schema:
 
 .. code-block:: none
 
-  $ ./presto-cli --catalog pinot --schema default
-
-  presto:default> select * from "pinot"."information_schema"."columns" WHERE table_schema LIKE 'default' AND table_name LIKE 'meetuprsvp' ESCAPE '\';
   table_catalog | table_schema | table_name |  column_name  | ordinal_position | column_default | is_nullable | data_type |  comment  | extra_info
   ---------------+--------------+------------+---------------+------------------+----------------+-------------+-----------+-----------+------------
   pinot         | default      | meetuprsvp | venue_name    |                1 | NULL           | YES         | varchar   | DIMENSION | NULL
@@ -149,11 +146,6 @@ Sample Presto Schema:
   pinot         | default      | meetuprsvp | event_name    |                8 | NULL           | YES         | varchar   | DIMENSION | NULL
   pinot         | default      | meetuprsvp | mtime         |                9 | NULL           | YES         | timestamp | TIME      | NULL
   pinot         | default      | meetuprsvp | event_time    |               10 | NULL           | YES         | bigint    | DIMENSION | NULL
-  (10 rows)
-  Query 20200401_184245_00014_u9xs6, FINISHED, 1 node
-  Splits: 17 total, 17 done (100.00%)
-  0:00 [10 rows, 1.01KB] [127 rows/s, 12.9KB/s]
-
 
 Querying Pinot
 --------------
