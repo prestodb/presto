@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -66,6 +67,7 @@ public class TestingConnectorContext
     private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
     private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
     private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer()));
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
 
     @Override
     public NodeManager getNodeManager()
@@ -144,5 +146,11 @@ public class TestingConnectorContext
     public FilterStatsCalculatorService getFilterStatsCalculatorService()
     {
         return filterStatsCalculatorService;
+    }
+
+    @Override
+    public BlockEncodingSerde getBlockEncodingSerde()
+    {
+        return blockEncodingSerde;
     }
 }

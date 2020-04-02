@@ -16,6 +16,7 @@ package com.facebook.presto.connector;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -36,6 +37,7 @@ public class ConnectorContextInstance
     private final PageIndexerFactory pageIndexerFactory;
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -45,7 +47,8 @@ public class ConnectorContextInstance
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             RowExpressionService rowExpressionService,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            BlockEncodingSerde blockEncodingSerde)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -55,6 +58,7 @@ public class ConnectorContextInstance
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @Override
@@ -103,5 +107,11 @@ public class ConnectorContextInstance
     public FilterStatsCalculatorService getFilterStatsCalculatorService()
     {
         return filterStatsCalculatorService;
+    }
+
+    @Override
+    public BlockEncodingSerde getBlockEncodingSerde()
+    {
+        return blockEncodingSerde;
     }
 }
