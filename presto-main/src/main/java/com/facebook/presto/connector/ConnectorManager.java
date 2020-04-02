@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -112,6 +113,7 @@ public class ConnectorManager
     private final PredicateCompiler predicateCompiler;
     private final DeterminismEvaluator determinismEvaluator;
     private final FilterStatsCalculator filterStatsCalculator;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -142,7 +144,8 @@ public class ConnectorManager
             DomainTranslator domainTranslator,
             PredicateCompiler predicateCompiler,
             DeterminismEvaluator determinismEvaluator,
-            FilterStatsCalculator filterStatsCalculator)
+            FilterStatsCalculator filterStatsCalculator,
+            BlockEncodingSerde blockEncodingSerde)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -164,6 +167,7 @@ public class ConnectorManager
         this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @PreDestroy
@@ -358,7 +362,8 @@ public class ConnectorManager
                         predicateCompiler,
                         determinismEvaluator,
                         new RowExpressionFormatter(metadataManager.getFunctionManager())),
-                new ConnectorFilterStatsCalculatorService(filterStatsCalculator));
+                new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
+                blockEncodingSerde);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);

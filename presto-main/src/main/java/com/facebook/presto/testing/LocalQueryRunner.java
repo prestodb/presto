@@ -388,7 +388,8 @@ public class LocalQueryRunner
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer));
+                new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
+                blockEncodingManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

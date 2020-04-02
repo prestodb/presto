@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -60,6 +61,11 @@ public interface ConnectorContext
     }
 
     default FilterStatsCalculatorService getFilterStatsCalculatorService()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default BlockEncodingSerde getBlockEncodingSerde()
     {
         throw new UnsupportedOperationException();
     }
