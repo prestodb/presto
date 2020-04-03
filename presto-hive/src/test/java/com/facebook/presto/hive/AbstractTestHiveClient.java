@@ -41,6 +41,7 @@ import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.OrcSelectivePageSource;
+import com.facebook.presto.hive.pagefile.PageFilePageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.metadata.MetadataManager;
@@ -4909,6 +4910,8 @@ public abstract class AbstractTestHiveClient
                 return OrcBatchPageSource.class;
             case PARQUET:
                 return ParquetPageSource.class;
+            case PAGEFILE:
+                return PageFilePageSource.class;
             default:
                 throw new AssertionError("File type does not use a PageSource: " + hiveStorageFormat);
         }
