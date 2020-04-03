@@ -17,6 +17,7 @@ import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -309,6 +310,10 @@ public final class HiveUtil
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
                 "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
+        }
+
+        if (PageInputFormat.class.getSimpleName().equals(inputFormatName)) {
+            return PageInputFormat.class;
         }
 
         Class<?> clazz = conf.getClassByName(inputFormatName);
