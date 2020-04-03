@@ -27,6 +27,7 @@ import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
+import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -172,6 +173,7 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
+                .add(new PageFileWriterFactory(testHdfsEnvironment, new BlockEncodingManager(TYPE_MANAGER)))
                 .add(getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig))
                 .build();
     }

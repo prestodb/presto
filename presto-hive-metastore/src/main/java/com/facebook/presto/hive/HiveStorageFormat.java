@@ -83,7 +83,12 @@ public enum HiveStorageFormat
             LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE));
+            new DataSize(8, Unit.MEGABYTE)),
+    PAGEFILE(
+            "",  // SerDe is not applicable for PAGEFILE
+            "PageInputFormat",
+            "PageOutputFormat",
+            new DataSize(0, Unit.MEGABYTE));  // memory usage is not applicable for PAGEFILE
 
     private final String serde;
     private final String inputFormat;
