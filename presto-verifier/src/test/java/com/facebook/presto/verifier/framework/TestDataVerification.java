@@ -16,7 +16,6 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
@@ -32,10 +31,10 @@ import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.resolver.VerifierLimitationFailureResolver;
 import com.facebook.presto.verifier.retry.RetryConfig;
+import com.facebook.presto.verifier.rewrite.QueryRewriteConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterFactory;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -56,8 +55,6 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
@@ -115,12 +112,11 @@ public class TestDataVerification
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 retryConfig,
                 retryConfig));
-        QueryRewriter queryRewriter = new QueryRewriter(
+        QueryRewriter queryRewriter = new VerificationQueryRewriterFactory(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
                 typeManager,
-                prestoAction,
-                ImmutableList.of(),
-                ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")));
+                new QueryRewriteConfig().setTablePrefix("tmp_verifier_c"),
+                new QueryRewriteConfig().setTablePrefix("tmp_verifier_t")).create(prestoAction);
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
         return new DataVerification(

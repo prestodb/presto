@@ -217,7 +217,7 @@ public class TestVerificationManager
                 new VerificationFactory(
                         SQL_PARSER,
                         (sourceQuery, verificationContext) -> prestoAction,
-                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableList.of(), ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX)),
+                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX), ImmutableMap.of()),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
                         new MockNodeResourceClient(),
                         createChecksumValidator(verifierConfig),

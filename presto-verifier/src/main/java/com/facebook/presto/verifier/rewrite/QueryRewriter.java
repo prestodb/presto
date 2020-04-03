@@ -84,21 +84,21 @@ public class QueryRewriter
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
     private final PrestoAction prestoAction;
-    private final List<Property> tablePropertyOverrides;
     private final Map<ClusterType, QualifiedName> prefixes;
+    private final Map<ClusterType, List<Property>> tableProperties;
 
     public QueryRewriter(
             SqlParser sqlParser,
             TypeManager typeManager,
             PrestoAction prestoAction,
-            List<Property> tablePropertyOverrides,
-            Map<ClusterType, QualifiedName> tablePrefixes)
+            Map<ClusterType, QualifiedName> tablePrefixes,
+            Map<ClusterType, List<Property>> tableProperties)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
-        this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
         this.prefixes = ImmutableMap.copyOf(tablePrefixes);
+        this.tableProperties = ImmutableMap.copyOf(tableProperties);
     }
 
     public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
@@ -109,6 +109,7 @@ public class QueryRewriter
         checkArgument(queryType.getCategory() == DATA_PRODUCING, "Unsupported statement type: %s", queryType);
 
         QualifiedName prefix = prefixes.get(clusterType);
+        List<Property> properties = tableProperties.get(clusterType);
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(createTableAsSelect.getName()), prefix);
@@ -119,7 +120,7 @@ public class QueryRewriter
                             temporaryTableName,
                             createTableAsSelect.getQuery(),
                             createTableAsSelect.isNotExists(),
-                            applyPropertyOverride(createTableAsSelect.getProperties(), tablePropertyOverrides),
+                            applyPropertyOverride(createTableAsSelect.getProperties(), properties),
                             createTableAsSelect.isWithData(),
                             createTableAsSelect.getColumnAliases(),
                             createTableAsSelect.getComment()),
@@ -137,7 +138,7 @@ public class QueryRewriter
                                     temporaryTableName,
                                     ImmutableList.of(new LikeClause(originalTableName, Optional.of(INCLUDING))),
                                     false,
-                                    tablePropertyOverrides,
+                                    properties,
                                     Optional.empty())),
                     new Insert(
                             temporaryTableName,
@@ -158,7 +159,7 @@ public class QueryRewriter
                             temporaryTableName,
                             rewrite,
                             false,
-                            tablePropertyOverrides,
+                            properties,
                             true,
                             Optional.of(columnAliases),
                             Optional.empty()),
