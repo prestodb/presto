@@ -190,6 +190,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
@@ -1280,8 +1281,8 @@ public abstract class AbstractTestHiveClient
         boolean pushdownFilterEnabled = getHiveClientConfig().isPushdownFilterEnabled();
 
         for (HiveStorageFormat storageFormat : createTableFormats) {
-            // TODO: fix coercion for JSON
-            if (storageFormat == JSON) {
+            // TODO: fix coercion for JSON or PAGEFILE
+            if (storageFormat == JSON || storageFormat == PAGEFILE) {
                 continue;
             }
             SchemaTableName temporaryMismatchSchemaTable = temporaryTable("mismatch_schema");
