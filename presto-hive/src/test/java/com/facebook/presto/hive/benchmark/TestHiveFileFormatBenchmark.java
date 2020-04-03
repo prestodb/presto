@@ -28,12 +28,15 @@ public class TestHiveFileFormatBenchmark
     {
         executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
         executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_PAGE);
         executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
         executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
         executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_PAGE);
         executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
         executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
         executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_PAGE);
         executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
     }
 
