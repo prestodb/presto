@@ -533,6 +533,15 @@ public class MetadataManager
     }
 
     @Override
+    public TupleDomain<ColumnHandle> toExplainIOConstraints(Session session, TableHandle tableHandle, TupleDomain<ColumnHandle> constraints)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+
+        return metadata.toExplainIOConstraints(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), constraints);
+    }
+
+    @Override
     public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
