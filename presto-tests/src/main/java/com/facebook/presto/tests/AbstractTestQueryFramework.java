@@ -343,6 +343,16 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    public String getJsonExplainPlan(String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                });
+    }
+
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
         assertPlan(queryRunner.getDefaultSession(), query, pattern);

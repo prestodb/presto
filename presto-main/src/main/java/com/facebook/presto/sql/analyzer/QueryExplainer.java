@@ -160,10 +160,17 @@ public class QueryExplainer
             return explainTask(statement, task, parameters);
         }
 
+        Plan plan;
         switch (planType) {
             case IO:
-                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return textIOPlan(plan.getRoot(), metadata, session);
+            case LOGICAL:
+                plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                return PlanPrinter.jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session);
+            case DISTRIBUTED:
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                return PlanPrinter.jsonDistributedPlan(subPlan);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }
