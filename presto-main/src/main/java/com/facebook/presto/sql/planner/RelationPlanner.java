@@ -725,14 +725,18 @@ class RelationPlanner
 
     private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
     {
-        List<VariableReferenceExpression> oldVariables = plan.getFieldMappings();
-        RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        verify(targetColumnTypes.length == oldVariables.size());
+        RelationType oldRelation = plan.getDescriptor();
+        List<VariableReferenceExpression> oldVisibleVariables = oldRelation.getVisibleFields().stream()
+                .map(oldRelation::indexOf)
+                .map(plan.getFieldMappings()::get)
+                .collect(toImmutableList());
+        RelationType oldRelationWithVisibleFields = plan.getDescriptor().withOnlyVisibleFields();
+        verify(targetColumnTypes.length == oldVisibleVariables.size());
         ImmutableList.Builder<VariableReferenceExpression> newVariables = new ImmutableList.Builder<>();
         Field[] newFields = new Field[targetColumnTypes.length];
         Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
-            VariableReferenceExpression inputVariable = oldVariables.get(i);
+            VariableReferenceExpression inputVariable = oldVisibleVariables.get(i);
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputVariable.getType())) {
                 Expression cast = new Cast(new SymbolReference(inputVariable.getName()), outputType.getTypeSignature().toString());
@@ -746,7 +750,7 @@ class RelationPlanner
                 assignments.put(outputVariable, castToRowExpression(symbolReference));
                 newVariables.add(outputVariable);
             }
-            Field oldField = oldDescriptor.getFieldByIndex(i);
+            Field oldField = oldRelationWithVisibleFields.getFieldByIndex(i);
             newFields[i] = new Field(
                     oldField.getRelationAlias(),
                     oldField.getName(),

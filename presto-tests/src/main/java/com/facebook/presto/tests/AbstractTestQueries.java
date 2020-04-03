@@ -4224,6 +4224,7 @@ public abstract class AbstractTestQueries
                         "WITH a AS (SELECT * FROM orders) " +
                         "SELECT * FROM a",
                 "SELECT * FROM orders");
+        assertQuerySucceeds("WITH t(x, y, z) AS (TABLE region) SELECT * FROM t");
     }
 
     @Test
