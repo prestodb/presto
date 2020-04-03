@@ -15,18 +15,29 @@ package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class VerificationQueryRewriterFactory
@@ -34,23 +45,24 @@ public class VerificationQueryRewriterFactory
 {
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
-    private final List<Property> tablePropertyOverrides;
-    private final QueryRewriteConfig controlConfig;
-    private final QueryRewriteConfig testConfig;
+    private final QualifiedName controlTablePrefix;
+    private final QualifiedName testTablePrefix;
+    private final List<Property> controlTableProperties;
+    private final List<Property> testTableProperties;
 
     @Inject
     public VerificationQueryRewriterFactory(
             SqlParser sqlParser,
             TypeManager typeManager,
-            List<Property> tablePropertyOverrides,
             @ForControl QueryRewriteConfig controlConfig,
             @ForTest QueryRewriteConfig testConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
-        this.controlConfig = requireNonNull(controlConfig, "controlConfig is null");
-        this.testConfig = requireNonNull(testConfig, "testConfig is null");
+        this.controlTablePrefix = requireNonNull(controlConfig.getTablePrefix(), "controlTablePrefix is null");
+        this.testTablePrefix = requireNonNull(testConfig.getTablePrefix(), "testTablePrefix is null");
+        this.controlTableProperties = constructProperties(controlConfig.getTableProperties());
+        this.testTableProperties = constructProperties(testConfig.getTableProperties());
     }
 
     @Override
@@ -60,9 +72,30 @@ public class VerificationQueryRewriterFactory
                 sqlParser,
                 typeManager,
                 prestoAction,
-                tablePropertyOverrides,
-                ImmutableMap.of(
-                        CONTROL, controlConfig.getTablePrefix(),
-                        TEST, testConfig.getTablePrefix()));
+                ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
+                ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties));
+    }
+
+    private static List<Property> constructProperties(Map<String, Object> propertiesMap)
+    {
+        ImmutableList.Builder<Property> properties = ImmutableList.builder();
+        for (Entry<String, Object> entry : propertiesMap.entrySet()) {
+            if (entry.getValue() instanceof Integer || entry.getValue() instanceof Long) {
+                properties.add(new Property(new Identifier(entry.getKey()), new LongLiteral(String.valueOf(entry.getValue()))));
+            }
+            else if (entry.getValue() instanceof Double) {
+                properties.add(new Property(new Identifier(entry.getKey()), new DoubleLiteral(String.valueOf(entry.getValue()))));
+            }
+            else if (entry.getValue() instanceof String) {
+                properties.add(new Property(new Identifier(entry.getKey()), new StringLiteral((String) entry.getValue())));
+            }
+            else if (entry.getValue() instanceof Boolean) {
+                properties.add(new Property(new Identifier(entry.getKey()), ((Boolean) entry.getValue()) ? BooleanLiteral.TRUE_LITERAL : FALSE_LITERAL));
+            }
+            else {
+                throw new IllegalArgumentException(format("Unsupported table properties value: %s = %s (type: %s)", entry.getKey(), entry.getValue(), entry.getValue().getClass()));
+            }
+        }
+        return properties.build();
     }
 }

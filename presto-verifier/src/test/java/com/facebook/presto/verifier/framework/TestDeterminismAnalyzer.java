@@ -25,7 +25,6 @@ import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -77,8 +76,8 @@ public class TestDeterminismAnalyzer
                 sqlParser,
                 typeManager,
                 prestoAction,
-                ImmutableList.of(),
-                ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")));
+                ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")),
+                ImmutableMap.of());
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         SourceQuery sourceQuery = new SourceQuery("test", "", "", "", configuration, configuration);
 

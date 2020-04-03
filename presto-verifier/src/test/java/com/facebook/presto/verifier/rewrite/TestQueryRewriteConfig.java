@@ -21,6 +21,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.testng.Assert.assertEquals;
 
 public class TestQueryRewriteConfig
 {
@@ -28,7 +29,8 @@ public class TestQueryRewriteConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(QueryRewriteConfig.class)
-                .setTablePrefix("tmp_verifier"));
+                .setTablePrefix("tmp_verifier")
+                .setTableProperties(null));
     }
 
     @Test
@@ -36,10 +38,13 @@ public class TestQueryRewriteConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("table-prefix", "local.tmp")
+                .put("table-properties", "{\"retention\":21}")
                 .build();
         QueryRewriteConfig expected = new QueryRewriteConfig()
-                .setTablePrefix("local.tmp");
+                .setTablePrefix("local.tmp")
+                .setTableProperties("{\"retention\":21}");
 
         assertFullMapping(properties, expected);
+        assertEquals(expected.getTableProperties(), ImmutableMap.of("retention", 21));
     }
 }
