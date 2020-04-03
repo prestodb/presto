@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.mapred.JobConf;
@@ -99,6 +100,12 @@ public class HiveZeroRowFileCreator
         try {
             Path target = new Path(format("file://%s/%s", tmpDirectoryPath, tmpFileName));
             JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, target), compressionCodec);
+
+            if (outputFormatName.equals(HiveStorageFormat.PAGEFILE.getOutputFormat())) {
+                FSDataOutputStream outputStream = target.getFileSystem(conf).create(target);
+                outputStream.close();
+                return readAllBytes(tmpFilePath);
+            }
 
             // Some serializers such as Avro set a property in the schema.
             initializeSerializer(conf, properties, serDe);
