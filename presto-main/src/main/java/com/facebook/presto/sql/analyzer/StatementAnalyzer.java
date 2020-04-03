@@ -140,6 +140,7 @@ import com.google.common.collect.Multimap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -892,9 +893,9 @@ class StatementAnalyzer
                         // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
                         ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
 
-                        int field = 0;
+                        Iterator<Field> visibleFieldsIterator = queryDescriptor.getVisibleFields().iterator();
                         for (Identifier columnName : columnNames.get()) {
-                            Field inputField = queryDescriptor.getFieldByIndex(field);
+                            Field inputField = visibleFieldsIterator.next();
                             fieldBuilder.add(Field.newQualified(
                                     QualifiedName.of(name),
                                     Optional.of(columnName.getValue()),
@@ -903,8 +904,6 @@ class StatementAnalyzer
                                     inputField.getOriginTable(),
                                     inputField.getOriginColumnName(),
                                     inputField.isAliased()));
-
-                            field++;
                         }
 
                         fields = fieldBuilder.build();
