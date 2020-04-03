@@ -470,12 +470,14 @@ public class IOPlanPrinter
         public Void visitTableScan(TableScanNode node, IOPlanBuilder context)
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
+            TupleDomain<ColumnHandle> constraints = metadata.toExplainIOConstraints(session, node.getTable(), node.getCurrentConstraint());
+
             context.addInputTableColumnInfo(new IOPlan.TableColumnInfo(
                     new CatalogSchemaTableName(
                             tableMetadata.getConnectorId().getCatalogName(),
                             tableMetadata.getTable().getSchemaName(),
                             tableMetadata.getTable().getTableName()),
-                    parseConstraints(node.getTable(), node.getCurrentConstraint())));
+                    parseConstraints(node.getTable(), constraints)));
             return null;
         }
 

@@ -189,6 +189,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public TupleDomain<ColumnHandle> toExplainIOConstraints(Session session, TableHandle tableHandle, TupleDomain<ColumnHandle> constraints)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();

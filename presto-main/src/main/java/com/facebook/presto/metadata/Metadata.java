@@ -162,6 +162,11 @@ public interface Metadata
     ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
+     * Returns a TupleDomain of constraints that is suitable for ExplainIO
+     */
+    TupleDomain<ColumnHandle> toExplainIOConstraints(Session session, TableHandle tableHandle, TupleDomain<ColumnHandle> constraints);
+
+    /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);

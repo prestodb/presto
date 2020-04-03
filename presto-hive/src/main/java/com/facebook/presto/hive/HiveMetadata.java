@@ -713,6 +713,17 @@ public class HiveMetadata
         return ((HiveColumnHandle) columnHandle).getColumnMetadata(typeManager);
     }
 
+    /**
+     * Returns a TupleDomain of constraints that is suitable for Explain (Type IO)
+     *
+     * Only Hive partition columns that are used in IO planning.
+     */
+    @Override
+    public TupleDomain<ColumnHandle> toExplainIOConstraints(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> constraints)
+    {
+        return constraints.transform(columnHandle -> ((HiveColumnHandle) columnHandle).isPartitionKey() ? columnHandle : null);
+    }
+
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
