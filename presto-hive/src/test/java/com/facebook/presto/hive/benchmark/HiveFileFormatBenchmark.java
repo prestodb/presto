@@ -128,6 +128,7 @@ public class HiveFileFormatBenchmark
             "PRESTO_ORC",
             "PRESTO_DWRF",
             "PRESTO_PARQUET",
+            "PRESTO_PAGE",
             "HIVE_RCBINARY",
             "HIVE_RCTEXT",
             "HIVE_ORC",

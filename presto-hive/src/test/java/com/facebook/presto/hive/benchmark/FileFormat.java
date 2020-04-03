@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.benchmark;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.GenericHiveRecordCursorProvider;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -31,6 +32,8 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
+import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
+import com.facebook.presto.hive.pagefile.PageWriter;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriter;
@@ -52,10 +55,12 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -199,6 +204,35 @@ public enum FileFormat
         public boolean supportsDate()
         {
             return false;
+        }
+    },
+
+    PRESTO_PAGE {
+        @Override
+        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
+        {
+            HiveBatchPageSourceFactory pageSourceFactory = new PageFilePageSourceFactory(
+                    hdfsEnvironment,
+                    new BlockEncodingManager(TYPE_MANAGER));
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PAGEFILE);
+        }
+
+        @Override
+        public FormatWriter createFileFormatWriter(
+                ConnectorSession session,
+                File targetFile,
+                List<String> columnNames,
+                List<Type> columnTypes,
+                HiveCompressionCodec compressionCodec)
+                throws IOException
+        {
+            return new PrestoPageFormatWriter(targetFile);
+        }
+
+        @Override
+        public boolean supportsDate()
+        {
+            return true;
         }
     },
 
@@ -613,6 +647,39 @@ public enum FileFormat
                 throws IOException
         {
             writer.write(page);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            writer.close();
+        }
+    }
+
+    private static class PrestoPageFormatWriter
+            implements FormatWriter
+    {
+        private final PageWriter writer;
+        private final PagesSerde pagesSerde = new PagesSerde(
+                new BlockEncodingManager(TYPE_MANAGER),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        public PrestoPageFormatWriter(File targetFile)
+                throws IOException
+        {
+            writer = new PageWriter(
+                    new OutputStreamDataSink(new FileOutputStream(targetFile)),
+                    new DataSize(10, DataSize.Unit.MEGABYTE));
+        }
+
+        @Override
+        public void writePage(Page page)
+                throws IOException
+        {
+            writer.write(pagesSerde.serialize(page));
         }
 
         @Override
