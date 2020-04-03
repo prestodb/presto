@@ -64,6 +64,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -397,6 +398,10 @@ public class OrcSelectivePageSourceFactory
                 orcDataSource.close();
             }
             catch (IOException ignored) {
+            }
+            // instanceof and class comparison do not work here since they are loaded by different class loaders.
+            if (e.getClass().getName().equals(UncheckedExecutionException.class.getName()) && e.getCause() instanceof PrestoException) {
+                throw (PrestoException) e.getCause();
             }
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
