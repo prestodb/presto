@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -68,7 +67,7 @@ public class OrcBatchRecordReader
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
             throws OrcCorruptionException
 
     {
@@ -101,7 +100,7 @@ public class OrcBatchRecordReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                hiveFileContext);
+                cacheable);
 
         this.includedColumns = includedColumns;
     }

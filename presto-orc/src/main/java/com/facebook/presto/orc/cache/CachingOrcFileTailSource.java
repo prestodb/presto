@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.cache;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcWriteValidation;
@@ -42,14 +41,14 @@ public class CachingOrcFileTailSource
     }
 
     @Override
-    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, HiveFileContext hiveFileContext)
+    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable)
             throws IOException
     {
         try {
-            if (hiveFileContext.isCacheable()) {
-                return cache.get(orcDataSource.getId(), () -> delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, hiveFileContext));
+            if (cacheable) {
+                return cache.get(orcDataSource.getId(), () -> delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable));
             }
-            return delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, hiveFileContext);
+            return delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);

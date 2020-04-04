@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.cache;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.orc.metadata.MetadataReader;
@@ -24,6 +23,6 @@ import java.util.Optional;
 
 public interface OrcFileTailSource
 {
-    OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, HiveFileContext hiveFileContext)
+    OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable)
             throws IOException;
 }

@@ -51,7 +51,6 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
@@ -221,7 +220,7 @@ public class BenchmarkBatchStreamReadersWithZstd
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
                     OrcReaderTestingUtils.createTestingReaderOptions(zstdJniDecompressionEnabled),
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    false);
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,

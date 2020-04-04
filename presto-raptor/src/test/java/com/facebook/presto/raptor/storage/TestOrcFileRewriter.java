@@ -503,7 +503,7 @@ public class TestOrcFileRewriter
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 OrcTestingUtil.createDefaultTestConfig(),
-                DEFAULT_HIVE_FILE_CONTEXT);
+                false);
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
