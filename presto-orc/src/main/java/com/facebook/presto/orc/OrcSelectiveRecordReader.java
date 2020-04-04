@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
@@ -173,7 +172,7 @@ public class OrcSelectiveRecordReader
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
     {
         super(includedColumns,
                 createStreamReaders(
@@ -210,7 +209,7 @@ public class OrcSelectiveRecordReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                hiveFileContext);
+                cacheable);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.

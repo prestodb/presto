@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -39,7 +38,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static java.lang.Math.toIntExact;
@@ -65,7 +63,7 @@ public class OrcReader
     private final StripeMetadataSource stripeMetadataSource;
     private final OrcReaderOptions orcReaderOptions;
 
-    private final HiveFileContext hiveFileContext;
+    private final boolean cacheable;
 
     // This is based on the Apache Hive ORC code
     public OrcReader(
@@ -74,10 +72,10 @@ public class OrcReader
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             OrcReaderOptions orcReaderOptions,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
             throws IOException
     {
-        this(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, Optional.empty(), orcReaderOptions, hiveFileContext);
+        this(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, Optional.empty(), orcReaderOptions, cacheable);
     }
 
     OrcReader(
@@ -87,7 +85,7 @@ public class OrcReader
             StripeMetadataSource stripeMetadataSource,
             Optional<OrcWriteValidation> writeValidation,
             OrcReaderOptions orcReaderOptions,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -100,7 +98,7 @@ public class OrcReader
 
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
-        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, hiveFileContext);
+        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
         this.bufferSize = orcFileTail.getBufferSize();
         this.compressionKind = orcFileTail.getCompressionKind();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
@@ -125,7 +123,7 @@ public class OrcReader
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
 
-        this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
+        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
     }
 
     public List<String> getColumnNames()
@@ -198,7 +196,7 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                hiveFileContext);
+                cacheable);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -251,7 +249,7 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                hiveFileContext);
+                cacheable);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -287,7 +285,7 @@ public class OrcReader
                     new StorageStripeMetadataSource(),
                     Optional.of(writeValidation),
                     orcReaderOptions,
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    false);
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
                     readTypes.build(),
                     OrcPredicate.TRUE,

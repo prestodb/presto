@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
@@ -88,7 +87,7 @@ public class StripeReader
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
     private final StripeMetadataSource stripeMetadataSource;
-    private final HiveFileContext hiveFileContext;
+    private final boolean cacheable;
 
     public StripeReader(
             OrcDataSource orcDataSource,
@@ -101,7 +100,7 @@ public class StripeReader
             MetadataReader metadataReader,
             Optional<OrcWriteValidation> writeValidation,
             StripeMetadataSource stripeMetadataSource,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -113,7 +112,7 @@ public class StripeReader
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
+        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
     }
 
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
@@ -265,7 +264,7 @@ public class StripeReader
         //
 
         // read ranges
-        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, hiveFileContext);
+        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
@@ -385,7 +384,7 @@ public class StripeReader
         int footerLength = toIntExact(stripe.getFooterLength());
 
         // read the footer
-        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, hiveFileContext);
+        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, systemMemoryUsage, footerLength)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
