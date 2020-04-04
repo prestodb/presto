@@ -42,7 +42,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -70,7 +69,7 @@ final class OrcTestingUtil
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 createDefaultTestConfig(),
-                DEFAULT_HIVE_FILE_CONTEXT);
+                false);
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());

@@ -39,7 +39,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -70,7 +69,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 5000;
         OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnVarcharFile(rows, 10)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE, DEFAULT_HIVE_FILE_CONTEXT);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE, false);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -117,7 +116,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnFileWithNullValues(rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE, DEFAULT_HIVE_FILE_CONTEXT);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE, false);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -181,7 +180,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnMapFileWithNullValues(mapType, rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE, DEFAULT_HIVE_FILE_CONTEXT);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE, false);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();

@@ -46,7 +46,6 @@ import java.util.TreeMap;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
@@ -107,7 +106,7 @@ public final class OrcFileRewriter
                     orcFileTailSource,
                     stripeMetadataSource,
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    false);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");

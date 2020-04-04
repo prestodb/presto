@@ -92,7 +92,6 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -294,7 +293,7 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSource,
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
-                    hiveFileContext);
+                    hiveFileContext.isCacheable());
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -386,7 +385,7 @@ public class OrcStorageManager
                             defaultReaderAttributes.getTinyStripeThreshold(),
                             HUGE_MAX_READ_BLOCK_SIZE,
                             defaultReaderAttributes.isZstdJniDecompressionEnabled()),
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    false);
 
             if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
@@ -548,7 +547,7 @@ public class OrcStorageManager
                     orcFileTailSource,
                     stripeMetadataSource,
                     new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
-                    new HiveFileContext(false, Optional.empty()));
+                    false);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

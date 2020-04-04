@@ -238,7 +238,7 @@ public class OrcBatchPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions, hiveFileContext);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions, hiveFileContext.isCacheable());
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

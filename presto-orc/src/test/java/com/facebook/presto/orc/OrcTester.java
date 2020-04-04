@@ -16,7 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.hive.orc.OrcConf;
 import com.facebook.hive.orc.lazy.OrcLazyObject;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.TrackingTupleDomainFilter.TestBigintRange;
 import com.facebook.presto.orc.TrackingTupleDomainFilter.TestDoubleRange;
@@ -124,7 +123,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
@@ -878,7 +876,7 @@ public class OrcTester
             return;
         }
 
-        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), DEFAULT_HIVE_FILE_CONTEXT)) {
+        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1280,16 +1278,16 @@ public class OrcTester
         }
     }
 
-    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, HiveFileContext hiveFileContext)
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, boolean cacheable)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, hiveFileContext);
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, cacheable);
     }
 
-    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, HiveFileContext hiveFileContext)
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, boolean cacheable)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), hiveFileContext);
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), cacheable);
     }
 
     static OrcBatchRecordReader createCustomOrcRecordReader(
@@ -1300,7 +1298,7 @@ public class OrcTester
             int initialBatchSize,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            HiveFileContext hiveFileContext)
+            boolean cacheable)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1314,7 +1312,7 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false),
-                hiveFileContext);
+                cacheable);
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
@@ -1396,7 +1394,7 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false),
-                DEFAULT_HIVE_FILE_CONTEXT);
+                false);
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

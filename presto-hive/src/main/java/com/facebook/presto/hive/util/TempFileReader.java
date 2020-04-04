@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -64,7 +63,7 @@ public class TempFileReader
                             new DataSize(8, MEGABYTE),
                             new DataSize(16, MEGABYTE),
                             false),
-                    DEFAULT_HIVE_FILE_CONTEXT);
+                    false);
 
             Map<Integer, Type> includedColumns = new HashMap<>();
             for (int i = 0; i < types.size(); i++) {
