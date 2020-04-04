@@ -14,6 +14,8 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
+import io.prestosql.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -22,16 +24,21 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import org.bson.types.ObjectId;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 
 public class ObjectIdFunctions
 {
@@ -52,6 +59,19 @@ public class ObjectIdFunctions
     {
         return Slices.wrappedBuffer(new ObjectId(CharMatcher.is(' ').removeFrom(value.toStringUtf8())).toByteArray());
     }
+
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType("ObjectId") Slice value)
+    {
+        String hexString = new ObjectId(value.getBytes()).toString();
+        if (hexString.length() > x) {
+            hexString = hexString.substring(0, toIntExact(x));
+        }
+        return utf8Slice(hexString);
+    }
+
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -114,5 +134,19 @@ public class ObjectIdFunctions
     private static int compareTo(Slice left, Slice right)
     {
         return new ObjectId(left.getBytes()).compareTo(new ObjectId(right.getBytes()));
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType("ObjectId") Slice value, @IsNull boolean isNull)
+    {
+        return isNull;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType("ObjectId") Slice value)
+    {
+        return XxHash64.hash(value);
     }
 }

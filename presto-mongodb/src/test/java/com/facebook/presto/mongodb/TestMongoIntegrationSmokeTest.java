@@ -235,6 +235,57 @@ public class TestMongoIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE tmp_objectid AS SELECT ObjectId('ffffffffffffffffffffffff') AS id", 1);
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
+
+        String values = "VALUES " +
+                " (10, NULL, NULL)," +
+                " (11, ObjectId('ffffffffffffffffffffffff'), ObjectId('ffffffffffffffffffffffff'))," +
+                " (12, ObjectId('ffffffffffffffffffffffff'), ObjectId('aaaaaaaaaaaaaaaaaaaaaaaa'))," +
+                " (13, ObjectId('000000000000000000000000'), ObjectId('000000000000000000000000'))," +
+                " (14, ObjectId('ffffffffffffffffffffffff'), NULL)," +
+                " (15, NULL, ObjectId('ffffffffffffffffffffffff'))";
+        String inlineTable = format("(%s) AS t(i, one, two)", values);
+
+        assertUpdate("DROP TABLE IF EXISTS tmp_objectid");
+        assertUpdate("CREATE TABLE tmp_objectid AS SELECT * FROM " + inlineTable, 6);
+
+        // IS NULL
+        assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NULL", "VALUES 10, 15");
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NULL", "SELECT 0 WHERE false"); // NULL gets replaced with new unique ObjectId in MongoPageSink, this affects other test cases
+
+        // CAST AS varchar
+        assertQuery(
+                "SELECT i, CAST(one AS varchar) FROM " + inlineTable + " WHERE i <= 13",
+                "VALUES (10, NULL), (11, 'ffffffffffffffffffffffff'), (12, 'ffffffffffffffffffffffff'), (13, '000000000000000000000000')");
+
+        // EQUAL
+        assertQuery("SELECT i FROM tmp_objectid WHERE one = two", "VALUES 11, 13");
+        assertQuery("SELECT i FROM tmp_objectid WHERE one = ObjectId('ffffffffffffffffffffffff')", "VALUES 11, 12, 14");
+
+        // IS DISTINCT FROM
+        assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS DISTINCT FROM two", "VALUES 12, 14, 15");
+        assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NOT DISTINCT FROM two", "VALUES 10, 11, 13");
+
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS DISTINCT FROM two", "VALUES 10, 12, 14, 15");
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NOT DISTINCT FROM two", "VALUES 11, 13");
+
+        // Join on ObjectId
+        assertQuery(
+                format("SELECT l.i, r.i FROM (%1$s) AS l(i, one, two) JOIN (%1$s) AS r(i, one, two) ON l.one = r.two", values),
+                "VALUES (11, 11), (14, 11), (11, 15), (12, 15), (12, 11), (14, 15), (13, 13)");
+
+        // Group by ObjectId (IS DISTINCT FROM)
+        assertQuery("SELECT array_agg(i ORDER BY i) FROM " + inlineTable + " GROUP BY one", "VALUES ((10, 15)), ((11, 12, 14)), ((13))");
+        assertQuery("SELECT i FROM " + inlineTable + " GROUP BY one, i", "VALUES 10, 11, 12, 13, 14, 15");
+
+        // Group by Row(ObjectId) (ID DISTINCT FROM in @OperatorDependency)
+        assertQuery(
+                "SELECT r.i, count(*) FROM (SELECT CAST(row(one, i) AS row(one ObjectId, i bigint)) r FROM " + inlineTable + ") GROUP BY r",
+                "VALUES (10, 1), (11, 1), (12, 1), (13, 1), (14, 1), (15, 1)");
+        assertQuery(
+                "SELECT r.x, CAST(r.one AS varchar), count(*) FROM (SELECT CAST(row(one, i / 3 * 3) AS row(one ObjectId, x bigint)) r FROM " + inlineTable + ") GROUP BY r",
+                "VALUES (9, NULL, 1), (9, 'ffffffffffffffffffffffff', 1), (12, 'ffffffffffffffffffffffff', 2), (12, '000000000000000000000000', 1), (15, NULL, 1)");
+
+        assertUpdate("DROP TABLE tmp_objectid");
     }
 
     private void assertOneNotNullResult(String query)
