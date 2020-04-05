@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -129,8 +129,8 @@ public class MapFlatSelectiveStreamReader
     private int[][] nestedOutputPositions;
     private boolean[][] inMap;
 
-    private final AggregatedMemoryContext systemMemoryContext;
-    private final LocalMemoryContext localMemoryContext;
+    private final OrcAggregatedMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext localMemoryContext;
 
     public MapFlatSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
@@ -139,7 +139,7 @@ public class MapFlatSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
         checkArgument(streamDescriptor.getNestedStreams().size() == 2, "there must be exactly 2 nested stream descriptor");
@@ -151,7 +151,7 @@ public class MapFlatSelectiveStreamReader
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.localMemoryContext = systemMemoryContext.newLocalMemoryContext(MapFlatSelectiveStreamReader.class.getSimpleName());
+        this.localMemoryContext = systemMemoryContext.newOrcLocalMemoryContext(MapFlatSelectiveStreamReader.class.getSimpleName());
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = outputType.map(MapType.class::cast).orElse(null);
 
@@ -643,7 +643,7 @@ public class MapFlatSelectiveStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(valueStreamDescriptor, ImmutableBiMap.of(), Optional.ofNullable(outputType).map(MapType::getValueType), ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
+            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(valueStreamDescriptor, ImmutableBiMap.of(), Optional.ofNullable(outputType).map(MapType::getValueType), ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -25,7 +26,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.stream.LongDecode.readVInt;
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static org.testng.Assert.assertEquals;
@@ -96,7 +96,7 @@ public class TestLongDecode
         }
 
         // read using Presto's code
-        long readValueNew = readVInt(signed, new OrcInputStream(new OrcDataSourceId("test"), hiveBytes.getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), hiveBytes.getRetainedSize()));
+        long readValueNew = readVInt(signed, new OrcInputStream(new OrcDataSourceId("test"), hiveBytes.getInput(), Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), hiveBytes.getRetainedSize()));
         assertEquals(readValueNew, value);
     }
 

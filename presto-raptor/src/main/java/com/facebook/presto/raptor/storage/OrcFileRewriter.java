@@ -24,6 +24,7 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.util.Closer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -46,7 +47,6 @@ import java.util.TreeMap;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -105,6 +105,7 @@ public final class OrcFileRewriter
                     ORC,
                     orcFileTailSource,
                     stripeMetadataSource,
+                    new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     false);
 
@@ -173,21 +174,21 @@ public final class OrcFileRewriter
                             storageTypeConverter.toStorageTypes(readerColumns),
                             TRUE,
                             DEFAULT_STORAGE_TIMEZONE,
-                            newSimpleAggregatedMemoryContext(),
+                            new RaptorOrcAggregatedMemoryContext(),
                             INITIAL_BATCH_SIZE),
                     OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
-                            orcDataEnvironment.createOrcDataSink(fileSystem, output),
-                            writerColumnIds,
-                            writerStorageTypes,
-                            ORC,
-                            compression,
-                            DEFAULT_OPTION,
-                            userMetadata,
-                            DEFAULT_STORAGE_TIMEZONE,
-                            validate,
-                            HASHED,
-                            stats),
+                                    orcDataEnvironment.createOrcDataSink(fileSystem, output),
+                                    writerColumnIds,
+                                    writerStorageTypes,
+                                    ORC,
+                                    compression,
+                                    DEFAULT_OPTION,
+                                    userMetadata,
+                                    DEFAULT_STORAGE_TIMEZONE,
+                                    validate,
+                                    HASHED,
+                                    stats),
                             OrcWriter::close)) {
                 OrcFileInfo fileInfo = rewrite(recordReader.get(), writer.get(), rowsToDelete, writerColumnTypes, readerColumnIndexBuilder.build());
                 log.debug("Rewrote file %s in %s (input rows: %s, output rows: %s)", input.getName(), nanosSince(start), inputRowCount, inputRowCount - deleteRowCount);

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -99,9 +99,9 @@ public class SliceDictionaryBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
-    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType, LocalMemoryContext systemMemoryContext)
+    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType, OrcLocalMemoryContext systemMemoryContext)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;

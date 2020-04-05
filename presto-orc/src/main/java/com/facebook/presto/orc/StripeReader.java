@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -115,7 +114,7 @@ public class StripeReader
         this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
     }
 
-    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public Stripe readStripe(StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
@@ -256,7 +255,7 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
-    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)
+    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         //
@@ -377,7 +376,7 @@ public class StripeReader
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
-    public StripeFooter readStripeFooter(StripeId stripeId, StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public StripeFooter readStripeFooter(StripeId stripeId, StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         long footerOffset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();

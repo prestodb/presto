@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
@@ -168,7 +167,7 @@ public class OrcSelectiveRecordReader
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AggregatedMemoryContext systemMemoryUsage,
+            OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
@@ -186,7 +185,7 @@ public class OrcSelectiveRecordReader
                         filterFunctions,
                         filterFunctionInputMapping,
                         requiredSubfields,
-                        systemMemoryUsage.newAggregatedMemoryContext()),
+                        systemMemoryUsage.newOrcAggregatedMemoryContext()),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -564,7 +563,7 @@ public class OrcSelectiveRecordReader
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,
             Map<Integer, List<Subfield>> requiredSubfields,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -46,11 +46,11 @@ public class LongSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        directReader = new LongDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionarySelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
+        directReader = new LongDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
+        dictionaryReader = new LongDictionarySelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
     }
 
     @Override

@@ -19,8 +19,9 @@ import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -68,7 +69,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -227,9 +227,9 @@ public class OrcBatchPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions, hiveFileContext.isCacheable());
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, new HiveOrcAggregatedMemoryContext(), orcReaderOptions, hiveFileContext.isCacheable());
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

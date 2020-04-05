@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -45,12 +45,12 @@ public class LongBatchStreamReader
     private final LongDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public LongBatchStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public LongBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectBatchStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryBatchStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
+        directReader = new LongDirectBatchStreamReader(type, streamDescriptor, systemMemoryContext.newOrcLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
+        dictionaryReader = new LongDictionaryBatchStreamReader(type, streamDescriptor, systemMemoryContext.newOrcLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
     }
 
     @Override

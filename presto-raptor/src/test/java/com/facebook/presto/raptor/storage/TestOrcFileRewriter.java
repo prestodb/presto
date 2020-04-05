@@ -23,6 +23,7 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.TableColumn;
@@ -502,6 +503,7 @@ public class TestOrcFileRewriter
                 ORC,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
+                new RaptorOrcAggregatedMemoryContext(),
                 OrcTestingUtil.createDefaultTestConfig(),
                 false);
         orcReader.getColumnNames().equals(ImmutableList.of("7"));

@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
@@ -36,7 +36,7 @@ public class OrcSelectivePageSource
 {
     private final OrcSelectiveRecordReader recordReader;
     private final OrcDataSource orcDataSource;
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final OrcAggregatedMemoryContext systemMemoryContext;
     private final FileFormatDataSourceStats stats;
 
     private boolean closed;
@@ -44,7 +44,7 @@ public class OrcSelectivePageSource
     public OrcSelectivePageSource(
             OrcSelectiveRecordReader recordReader,
             OrcDataSource orcDataSource,
-            AggregatedMemoryContext systemMemoryContext,
+            OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -63,7 +62,7 @@ public class OrcBatchRecordReader
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AggregatedMemoryContext systemMemoryUsage,
+            OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
@@ -77,7 +76,7 @@ public class OrcBatchRecordReader
                 // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
                 // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
                 // their constructors is confusing.
-                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns, systemMemoryUsage.newAggregatedMemoryContext()),
+                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns, systemMemoryUsage.newOrcAggregatedMemoryContext()),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -160,7 +159,7 @@ public class OrcBatchRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();

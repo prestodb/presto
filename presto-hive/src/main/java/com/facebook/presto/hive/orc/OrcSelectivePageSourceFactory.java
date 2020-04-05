@@ -21,12 +21,13 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.FilterFunction;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
@@ -110,7 +111,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -305,9 +305,9 @@ public class OrcSelectivePageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions, hiveFileContext.isCacheable());
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, systemMemoryUsage, orcReaderOptions, hiveFileContext.isCacheable());
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
@@ -380,7 +380,7 @@ public class OrcSelectivePageSourceFactory
             return new OrcSelectivePageSource(
                     recordReader,
                     orcDataSource,
-                    systemMemoryUsage.newAggregatedMemoryContext(),
+                    systemMemoryUsage.newOrcAggregatedMemoryContext(),
                     stats);
         }
         catch (Exception e) {

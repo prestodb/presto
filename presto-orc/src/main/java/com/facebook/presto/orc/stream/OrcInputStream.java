@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import io.airlift.slice.ByteArrays;
 import io.airlift.slice.FixedLengthSliceInput;
@@ -64,13 +64,13 @@ public final class OrcInputStream
     // Temporary memory for reading a float or double at buffer boundary.
     private byte[] temporaryBuffer = new byte[SIZE_OF_DOUBLE];
 
-    private final LocalMemoryContext bufferMemoryUsage;
+    private final OrcLocalMemoryContext bufferMemoryUsage;
 
     public OrcInputStream(
             OrcDataSourceId orcDataSourceId,
             FixedLengthSliceInput sliceInput,
             Optional<OrcDecompressor> decompressor,
-            AggregatedMemoryContext systemMemoryContext,
+            OrcAggregatedMemoryContext systemMemoryContext,
             long sliceInputRetainedSizeInBytes)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
@@ -82,9 +82,9 @@ public final class OrcInputStream
         // memory reserved in the systemMemoryContext is never release and instead it is
         // expected that the context itself will be destroyed at the end of the read
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName());
+        this.bufferMemoryUsage = systemMemoryContext.newOrcLocalMemoryContext(OrcInputStream.class.getSimpleName());
         checkArgument(sliceInputRetainedSizeInBytes >= 0, "sliceInputRetainedSizeInBytes is negative");
-        systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
+        systemMemoryContext.newOrcLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
         if (!decompressor.isPresent()) {
             int sliceInputPosition = toIntExact(sliceInput.position());

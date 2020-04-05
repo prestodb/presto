@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -55,7 +55,7 @@ public class MapSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
