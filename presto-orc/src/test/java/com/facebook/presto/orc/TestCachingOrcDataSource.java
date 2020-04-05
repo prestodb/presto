@@ -42,8 +42,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcBatchRecordReader.wrapWithCacheIfTinyStripes;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -198,6 +198,7 @@ public class TestCachingOrcDataSource
                 ORC,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE), false),
                 false);
         // 1 for reading file footer
@@ -212,7 +213,7 @@ public class TestCachingOrcDataSource
                 ImmutableMap.of(0, VARCHAR),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
-                newSimpleAggregatedMemoryContext(),
+                new TestingHiveOrcAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE);
         int positionCount = 0;
         while (true) {

@@ -15,7 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.HiveFileContext;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
@@ -32,6 +32,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
+import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
@@ -92,7 +93,6 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
@@ -284,7 +284,7 @@ public class OrcStorageManager
         FileSystem fileSystem = orcDataEnvironment.getFileSystem(fileSystemContext);
         OrcDataSource dataSource = openShard(fileSystem, shardUuid, readerAttributes);
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        OrcAggregatedMemoryContext systemMemoryUsage = new RaptorOrcAggregatedMemoryContext();
 
         try {
             OrcReader reader = new OrcReader(
@@ -292,6 +292,7 @@ public class OrcStorageManager
                     ORC,
                     orcFileTailSource,
                     stripeMetadataSource,
+                    new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     hiveFileContext.isCacheable());
 
@@ -374,12 +375,13 @@ public class OrcStorageManager
         }
 
         try (OrcDataSource dataSource = openShard(fileSystem, deltaShardUuid.get(), defaultReaderAttributes)) {
-            AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+            OrcAggregatedMemoryContext systemMemoryUsage = new RaptorOrcAggregatedMemoryContext();
             OrcReader reader = new OrcReader(
                     dataSource,
                     ORC,
                     orcFileTailSource,
                     new StorageStripeMetadataSource(),
+                    new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(
                             defaultReaderAttributes.getMaxMergeDistance(),
                             defaultReaderAttributes.getTinyStripeThreshold(),
@@ -546,6 +548,7 @@ public class OrcStorageManager
                     ORC,
                     orcFileTailSource,
                     stripeMetadataSource,
+                    new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
                     false);
 

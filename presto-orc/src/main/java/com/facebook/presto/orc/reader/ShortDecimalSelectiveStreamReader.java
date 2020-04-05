@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.block.Block;
@@ -31,7 +31,7 @@ public class ShortDecimalSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            LocalMemoryContext systemMemoryContext)
+            OrcLocalMemoryContext systemMemoryContext)
     {
         super(streamDescriptor, filter, outputType, systemMemoryContext, 1);
     }
