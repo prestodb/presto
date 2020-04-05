@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -97,9 +97,9 @@ public class MapFlatBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    private AggregatedMemoryContext systemMemoryContext;
+    private OrcAggregatedMemoryContext systemMemoryContext;
 
-    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");

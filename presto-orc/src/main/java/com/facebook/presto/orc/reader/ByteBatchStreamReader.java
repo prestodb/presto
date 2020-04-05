@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -67,9 +67,9 @@ public class ByteBatchStreamReader
 
     private byte[] nonNullValueTemp = new byte[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
-    public ByteBatchStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public ByteBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcLocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");

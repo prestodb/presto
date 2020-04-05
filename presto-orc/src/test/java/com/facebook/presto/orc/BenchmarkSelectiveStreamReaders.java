@@ -65,7 +65,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -195,6 +195,7 @@ public class BenchmarkSelectiveStreamReaders
                     ORC,
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
+                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false);
 
@@ -212,7 +213,7 @@ public class BenchmarkSelectiveStreamReaders
                     dataSource.getSize(),
                     UTC, // arbitrary
                     true,
-                    newSimpleAggregatedMemoryContext(),
+                    new TestingHiveOrcAggregatedMemoryContext(),
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);
         }
