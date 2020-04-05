@@ -147,6 +147,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Deprecated
 public class ExpressionInterpreter
@@ -528,7 +529,7 @@ public class ExpressionInterpreter
                         }
                         return Stream.of(expression);
                     })
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
                 return values.get(0);
@@ -972,7 +973,7 @@ public class ExpressionInterpreter
         {
             List<Object> values = node.getValues().stream()
                     .map(value -> process(value, context))
-                    .collect(toImmutableList());
+                    .collect(toList());
             Object function = process(node.getFunction(), context);
 
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
