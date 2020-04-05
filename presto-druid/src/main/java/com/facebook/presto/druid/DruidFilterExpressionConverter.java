@@ -185,7 +185,7 @@ public class DruidFilterExpressionConverter
                 throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Invalid Timestamp literal in Druid filter: " + argument.toString());
             }
             SqlTimestamp value = new SqlTimestamp((long) ((ConstantExpression) argument).getValue(), session.getTimeZoneKey());
-            return new DruidExpression("'" + value.toString() + "'", Origin.LITERAL);
+            return new DruidExpression("TIMESTAMP '" + value.toString() + "'", Origin.LITERAL);
         }
 
         throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Function " + call + " not supported in Druid filter");
