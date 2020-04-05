@@ -156,6 +156,7 @@ public class HiveClientConfig
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
     private boolean pushdownFilterEnabled;
+    private boolean useMemoryPool;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
@@ -1297,6 +1298,19 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    public boolean isUseMemoryPool()
+    {
+        return useMemoryPool;
+    }
+
+    @Config("hive.use-memory-pool")
+    @ConfigDescription("Experimental: use memory pool")
+    public HiveClientConfig setUseMemoryPool(boolean useMemoryPool)
+    {
+        this.useMemoryPool = useMemoryPool;
         return this;
     }
 

@@ -46,6 +46,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.memory.Caches;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -77,6 +78,7 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -109,6 +111,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseMemoryPool;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -243,6 +246,7 @@ public class OrcSelectivePageSourceFactory
                 functionResolution,
                 rowExpressionService,
                 isOrcBloomFiltersEnabled(session),
+                isUseMemoryPool(session),
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
@@ -274,6 +278,7 @@ public class OrcSelectivePageSourceFactory
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             boolean orcBloomFiltersEnabled,
+            boolean useMemoryPool,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
@@ -305,6 +310,9 @@ public class OrcSelectivePageSourceFactory
                     lazyReadSmallRanges,
                     inputStream,
                     stats);
+            if(useMemoryPool) {
+                orcDataSource.setCache(Caches.getByteArrayPoolCacheAdapter());
+            }
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

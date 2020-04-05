@@ -17,6 +17,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 
+import com.facebook.presto.spi.memory.CacheAdapter;
+
 public interface OrcDataSource
         extends Closeable
 {
@@ -42,4 +44,8 @@ public interface OrcDataSource
             throws IOException
     {
     }
+
+	default void setCache(CacheAdapter cache) 
+	{	
+	}
 }

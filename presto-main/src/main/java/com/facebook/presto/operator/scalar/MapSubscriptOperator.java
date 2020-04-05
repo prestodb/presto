@@ -120,7 +120,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
-            if (legacyMissingKey) {
+            if (true) {
                 return null;
             }
             throw missingKeyExceptionFactory.create(session, key);

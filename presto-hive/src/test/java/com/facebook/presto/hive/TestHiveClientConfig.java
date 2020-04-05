@@ -124,6 +124,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
+                .setUseMemoryPool(false)
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
@@ -222,6 +223,7 @@ public class TestHiveClientConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.use-memory-pool", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -311,6 +313,7 @@ public class TestHiveClientConfig
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
+                .setUseMemoryPool(true)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);

@@ -150,6 +150,7 @@ public class FeaturesConfig
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
     private boolean useLegacyScheduler = true;
+    private boolean useMemoryPool = true;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1221,6 +1222,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
     {
         this.useLegacyScheduler = useLegacyScheduler;
+        return this;
+    }
+
+    public boolean isUseMemoryPool()
+    {
+        return useMemoryPool;
+    }
+
+    @Config("use-legacy-scheduler")
+    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
+    public FeaturesConfig setUseMemoryPool(boolean useMemoryPool)
+    {
+        this.useMemoryPool = useMemoryPool;
         return this;
     }
 }

@@ -138,6 +138,7 @@ public class DwrfSelectivePageSourceFactory
                 functionResolution,
                 rowExpressionService,
                 false,
+                false,
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,

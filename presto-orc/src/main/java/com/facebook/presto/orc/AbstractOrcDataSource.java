@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.memory.CacheAdapter;
+import com.facebook.presto.spi.memory.CacheEntry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
@@ -25,7 +27,9 @@ import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Supplier;
@@ -48,6 +52,8 @@ public abstract class AbstractOrcDataSource
     private final boolean lazyReadSmallRanges;
     private long readTimeNanos;
     private long readBytes;
+    private CacheAdapter cache;
+    private List<CachingLoader> cachingLoaders;
 
     public AbstractOrcDataSource(OrcDataSourceId id, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize, boolean lazyReadSmallRanges)
     {
@@ -60,6 +66,20 @@ public abstract class AbstractOrcDataSource
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
         this.lazyReadSmallRanges = lazyReadSmallRanges;
+    }
+
+    @Override
+    public void setCache(CacheAdapter cache)
+    {
+        this.cache = cache;
+        if (cachingLoaders == null) {
+            cachingLoaders = new ArrayList<>();
+        }
+    }
+
+    public abstract class CachingLoader
+    {
+        public abstract void close();
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
@@ -152,9 +172,8 @@ public abstract class AbstractOrcDataSource
             return ImmutableMap.of();
         }
 
-        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
-
         ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
         if (lazyReadSmallRanges) {
             for (DiskRange mergedRange : mergedRanges) {
                 LazyBufferLoader mergedRangeLazyLoader = new LazyBufferLoader(mergedRange);
@@ -209,16 +228,21 @@ public abstract class AbstractOrcDataSource
     }
 
     private final class LazyBufferLoader
+            extends CachingLoader
     {
         private final DiskRange diskRange;
         private Slice bufferSlice;
+        private CacheEntry cacheEntry;
 
         public LazyBufferLoader(DiskRange diskRange)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
+            if(cachingLoaders != null) {
+                cachingLoaders.add(this);
+            }
         }
 
-        public Slice loadNestedDiskRangeBuffer(DiskRange nestedDiskRange)
+        public Slice    loadNestedDiskRangeBuffer(DiskRange nestedDiskRange)
         {
             load();
 
@@ -229,16 +253,29 @@ public abstract class AbstractOrcDataSource
 
         private void load()
         {
-            if (bufferSlice != null) {
-                return;
-            }
             try {
-                byte[] buffer = new byte[diskRange.getLength()];
-                readFully(diskRange.getOffset(), buffer);
-                bufferSlice = Slices.wrappedBuffer(buffer);
+                byte[] buffer;
+                if (cache != null) {
+                    cacheEntry = cache.get(diskRange.getLength());
+                    buffer = cacheEntry.getData();
+                    readFully(diskRange.getOffset(), buffer, 0, diskRange.getLength());
+                }
+                else {
+                    buffer = new byte[diskRange.getLength()];
+                    readFully(diskRange.getOffset(), buffer);
+                }
+                bufferSlice = Slices.wrappedBuffer(buffer, 0, diskRange.getLength());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
+            }
+        }
+
+        @Override
+        public void close()
+        {
+            if (cacheEntry != null) {
+                cacheEntry.release();
             }
         }
     }
@@ -264,19 +301,25 @@ public abstract class AbstractOrcDataSource
     }
 
     private class ChunkedSliceLoader
+            extends CachingLoader
             implements SliceLoader<SliceBufferReference>
     {
         private final DiskRange diskRange;
+        private SliceBufferReference bufferReference;
 
         public ChunkedSliceLoader(DiskRange diskRange)
         {
             this.diskRange = diskRange;
+            if(cache != null) {
+                cachingLoaders.add(this);
+            }
         }
 
         @Override
         public SliceBufferReference createBuffer(int bufferSize)
         {
-            return new SliceBufferReference(bufferSize);
+            this.bufferReference = new SliceBufferReference(bufferSize);
+            return this.bufferReference;
         }
 
         @Override
@@ -299,19 +342,37 @@ public abstract class AbstractOrcDataSource
         @Override
         public void close()
         {
+            if (this.bufferReference != null) {
+                this.bufferReference.close();
+            }
         }
     }
 
-    private static class SliceBufferReference
+    private class SliceBufferReference
             implements BufferReference
     {
-        private final byte[] buffer;
-        private final Slice slice;
+        private byte[] buffer;
+        private CacheEntry cacheEntry;
+        private int bufferSize;
+        private Slice bufferSlice;
 
         public SliceBufferReference(int bufferSize)
         {
-            this.buffer = new byte[bufferSize];
-            this.slice = Slices.wrappedBuffer(buffer);
+            this.bufferSize = bufferSize;
+            if (cache != null) {
+                cacheEntry = cache.get(bufferSize);
+                buffer = cacheEntry.getData();
+            }
+            else {
+                buffer = new byte[bufferSize];
+            }
+        }
+
+        @Override
+        public Slice getSlice()
+        {
+            bufferSlice = Slices.wrappedBuffer(buffer);
+            return bufferSlice;
         }
 
         public byte[] getBuffer()
@@ -319,10 +380,11 @@ public abstract class AbstractOrcDataSource
             return buffer;
         }
 
-        @Override
-        public Slice getSlice()
+        public void close()
         {
-            return slice;
+            if (cacheEntry != null) {
+                cacheEntry.release();
+            }
         }
     }
 
@@ -331,18 +393,31 @@ public abstract class AbstractOrcDataSource
     {
         private final DiskRange diskRange;
         private final int bufferSize;
+        private ChunkedSliceLoader loader;
 
         public LazyChunkedSliceLoader(DiskRange diskRange, int bufferSize)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
             checkArgument(bufferSize > 0, "bufferSize must be greater than 0");
             this.bufferSize = bufferSize;
+            this.loader = new ChunkedSliceLoader(diskRange);
         }
 
         @Override
         public FixedLengthSliceInput get()
         {
-            return new ChunkedSliceInput(new ChunkedSliceLoader(diskRange), bufferSize);
+            return new ChunkedSliceInput(loader, bufferSize);
         }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        if (cache != null && cachingLoaders != null) {
+            cachingLoaders.stream().forEach(CachingLoader::close);
+        }
+        cachingLoaders = null;
+        cache = null;
     }
 }

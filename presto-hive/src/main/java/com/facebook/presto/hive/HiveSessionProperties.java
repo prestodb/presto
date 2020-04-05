@@ -91,6 +91,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String USE_MEMORY_POOL = "use_memory_pool";
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
@@ -389,6 +390,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isPushdownFilterEnabled(),
                         false),
                 booleanProperty(
+                        USE_MEMORY_POOL,
+                        "Experimental: use memory pool",
+                        hiveClientConfig.isUseMemoryPool(),
+                        false),
+                booleanProperty(
                         RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
                         "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
                         hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
@@ -685,6 +691,11 @@ public final class HiveSessionProperties
     public static boolean isPushdownFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseMemoryPool(ConnectorSession session)
+    {
+        return session.getProperty(USE_MEMORY_POOL, Boolean.class);
     }
 
     public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
