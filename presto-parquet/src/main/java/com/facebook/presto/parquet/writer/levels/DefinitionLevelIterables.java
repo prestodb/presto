@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.writer.repdef;
+package com.facebook.presto.parquet.writer.levels;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable.DefLevelIterator;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable.DefinitionLevelIterator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.block.ColumnarMap;
@@ -29,51 +29,51 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
-public class DefLevelIterables
+public class DefinitionLevelIterables
 {
-    private DefLevelIterables() {}
+    private DefinitionLevelIterables() {}
 
-    public static DefLevelIterable of(Block block, int maxDefinitionLevel)
+    public static DefinitionLevelIterable of(Block block, int maxDefinitionLevel)
     {
-        return new PrimitiveDefLevelIterable(block, maxDefinitionLevel);
+        return new PrimitiveDefinitionLevelIterable(block, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarRow columnarRow, int maxDefinitionLevel)
+    public static DefinitionLevelIterable of(ColumnarRow columnarRow, int maxDefinitionLevel)
     {
-        return new ColumnRowDefLevelIterable(columnarRow, maxDefinitionLevel);
+        return new ColumnRowDefinitionLevelIterable(columnarRow, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarArray columnarArray, int maxDefinitionLevel)
+    public static DefinitionLevelIterable of(ColumnarArray columnarArray, int maxDefinitionLevel)
     {
-        return new ColumnArrayDefLevelIterable(columnarArray, maxDefinitionLevel);
+        return new ColumnArrayDefinitionLevelIterable(columnarArray, maxDefinitionLevel);
     }
 
-    public static DefLevelIterable of(ColumnarMap columnarMap, int maxDefinitionLevel)
+    public static DefinitionLevelIterable of(ColumnarMap columnarMap, int maxDefinitionLevel)
     {
-        return new ColumnMapDefLevelIterable(columnarMap, maxDefinitionLevel);
+        return new ColumnMapDefinitionLevelIterable(columnarMap, maxDefinitionLevel);
     }
 
-    public static Iterator<Integer> getIterator(List<DefLevelIterable> iterables)
+    public static Iterator<Integer> getIterator(List<DefinitionLevelIterable> iterables)
     {
-        return new NestedDefLevelIterator(iterables);
+        return new NestedDefinitionLevelIterator(iterables);
     }
 
-    static class PrimitiveDefLevelIterable
-            implements DefLevelIterable
+    static class PrimitiveDefinitionLevelIterable
+            implements DefinitionLevelIterable
     {
         private final Block block;
         private final int maxDefinitionLevel;
 
-        PrimitiveDefLevelIterable(Block block, int maxDefinitionLevel)
+        PrimitiveDefinitionLevelIterable(Block block, int maxDefinitionLevel)
         {
             this.block = requireNonNull(block, "block is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelIterator getIterator()
         {
-            return new DefLevelIterator()
+            return new DefinitionLevelIterator()
             {
                 private int position = -1;
 
@@ -99,22 +99,22 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnRowDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnRowDefinitionLevelIterable
+            implements DefinitionLevelIterable
     {
         private final ColumnarRow columnarRow;
         private final int maxDefinitionLevel;
 
-        ColumnRowDefLevelIterable(ColumnarRow columnarRow, int maxDefinitionLevel)
+        ColumnRowDefinitionLevelIterable(ColumnarRow columnarRow, int maxDefinitionLevel)
         {
             this.columnarRow = requireNonNull(columnarRow, "columnarRow is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelIterator getIterator()
         {
-            return new DefLevelIterator()
+            return new DefinitionLevelIterator()
             {
                 private int position = -1;
 
@@ -140,22 +140,22 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnMapDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnMapDefinitionLevelIterable
+            implements DefinitionLevelIterable
     {
         private final ColumnarMap columnarMap;
         private final int maxDefinitionLevel;
 
-        ColumnMapDefLevelIterable(ColumnarMap columnarMap, int maxDefinitionLevel)
+        ColumnMapDefinitionLevelIterable(ColumnarMap columnarMap, int maxDefinitionLevel)
         {
             this.columnarMap = requireNonNull(columnarMap, "columnarMap is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelIterator getIterator()
         {
-            return new DefLevelIterator()
+            return new DefinitionLevelIterator()
             {
                 private int position = -1;
                 private Iterator<OptionalInt> iterator;
@@ -190,22 +190,22 @@ public class DefLevelIterables
         }
     }
 
-    static class ColumnArrayDefLevelIterable
-            implements DefLevelIterable
+    static class ColumnArrayDefinitionLevelIterable
+            implements DefinitionLevelIterable
     {
         private final ColumnarArray columnarArray;
         private final int maxDefinitionLevel;
 
-        ColumnArrayDefLevelIterable(ColumnarArray columnarArray, int maxDefinitionLevel)
+        ColumnArrayDefinitionLevelIterable(ColumnarArray columnarArray, int maxDefinitionLevel)
         {
             this.columnarArray = requireNonNull(columnarArray, "columnarArray is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
         @Override
-        public DefLevelIterator getIterator()
+        public DefinitionLevelIterator getIterator()
         {
-            return new DefLevelIterator()
+            return new DefinitionLevelIterator()
             {
                 private int position = -1;
                 private Iterator<OptionalInt> iterator;
@@ -240,21 +240,21 @@ public class DefLevelIterables
         }
     }
 
-    static class NestedDefLevelIterator
+    static class NestedDefinitionLevelIterator
             extends AbstractIterator<Integer>
     {
-        private final List<DefLevelIterator> iterators;
+        private final List<DefinitionLevelIterator> iterators;
         private int iteratorIndex;
 
-        NestedDefLevelIterator(List<DefLevelIterable> iterables)
+        NestedDefinitionLevelIterator(List<DefinitionLevelIterable> iterables)
         {
-            this.iterators = iterables.stream().map(DefLevelIterable::getIterator).collect(toImmutableList());
+            this.iterators = iterables.stream().map(DefinitionLevelIterable::getIterator).collect(toImmutableList());
         }
 
         @Override
         protected Integer computeNext()
         {
-            DefLevelIterator current = iterators.get(iteratorIndex);
+            DefinitionLevelIterator current = iterators.get(iteratorIndex);
             while (iteratorIndex > 0 && current.end()) {
                 iteratorIndex--;
                 current = iterators.get(iteratorIndex);

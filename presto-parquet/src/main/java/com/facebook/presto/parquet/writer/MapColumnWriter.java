@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterables;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterables;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.google.common.collect.ImmutableList;
 
@@ -47,13 +47,13 @@ public class MapColumnWriter
     {
         ColumnarMap columnarMap = ColumnarMap.toColumnarMap(columnChunk.getBlock());
 
-        ImmutableList<DefLevelIterable> defLevelIterables = ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnarMap, maxDefinitionLevel)).build();
+        ImmutableList<DefinitionLevelIterable> defLevelIterables = ImmutableList.<DefinitionLevelIterable>builder()
+                .addAll(columnChunk.getDefinitionLevelIterables())
+                .add(DefinitionLevelIterables.of(columnarMap, maxDefinitionLevel)).build();
 
-        ImmutableList<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnarMap, maxRepetitionLevel)).build();
+        ImmutableList<RepetitionLevelIterable> repLevelIterables = ImmutableList.<RepetitionLevelIterable>builder()
+                .addAll(columnChunk.getRepetitionLevelIterables())
+                .add(RepetitionLevelIterables.of(columnarMap, maxRepetitionLevel)).build();
 
         keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelIterables, repLevelIterables));
         valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelIterables, repLevelIterables));

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
@@ -25,29 +25,29 @@ import static java.util.Objects.requireNonNull;
 public class ColumnChunk
 {
     private final Block block;
-    private final List<DefLevelIterable> defLevelIterables;
-    private final List<RepLevelIterable> repLevelIterables;
+    private final List<DefinitionLevelIterable> definitionLevelIterables;
+    private final List<RepetitionLevelIterable> repetitionLevelIterables;
 
-    ColumnChunk(Block block)
+    public ColumnChunk(Block block)
     {
         this(block, ImmutableList.of(), ImmutableList.of());
     }
 
-    ColumnChunk(Block block, List<DefLevelIterable> defLevelIterables, List<RepLevelIterable> repLevelIterables)
+    public ColumnChunk(Block block, List<DefinitionLevelIterable> definitionLevelIterables, List<RepetitionLevelIterable> repetitionLevelIterables)
     {
         this.block = requireNonNull(block, "block is null");
-        this.defLevelIterables = ImmutableList.copyOf(defLevelIterables);
-        this.repLevelIterables = ImmutableList.copyOf(repLevelIterables);
+        this.definitionLevelIterables = ImmutableList.copyOf(definitionLevelIterables);
+        this.repetitionLevelIterables = ImmutableList.copyOf(repetitionLevelIterables);
     }
 
-    List<DefLevelIterable> getDefLevelIterables()
+    public List<DefinitionLevelIterable> getDefinitionLevelIterables()
     {
-        return defLevelIterables;
+        return definitionLevelIterables;
     }
 
-    List<RepLevelIterable> getRepLevelIterables()
+    public List<RepetitionLevelIterable> getRepetitionLevelIterables()
     {
-        return repLevelIterables;
+        return repetitionLevelIterables;
     }
 
     public Block getBlock()

@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.writer.repdef;
+package com.facebook.presto.parquet.writer.levels;
 
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable.RepValueIterator;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable.RepetitionLevel;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable.RepetitionLevel;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable.RepetitionValueIterator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.block.ColumnarMap;
@@ -27,32 +27,32 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class RepLevelIterables
+public class RepetitionLevelIterables
 {
-    private RepLevelIterables() {}
+    private RepetitionLevelIterables() {}
 
-    public static RepLevelIterable of(Block block)
+    public static RepetitionLevelIterable of(Block block)
     {
         return new BlockRepLevel(block);
     }
 
-    public static RepLevelIterable of(ColumnarArray columnarArray, int maxRepLevel)
+    public static RepetitionLevelIterable of(ColumnarArray columnarArray, int maxRepLevel)
     {
         return new ArrayRepLevel(columnarArray, maxRepLevel);
     }
 
-    public static RepLevelIterable of(ColumnarMap columnarMap, int maxRepLevel)
+    public static RepetitionLevelIterable of(ColumnarMap columnarMap, int maxRepLevel)
     {
         return new MapRepLevel(columnarMap, maxRepLevel);
     }
 
-    public static Iterator<Integer> getIterator(List<RepLevelIterable> iterables)
+    public static Iterator<Integer> getIterator(List<RepetitionLevelIterable> iterables)
     {
-        return new NestedRepLevelIterator(iterables);
+        return new NestedRepetitionLevelIterator(iterables);
     }
 
     static class BlockRepLevel
-            implements RepLevelIterable
+            implements RepetitionLevelIterable
     {
         private final Block block;
 
@@ -62,9 +62,9 @@ public class RepLevelIterables
         }
 
         @Override
-        public RepValueIterator getIterator()
+        public RepetitionValueIterator getIterator()
         {
-            return new RepValueIterator()
+            return new RepetitionValueIterator()
             {
                 private int position = -1;
 
@@ -91,7 +91,7 @@ public class RepLevelIterables
     }
 
     static class ArrayRepLevel
-            implements RepLevelIterable
+            implements RepetitionLevelIterable
     {
         private final ColumnarArray columnarArray;
         private final int maxRepValue;
@@ -103,9 +103,9 @@ public class RepLevelIterables
         }
 
         @Override
-        public RepValueIterator getIterator()
+        public RepetitionValueIterator getIterator()
         {
-            return new RepValueIterator()
+            return new RepetitionValueIterator()
             {
                 private int position = -1;
                 private FixedValueIterator iterator;
@@ -141,7 +141,7 @@ public class RepLevelIterables
     }
 
     static class MapRepLevel
-            implements RepLevelIterable
+            implements RepetitionLevelIterable
     {
         private final ColumnarMap columnarArray;
         private final int maxRepValue;
@@ -153,9 +153,9 @@ public class RepLevelIterables
         }
 
         @Override
-        public RepValueIterator getIterator()
+        public RepetitionValueIterator getIterator()
         {
-            return new RepValueIterator()
+            return new RepetitionValueIterator()
             {
                 private int position = -1;
                 private FixedValueIterator iterator;
@@ -190,21 +190,21 @@ public class RepLevelIterables
         }
     }
 
-    static class NestedRepLevelIterator
+    static class NestedRepetitionLevelIterator
             extends AbstractIterator<Integer>
     {
-        private final List<RepValueIterator> repValueIteratorList;
+        private final List<RepetitionValueIterator> repValueIteratorList;
         private int iteratorIndex;
 
-        NestedRepLevelIterator(List<RepLevelIterable> repValueIteratorList)
+        NestedRepetitionLevelIterator(List<RepetitionLevelIterable> repValueIteratorList)
         {
-            this.repValueIteratorList = repValueIteratorList.stream().map(RepLevelIterable::getIterator).collect(toImmutableList());
+            this.repValueIteratorList = repValueIteratorList.stream().map(RepetitionLevelIterable::getIterator).collect(toImmutableList());
         }
 
         @Override
         protected Integer computeNext()
         {
-            RepValueIterator current = repValueIteratorList.get(iteratorIndex);
+            RepetitionValueIterator current = repValueIteratorList.get(iteratorIndex);
             while (iteratorIndex > 0 && current.end()) {
                 current = repValueIteratorList.get(--iteratorIndex);
             }

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterables;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterables;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.google.common.collect.ImmutableList;
 
@@ -46,13 +46,13 @@ public class ArrayColumnWriter
         ColumnarArray columnarArray = ColumnarArray.toColumnarArray(columnChunk.getBlock());
         elementWriter.writeBlock(
                 new ColumnChunk(columnarArray.getElementsBlock(),
-                        ImmutableList.<DefLevelIterable>builder()
-                                .addAll(columnChunk.getDefLevelIterables())
-                                .add(DefLevelIterables.of(columnarArray, maxDefinitionLevel))
+                        ImmutableList.<DefinitionLevelIterable>builder()
+                                .addAll(columnChunk.getDefinitionLevelIterables())
+                                .add(DefinitionLevelIterables.of(columnarArray, maxDefinitionLevel))
                                 .build(),
-                        ImmutableList.<RepLevelIterable>builder()
-                                .addAll(columnChunk.getRepLevelIterables())
-                                .add(RepLevelIterables.of(columnarArray, maxRepetitionLevel))
+                        ImmutableList.<RepetitionLevelIterable>builder()
+                                .addAll(columnChunk.getRepetitionLevelIterables())
+                                .add(RepetitionLevelIterables.of(columnarArray, maxRepetitionLevel))
                                 .build()));
     }
 
