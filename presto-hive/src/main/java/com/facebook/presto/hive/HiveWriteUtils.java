@@ -430,6 +430,9 @@ public final class HiveWriteUtils
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
+        if (!pathExists(context, hdfsEnvironment, temporaryRoot)) {
+            createDirectory(context, hdfsEnvironment, temporaryRoot);
+        }
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
 
         createDirectory(context, hdfsEnvironment, temporaryPath);
