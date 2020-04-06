@@ -101,6 +101,7 @@
         <module>presto-hive-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
+        <module>presto-i18n-functions</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
         <module>presto-local-file</module>
@@ -793,6 +794,12 @@
                         <artifactId>annotations</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-i18n-functions</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1591,6 +1598,12 @@
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.myanmartools</groupId>
+                <artifactId>myanmar-tools</artifactId>
+                <version>1.1.3</version>
             </dependency>
 
             <dependency>
