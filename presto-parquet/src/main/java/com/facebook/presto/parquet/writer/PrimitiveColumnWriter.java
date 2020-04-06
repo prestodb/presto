@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterables;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterables;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +43,7 @@ import java.util.Set;
 
 import static com.facebook.presto.parquet.writer.ParquetCompressor.getCompressor;
 import static com.facebook.presto.parquet.writer.ParquetDataOutput.createDataOutput;
-import static com.facebook.presto.parquet.writer.repdef.RepLevelIterables.getIterator;
+import static com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables.getIterator;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
@@ -108,13 +108,13 @@ public class PrimitiveColumnWriter
         checkState(!closed);
 
         ColumnChunk current = new ColumnChunk(columnChunk.getBlock(),
-                ImmutableList.<DefLevelIterable>builder()
-                        .addAll(columnChunk.getDefLevelIterables())
-                        .add(DefLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
+                ImmutableList.<DefinitionLevelIterable>builder()
+                        .addAll(columnChunk.getDefinitionLevelIterables())
+                        .add(DefinitionLevelIterables.of(columnChunk.getBlock(), maxDefinitionLevel))
                         .build(),
-                ImmutableList.<RepLevelIterable>builder()
-                        .addAll(columnChunk.getRepLevelIterables())
-                        .add(RepLevelIterables.of(columnChunk.getBlock()))
+                ImmutableList.<RepetitionLevelIterable>builder()
+                        .addAll(columnChunk.getRepetitionLevelIterables())
+                        .add(RepetitionLevelIterables.of(columnChunk.getBlock()))
                         .build());
 
         // write values
@@ -122,7 +122,7 @@ public class PrimitiveColumnWriter
         encodings.add(primitiveValueWriter.getEncoding());
 
         // write definition levels
-        Iterator<Integer> defIterator = DefLevelIterables.getIterator(current.getDefLevelIterables());
+        Iterator<Integer> defIterator = DefinitionLevelIterables.getIterator(current.getDefinitionLevelIterables());
         while (defIterator.hasNext()) {
             int next = defIterator.next();
             definitionLevelEncoder.writeInt(next);
@@ -133,7 +133,7 @@ public class PrimitiveColumnWriter
         }
 
         // write repetition levels
-        Iterator<Integer> repIterator = getIterator(current.getRepLevelIterables());
+        Iterator<Integer> repIterator = getIterator(current.getRepetitionLevelIterables());
         while (repIterator.hasNext()) {
             int next = repIterator.next();
             repetitionLevelEncoder.writeInt(next);

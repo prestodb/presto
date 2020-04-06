@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.writer.repdef;
+package com.facebook.presto.parquet.writer.levels;
 
 import com.google.common.collect.AbstractIterator;
 
 import java.util.OptionalInt;
 
-public interface DefLevelIterable
+public interface DefinitionLevelIterable
 {
-    DefLevelIterator getIterator();
+    DefinitionLevelIterator getIterator();
 
-    abstract class DefLevelIterator
+    abstract class DefinitionLevelIterator
             extends AbstractIterator<OptionalInt>
     {
         abstract boolean end();
