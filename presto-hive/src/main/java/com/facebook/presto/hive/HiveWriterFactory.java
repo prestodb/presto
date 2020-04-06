@@ -251,7 +251,7 @@ public class HiveWriterFactory
             for (SortingColumn column : sortedBy) {
                 Integer index = columnIndexes.get(column.getColumnName());
                 if (index == null) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does not exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
                 }
                 sortFields.add(index);
                 sortOrders.add(column.getOrder().getSortOrder());
