@@ -60,12 +60,12 @@ class ParquetWriters
 
     static List<ColumnWriter> getColumnWriters(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
     {
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, prestoTypes, parquetProperties, compressionCodecName);
+        WriterBuilder writeBuilder = new WriterBuilder(messageType, prestoTypes, parquetProperties, compressionCodecName);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }
 
-    private static class WriteBuilder
+    private static class WriterBuilder
             extends ParquetTypeVisitor<ColumnWriter>
     {
         private final MessageType type;
@@ -74,7 +74,7 @@ class ParquetWriters
         private final CompressionCodecName compressionCodecName;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
-        WriteBuilder(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
+        WriterBuilder(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.prestoTypes = requireNonNull(prestoTypes, "prestoTypes is null");

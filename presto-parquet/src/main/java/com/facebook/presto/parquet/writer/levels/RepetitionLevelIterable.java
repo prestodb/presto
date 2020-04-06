@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.writer.repdef;
+package com.facebook.presto.parquet.writer.levels;
 
 import com.google.common.collect.AbstractIterator;
 
-public interface RepLevelIterable
+public interface RepetitionLevelIterable
 {
-    RepValueIterator getIterator();
+    RepetitionValueIterator getIterator();
 
-    abstract class RepValueIterator
+    abstract class RepetitionValueIterator
             extends AbstractIterator<RepetitionLevel>
     {
         /**

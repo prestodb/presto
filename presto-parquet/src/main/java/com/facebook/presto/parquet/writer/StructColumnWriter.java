@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.DefLevelIterables;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterable;
-import com.facebook.presto.parquet.writer.repdef.RepLevelIterables;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
+import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
@@ -49,13 +49,13 @@ public class StructColumnWriter
         ColumnarRow columnarRow = toColumnarRow(columnChunk.getBlock());
         checkArgument(columnarRow.getFieldCount() == columnWriters.size(), "ColumnarRow field size %s is not equal to columnWriters size %s", columnarRow.getFieldCount(), columnWriters.size());
 
-        List<DefLevelIterable> defLevelIterables = ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnarRow, maxDefinitionLevel))
+        List<DefinitionLevelIterable> defLevelIterables = ImmutableList.<DefinitionLevelIterable>builder()
+                .addAll(columnChunk.getDefinitionLevelIterables())
+                .add(DefinitionLevelIterables.of(columnarRow, maxDefinitionLevel))
                 .build();
-        List<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnChunk.getBlock()))
+        List<RepetitionLevelIterable> repLevelIterables = ImmutableList.<RepetitionLevelIterable>builder()
+                .addAll(columnChunk.getRepetitionLevelIterables())
+                .add(RepetitionLevelIterables.of(columnChunk.getBlock()))
                 .build();
 
         for (int i = 0; i < columnWriters.size(); ++i) {
