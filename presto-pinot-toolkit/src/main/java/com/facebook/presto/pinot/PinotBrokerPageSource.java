@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.FixedWidthType;
@@ -145,6 +146,9 @@ public class PinotBrokerPageSource
                 type.writeDouble(blockBuilder, parseDouble(value));
             }
             else if (type instanceof TimestampType) {
+                type.writeLong(blockBuilder, parseLong(value));
+            }
+            else if (type instanceof DateType) {
                 type.writeLong(blockBuilder, parseLong(value));
             }
             else {
