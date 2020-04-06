@@ -722,6 +722,55 @@ public class TestHiveFileFormats
                 .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), expectedErrorCode, expectedMessageRowLongNest);
     }
 
+    @Test
+    public void testSchemaMismatchRowType()
+            throws Exception
+    {
+        TestColumn rowColumn = new TestColumn("column_name",
+                getStandardStructObjectInspector(
+                        ImmutableList.of("s_bigint", "s_double", "s_string"),
+                        ImmutableList.of(javaLongObjectInspector, javaDoubleObjectInspector, javaStringObjectInspector)),
+                new Object[] {1L, 2.0d, "test"},
+                rowBlockOf(ImmutableList.of(BIGINT, DOUBLE, createUnboundedVarcharType()), 1, 2.0, utf8Slice("test")));
+        TestColumn rowColumnPartialRead = new TestColumn("column_name",
+                getStandardStructObjectInspector(
+                        ImmutableList.of("s_bigint", "s_string"),
+                        ImmutableList.of(javaLongObjectInspector, javaStringObjectInspector)),
+                new Object[] {1L, "test"},
+                rowBlockOf(ImmutableList.of(BIGINT, createUnboundedVarcharType()), 1, utf8Slice("test")));
+        TestColumn rowColumnInCorrectSchema = new TestColumn("column_name",
+                getStandardStructObjectInspector(
+                        ImmutableList.of("s_bigint", "s_string"),
+                        ImmutableList.of(javaLongObjectInspector, javaDoubleObjectInspector)),
+                new Object[] {1L, 2.0d},
+                rowBlockOf(ImmutableList.of(BIGINT, DOUBLE), 1, 2.0d));
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowColumn))
+                .withReadColumns(ImmutableList.of(rowColumn))
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowColumn))
+                .withReadColumns(ImmutableList.of(rowColumnPartialRead))
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
+
+        String expectedMessage = "The column column_name is declared as type struct<s_bigint:bigint,s_string:double>, " +
+                "but the Parquet file declares the column as type optional group column_name {\n" +
+                "  optional int64 s_bigint;\n" +
+                "  optional double s_double;\n" +
+                "  optional binary s_string (UTF8);\n" +
+                "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowColumn))
+                .withReadColumns(ImmutableList.of(rowColumnInCorrectSchema))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()), HIVE_PARTITION_SCHEMA_MISMATCH, expectedMessage);
+    }
+
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             HiveStorageFormat storageFormat,

@@ -33,6 +33,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -321,10 +323,16 @@ public class ParquetPageSourceFactory
             GroupType groupType = parquetType.asGroupType();
             switch (prestoType) {
                 case ROW:
-                    if (groupType.getFields().size() == type.getTypeParameters().size()) {
-                        for (int i = 0; i < groupType.getFields().size(); i++) {
-                            if (!checkSchemaMatch(groupType.getFields().get(i), type.getTypeParameters().get(i))) {
+                    if (type instanceof RowType) {
+                        for (Field subField : ((RowType) type).getFields()) {
+                            if (!subField.getName().isPresent()) {
                                 return false;
+                            }
+                            org.apache.parquet.schema.Type parquetSubType = getParquetTypeByName(subField.getName().get(), groupType);
+                            if (parquetSubType != null) {
+                                if (!checkSchemaMatch(parquetSubType, subField.getType())) {
+                                    return false;
+                                }
                             }
                         }
                         return true;
