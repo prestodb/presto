@@ -218,12 +218,39 @@ public class TestQueryRewriter
     }
 
     @Test
+    public void testRewriteTime()
+    {
+        QueryBundle queryBundle = getQueryRewriter().rewriteQuery("SELECT time '12:34:56', time '12:34:56' now", CONTROL);
+        assertCreateTableAs(queryBundle.getQuery(), "SELECT\n" +
+                "  CAST(time '12:34:56' AS timestamp)\n" +
+                ", CAST(time '12:34:56' AS timestamp) now");
+    }
+
+    @Test
+    public void testRewriteTimestampWithTimeZone()
+    {
+        QueryBundle queryBundle = getQueryRewriter().rewriteQuery("SELECT now(), now() now", CONTROL);
+        assertCreateTableAs(queryBundle.getQuery(), "SELECT\n" +
+                "  CAST(now() AS varchar)\n" +
+                ", CAST(now() AS varchar) now");
+    }
+
+    @Test
     public void testRewriteUnknown()
     {
         QueryBundle queryBundle = getQueryRewriter().rewriteQuery("SELECT null, null unknown", CONTROL);
         assertCreateTableAs(queryBundle.getQuery(), "SELECT\n" +
                 "  CAST(null AS bigint)\n" +
                 ", CAST(null AS bigint) unknown");
+    }
+
+    @Test
+    public void testRewriteDecimal()
+    {
+        QueryBundle queryBundle = getQueryRewriter().rewriteQuery("SELECT decimal '1.2', decimal '1.2' d", CONTROL);
+        assertCreateTableAs(queryBundle.getQuery(), "SELECT\n" +
+                "  CAST(decimal '1.2' AS double)\n" +
+                ", CAST(decimal '1.2' AS double) d");
     }
 
     @Test
