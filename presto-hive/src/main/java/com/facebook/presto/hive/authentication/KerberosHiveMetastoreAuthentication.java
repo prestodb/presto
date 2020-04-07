@@ -15,7 +15,6 @@ package com.facebook.presto.hive.authentication;
 
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.MetastoreClientConfig;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.hive.thrift.DelegationTokenIdentifier;
@@ -41,7 +40,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Map;
 
-import static com.facebook.presto.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
@@ -53,24 +51,21 @@ public class KerberosHiveMetastoreAuthentication
     private final String hiveMetastoreServicePrincipal;
     private final HadoopAuthentication authentication;
     private final boolean hdfsWireEncryptionEnabled;
-    private final boolean impersonationEnabled;
 
     @Inject
     public KerberosHiveMetastoreAuthentication(
             MetastoreKerberosConfig config,
             @ForHiveMetastore HadoopAuthentication authentication,
-            HiveClientConfig hiveClientConfig,
-            MetastoreClientConfig metastoreClientConfig)
+            HiveClientConfig hiveClientConfig)
     {
-        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled(), metastoreClientConfig.isHmsImpersonationEnabled());
+        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled());
     }
 
-    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled, boolean impersonationEnabled)
+    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled)
     {
         this.hiveMetastoreServicePrincipal = requireNonNull(hiveMetastoreServicePrincipal, "hiveMetastoreServicePrincipal is null");
         this.authentication = requireNonNull(authentication, "authentication is null");
         this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
-        this.impersonationEnabled = impersonationEnabled;
     }
 
     @Override
@@ -183,20 +178,5 @@ public class KerberosHiveMetastoreAuthentication
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
-            throws E
-    {
-        if (impersonationEnabled) {
-            return executeActionInDoAs(createProxyUser(user), action);
-        }
-        return executeActionInDoAs(authentication.getUserGroupInformation(), action);
-    }
-
-    private UserGroupInformation createProxyUser(String user)
-    {
-        return UserGroupInformation.createProxyUser(user, authentication.getUserGroupInformation());
     }
 }
