@@ -34,18 +34,18 @@ public class StaticHiveCluster
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
-    private final boolean isMultipleMetastore;
+    private final boolean isMultiHMSEnabled;
 
     @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        this(config.getMetastoreUris(), config.isMultipleMetastoreEnabled(), config.getMetastoreUsername(), clientFactory);
+        this(config.getMetastoreUris(), config.isMultiHMSEnabled(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, boolean isMultipleMetastore, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, boolean isMultiHMSEnabled, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
-        this.isMultipleMetastore = isMultipleMetastore;
+        this.isMultiHMSEnabled = isMultiHMSEnabled;
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.addresses = metastoreUris.stream()
                 .map(StaticHiveCluster::checkMetastoreUri)
@@ -74,7 +74,7 @@ public class StaticHiveCluster
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
-        if (isMultipleMetastore) {
+        if (isMultiHMSEnabled) {
             Collections.shuffle(metastores);
         }
         else {
@@ -84,7 +84,8 @@ public class StaticHiveCluster
         TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore, token);
+                HiveMetastoreClient client;
+                client = clientFactory.create(metastore, token);
 
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);

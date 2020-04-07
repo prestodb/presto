@@ -847,7 +847,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
         if (tableAction == null) {
-            return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.listTablePrivileges(databaseName, tableName, principal));
+            return delegate.listTablePrivileges(databaseName, tableName, principal);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -947,6 +947,29 @@ public class SemiTransactionalHiveMetastore
             state = State.FINISHED;
         }
     }
+
+//    private Optional<String> getImpersonationUser()
+//    {
+//        if (!tableActions.isEmpty()) {
+//            return Optional.ofNullable(tableActions.values().iterator().next().context.getIdentity().getUser());
+//        }
+//
+//        if (!partitionActions.isEmpty()) {
+//            Iterator<Map<List<String>, Action<PartitionAndMore>>> partitionActionsIterator = partitionActions.values().iterator();
+//            while (partitionActionsIterator.hasNext()) {
+//                Map<List<String>, Action<PartitionAndMore>> partitionAction = partitionActionsIterator.next();
+//                if (!partitionAction.isEmpty()) {
+//                    return Optional.ofNullable(partitionAction.values().iterator().next().context.getIdentity().getUser());
+//                }
+//            }
+//        }
+//
+//        if (!declaredIntentionsToWrite.isEmpty()) {
+//            return Optional.ofNullable(declaredIntentionsToWrite.iterator().next().context.getIdentity().getUser());
+//        }
+//
+//        return Optional.empty();
+//    }
 
     @GuardedBy("this")
     private void commitShared()

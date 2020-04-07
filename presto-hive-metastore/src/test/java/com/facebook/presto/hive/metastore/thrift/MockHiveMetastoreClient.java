@@ -87,7 +87,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Client getMetastoreClient()
+    public Client getHMSClient()
     {
         return null;
     }

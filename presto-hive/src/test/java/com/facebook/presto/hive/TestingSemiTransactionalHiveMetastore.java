@@ -16,8 +16,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
