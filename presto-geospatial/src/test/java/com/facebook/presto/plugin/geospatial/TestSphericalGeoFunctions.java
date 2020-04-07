@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -253,6 +255,32 @@ public class TestSphericalGeoFunctions
 
         // Multi-linestring with adjacent paths is equivalent to a single linestring
         assertLength("MULTILINESTRING ((-71.05 42.36, -87.62 41.87), (-87.62 41.87, -122.41 37.77))", length);
+    }
+
+    @Test
+    public void testSTSphericalCentroid()
+    {
+        // Spherical centroid testing
+        assertSphericalCentroid("POINT (3 5)", new Point(3, 5));
+        assertSphericalCentroid("POINT EMPTY", null);
+        assertSphericalCentroid("MULTIPOINT EMPTY", null);
+        assertSphericalCentroid("MULTIPOINT (3 5)", new Point(3, 5));
+        assertSphericalCentroid("MULTIPOINT (0 -45, 0 45)", new Point(0, 0));
+        assertSphericalCentroid("MULTIPOINT (45 0, -45 0)", new Point(0, 0));
+        assertSphericalCentroid("MULTIPOINT (0 0, -180 0)", new Point(-90, 45));
+        assertSphericalCentroid("MULTIPOINT (0 -45, 0 45, 30 0)", new Point(12.36780515862267, 0));
+        assertSphericalCentroid("MULTIPOINT (0 -45, 0 45, 30 0, -30 0)", new Point(0, 0));
+    }
+
+    private void assertSphericalCentroid(String wkt, Point centroid)
+    {
+        String projection = format("ST_Centroid(to_spherical_geography(ST_GeometryFromText('%s')))", wkt);
+        if (centroid == null) {
+            assertFunction(projection, SPHERICAL_GEOGRAPHY, null);
+        }
+        else {
+            assertFunction(format("ST_AsText(%s)", projection), VARCHAR, new OGCPoint(centroid, null).asText());
+        }
     }
 
     private void assertLength(String lineString, Double expectedLength)

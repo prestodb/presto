@@ -27,6 +27,7 @@ import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
+import static java.lang.Math.toDegrees;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 
@@ -111,6 +112,68 @@ public class SphericalGeographyUtils
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+        }
+    }
+
+    public static final class CartesianPoint
+    {
+        private final double x;
+        private final double y;
+        private final double z;
+
+        /**
+         * @param p: Point expected to be in earth spherical coordinates (Long, Lat)
+         */
+        public CartesianPoint(Point p)
+        {
+            // Angle from North Pole down to Latitude, in Radians
+            double phi = toRadians(90 - p.getY());
+            double sinPhi = Math.sin(phi);
+            // Angle from Greenwich to Longitude, in Radians
+            double theta = toRadians(p.getX());
+
+            x = EARTH_RADIUS_KM * sinPhi * Math.cos(theta);
+            y = EARTH_RADIUS_KM * sinPhi * Math.sin(theta);
+            z = EARTH_RADIUS_KM * Math.cos(phi);
+        }
+
+        /**
+         *
+         * @param x in cartesian coordinate
+         * @param y in cartesian coordinate
+         * @param z in cartesian coordinate
+         */
+        public CartesianPoint(double x, double y, double z)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        public double getX()
+        {
+            return x;
+        }
+
+        public double getY()
+        {
+            return y;
+        }
+
+        public double getZ()
+        {
+            return z;
+        }
+
+        public Point asSphericalPoint()
+        {
+            // Angle from North Pole down to Latitude, in Radians
+            double phi = Math.atan2(Math.sqrt(x * x + y * y), z);
+            // Angle from Greenwich to Longitude, in Radians
+            double theta = Math.atan2(y, x);
+            double latitude = 90 - toDegrees(phi);
+            double longitude = toDegrees(theta);
+            return new Point(longitude, latitude);
         }
     }
 }
