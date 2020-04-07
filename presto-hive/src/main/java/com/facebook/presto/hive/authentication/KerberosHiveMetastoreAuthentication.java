@@ -35,6 +35,7 @@ import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.RealmCallback;
 import javax.security.sasl.RealmChoiceCallback;
+import javax.security.sasl.Sasl;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,11 +44,7 @@ import java.util.Map;
 import static com.facebook.presto.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static javax.security.sasl.Sasl.QOP;
-import static javax.security.sasl.Sasl.SERVER_AUTH;
 import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.KERBEROS;
-import static org.apache.hadoop.security.SaslRpcServer.AuthMethod.TOKEN;
-import static org.apache.hadoop.security.SaslRpcServer.SASL_DEFAULT_REALM;
 import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosHiveMetastoreAuthentication
@@ -57,7 +54,6 @@ public class KerberosHiveMetastoreAuthentication
     private final HadoopAuthentication authentication;
     private final boolean hdfsWireEncryptionEnabled;
     private final boolean impersonationEnabled;
-    private static final Map<String, String> saslProperties = ImmutableMap.of(QOP, "auth", SERVER_AUTH, "true");
 
     @Inject
     public KerberosHiveMetastoreAuthentication(
@@ -66,7 +62,7 @@ public class KerberosHiveMetastoreAuthentication
             HiveClientConfig hiveClientConfig,
             MetastoreClientConfig metastoreClientConfig)
     {
-        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled(), metastoreClientConfig.isMetastoreImpersonationEnabled());
+        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled(), metastoreClientConfig.isHmsImpersonationEnabled());
     }
 
     public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled, boolean impersonationEnabled)
@@ -78,19 +74,21 @@ public class KerberosHiveMetastoreAuthentication
     }
 
     @Override
-    public TTransport authenticateWithToken(TTransport rawTransport, String tokenString)
+    public TTransport authenticateWithToken(TTransport rawTransport, String tokenStrForm)
     {
         try {
-            Token<DelegationTokenIdentifier> token = new Token<DelegationTokenIdentifier>();
-            token.decodeFromUrlString(tokenString);
+            Token<DelegationTokenIdentifier> t = new Token<DelegationTokenIdentifier>();
+            t.decodeFromUrlString(tokenStrForm);
+
+            Map<String, String> saslProps = ImmutableMap.of(
+                    Sasl.QOP, "auth",
+                    Sasl.SERVER_AUTH, "true");
 
             TTransport saslTransport = new TSaslClientTransport(
-                    TOKEN.getMechanismName(),
+                    "DIGEST-MD5",
                     null,
-                    null,
-                    SASL_DEFAULT_REALM,
-                    saslProperties,
-                    new SaslClientCallbackHandler(token),
+                    null, SaslRpcServer.SASL_DEFAULT_REALM,
+                    saslProps, new SaslClientCallbackHandler(t),
                     rawTransport);
             return new TUGIAssumingTransport(saslTransport, UserGroupInformation.getCurrentUser());
         }
@@ -115,25 +113,35 @@ public class KerberosHiveMetastoreAuthentication
         public void handle(Callback[] callbacks)
                 throws UnsupportedCallbackException
         {
+            NameCallback nc = null;
+            PasswordCallback pc = null;
+            RealmCallback rc = null;
             for (Callback callback : callbacks) {
                 if (callback instanceof RealmChoiceCallback) {
                     continue;
                 }
                 else if (callback instanceof NameCallback) {
-                    NameCallback nameCallback = (NameCallback) callback;
-                    nameCallback.setName(userName);
+                    nc = (NameCallback) callback;
                 }
                 else if (callback instanceof PasswordCallback) {
-                    PasswordCallback passwordCallback = (PasswordCallback) callback;
-                    passwordCallback.setPassword(userPassword);
+                    pc = (PasswordCallback) callback;
                 }
                 else if (callback instanceof RealmCallback) {
-                    RealmCallback realmCallback = (RealmCallback) callback;
-                    realmCallback.setText(realmCallback.getDefaultText());
+                    rc = (RealmCallback) callback;
                 }
                 else {
-                    throw new UnsupportedCallbackException(callback, "Unrecognized SASL client callback");
+                    throw new UnsupportedCallbackException(callback,
+                            "Unrecognized SASL client callback");
                 }
+            }
+            if (nc != null) {
+                nc.setName(userName);
+            }
+            if (pc != null) {
+                pc.setPassword(userPassword);
+            }
+            if (rc != null) {
+                rc.setText(rc.getDefaultText());
             }
         }
 
@@ -158,8 +166,8 @@ public class KerberosHiveMetastoreAuthentication
                     "Kerberos principal name does NOT have the expected hostname part: %s", serverPrincipal);
 
             Map<String, String> saslProps = ImmutableMap.of(
-                    QOP, hdfsWireEncryptionEnabled ? "auth-conf" : "auth",
-                    SERVER_AUTH, "true");
+                    Sasl.QOP, hdfsWireEncryptionEnabled ? "auth-conf" : "auth",
+                    Sasl.SERVER_AUTH, "true");
 
             TTransport saslTransport = new TSaslClientTransport(
                     KERBEROS.getMechanismName(),

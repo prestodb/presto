@@ -102,7 +102,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
                 metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
-                metastoreClientConfig.getMetastoreDefaultImpersonationUser(),
+                metastoreClientConfig.getHmsImpersonationDefaultUser(),
                 typeManager,
                 locationService,
                 functionResolution,

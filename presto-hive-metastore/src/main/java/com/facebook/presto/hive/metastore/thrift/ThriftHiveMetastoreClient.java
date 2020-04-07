@@ -82,7 +82,7 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public ThriftHiveMetastore.Client getMetastoreClient()
+    public ThriftHiveMetastore.Client getHMSClient()
     {
         return client;
     }

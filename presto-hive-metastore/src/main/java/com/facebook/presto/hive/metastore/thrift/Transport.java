@@ -37,17 +37,17 @@ public final class Transport
             Optional<HostAndPort> socksProxy,
             int timeoutMillis,
             HiveMetastoreAuthentication authentication,
-            String tokenString)
+            String tokenStr)
             throws TTransportException
     {
         try {
             TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
             TTransport authenticatedTransport;
-            if (tokenString == null) {
+            if (tokenStr == null) {
                 authenticatedTransport = authentication.authenticate(rawTransport, address.getHost());
             }
             else {
-                authenticatedTransport = authentication.authenticateWithToken(rawTransport, tokenString);
+                authenticatedTransport = authentication.authenticateWithToken(rawTransport, tokenStr);
             }
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
