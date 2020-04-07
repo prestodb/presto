@@ -18,6 +18,4 @@ import org.apache.thrift.transport.TTransport;
 public interface HiveMetastoreAuthentication
 {
     TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost);
-
-    TTransport authenticateWithToken(TTransport rawTransport, String tokenStrForm);
 }

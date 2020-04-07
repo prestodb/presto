@@ -72,12 +72,6 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public ThriftHiveMetastore.Client getHMSClient()
-    {
-        return client;
-    }
-
-    @Override
     public List<String> getAllDatabases()
             throws TException
     {
