@@ -762,6 +762,16 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testNestedFilterFunctions()
+    {
+        // This query forces the shape aggregation, filter, project, filter, table scan. This ensures the outer filter is used in the query result.
+        assertQueryUsingH2Cte(
+                "select distinct shipmode from " +
+                        "(select * from lineitem_ex where orderkey % 5 = 0)" +
+                        "where ((case when (shipmode in ('RAIL', '2')) then '2' when (shipmode = 'AIR') then 'air' else 'Other' end) = '2')");
+    }
+
+    @Test
     public void testPushdownComposition()
     {
         // Tests composing two pushdowns each with a range filter and filter function.
