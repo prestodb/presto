@@ -31,7 +31,6 @@ public class StaticMetastoreConfig
 
     private List<URI> metastoreUris;
     private String metastoreUsername;
-    private boolean isMultiHMSEnabled;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -49,19 +48,6 @@ public class StaticMetastoreConfig
         }
 
         this.metastoreUris = ImmutableList.copyOf(transform(SPLITTER.split(uris), URI::create));
-        return this;
-    }
-
-    public boolean isMultiHMSEnabled()
-    {
-        return isMultiHMSEnabled;
-    }
-
-    @Config("hive.metastore.multi-instance.enabled")
-    @ConfigDescription("Whether enable the load balancing between all configured HMS instance")
-    public StaticMetastoreConfig setMultiHMSEnabled(boolean enabled)
-    {
-        this.isMultiHMSEnabled = enabled;
         return this;
     }
 
