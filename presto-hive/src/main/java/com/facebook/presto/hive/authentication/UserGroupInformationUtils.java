@@ -17,11 +17,11 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import java.security.PrivilegedAction;
 
-public final class UserGroupInformationUtils
+final class UserGroupInformationUtils
 {
     private UserGroupInformationUtils() {}
 
-    public static <R, E extends Exception> R executeActionInDoAs(UserGroupInformation userGroupInformation, GenericExceptionAction<R, E> action)
+    static <R, E extends Exception> R executeActionInDoAs(UserGroupInformation userGroupInformation, GenericExceptionAction<R, E> action)
             throws E
     {
         return userGroupInformation.doAs((PrivilegedAction<ResultOrException<R, E>>) () -> {

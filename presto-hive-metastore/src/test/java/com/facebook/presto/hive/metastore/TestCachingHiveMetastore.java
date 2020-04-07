@@ -271,11 +271,5 @@ public class TestCachingHiveMetastore
         {
             return client;
         }
-
-        @Override
-        public HiveMetastoreClient createMetastoreClientWithToken(String token)
-        {
-            return client;
-        }
     }
 }
