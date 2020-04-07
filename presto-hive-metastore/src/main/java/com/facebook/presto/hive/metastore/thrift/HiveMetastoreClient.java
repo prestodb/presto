@@ -24,7 +24,6 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore.Client;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
@@ -36,8 +35,6 @@ public interface HiveMetastoreClient
 {
     @Override
     void close();
-
-    Client getHMSClient();
 
     List<String> getAllDatabases()
             throws TException;

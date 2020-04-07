@@ -31,7 +31,4 @@ public interface HiveCluster
      */
     HiveMetastoreClient createMetastoreClient()
             throws TException;
-
-    HiveMetastoreClient createMetastoreClientWithToken(String token)
-            throws TException;
 }
