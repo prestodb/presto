@@ -22,6 +22,7 @@ import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -76,7 +77,7 @@ public class HandTpchQuery6
         FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
+                () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(new PageProjectionWithOutputs(projection.get(), new int[] {0}))),
                 ImmutableList.of(DOUBLE),
                 new DataSize(0, BYTE),
                 0);

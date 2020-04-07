@@ -20,6 +20,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,7 +57,7 @@ public class InputPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<List<Block>> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         Block block = requireNonNull(page, "page is null").getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
@@ -69,6 +72,6 @@ public class InputPageProjection
         else {
             result = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }
-        return new CompletedWork<>(result);
+        return new CompletedWork<>(ImmutableList.of(result));
     }
 }

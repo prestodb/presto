@@ -221,7 +221,7 @@ public class PageFunctionCompiler
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
-        FieldDefinition resultField = classDefinition.declareField(a(PRIVATE), "result", Block.class);
+        FieldDefinition resultField = classDefinition.declareField(a(PRIVATE), "result", List.class);
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
@@ -282,6 +282,7 @@ public class PageFunctionCompiler
         Variable to = scope.declareVariable("to", body, add(thisVariable.getField(selectedPositions).invoke("getOffset", int.class), thisVariable.getField(selectedPositions).invoke("size", int.class)));
         Variable positions = scope.declareVariable(int[].class, "positions");
         Variable index = scope.declareVariable(int.class, "index");
+        Variable blockList = scope.declareVariable(List.class, "blockList");
 
         IfStatement ifStatement = new IfStatement()
                 .condition(thisVariable.getField(selectedPositions).invoke("isList", boolean.class));
@@ -303,8 +304,11 @@ public class PageFunctionCompiler
                 .body(new BytecodeBlock()
                         .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))));
 
-        body.comment("result = this.blockBuilder.build(); return true;")
-                .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
+        body.comment("result = ImmutableList.of(this.blockBuilder.build(); return true;")
+                .append(thisVariable.getField(blockBuilder).invoke("build", Block.class))
+                .invokeStatic(ImmutableList.class, "of", ImmutableList.class, Object.class)
+                .putVariable(blockList)
+                .append(thisVariable.setField(result, blockList))
                 .push(true)
                 .retBoolean();
 

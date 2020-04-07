@@ -23,9 +23,11 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -70,13 +72,13 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<List<Block>> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         return new DictionaryAwarePageProjectionWork(session, yieldSignal, page, selectedPositions);
     }
 
     private class DictionaryAwarePageProjectionWork
-            implements Work<Block>
+            implements Work<List<Block>>
     {
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
@@ -85,9 +87,9 @@ public class DictionaryAwarePageProjection
 
         private Block result;
         // if the block is RLE or dictionary block, we may use dictionary processing
-        private Work<Block> dictionaryProcessingProjectionWork;
+        private Work<List<Block>> dictionaryProcessingProjectionWork;
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
-        private Work<Block> fallbackProcessingProjectionWork;
+        private Work<List<Block>> fallbackProcessingProjectionWork;
 
         public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
@@ -117,7 +119,7 @@ public class DictionaryAwarePageProjection
             checkState(result == null, "result has been generated");
             if (fallbackProcessingProjectionWork != null) {
                 if (fallbackProcessingProjectionWork.process()) {
-                    result = fallbackProcessingProjectionWork.getResult();
+                    result = fallbackProcessingProjectionWork.getResult().get(0);
                     return true;
                 }
                 return false;
@@ -130,7 +132,7 @@ public class DictionaryAwarePageProjection
                         // dictionary processing yielded.
                         return false;
                     }
-                    dictionaryOutput = Optional.of(dictionaryProcessingProjectionWork.getResult());
+                    dictionaryOutput = Optional.of(dictionaryProcessingProjectionWork.getResult().get(0));
                     lastOutputDictionary = dictionaryOutput;
                 }
                 catch (Exception ignored) {
@@ -173,20 +175,20 @@ public class DictionaryAwarePageProjection
             verify(fallbackProcessingProjectionWork == null);
             fallbackProcessingProjectionWork = projection.project(session, yieldSignal, new Page(block), selectedPositions);
             if (fallbackProcessingProjectionWork.process()) {
-                result = fallbackProcessingProjectionWork.getResult();
+                result = fallbackProcessingProjectionWork.getResult().get(0);
                 return true;
             }
             return false;
         }
 
         @Override
-        public Block getResult()
+        public List<Block> getResult()
         {
             checkState(result != null, "result has not been generated");
-            return result;
+            return ImmutableList.of(result);
         }
 
-        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
+        private Work<List<Block>> createDictionaryBlockProjection(Optional<Block> dictionary)
         {
             if (!dictionary.isPresent()) {
                 lastOutputDictionary = Optional.empty();
@@ -195,7 +197,7 @@ public class DictionaryAwarePageProjection
 
             if (lastInputDictionary == dictionary.get()) {
                 // we must have fallen back last time if lastOutputDictionary is null
-                return lastOutputDictionary.map(CompletedWork::new).orElse(null);
+                return lastOutputDictionary.<Work<List<Block>>>map(value -> new CompletedWork<>(ImmutableList.of(value))).orElse(null);
             }
 
             // Process dictionary if:

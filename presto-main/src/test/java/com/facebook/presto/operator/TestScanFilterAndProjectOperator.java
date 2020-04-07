@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.TestPageProcessor.LazyPagePageProjection;
 import com.facebook.presto.operator.project.TestPageProcessor.SelectAllFilter;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
@@ -201,7 +202,7 @@ public class TestScanFilterAndProjectOperator
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {0})));
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,

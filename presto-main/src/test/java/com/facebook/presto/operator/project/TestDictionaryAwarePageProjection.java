@@ -29,6 +29,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -182,7 +183,7 @@ public class TestDictionaryAwarePageProjection
         return new DictionaryBlock(dictionary, ids);
     }
 
-    private static Block projectWithYield(Work<Block> work, DriverYieldSignal yieldSignal)
+    private static List<Block> projectWithYield(Work<List<Block>> work, DriverYieldSignal yieldSignal)
     {
         int yieldCount = 0;
         while (true) {
@@ -219,8 +220,8 @@ public class TestDictionaryAwarePageProjection
     private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
-        Block result;
+        Work<List<Block>> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        List<Block> result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
         }
@@ -230,17 +231,17 @@ public class TestDictionaryAwarePageProjection
         }
         assertBlockEquals(
                 BIGINT,
-                result,
+                result.get(0),
                 block.getRegion(5, 10));
-        assertInstanceOf(result, expectedResultType);
+        assertInstanceOf(result.get(0), expectedResultType);
     }
 
     private static void testProjectList(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         int[] positions = {0, 2, 4, 6, 8, 10};
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length));
-        Block result;
+        Work<List<Block>> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length));
+        List<Block> result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
         }
@@ -250,21 +251,21 @@ public class TestDictionaryAwarePageProjection
         }
         assertBlockEquals(
                 BIGINT,
-                result,
+                result.get(0),
                 block.copyPositions(positions, 0, positions.length));
-        assertInstanceOf(result, expectedResultType);
+        assertInstanceOf(result.get(0), expectedResultType);
     }
 
     private static void testProjectFastReturnIgnoreYield(Block block, DictionaryAwarePageProjection projection)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<List<Block>> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
 
         // yield signal is ignored given the block has already been loaded
         assertTrue(work.process());
-        Block result = work.getResult();
+        Block result = work.getResult().get(0);
         yieldSignal.reset();
 
         assertBlockEquals(
@@ -308,13 +309,13 @@ public class TestDictionaryAwarePageProjection
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<List<Block>> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             return new TestPageProjectionWork(yieldSignal, page, selectedPositions);
         }
 
         private class TestPageProjectionWork
-                implements Work<Block>
+                implements Work<List<Block>>
         {
             private final DriverYieldSignal yieldSignal;
             private final Block block;
@@ -363,10 +364,10 @@ public class TestDictionaryAwarePageProjection
             }
 
             @Override
-            public Block getResult()
+            public List<Block> getResult()
             {
                 assertNotNull(result);
-                return result;
+                return ImmutableList.of(result);
             }
         }
 
