@@ -20,9 +20,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
-import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -128,7 +126,6 @@ public abstract class AbstractTestHiveFileSystem
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
-    protected HiveMetastoreAuthentication metastoreAuthentication;
     protected LocationService locationService;
     protected TestingHiveMetastore metastoreClient;
     protected HiveMetadataFactory metadataFactory;
@@ -182,12 +179,11 @@ public abstract class AbstractTestHiveFileSystem
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, new MBeanExporter(new TestingMBeanServer()))),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new MetastoreClientConfig(), new MBeanExporter(new TestingMBeanServer()))),
                 executor,
                 metastoreClientConfig,
                 getBasePath(),
                 hdfsEnvironment);
-        metastoreAuthentication = new NoHiveMetastoreAuthentication();
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
@@ -195,7 +191,6 @@ public abstract class AbstractTestHiveFileSystem
                 metastoreClientConfig,
                 metastoreClient,
                 hdfsEnvironment,
-                metastoreAuthentication,
                 hivePartitionManager,
                 newDirectExecutorService(),
                 TYPE_MANAGER,

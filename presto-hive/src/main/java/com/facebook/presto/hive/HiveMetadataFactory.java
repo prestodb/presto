@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -49,7 +48,6 @@ public class HiveMetadataFactory
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
-    private final HiveMetastoreAuthentication metastoreAuthentication;
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
@@ -73,7 +71,6 @@ public class HiveMetadataFactory
             MetastoreClientConfig metastoreClientConfig,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            HiveMetastoreAuthentication metastoreAuthentication,
             HivePartitionManager partitionManager,
             @ForFileRename ListeningExecutorService fileRenameExecutor,
             TypeManager typeManager,
@@ -93,7 +90,6 @@ public class HiveMetadataFactory
         this(
                 metastore,
                 hdfsEnvironment,
-                metastoreAuthentication,
                 partitionManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
@@ -122,7 +118,6 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            HiveMetastoreAuthentication metastoreAuthentication,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
             boolean allowCorruptWritesForTesting,
@@ -156,7 +151,6 @@ public class HiveMetadataFactory
         this.hmsImpersonationDefaultUser = requireNonNull(hmsImpersonationDefaultUser, "hmsImpersonationDefaultUser is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -189,7 +183,6 @@ public class HiveMetadataFactory
                 hdfsEnvironment,
                 CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
                 fileRenameExecutor,
-                metastoreAuthentication,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback);
 
