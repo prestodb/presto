@@ -885,6 +885,8 @@ public class TestHivePushdownFilterQueries
         Path newDirectoryPath = getOnlyPath("test_struct_add_column").getParent();
         Files.move(oldFilePath, Paths.get(newDirectoryPath.toString(), "old_file"), ATOMIC_MOVE);
         assertQuery("SELECT * FROM test_struct_add_column", "SELECT (1, 2, 3) UNION ALL SELECT (1, 2, null)");
+        assertQuery("SELECT x.a FROM test_struct_add_column", "SELECT 1 UNION ALL SELECT 1");
+        assertQuery("SELECT count(*) FROM test_struct_add_column where x.c = 1", "SELECT 0");
     }
 
     @Test
