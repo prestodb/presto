@@ -100,7 +100,7 @@ public class LegacyAccessControl
         }
 
         TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
-        Optional<Table> target = metadata.getMetastore().getTable(identity, tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = metadata.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {
             denyDropTable(tableName.toString(), "Table not found");

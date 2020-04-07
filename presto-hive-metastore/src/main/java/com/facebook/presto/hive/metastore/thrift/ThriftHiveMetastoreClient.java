@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -53,18 +52,15 @@ public class ThriftHiveMetastoreClient
 {
     private final TTransport transport;
     private final ThriftHiveMetastore.Client client;
-    private final HostAndPort address;
 
-    public ThriftHiveMetastoreClient(HostAndPort address, TTransport transport)
+    public ThriftHiveMetastoreClient(TTransport transport)
     {
-        this.address = address;
         this.transport = requireNonNull(transport, "transport is null");
         this.client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
     }
 
-    public ThriftHiveMetastoreClient(HostAndPort address, TProtocol protocol)
+    public ThriftHiveMetastoreClient(TProtocol protocol)
     {
-        this.address = address;
         this.transport = protocol.getTransport();
         this.client = new ThriftHiveMetastore.Client(protocol);
     }
@@ -73,12 +69,6 @@ public class ThriftHiveMetastoreClient
     public void close()
     {
         transport.close();
-    }
-
-    @Override
-    public HostAndPort getAddress()
-    {
-        return address;
     }
 
     @Override

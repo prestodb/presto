@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.google.common.net.HostAndPort;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -37,8 +36,6 @@ public interface HiveMetastoreClient
 {
     @Override
     void close();
-
-    HostAndPort getAddress();
 
     Client getHMSClient();
 
