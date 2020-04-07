@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +57,7 @@ public class TestCachingHiveMetastore
     private MockHiveMetastoreClient mockClient;
     private CachingHiveMetastore metastore;
     private ThriftHiveMetastoreStats stats;
-    private List<ThriftHiveMetastoreStats> metastoreStats;
+    private List<ThriftHiveMetastoreStats> hmsStats;
 
     @BeforeMethod
     public void setUp()
@@ -72,7 +73,7 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000);
         stats = thriftHiveMetastore.getStats();
-        metastoreStats = thriftHiveMetastore.getAllStats();
+        hmsStats = thriftHiveMetastore.getAllStats();
     }
 
     @Test
@@ -133,9 +134,9 @@ public class TestCachingHiveMetastore
         assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
         assertNotNull(stats.getGetTable().getTime());
 
-        assertEquals(metastoreStats.get(0).getGetTable().getThriftExceptions().getTotalCount(), 0);
-        assertEquals(metastoreStats.get(0).getGetTable().getTotalFailures().getTotalCount(), 0);
-        assertNotNull(metastoreStats.get(0).getGetTable().getTime());
+        assertEquals(hmsStats.get(0).getGetTable().getThriftExceptions().getTotalCount(), 0);
+        assertEquals(hmsStats.get(0).getGetTable().getTotalFailures().getTotalCount(), 0);
+        assertNotNull(hmsStats.get(0).getGetTable().getTime());
     }
 
     @Test
@@ -281,7 +282,7 @@ public class TestCachingHiveMetastore
         @Override
         public List<HostAndPort> getAddresses()
         {
-            return ImmutableList.of(HostAndPort.fromHost("localhost"));
+            return Collections.singletonList(HostAndPort.fromHost("localhost"));
         }
 
         @Override

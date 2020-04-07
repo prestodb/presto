@@ -419,6 +419,11 @@ public final class HiveWriteUtils
         String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
                 .replace("${USER}", context.getIdentity().getUser());
 
+//        // use relative temporary directory on ViewFS
+//        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
+//            temporaryPrefix = ".hive-staging";
+//        }
+
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
