@@ -37,7 +37,7 @@ public class MockHiveMetastoreClientFactory
     }
 
     @Override
-    public HiveMetastoreClient create(HostAndPort address, String token)
+    public HiveMetastoreClient create(HostAndPort address)
             throws TTransportException
     {
         checkState(!clients.isEmpty(), "mock not given enough clients");

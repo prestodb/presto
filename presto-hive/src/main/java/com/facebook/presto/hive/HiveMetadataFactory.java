@@ -44,7 +44,6 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final long perTransactionCacheMaximumSize;
-    private final String hmsImpersonationDefaultUser;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -98,7 +97,6 @@ public class HiveMetadataFactory
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
                 metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
-                metastoreClientConfig.getHmsImpersonationDefaultUser(),
                 typeManager,
                 locationService,
                 functionResolution,
@@ -126,7 +124,6 @@ public class HiveMetadataFactory
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             long perTransactionCacheMaximumSize,
-            String hmsImpersonationDefaultUser,
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
@@ -148,7 +145,7 @@ public class HiveMetadataFactory
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
-        this.hmsImpersonationDefaultUser = requireNonNull(hmsImpersonationDefaultUser, "hmsImpersonationDefaultUser is null");
+
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -204,7 +201,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(metastore, hmsImpersonationDefaultUser),
+                new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 partitionObjectBuilder);

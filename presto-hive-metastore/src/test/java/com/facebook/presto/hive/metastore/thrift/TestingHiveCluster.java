@@ -18,8 +18,6 @@ import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -37,16 +35,17 @@ public class TestingHiveCluster
     }
 
     @Override
-    public List<HostAndPort> getAddresses()
+    public HiveMetastoreClient createMetastoreClient()
+            throws TException
     {
-        return Collections.singletonList(address);
+        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address);
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient(String token)
+    public HiveMetastoreClient createMetastoreClientWithToken(String token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address, token);
+        return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address, token);
     }
 
     @Override

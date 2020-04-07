@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
@@ -23,16 +22,11 @@ import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +51,6 @@ public class TestCachingHiveMetastore
     private MockHiveMetastoreClient mockClient;
     private CachingHiveMetastore metastore;
     private ThriftHiveMetastoreStats stats;
-    private List<ThriftHiveMetastoreStats> hmsStats;
 
     @BeforeMethod
     public void setUp()
@@ -65,7 +58,7 @@ public class TestCachingHiveMetastore
         mockClient = new MockHiveMetastoreClient();
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new MetastoreClientConfig(), new MBeanExporter(new TestingMBeanServer()));
+        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster);
         metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
@@ -73,7 +66,6 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000);
         stats = thriftHiveMetastore.getStats();
-        hmsStats = thriftHiveMetastore.getAllStats();
     }
 
     @Test
@@ -132,11 +124,6 @@ public class TestCachingHiveMetastore
 
         assertEquals(stats.getGetTable().getThriftExceptions().getTotalCount(), 0);
         assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
-        assertNotNull(stats.getGetTable().getTime());
-
-        assertEquals(hmsStats.get(0).getGetTable().getThriftExceptions().getTotalCount(), 0);
-        assertEquals(hmsStats.get(0).getGetTable().getTotalFailures().getTotalCount(), 0);
-        assertNotNull(hmsStats.get(0).getGetTable().getTime());
     }
 
     @Test
@@ -280,13 +267,13 @@ public class TestCachingHiveMetastore
         }
 
         @Override
-        public List<HostAndPort> getAddresses()
+        public HiveMetastoreClient createMetastoreClient()
         {
-            return Collections.singletonList(HostAndPort.fromHost("localhost"));
+            return client;
         }
 
         @Override
-        public HiveMetastoreClient createMetastoreClient(String token)
+        public HiveMetastoreClient createMetastoreClientWithToken(String token)
         {
             return client;
         }
