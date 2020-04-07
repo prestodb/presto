@@ -560,7 +560,9 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
-            if (node.getSource() instanceof TableScanNode) {
+            if (node.getSource() instanceof TableScanNode && metadata.isLegacyGetLayoutSupported(session, ((TableScanNode) node.getSource()).getTable())) {
+                // If isLegacyGetLayoutSupported, then we can continue with legacy predicate pushdown logic.
+                // Otherwise, we leave the filter as is in the plan as it will be pushed into the TableScan by filter pushdown logic in the connector.
                 return planTableScan((TableScanNode) node.getSource(), node.getPredicate());
             }
 
