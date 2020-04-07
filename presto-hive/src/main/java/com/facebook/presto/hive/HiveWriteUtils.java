@@ -27,7 +27,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -352,7 +351,7 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = getDatabase(context.getIdentity(), metastore, schemaName).getLocation();
+        Optional<String> location = getDatabase(metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
@@ -370,9 +369,9 @@ public final class HiveWriteUtils
         return new Path(databasePath, tableName);
     }
 
-    private static Database getDatabase(ConnectorIdentity identity, SemiTransactionalHiveMetastore metastore, String database)
+    private static Database getDatabase(SemiTransactionalHiveMetastore metastore, String database)
     {
-        return metastore.getDatabase(identity, database).orElseThrow(() -> new SchemaNotFoundException(database));
+        return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
     public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
@@ -419,10 +418,10 @@ public final class HiveWriteUtils
         String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
                 .replace("${USER}", context.getIdentity().getUser());
 
-//        // use relative temporary directory on ViewFS
-//        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-//            temporaryPrefix = ".hive-staging";
-//        }
+        // use relative temporary directory on ViewFS
+        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
+            temporaryPrefix = ".hive-staging";
+        }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);

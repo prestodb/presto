@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -42,8 +41,6 @@ public class MetastoreClientConfig
     private String recordingPath;
     private boolean replay;
     private Duration recordingDuration = new Duration(0, MINUTES);
-    private String hmsImpersonationDefaultUser = "";
-    private boolean hmsImpersonationEnabled;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -195,32 +192,6 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setRequireHadoopNative(boolean requireHadoopNative)
     {
         this.requireHadoopNative = requireHadoopNative;
-        return this;
-    }
-
-    public boolean isHmsImpersonationEnabled()
-    {
-        return hmsImpersonationEnabled;
-    }
-
-    @Config("hive.hms.impersonation.enabled")
-    @ConfigDescription("Should Presto user be impersonated when communicating with HMS")
-    public MetastoreClientConfig setHmsImpersonationEnabled(boolean hmsImpersonationEnabled)
-    {
-        this.hmsImpersonationEnabled = hmsImpersonationEnabled;
-        return this;
-    }
-
-    public String getHmsImpersonationDefaultUser()
-    {
-        return hmsImpersonationDefaultUser;
-    }
-
-    @Config("hive.hms.impersonation.user")
-    @ConfigDescription("Default impersonation user when communicating with HMS")
-    public MetastoreClientConfig setHmsImpersonationDefaultUser(String hmsImpersonationDefaultUser)
-    {
-        this.hmsImpersonationDefaultUser = hmsImpersonationDefaultUser;
         return this;
     }
 }
