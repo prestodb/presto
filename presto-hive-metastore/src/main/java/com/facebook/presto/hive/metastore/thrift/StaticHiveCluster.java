@@ -34,18 +34,16 @@ public class StaticHiveCluster
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
-    private final boolean isMultiHMSEnabled;
 
     @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        this(config.getMetastoreUris(), config.isMultiHMSEnabled(), config.getMetastoreUsername(), clientFactory);
+        this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, boolean isMultiHMSEnabled, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(List<URI> metastoreUris, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
-        this.isMultiHMSEnabled = isMultiHMSEnabled;
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.addresses = metastoreUris.stream()
                 .map(StaticHiveCluster::checkMetastoreUri)
@@ -74,12 +72,7 @@ public class StaticHiveCluster
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
-        if (isMultiHMSEnabled) {
-            Collections.shuffle(metastores);
-        }
-        else {
-            Collections.shuffle(metastores.subList(1, metastores.size()));
-        }
+        Collections.shuffle(metastores.subList(1, metastores.size()));
 
         TException lastException = null;
         for (HostAndPort metastore : metastores) {

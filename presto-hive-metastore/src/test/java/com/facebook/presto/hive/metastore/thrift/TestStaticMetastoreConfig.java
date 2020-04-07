@@ -32,8 +32,7 @@ public class TestStaticMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
                 .setMetastoreUris(null)
-                .setMetastoreUsername(null)
-                .setMultiHMSEnabled(false));
+                .setMetastoreUsername(null));
     }
 
     @Test
@@ -42,13 +41,11 @@ public class TestStaticMetastoreConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .put("hive.metastore.username", "presto")
-                .put("hive.metastore.multi-instance.enabled", "true")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083")
-                .setMetastoreUsername("presto")
-                .setMultiHMSEnabled(true);
+                .setMetastoreUsername("presto");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(URI.create("thrift://localhost:9083")));
@@ -61,13 +58,11 @@ public class TestStaticMetastoreConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
                 .put("hive.metastore.username", "presto")
-                .put("hive.metastore.multi-instance.enabled", "true")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
-                .setMetastoreUsername("presto")
-                .setMultiHMSEnabled(true);
+                .setMetastoreUsername("presto");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(
