@@ -59,6 +59,7 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -166,13 +167,17 @@ public class StructSelectiveStreamReader
                 boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(outputRequired);
                 Optional<Type> fieldOutputType = Optional.ofNullable(nestedTypes.get(fieldName)).map(Field::getType);
 
-                if (requiredField || fieldsWithFilters.contains(fieldName)) {
-                    Map<Subfield, TupleDomainFilter> nestedFilters = filters.entrySet().stream()
-                            .filter(entry -> entry.getKey().getPath().size() > 0)
-                            .filter(entry -> ((Subfield.NestedField) entry.getKey().getPath().get(0)).getName().equalsIgnoreCase(fieldName))
-                            .collect(toImmutableMap(entry -> entry.getKey().tail(fieldName), Map.Entry::getValue));
-                    List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
-                    if (nestedStream != null) {
+                if (nestedStream == null) {
+                    verify(fieldOutputType.isPresent(), "Missing output type for subfield " + fieldName);
+                    nestedReaders.put(fieldName, new MissingFieldStreamReader(fieldOutputType.get()));
+                }
+                else {
+                    if (requiredField || fieldsWithFilters.contains(fieldName)) {
+                        Map<Subfield, TupleDomainFilter> nestedFilters = filters.entrySet().stream()
+                                .filter(entry -> entry.getKey().getPath().size() > 0)
+                                .filter(entry -> ((Subfield.NestedField) entry.getKey().getPath().get(0)).getName().equalsIgnoreCase(fieldName))
+                                .collect(toImmutableMap(entry -> entry.getKey().tail(fieldName), Map.Entry::getValue));
+                        List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
                         SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
                                 nestedStream,
                                 nestedFilters,
@@ -184,11 +189,8 @@ public class StructSelectiveStreamReader
                         nestedReaders.put(fieldName, nestedReader);
                     }
                     else {
-                        nestedReaders.put(fieldName, new MissingFieldStreamReader(fieldOutputType.get()));
+                        nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
                     }
-                }
-                else {
-                    nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
                 }
             }
 
