@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -45,12 +44,6 @@ public class GeneratedPageProjection
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.getType().createBlockBuilder(null, 1);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return projection.getType();
     }
 
     @Override
