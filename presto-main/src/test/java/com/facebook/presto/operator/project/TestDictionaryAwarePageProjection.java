@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -63,7 +62,6 @@ public class TestDictionaryAwarePageProjection
         DictionaryAwarePageProjection projection = createProjection();
         assertEquals(projection.isDeterministic(), true);
         assertEquals(projection.getInputChannels().getInputChannels(), ImmutableList.of(3));
-        assertEquals(projection.getType(), BIGINT);
     }
 
     @Test(dataProvider = "forceYield")
@@ -290,12 +288,6 @@ public class TestDictionaryAwarePageProjection
     private static class TestPageProjection
             implements PageProjection
     {
-        @Override
-        public Type getType()
-        {
-            return BIGINT;
-        }
-
         @Override
         public boolean isDeterministic()
         {
