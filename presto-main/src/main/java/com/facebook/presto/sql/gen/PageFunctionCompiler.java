@@ -33,6 +33,7 @@ import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -50,6 +51,7 @@ import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -67,6 +69,7 @@ import java.util.Optional;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -92,6 +95,7 @@ import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
@@ -157,12 +161,25 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
+    public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    {
+        return IntStream.range(0, projections.size())
+                .mapToObj(outputChannel -> toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projections.get(outputChannel), classNameSuffix), new int[] {outputChannel}))
+                .collect(toImmutableList());
+    }
+
+    @VisibleForTesting
     public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
             return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix);
         }
         return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection));
+    }
+
+    private Supplier<PageProjectionWithOutputs> toPageProjectionWithOutputs(Supplier<PageProjection> pageProjection, int[] outputChannels)
+    {
+        return () -> new PageProjectionWithOutputs(pageProjection.get(), outputChannels);
     }
 
     private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
