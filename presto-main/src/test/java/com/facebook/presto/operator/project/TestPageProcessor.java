@@ -276,8 +276,8 @@ public class TestPageProcessor
     @Test
     public void testOptimisticProcessing()
     {
-        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
-        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
+        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0));
+        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new PageProjectionWithOutputs(firstProjection, new int[] {0}), new PageProjectionWithOutputs(secondProjection, new int[] {1})), OptionalInt.of(MAX_BATCH_SIZE));
 
         // process large page which will reduce batch size
@@ -350,7 +350,7 @@ public class TestPageProcessor
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
-                IntStream.range(0, 20).mapToObj(i -> new PageProjectionWithOutputs(new YieldPageProjection(new InputPageProjection(0, VARCHAR)), new int[] {i})).collect(toImmutableList()),
+                IntStream.range(0, 20).mapToObj(i -> new PageProjectionWithOutputs(new YieldPageProjection(new InputPageProjection(0)), new int[] {i})).collect(toImmutableList()),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         Slice[] slices = new Slice[rows];
@@ -488,7 +488,7 @@ public class TestPageProcessor
 
     private PageProjectionWithOutputs createInputPageProjectionWithOutputs(int inputChannel, Type type, int outputChannel)
     {
-        return new PageProjectionWithOutputs(new InputPageProjection(inputChannel, type), new int[] {outputChannel});
+        return new PageProjectionWithOutputs(new InputPageProjection(inputChannel), new int[] {outputChannel});
     }
 
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, Page inputPage)
@@ -521,12 +521,6 @@ public class TestPageProcessor
         public InvocationCountPageProjection(PageProjection delegate)
         {
             this.delegate = delegate;
-        }
-
-        @Override
-        public Type getType()
-        {
-            return delegate.getType();
         }
 
         @Override
@@ -605,12 +599,6 @@ public class TestPageProcessor
     public static class LazyPagePageProjection
             implements PageProjection
     {
-        @Override
-        public Type getType()
-        {
-            return BIGINT;
-        }
-
         @Override
         public boolean isDeterministic()
         {

@@ -33,21 +33,13 @@ public class ConstantPageProjection
 {
     private static final InputChannels INPUT_PARAMETERS = new InputChannels(ImmutableList.of());
 
-    private final Type type;
     private final Block value;
 
     public ConstantPageProjection(Object value, Type type)
     {
-        this.type = type;
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         this.value = blockBuilder.build();
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override
