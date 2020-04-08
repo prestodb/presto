@@ -19,7 +19,6 @@ import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -29,19 +28,11 @@ import static java.util.Objects.requireNonNull;
 public class InputPageProjection
         implements PageProjection
 {
-    private final Type type;
     private final InputChannels inputChannels;
 
-    public InputPageProjection(int inputChannel, Type type)
+    public InputPageProjection(int inputChannel)
     {
-        this.type = type;
         this.inputChannels = new InputChannels(inputChannel);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override

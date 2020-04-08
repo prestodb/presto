@@ -188,7 +188,7 @@ public class PageFunctionCompiler
 
         if (projection instanceof InputReferenceExpression) {
             InputReferenceExpression input = (InputReferenceExpression) projection;
-            InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
+            InputPageProjection projectionFunction = new InputPageProjection(input.getField());
             return () -> projectionFunction;
         }
 

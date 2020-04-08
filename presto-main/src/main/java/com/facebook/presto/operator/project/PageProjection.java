@@ -18,14 +18,11 @@ import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
 public interface PageProjection
 {
-    Type getType();
-
     boolean isDeterministic();
 
     InputChannels getInputChannels();
