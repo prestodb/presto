@@ -22,7 +22,6 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -51,12 +50,6 @@ public class DictionaryAwarePageProjection
         this.sourceIdFunction = sourceIdFunction;
         verify(projection.isDeterministic(), "projection must be deterministic");
         verify(projection.getInputChannels().size() == 1, "projection must have only one input");
-    }
-
-    @Override
-    public Type getType()
-    {
-        return projection.getType();
     }
 
     @Override

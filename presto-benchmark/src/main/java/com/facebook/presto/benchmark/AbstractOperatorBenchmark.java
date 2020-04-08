@@ -215,7 +215,7 @@ public abstract class AbstractOperatorBenchmark
             VariableReferenceExpression variable = new VariableReferenceExpression("h" + channel, types.get(channel));
             variables.add(variable);
             variableToInputMapping.put(variable, channel);
-            projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel, types.get(channel)), new int[] {channel}));
+            projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel), new int[] {channel}));
         }
 
         Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionManager(), variables.build());
