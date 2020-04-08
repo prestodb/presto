@@ -48,6 +48,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.Expressions;
@@ -58,6 +59,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Primitives;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -65,6 +68,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,7 +96,11 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArr
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsWithCSE;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
@@ -100,6 +108,7 @@ import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
@@ -128,7 +137,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions, cacheKey.isOptimizeCommonSubExpression, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -165,8 +174,26 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
+        if (isOptimizeCommonSubExpression) {
+            List<RowExpression> projectionsWithCSE = getExpressionsWithCSE(projections);
+            ImmutableList.Builder<Supplier<PageProjectionWithOutputs>> pageProjections = ImmutableList.builder();
+            ImmutableList.Builder<Integer> cseProjectionsOutputChannels = ImmutableList.builder();
+            for (int i = 0; i < projections.size(); i++) {
+                RowExpression projection = projections.get(i);
+                if (projectionsWithCSE.contains(projection)) {
+                    cseProjectionsOutputChannels.add(i);
+                }
+                else {
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {i}));
+                }
+            }
+            if (projectionsWithCSE.size() > 0) {
+                pageProjections.add(toPageProjectionWithOutputs(compileProjectionCached(sqlFunctionProperties, projectionsWithCSE, true, classNameSuffix), toIntArray(cseProjectionsOutputChannels.build())));
+            }
+            return pageProjections.build();
+        }
         return IntStream.range(0, projections.size())
                 .mapToObj(outputChannel -> toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projections.get(outputChannel), classNameSuffix), new int[] {outputChannel}))
                 .collect(toImmutableList());
@@ -187,10 +214,15 @@ public class PageFunctionCompiler
             return () -> projectionFunction;
         }
 
+        return compileProjectionCached(sqlFunctionProperties, ImmutableList.of(projection), false, classNameSuffix);
+    }
+
+    private Supplier<PageProjection> compileProjectionCached(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    {
         if (projectionCache == null) {
-            return compileProjectionInternal(sqlFunctionProperties, ImmutableList.of(projection), classNameSuffix);
+            return compileProjectionInternal(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, classNameSuffix);
         }
-        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, ImmutableList.of(projection)));
+        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projections, isOptimizeCommonSubExpression));
     }
 
     private Supplier<PageProjectionWithOutputs> toPageProjectionWithOutputs(Supplier<PageProjection> pageProjection, int[] outputChannels)
@@ -198,10 +230,10 @@ public class PageFunctionCompiler
         return () -> new PageProjectionWithOutputs(pageProjection.get(), outputChannels);
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
         requireNonNull(projections, "projections is null");
-        checkArgument(projections.stream().allMatch(projection -> projection instanceof CallExpression || projection instanceof SpecialFormExpression));
+        checkArgument(!projections.isEmpty() && projections.stream().allMatch(projection -> projection instanceof CallExpression || projection instanceof SpecialFormExpression));
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projections);
         List<RowExpression> rewrittenExpression = result.getRewrittenExpressions();
@@ -209,7 +241,7 @@ public class PageFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, rewrittenExpression, callSiteBinder, classNameSuffix);
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, rewrittenExpression, callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix);
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
@@ -231,7 +263,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, CallSiteBinder callSiteBinder, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -257,7 +289,7 @@ public class PageFunctionCompiler
 
         // evaluate
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections, metadata, sqlFunctionProperties, "");
-        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projections, blockBuilderFields);
+        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projections, blockBuilderFields, isOptimizeCommonSubExpression);
 
         // constructor
         Parameter blockBuilders = arg("blockBuilders", List.class);
@@ -357,7 +389,8 @@ public class PageFunctionCompiler
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             List<RowExpression> projections,
-            FieldDefinition blockBuilders)
+            FieldDefinition blockBuilders,
+            boolean isOptimizeCommonSubExpression)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -380,21 +413,69 @@ public class PageFunctionCompiler
         Variable thisVariable = method.getThis();
 
         declareBlockVariables(projections, page, scope, body);
-
         scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
+
+        Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = ImmutableMap.of();
+        if (isOptimizeCommonSubExpression) {
+            commonSubExpressionsByLevel = CommonSubExpressionRewriter.collectCSEByLevel(projections);
+        }
+
+        RowExpressionCompiler compiler;
+        List<RowExpression> rewrittenProjections;
+
+        if (!commonSubExpressionsByLevel.isEmpty()) {
+            int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
+            int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
+            Map<RowExpression, VariableReferenceExpression> commonSubExpressions = new HashMap<>();
+            Map<VariableReferenceExpression, Variable> variableMap = new HashMap<>();
+            for (int i = startLevel; i <= maxLevel; i++) {
+                if (commonSubExpressionsByLevel.containsKey(i)) {
+                    RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
+                            classDefinition,
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                            metadata,
+                            sqlFunctionProperties,
+                            compiledLambdaMap);
+                    for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {
+                        RowExpression cse = entry.getKey();
+                        commonSubExpressions.put(cse, entry.getValue());
+                        Class<?> type = Primitives.wrap(cse.getType().getJavaType());
+                        Variable cseVariable = scope.createTempVariable(type);
+                        variableMap.put(entry.getValue(), cseVariable);
+                        body.append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                .append(boxPrimitiveIfNecessary(scope, type))
+                                .putVariable(cseVariable);
+                    }
+                }
+            }
+            compiler = new RowExpressionCompiler(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                    metadata,
+                    sqlFunctionProperties,
+                    compiledLambdaMap);
+            rewrittenProjections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
+        }
+        else {
+            compiler = new RowExpressionCompiler(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    fieldReferenceCompiler(callSiteBinder),
+                    metadata,
+                    sqlFunctionProperties,
+                    compiledLambdaMap);
+            rewrittenProjections = projections;
+        }
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
         for (int i = 0; i < projections.size(); i++) {
             body.append(outputBlockVariable.set(thisVariable.getField(blockBuilders).invoke("get", Object.class, constantInt(i))))
-                    .append(compiler.compile(projections.get(i), scope, Optional.of(outputBlockVariable)));
+                    .append(compiler.compile(rewrittenProjections.get(i), scope, Optional.of(outputBlockVariable)));
         }
         body.ret();
         return method;
@@ -405,7 +486,7 @@ public class PageFunctionCompiler
         if (filterCache == null) {
             return compileFilterInternal(sqlFunctionProperties, filter, classNameSuffix);
         }
-        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, ImmutableList.of(filter)));
+        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, ImmutableList.of(filter), false));
     }
 
     private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
@@ -622,6 +703,15 @@ public class PageFunctionCompiler
         return getInputChannels(ImmutableList.of(expression));
     }
 
+    private static int[] toIntArray(List<Integer> list)
+    {
+        int[] array = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            array[i] = list.get(i);
+        }
+        return array;
+    }
+
     private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
@@ -639,17 +729,72 @@ public class PageFunctionCompiler
                 callSiteBinder);
     }
 
+    private static class FieldAndVariableReferenceCompiler
+            implements RowExpressionVisitor<BytecodeNode, Scope>
+    {
+        private final InputReferenceCompiler inputReferenceCompiler;
+        private final Map<VariableReferenceExpression, Variable> variableMap;
+
+        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, Variable> variableMap)
+        {
+            this.inputReferenceCompiler = new InputReferenceCompiler(
+                    (scope, field) -> scope.getVariable("block_" + field),
+                    (scope, field) -> scope.getVariable("position"),
+                    callSiteBinder);
+            this.variableMap = ImmutableMap.copyOf(variableMap);
+        }
+        @Override
+        public BytecodeNode visitCall(CallExpression call, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitInputReference(InputReferenceExpression reference, Scope context)
+        {
+            return inputReferenceCompiler.visitInputReference(reference, context);
+        }
+
+        @Override
+        public BytecodeNode visitConstant(ConstantExpression literal, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+        {
+            return new BytecodeBlock()
+                    .append(variableMap.get(reference))
+                    .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
+        }
+
+        @Override
+        public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Scope context)
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     private static final class CacheKey
     {
         private final SqlFunctionProperties sqlFunctionProperties;
         private final List<RowExpression> rowExpressions;
+        private final boolean isOptimizeCommonSubExpression;
 
-        private CacheKey(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> rowExpressions)
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> rowExpressions, boolean isOptimizeCommonSubExpression)
         {
             requireNonNull(rowExpressions, "rowExpressions is null");
             checkArgument(rowExpressions.size() >= 1, "Expect at least one RowExpression");
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.rowExpressions = ImmutableList.copyOf(rowExpressions);
+            this.isOptimizeCommonSubExpression = isOptimizeCommonSubExpression;
         }
 
         @Override
@@ -663,13 +808,14 @@ public class PageFunctionCompiler
             }
             CacheKey that = (CacheKey) o;
             return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
-                    Objects.equals(rowExpressions, that.rowExpressions);
+                    Objects.equals(rowExpressions, that.rowExpressions) &&
+                    isOptimizeCommonSubExpression == that.isOptimizeCommonSubExpression;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(sqlFunctionProperties, rowExpressions);
+            return Objects.hash(sqlFunctionProperties, rowExpressions, isOptimizeCommonSubExpression);
         }
     }
 }

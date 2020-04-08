@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -45,12 +48,33 @@ import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
 {
+    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+
     private static final CallExpression ADD_10_EXPRESSION = call(
             ADD.name(),
-            createTestMetadataManager().getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
             field(0, BIGINT),
             constant(10L, BIGINT));
+
+    private static final CallExpression ADD_X_Y = call(
+            ADD.name(),
+            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            BIGINT,
+            field(0, BIGINT),
+            field(1, BIGINT));
+
+    private static final CallExpression ADD_X_Y_Z = call(
+            ADD.name(),
+            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            BIGINT,
+            call(
+                    ADD.name(),
+                    FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                    BIGINT,
+                    field(0, BIGINT),
+                    field(1, BIGINT)),
+            field(2, BIGINT));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()
@@ -61,12 +85,12 @@ public class TestPageFunctionCompiler
         PageProjection projection = projectionSupplier.get();
 
         // process good page and verify we got the expected number of result rows
-        Page goodPage = createLongBlockPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-        Block goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
+        Page goodPage = createLongBlockPage(1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        Block goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount())).get(0);
         assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
 
         // addition will throw due to integer overflow
-        Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
+        Page badPage = createLongBlockPage(1, 0, 1, 2, 3, 4, Long.MAX_VALUE);
         try {
             project(projection, badPage, SelectedPositions.positionsRange(0, 100));
             fail("expected exception");
@@ -77,7 +101,7 @@ public class TestPageFunctionCompiler
 
         // running the good page should still work
         // if block builder in generated code was not reset properly, we could get junk results after the failure
-        goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
+        goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount())).get(0);
         assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
     }
 
@@ -128,19 +152,52 @@ public class TestPageFunctionCompiler
                 noCacheCompiler.compileProjection(SESSION.getSqlFunctionProperties(), ADD_10_EXPRESSION, Optional.of("hint2")));
     }
 
-    private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
+    @Test
+    public void testCommonSubExpression()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+
+        List<Supplier<PageProjectionWithOutputs>> pageProjectionsCSE = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), ImmutableList.of(ADD_X_Y, ADD_X_Y_Z), true, Optional.empty());
+        assertEquals(pageProjectionsCSE.size(), 1);
+        List<Supplier<PageProjectionWithOutputs>> pageProjectionsNoCSE = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), ImmutableList.of(ADD_X_Y, ADD_X_Y_Z), false, Optional.empty());
+        assertEquals(pageProjectionsNoCSE.size(), 2);
+
+        Page input = createLongBlockPage(3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        List<Block> cseResult = project(pageProjectionsCSE.get(0).get().getPageProjection(), input, SelectedPositions.positionsRange(0, input.getPositionCount()));
+        assertEquals(cseResult.size(), 2);
+        List<Block> noCseResult1 = project(pageProjectionsNoCSE.get(0).get().getPageProjection(), input, SelectedPositions.positionsRange(0, input.getPositionCount()));
+        assertEquals(noCseResult1.size(), 1);
+        List<Block> noCseResult2 = project(pageProjectionsNoCSE.get(1).get().getPageProjection(), input, SelectedPositions.positionsRange(0, input.getPositionCount()));
+        assertEquals(noCseResult2.size(), 1);
+        checkBlockEqual(cseResult.get(0), noCseResult1.get(0));
+        checkBlockEqual(cseResult.get(1), noCseResult2.get(0));
+    }
+
+    private void checkBlockEqual(Block a, Block b)
+    {
+        assertEquals(a.getPositionCount(), b.getPositionCount());
+        for (int i = 0; i < a.getPositionCount(); i++) {
+            assertEquals(a.getLong(i), b.getLong(i));
+        }
+    }
+
+    private List<Block> project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
         Work<List<Block>> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), page, selectedPositions);
         assertTrue(work.process());
-        return work.getResult().get(0);
+        return work.getResult();
     }
 
-    private static Page createLongBlockPage(long... values)
+    private static Page createLongBlockPage(int blockCount, long... values)
     {
-        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(values.length);
-        for (long value : values) {
-            BIGINT.writeLong(builder, value);
+        Block[] blocks = new Block[blockCount];
+        for (int i = 0; i < blockCount; i++) {
+            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(values.length);
+            for (long value : values) {
+                BIGINT.writeLong(builder, value);
+            }
+            blocks[i] = builder.build();
         }
-        return new Page(builder.build());
+        return new Page(blocks);
     }
 }

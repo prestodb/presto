@@ -85,6 +85,7 @@ public class DynamicTupleFilterFactory
                 IntStream.range(0, outputTypes.size())
                         .mapToObj(field -> Expressions.field(field, outputTypes.get(field)))
                         .collect(toImmutableList()),
+                false,
                 Optional.empty());
     }
 
