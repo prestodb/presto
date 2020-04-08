@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
@@ -45,6 +44,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class HandTpchQuery6
@@ -72,12 +72,12 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        Supplier<PageProjection> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjection(session.getSqlFunctionProperties(), field(0, BIGINT), Optional.empty());
+        List<Supplier<PageProjectionWithOutputs>> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjections(session.getSqlFunctionProperties(), ImmutableList.of(field(0, BIGINT)), Optional.empty());
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(new PageProjectionWithOutputs(projection.get(), new int[] {0}))),
+                () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), projection.stream().map(Supplier::get).collect(toImmutableList())),
                 ImmutableList.of(DOUBLE),
                 new DataSize(0, BYTE),
                 0);
