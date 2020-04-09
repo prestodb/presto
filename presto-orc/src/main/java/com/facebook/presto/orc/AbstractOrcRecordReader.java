@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -86,7 +85,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
-    private AggregatedMemoryContext currentStripeSystemMemoryContext;
+    private OrcAggregatedMemoryContext currentStripeSystemMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -102,7 +101,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
     private final Map<String, Slice> userMetadata;
 
-    private final AggregatedMemoryContext systemMemoryUsage;
+    private final OrcAggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<OrcWriteValidation.WriteChecksumBuilder> writeChecksumBuilder;
@@ -131,7 +130,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
-            AggregatedMemoryContext systemMemoryUsage,
+            OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
@@ -215,7 +214,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
-        this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newAggregatedMemoryContext();
+        this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newOrcAggregatedMemoryContext();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -507,7 +506,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             throws IOException
     {
         currentStripeSystemMemoryContext.close();
-        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        currentStripeSystemMemoryContext = systemMemoryUsage.newOrcAggregatedMemoryContext();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
 
         if (currentStripe >= 0) {

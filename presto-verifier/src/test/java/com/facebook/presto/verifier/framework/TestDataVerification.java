@@ -302,9 +302,36 @@ public class TestDataVerification
     }
 
     @Test
+    public void testSelectTime()
+    {
+        String query = "SELECT time '12:34:56'";
+        Optional<VerifierQueryEvent> event = runVerification(query, query);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testSelectTimestampWithTimeZone()
+    {
+        String query = "SELECT cast(timestamp '2020-04-01 12:34:56' AS timestamp with time zone)";
+        Optional<VerifierQueryEvent> event = runVerification(query, query);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
     public void testSelectUnknown()
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT null, null unknown", "SELECT null, null unknown");
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testSelectDecimal()
+    {
+        String query = "SELECT decimal '1.2'";
+        Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }

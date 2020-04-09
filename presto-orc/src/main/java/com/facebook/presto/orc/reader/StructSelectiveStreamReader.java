@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -80,7 +80,7 @@ public class StructSelectiveStreamReader
     private final SelectiveStreamReader[] orderedNestedReaders;
     private final boolean missingFieldFilterIsFalse;
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private int readOffset;
     private int nestedReadOffset;
@@ -107,10 +107,10 @@ public class StructSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newOrcLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = outputType.orElse(null);
 
@@ -180,7 +180,7 @@ public class StructSelectiveStreamReader
                                 nestedRequiredSubfields,
                                 hiveStorageTimeZone,
                                 legacyMapSubscript,
-                                systemMemoryContext.newAggregatedMemoryContext());
+                                systemMemoryContext.newOrcAggregatedMemoryContext());
                         nestedReaders.put(fieldName, nestedReader);
                     }
                     else {

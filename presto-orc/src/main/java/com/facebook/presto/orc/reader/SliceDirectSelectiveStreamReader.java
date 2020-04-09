@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -81,7 +81,7 @@ public class SliceDirectSelectiveStreamReader
     private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
-    private LocalMemoryContext systemMemoryContext;
+    private OrcLocalMemoryContext systemMemoryContext;
     private boolean[] nulls;
 
     private int[] outputPositions;
@@ -96,7 +96,7 @@ public class SliceDirectSelectiveStreamReader
     private Slice dataAsSlice;          // data array wrapped in Slice
     private boolean valuesInUse;
 
-    public SliceDirectSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, LocalMemoryContext newLocalMemoryContext)
+    public SliceDirectSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcLocalMemoryContext newLocalMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.filter = requireNonNull(filter, "filter is null").orElse(null);

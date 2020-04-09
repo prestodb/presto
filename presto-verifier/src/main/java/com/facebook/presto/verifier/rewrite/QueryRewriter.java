@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
@@ -59,9 +60,13 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
@@ -275,11 +280,17 @@ public class QueryRewriter
 
     private Optional<Type> getColumnTypeRewrite(Type type)
     {
-        if (type.equals(DATE)) {
+        if (type.equals(DATE) || type.equals(TIME)) {
             return Optional.of(TIMESTAMP);
+        }
+        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return Optional.of(VARCHAR);
         }
         if (type.equals(UNKNOWN)) {
             return Optional.of(BIGINT);
+        }
+        if (type instanceof DecimalType) {
+            return Optional.of(DOUBLE);
         }
         if (type instanceof ArrayType) {
             return getColumnTypeRewrite(((ArrayType) type).getElementType()).map(ArrayType::new);

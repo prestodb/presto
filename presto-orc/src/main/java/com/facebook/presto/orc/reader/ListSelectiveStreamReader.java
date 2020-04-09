@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.NullsFilter;
@@ -81,7 +81,7 @@ public class ListSelectiveStreamReader
     // elementStreamReader is null if output is not required and filter is a simple IS [NOT] NULL
     @Nullable
     private final SelectiveStreamReader elementStreamReader;
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
@@ -121,7 +121,7 @@ public class ListSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
-            AggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext)
     {
         requireNonNull(filters, "filters is null");
         requireNonNull(subfields, "subfields is null");
@@ -201,7 +201,7 @@ public class ListSelectiveStreamReader
         }
 
         this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
-        this.systemMemoryContext = systemMemoryContext.newLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
+        this.systemMemoryContext = systemMemoryContext.newOrcLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
     }
 
     private static Optional<TupleDomainFilter> getTopLevelFilter(Map<Subfield, TupleDomainFilter> filters)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -78,13 +78,13 @@ public class BooleanSelectiveStreamReader
     private boolean allNulls;
     private boolean valuesInUse;
 
-    private LocalMemoryContext systemMemoryContext;
+    private OrcLocalMemoryContext systemMemoryContext;
 
     public BooleanSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             boolean outputRequired,
-            LocalMemoryContext systemMemoryContext)
+            OrcLocalMemoryContext systemMemoryContext)
     {
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");

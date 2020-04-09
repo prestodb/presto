@@ -15,7 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
@@ -59,7 +59,7 @@ public class OrcBatchPageSource
     private long completedPositions;
     private boolean closed;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final OrcAggregatedMemoryContext systemMemoryContext;
 
     private final FileFormatDataSourceStats stats;
 
@@ -68,7 +68,7 @@ public class OrcBatchPageSource
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
             TypeManager typeManager,
-            AggregatedMemoryContext systemMemoryContext,
+            OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");

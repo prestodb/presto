@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 import com.facebook.presto.spi.type.Decimals;
 import io.airlift.slice.Slice;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
@@ -67,7 +67,7 @@ public class TestShortDecimalStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
+        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize());
         return new DecimalInputStream(input);
     }
 

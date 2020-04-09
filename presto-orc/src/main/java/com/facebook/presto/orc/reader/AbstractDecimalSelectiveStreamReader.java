@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -66,7 +66,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
     private final int valuesPerPosition;
     private final Block nullBlock;
     private final StreamDescriptor streamDescriptor;
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private int readOffset;
     private boolean rowGroupOpen;
@@ -80,7 +80,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            LocalMemoryContext systemMemoryContext,
+            OrcLocalMemoryContext systemMemoryContext,
             int valuesPerPosition)
     {
         requireNonNull(filter, "filter is null");

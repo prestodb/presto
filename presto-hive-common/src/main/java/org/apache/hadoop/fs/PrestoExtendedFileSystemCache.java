@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package org.apache.hadoop.fs;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-import java.io.IOException;
-
-public interface FileOpener
+public class PrestoExtendedFileSystemCache
+        extends PrestoFileSystemCache
 {
-    FSDataInputStream open(FileSystem fileSystem, Path path, HiveFileContext hiveFileContext)
-            throws IOException;
+    @Override
+    protected FileSystem createPrestoFileSystemWrapper(FileSystem original)
+    {
+        return new HadoopExtendedFileSystem(original);
+    }
 }

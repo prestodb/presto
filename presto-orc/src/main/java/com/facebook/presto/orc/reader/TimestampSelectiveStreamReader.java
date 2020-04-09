@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -60,7 +60,7 @@ public class TimestampSelectiveStreamReader
     private final TupleDomainFilter filter;
     private final boolean nullsAllowed;
     private final boolean outputRequired;
-    private final LocalMemoryContext systemMemoryContext;
+    private final OrcLocalMemoryContext systemMemoryContext;
     private final long baseTimestampInSeconds;
     private final boolean nonDeterministicFilter;
 
@@ -90,7 +90,7 @@ public class TimestampSelectiveStreamReader
             Optional<TupleDomainFilter> filter,
             DateTimeZone hiveStorageTimeZone,
             boolean outputRequired,
-            LocalMemoryContext systemMemoryContext)
+            OrcLocalMemoryContext systemMemoryContext)
     {
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");

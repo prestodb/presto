@@ -28,6 +28,7 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -42,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
@@ -68,6 +68,7 @@ final class OrcTestingUtil
                 ORC,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
+                new RaptorOrcAggregatedMemoryContext(),
                 createDefaultTestConfig(),
                 false);
 
@@ -97,7 +98,7 @@ final class OrcTestingUtil
                 storageTypeConverter.toStorageTypes(includedColumns),
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
-                newSimpleAggregatedMemoryContext(),
+                new RaptorOrcAggregatedMemoryContext(),
                 MAX_BATCH_SIZE);
     }
 

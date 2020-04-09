@@ -39,9 +39,19 @@ public class BinaryDictionary
     {
         super(dictionaryPage.getEncoding());
         content = new Binary[dictionaryPage.getDictionarySize()];
+
+        byte[] dictionaryBytes;
+        int offset;
         Slice dictionarySlice = dictionaryPage.getSlice();
-        byte[] dictionaryBytes = dictionarySlice.byteArray();
-        int offset = dictionarySlice.byteArrayOffset();
+        if (dictionarySlice.hasByteArray()) {
+            dictionaryBytes = dictionarySlice.byteArray();
+            offset = dictionarySlice.byteArrayOffset();
+        }
+        else {
+            dictionaryBytes = dictionarySlice.getBytes();
+            offset = 0;
+        }
+
         if (length == null) {
             for (int i = 0; i < content.length; i++) {
                 int len = readIntLittleEndian(dictionaryBytes, offset);

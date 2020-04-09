@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -269,6 +269,7 @@ public class TestStructBatchStreamReader
                 ORC,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(
                         dataSize,
                         dataSize,
@@ -283,7 +284,7 @@ public class TestStructBatchStreamReader
                 includedColumns,
                 OrcPredicate.TRUE,
                 UTC,
-                newSimpleAggregatedMemoryContext(),
+                new TestingHiveOrcAggregatedMemoryContext(),
                 OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();

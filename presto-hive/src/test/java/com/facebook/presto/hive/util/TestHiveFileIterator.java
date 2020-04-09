@@ -30,8 +30,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -66,7 +66,8 @@ public class TestHiveFileIterator
     }
 
     @Test
-    public void testDefaultPathFilterNoRecursion() throws IOException
+    public void testDefaultPathFilterNoRecursion()
+            throws IOException
     {
         // set up
         File rootDir = createTempDir();
@@ -86,7 +87,8 @@ public class TestHiveFileIterator
     }
 
     @Test
-    public void testDefaultPathFilterWithRecursion() throws IOException
+    public void testDefaultPathFilterWithRecursion()
+            throws IOException
     {
         // set up
         File rootDir = createTempDir();
@@ -116,7 +118,8 @@ public class TestHiveFileIterator
     }
 
     @Test
-    public void testPathFilterWithNoRecursion() throws IOException
+    public void testPathFilterWithNoRecursion()
+            throws IOException
     {
         // set up
         File rootDir = createTempDir();
@@ -136,7 +139,8 @@ public class TestHiveFileIterator
     }
 
     @Test
-    public void testPathFilterWithRecursion() throws IOException
+    public void testPathFilterWithRecursion()
+            throws IOException
     {
         // set up
         File rootDir = createTempDir();
@@ -173,7 +177,8 @@ public class TestHiveFileIterator
         }
     }
 
-    private void createFiles(String basePath, int numFiles, boolean matchPathFilter) throws IOException
+    private void createFiles(String basePath, int numFiles, boolean matchPathFilter)
+            throws IOException
     {
         new File(basePath).mkdirs();
         for (int i = 0; i < numFiles; i++) {

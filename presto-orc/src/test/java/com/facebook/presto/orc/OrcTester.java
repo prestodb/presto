@@ -123,7 +123,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
@@ -1307,6 +1307,7 @@ public class OrcTester
                 orcEncoding,
                 orcFileTailSource,
                 stripeMetadataSource,
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
@@ -1320,7 +1321,7 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
     }
 
     public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
@@ -1389,6 +1390,7 @@ public class OrcTester
                 orcEncoding,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
@@ -1417,7 +1419,7 @@ public class OrcTester
                 orcDataSource.getSize(),
                 HIVE_STORAGE_TIME_ZONE,
                 LEGACY_MAP_SUBSCRIPT,
-                newSimpleAggregatedMemoryContext(),
+                new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
                 initialBatchSize);
     }

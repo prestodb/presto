@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -33,7 +34,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.toOrcFileType;
@@ -76,7 +76,7 @@ public final class ShardStats
                 storageTypeConverter.toStorageTypes(ImmutableMap.of(columnIndex, toOrcFileType(type, typeManager))),
                 OrcPredicate.TRUE,
                 UTC,
-                newSimpleAggregatedMemoryContext(),
+                new RaptorOrcAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE);
 
         if (type.equals(BOOLEAN)) {

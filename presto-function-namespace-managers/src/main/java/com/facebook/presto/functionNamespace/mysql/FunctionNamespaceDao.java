@@ -51,22 +51,23 @@ public interface FunctionNamespaceDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS <sql_functions_table> (\n" +
             "  id bigint(20) NOT NULL AUTO_INCREMENT,\n" +
-            "  function_id varchar(700) NOT NULL,\n" +
+            "  function_id_hash varchar(128) NOT NULL,\n" +
+            "  function_id text NOT NULL,\n" +
             "  version bigint(20) unsigned NOT NULL,\n" +
             "  catalog_name varchar(128) NOT NULL,\n" +
             "  schema_name varchar(128) NOT NULL,\n" +
             "  function_name varchar(256) NOT NULL,\n" +
-            "  parameters varchar(40000) NOT NULL,\n" +
-            "  return_type varchar(256) NOT NULL,\n" +
+            "  parameters text NOT NULL,\n" +
+            "  return_type text NOT NULL,\n" +
             "  routine_characteristics text NOT NULL,\n" +
             "  body mediumtext,\n" +
             "  description text,\n" +
             "  deleted boolean NOT NULL DEFAULT false,\n" +
             "  delete_time TIMESTAMP NULL DEFAULT NULL,\n" +
-            "  create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" +
-            "  update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
+            "  create_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,\n" +
+            "  update_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
             "  PRIMARY KEY (id),\n" +
-            "  UNIQUE KEY function_id_version (function_id, version),\n" +
+            "  KEY function_id_hash_version (function_id_hash, version),\n" +
             "  KEY qualified_function_name (catalog_name, schema_name, function_name))")
     void createSqlFunctionsTableIfNotExists();
 
@@ -92,14 +93,17 @@ public interface FunctionNamespaceDao
             "FROM <sql_functions_table> t\n" +
             "JOIN (\n" +
             "    SELECT\n" +
+            "        function_id_hash,\n" +
             "        function_id,\n" +
             "        MAX(version) version\n" +
             "    FROM <sql_functions_table>\n" +
             "    WHERE catalog_name = :catalog_name\n" +
             "    GROUP BY\n" +
+            "        function_id_hash,\n" +
             "        function_id\n" +
             ") v\n" +
-            "    ON t.function_id = v.function_id\n " +
+            "    ON t.function_id_hash = v.function_id_hash\n" +
+            "    AND t.function_id = v.function_id\n " +
             "    AND t.version = v.version\n" +
             "WHERE\n" +
             "    NOT t.deleted")
@@ -118,6 +122,7 @@ public interface FunctionNamespaceDao
             "FROM <sql_functions_table> t\n" +
             "JOIN (\n" +
             "    SELECT\n" +
+            "        function_id_hash,\n" +
             "        function_id,\n" +
             "        MAX(version) version\n" +
             "    FROM <sql_functions_table>\n" +
@@ -125,9 +130,11 @@ public interface FunctionNamespaceDao
             "      AND schema_name = :schema_name\n" +
             "      AND function_name = :function_name\n" +
             "    GROUP BY\n" +
+            "        function_id_hash,\n" +
             "        function_id\n" +
             ") v\n" +
-            "    ON t.function_id = v.function_id\n " +
+            "    ON t.function_id_hash = v.function_id_hash\n " +
+            "    AND t.function_id = v.function_id\n " +
             "    AND t.version = v.version\n" +
             "WHERE\n" +
             "    NOT t.deleted")
@@ -148,9 +155,11 @@ public interface FunctionNamespaceDao
             "    version\n" +
             "FROM <sql_functions_table>\n" +
             "WHERE\n" +
-            "    function_id = :function_id\n" +
+            "    function_id_hash = :function_id_hash\n" +
+            "    AND function_id = :function_id\n" +
             "    AND version = :version")
     Optional<SqlInvokedFunction> getFunction(
+            @Bind("function_id_hash") String functionIdHash,
             @Bind("function_id") SqlFunctionId functionId,
             @Bind("version") long version);
 
@@ -171,14 +180,18 @@ public interface FunctionNamespaceDao
             "        MAX(version) version\n" +
             "    FROM <sql_functions_table>\n" +
             "    WHERE\n" +
-            "        function_id = :function_id\n" +
+            "        function_id_hash = :function_id_hash\n" +
+            "        AND function_id = :function_id\n" +
             ") v\n" +
             "ON\n" +
             "    t.version = v.version\n" +
             "WHERE\n" +
-            "    t.function_id = :function_id\n" +
+            "    t.function_id_hash = :function_id_hash\n" +
+            "    AND t.function_id = :function_id\n" +
             "FOR UPDATE")
-    Optional<SqlInvokedFunctionRecord> getLatestRecordForUpdate(@Bind("function_id") SqlFunctionId functionId);
+    Optional<SqlInvokedFunctionRecord> getLatestRecordForUpdate(
+            @Bind("function_id_hash") String functionIdHash,
+            @Bind("function_id") SqlFunctionId functionId);
 
     @SqlQuery("SELECT\n" +
             "    t.catalog_name,\n" +
@@ -194,6 +207,7 @@ public interface FunctionNamespaceDao
             "FROM <sql_functions_table> t\n" +
             "JOIN (\n" +
             "    SELECT\n" +
+            "        function_id_hash,\n" +
             "        function_id,\n" +
             "        MAX(version) version\n" +
             "    FROM <sql_functions_table>\n" +
@@ -202,10 +216,12 @@ public interface FunctionNamespaceDao
             "        AND schema_name = :schema_name\n" +
             "        AND function_name = :function_name\n" +
             "    GROUP BY\n" +
+            "        function_id_hash,\n" +
             "        function_id\n" +
             ") v\n" +
             "ON\n" +
-            "    t.function_id = v.function_id\n" +
+            "    t.function_id_hash = v.function_id_hash\n" +
+            "    AND t.function_id = v.function_id\n" +
             "    AND t.version = v.version\n" +
             "FOR UPDATE")
     List<SqlInvokedFunctionRecord> getLatestRecordsForUpdate(
@@ -214,6 +230,7 @@ public interface FunctionNamespaceDao
             @Bind("function_name") String functionName);
 
     @SqlUpdate("INSERT INTO <sql_functions_table> (\n" +
+            "        function_id_hash,\n" +
             "        function_id,\n" +
             "        version,\n" +
             "        catalog_name,\n" +
@@ -227,6 +244,7 @@ public interface FunctionNamespaceDao
             "    )\n" +
             "VALUES\n" +
             "    (\n" +
+            "        :function_id_hash,\n" +
             "        :function_id,\n" +
             "        :version,\n" +
             "        :catalog_name,\n" +
@@ -239,6 +257,7 @@ public interface FunctionNamespaceDao
             "        :body\n" +
             "    )")
     void insertFunction(
+            @Bind("function_id_hash") String functionIdHash,
             @Bind("function_id") SqlFunctionId functionId,
             @Bind("version") long version,
             @Bind("catalog_name") String catalogName,
@@ -256,9 +275,11 @@ public interface FunctionNamespaceDao
             "    deleted = :deleted\n," +
             "    delete_time = IF(:deleted, NOW(), null)\n" +
             "WHERE\n" +
-            "    function_id = :function_id\n" +
+            "    function_id_hash = :function_id_hash\n" +
+            "    AND function_id = :function_id\n" +
             "    AND version = :version")
     int setDeletionStatus(
+            @Bind("function_id_hash") String functionIdHash,
             @Bind("function_id") SqlFunctionId functionId,
             @Bind("version") long version,
             @Bind("deleted") boolean deleted);

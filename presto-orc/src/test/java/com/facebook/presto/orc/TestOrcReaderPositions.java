@@ -45,6 +45,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -304,6 +305,7 @@ public class TestOrcReaderPositions
                     ORC,
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
+                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false);
             Footer footer = orcReader.getFooter();

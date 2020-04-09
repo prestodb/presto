@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -45,11 +45,11 @@ public class SliceSelectiveStreamReader
     private final SliceDictionarySelectiveReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
-    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, AggregatedMemoryContext systemMemoryContext)
+    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.directReader = new SliceDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newLocalMemoryContext(SliceDirectSelectiveStreamReader.class.getSimpleName()));
-        this.dictionaryReader = new SliceDictionarySelectiveReader(streamDescriptor, filter, outputType, systemMemoryContext.newLocalMemoryContext(SliceDictionarySelectiveReader.class.getSimpleName()));
+        this.directReader = new SliceDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDirectSelectiveStreamReader.class.getSimpleName()));
+        this.dictionaryReader = new SliceDictionarySelectiveReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDictionarySelectiveReader.class.getSimpleName()));
     }
 
     @Override

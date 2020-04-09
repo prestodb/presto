@@ -29,6 +29,8 @@ public class QueryProgressStats
     private final long scheduledTimeMillis;
     private final long currentMemoryBytes;
     private final long peakMemoryBytes;
+    private final long peakTotalMemoryBytes;
+    private final long peakTaskTotalMemoryBytes;
     private final long inputRows;
     private final long inputBytes;
     private final OptionalDouble progressPercentage;
@@ -42,6 +44,8 @@ public class QueryProgressStats
             @JsonProperty("scheduledTimeMillis") long scheduledTimeMillis,
             @JsonProperty("currentMemoryBytes") long currentMemoryBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
+            @JsonProperty("peakTotalMemoryBytes") long peakTotalMemoryBytes,
+            @JsonProperty("peakTaskTotalMemoryBytes") long peakTaskTotalMemoryBytes,
             @JsonProperty("inputRows") long inputRows,
             @JsonProperty("inputBytes") long inputBytes,
             @JsonProperty("blocked") boolean blocked,
@@ -53,6 +57,8 @@ public class QueryProgressStats
         this.scheduledTimeMillis = scheduledTimeMillis;
         this.currentMemoryBytes = currentMemoryBytes;
         this.peakMemoryBytes = peakMemoryBytes;
+        this.peakTotalMemoryBytes = peakTotalMemoryBytes;
+        this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
         this.inputRows = inputRows;
         this.inputBytes = inputBytes;
         this.blocked = blocked;
@@ -68,6 +74,8 @@ public class QueryProgressStats
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getUserMemoryReservation().toBytes(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
+                queryStats.getPeakTotalMemoryReservation().toBytes(),
+                queryStats.getPeakTaskTotalMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
@@ -108,6 +116,18 @@ public class QueryProgressStats
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
+    }
+
+    @JsonProperty
+    public long getPeakTotalMemoryBytes()
+    {
+        return peakTotalMemoryBytes;
+    }
+
+    @JsonProperty
+    public long getPeakTaskTotalMemoryBytes()
+    {
+        return peakTaskTotalMemoryBytes;
     }
 
     @JsonProperty

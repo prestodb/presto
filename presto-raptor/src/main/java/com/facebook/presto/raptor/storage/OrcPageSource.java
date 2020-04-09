@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.raptor.storage.DeltaShardLoader.RowsToKeepResult;
@@ -63,7 +63,7 @@ public class OrcPageSource
     private final Block[] constantBlocks;
     private final int[] columnIndexes;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final OrcAggregatedMemoryContext systemMemoryContext;
 
     private int batchId;
     private long completedPositions;
@@ -77,7 +77,7 @@ public class OrcPageSource
             List<Integer> columnIndexes,
             UUID shardUuid,
             OptionalInt bucketNumber,
-            AggregatedMemoryContext systemMemoryContext,
+            OrcAggregatedMemoryContext systemMemoryContext,
             DeltaShardLoader deltaShardLoader)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");

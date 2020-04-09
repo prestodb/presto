@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileInfo;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.ContentSummary;
@@ -21,9 +24,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.FsStatus;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
@@ -45,18 +48,18 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public final class CachingFileSystem
-        extends FileSystem
+        extends ExtendedFileSystem
 {
     private final URI uri;
     private final CacheManager cacheManager;
-    private final FileSystem dataTier;
+    private final ExtendedFileSystem dataTier;
     private final boolean cacheValidationEnabled;
 
     public CachingFileSystem(
             URI uri,
             Configuration configuration,
             CacheManager cacheManager,
-            FileSystem dataTier,
+            ExtendedFileSystem dataTier,
             boolean cacheValidationEnabled)
     {
         requireNonNull(configuration, "configuration is null");
@@ -145,6 +148,17 @@ public final class CachingFileSystem
             throws IOException
     {
         return new CachingInputStream(dataTier.open(path, bufferSize), cacheManager, path, cacheValidationEnabled);
+    }
+
+    @Override
+    public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
+            throws Exception
+    {
+        if (hiveFileContext.isCacheable()) {
+            return new CachingInputStream(dataTier.openFile(path, hiveFileContext), cacheManager, path, cacheValidationEnabled);
+        }
+
+        return dataTier.openFile(path, hiveFileContext);
     }
 
     @Override
@@ -489,7 +503,7 @@ public final class CachingFileSystem
         return dataTier.makeQualified(path);
     }
 
-    public FileSystem getDataTier()
+    public ExtendedFileSystem getDataTier()
     {
         return dataTier;
     }
@@ -497,5 +511,19 @@ public final class CachingFileSystem
     public boolean isCacheValidationEnabled()
     {
         return cacheValidationEnabled;
+    }
+
+    @Override
+    public RemoteIterator<LocatedFileStatus> listDirectory(Path path)
+            throws IOException
+    {
+        return dataTier.listDirectory(path);
+    }
+
+    @Override
+    public RemoteIterator<HiveFileInfo> listFiles(Path path)
+            throws IOException
+    {
+        return dataTier.listFiles(path);
     }
 }
