@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.io.Closer;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -848,14 +847,6 @@ public class OrcSelectiveRecordReader
     public void close()
             throws IOException
     {
-        try (Closer closer = Closer.create()) {
-            for (SelectiveStreamReader streamReader : getStreamReaders()) {
-                if (streamReader != null) {
-                    closer.register(streamReader::close);
-                }
-            }
-        }
-
         super.close();
     }
 
