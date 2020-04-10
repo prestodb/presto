@@ -120,16 +120,16 @@ public class TestDruidQueryGenerator
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).globalGrouping())),
                 "SELECT count(*) FROM realtimeOnly WHERE (fare > 3)");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(v("regionid")))),
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(variable("regionid")))),
                 "SELECT regionId, count(*) FROM realtimeOnly WHERE (fare > 3) GROUP BY regionId");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(v("regionid")))),
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("regionid")))),
                 "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
         testDQL(
-                planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(v("regionid"))))),
+                planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))))),
                 "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId LIMIT 5");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(v("regionid"), v("city")))),
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(variable("regionid"), variable("city")))),
                 "SELECT regionId, city, count(*) FROM realtimeOnly WHERE ((secondsSinceEpoch BETWEEN 200 AND 300) AND (regionId >= 40)) GROUP BY regionId, city");
     }
 
@@ -138,7 +138,27 @@ public class TestDruidQueryGenerator
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(v("regionid"))),
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))),
                 "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
+    }
+
+    @Test
+    public void testDistinctCountPushdown()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
+                "SELECT count ( distinct regionId) FROM realtimeOnly");
+    }
+
+    @Test
+    public void testDistinctCountGroupByPushdown()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("regionid"))));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city")).addAggregation(variable("regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
+                "SELECT city, count ( distinct regionId) FROM realtimeOnly GROUP BY city");
     }
 }
