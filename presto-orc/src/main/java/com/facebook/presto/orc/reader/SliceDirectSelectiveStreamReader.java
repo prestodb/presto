@@ -428,6 +428,12 @@ public class SliceDirectSelectiveStreamReader
     @Override
     public void close()
     {
+        dataAsSlice = null;
+        data = null;
+        lengthVector = null;
+        isNullVector = null;
+        offsets = null;
+        outputPositions = null;
         systemMemoryContext.close();
     }
 
