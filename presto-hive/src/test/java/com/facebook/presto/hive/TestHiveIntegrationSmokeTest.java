@@ -4686,6 +4686,30 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_show_properties");
     }
 
+    @Test
+    public void testPageFileFormatSmallStripe()
+    {
+        Session smallStripeSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(catalog, "pagefile_writer_max_stripe_size", "1B")
+                .build();
+        assertUpdate(
+                smallStripeSession,
+                "CREATE TABLE test_pagefile_orders\n" +
+                "WITH (\n" +
+                "format = 'PAGEFILE'\n" +
+                ") AS\n" +
+                "SELECT\n" +
+                "*\n" +
+                "FROM tpch.orders",
+                "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT count(*) FROM test_pagefile_orders", "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT sum(custkey) FROM test_pagefile_orders", "SELECT sum(custkey) FROM orders");
+
+        assertUpdate("DROP TABLE test_pagefile_orders");
+    }
+
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
     {
         return plan -> assertTrue(searchFrom(plan.getRoot())

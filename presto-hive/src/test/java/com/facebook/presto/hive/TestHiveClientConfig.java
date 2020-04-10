@@ -130,7 +130,8 @@ public class TestHiveClientConfig
                 .setAdaptiveFilterReorderingEnabled(true)
                 .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
                 .setFileStatusCacheMaxSize(0)
-                .setFileStatusCacheTables(""));
+                .setFileStatusCacheTables("")
+                .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE)));
     }
 
     @Test
@@ -224,6 +225,7 @@ public class TestHiveClientConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.pagefile.writer.stripe-max-size", "1kB")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -314,7 +316,8 @@ public class TestHiveClientConfig
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
-                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
+                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

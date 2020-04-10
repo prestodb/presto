@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class PageWriter
@@ -35,13 +34,14 @@ public class PageWriter
     private final DataSink dataSink;
     private long bufferedBytes;
     private long retainedBytes;
-    private long maxBufferedBytes = new DataSize(128, MEGABYTE).toBytes();
+    private long maxBufferedBytes;
     private boolean closed;
     private List<DataOutput> bufferedPages;
 
-    public PageWriter(DataSink dataSink)
+    public PageWriter(DataSink dataSink, DataSize pageFileStripeMaxSize)
     {
         this.dataSink = requireNonNull(dataSink, "pageDataSink is null");
+        this.maxBufferedBytes = requireNonNull(pageFileStripeMaxSize, "pageFileStripeMaxSize is null").toBytes();
         bufferedPages = new ArrayList<>();
     }
 
