@@ -655,6 +655,26 @@ public class MapDirectSelectiveStreamReader
     @Override
     public void close()
     {
+        if (keyReader != null) {
+            keyReader.close();
+        }
+        if (valueReader != null) {
+            valueReader.close();
+        }
+
+        nestedOffsets = null;
+        offsets = null;
+        nulls = null;
+        outputPositions = null;
+        nestedLengths = null;
+        nestedPositions = null;
+        nestedOutputPositions = null;
+
+        lengthStream = null;
+        lengthStreamSource = null;
+        presentStream = null;
+        lengthStreamSource = null;
+
         systemMemoryContext.close();
     }
 
