@@ -385,7 +385,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 }
             }
         }
-
+        rowGroups = null;
         if (writeChecksumBuilder.isPresent()) {
             OrcWriteValidation.WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
