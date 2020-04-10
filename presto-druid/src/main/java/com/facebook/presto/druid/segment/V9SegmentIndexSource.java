@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Streams;
+import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.common.utils.SerializerUtils;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
@@ -64,6 +65,7 @@ public class V9SegmentIndexSource
     public V9SegmentIndexSource(SegmentColumnSource segmentColumnSource)
     {
         this.segmentColumnSource = requireNonNull(segmentColumnSource, "segmentColumnSource is null");
+        NullHandling.initializeForTests();
     }
 
     @Override
