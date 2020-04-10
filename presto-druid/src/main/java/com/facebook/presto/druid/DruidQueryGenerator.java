@@ -48,8 +48,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidAggregationColumnNode.AggregationFunctionColumnNode;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.AGGREGATE;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.GROUP_BY;
 import static com.facebook.presto.druid.DruidAggregationColumnNode.GroupByColumnNode;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidPushdownUtils.computeAggregationNodes;
@@ -313,8 +311,8 @@ public class DruidQueryGenerator
                     }
                     case AGGREGATE: {
                         AggregationFunctionColumnNode aggregationNode = (AggregationFunctionColumnNode) expression;
-                        String druidAggregationFunction = handleAggregationFunction(aggregationNode.getCallExpression(), context.getSelections());
-                        newSelections.put(getVariableReference(aggregationNode.getOutputColumn()), new Selection(druidAggregationFunction, DERIVED));
+                        String druidAggregationFunction = handleAggregationFunction(aggregationNode.getCallExpression(), aggregationNode.getAlias(), context.getSelections());
+                        newSelections.put(getVariableReference(aggregationNode.getOutputColumn()), new Selection(druidAggregationFunction, DERIVED, aggregationNode.getAlias()));
                         aggregations++;
                         break;
                     }
@@ -333,17 +331,17 @@ public class DruidQueryGenerator
             return context.withAggregation(newSelections, groupByColumns, aggregations, hiddenColumnSet);
         }
 
-        private String handleAggregationFunction(CallExpression aggregation, Map<VariableReferenceExpression, Selection> inputSelections)
+        private String handleAggregationFunction(CallExpression aggregation, String alias, Map<VariableReferenceExpression, Selection> inputSelections)
         {
             String prestoAggregation = aggregation.getDisplayName().toLowerCase(ENGLISH);
             List<RowExpression> parameters = aggregation.getArguments();
             if (prestoAggregation.equals("count")) {
                 if (parameters.size() <= 1) {
-                    return format("count(%s)", parameters.isEmpty() ? "*" : inputSelections.get(getVariableReference(parameters.get(0))));
+                    return format("count(%s) as %s", parameters.isEmpty() ? "*" : inputSelections.get(getVariableReference(parameters.get(0))), alias);
                 }
             }
             else if (UNARY_AGGREGATION_MAP.containsKey(prestoAggregation) && aggregation.getArguments().size() == 1) {
-                return format("%s(%s)", UNARY_AGGREGATION_MAP.get(prestoAggregation), inputSelections.get(getVariableReference(parameters.get(0))));
+                return format("%s(%s) as %s", UNARY_AGGREGATION_MAP.get(prestoAggregation), inputSelections.get(getVariableReference(parameters.get(0))), alias);
             }
             throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Unsupported pushdown for Druid connector. Aggregation function: " + aggregation + " not supported");
         }

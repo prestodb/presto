@@ -252,7 +252,9 @@ public class DruidQueryGeneratorContext
         selections.entrySet().stream().filter(e -> !hiddenColumnSet.contains(e.getKey())).forEach(entry -> {
             VariableReferenceExpression variable = entry.getKey();
             Selection selection = entry.getValue();
-            DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) : new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
+            String alias = selection.getAlias();
+            VariableReferenceExpression derivedVariable = alias == null ? variable : new VariableReferenceExpression(alias, variable.getType());
+            DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) : new DruidColumnHandle(derivedVariable, DruidColumnHandle.DruidColumnType.DERIVED);
             result.put(variable, handle);
         });
         return result;
@@ -287,11 +289,20 @@ public class DruidQueryGeneratorContext
     {
         private final String definition;
         private final Origin origin;
+        private final String alias;
 
         public Selection(String definition, Origin origin)
         {
             this.definition = definition;
             this.origin = origin;
+            this.alias = null;
+        }
+
+        public Selection(String definition, Origin origin, String alias)
+        {
+            this.definition = definition;
+            this.origin = origin;
+            this.alias = alias;
         }
 
         public String getDefinition()
@@ -302,6 +313,11 @@ public class DruidQueryGeneratorContext
         public Origin getOrigin()
         {
             return origin;
+        }
+
+        public String getAlias()
+        {
+            return alias;
         }
 
         @Override

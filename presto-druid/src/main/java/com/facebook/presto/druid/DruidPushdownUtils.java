@@ -30,6 +30,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.apache.commons.lang3.RandomStringUtils;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -62,7 +63,7 @@ public class DruidPushdownUtils
                         || aggregation.getMask().isPresent()) {
                     throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Unsupported aggregation node " + aggregationNode);
                 }
-                nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, aggregation.getCall()));
+                nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, aggregation.getCall(), RandomStringUtils.randomAlphabetic(10)));
             }
             else {
                 // group by output

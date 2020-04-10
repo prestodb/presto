@@ -72,11 +72,13 @@ public abstract class DruidAggregationColumnNode
             extends DruidAggregationColumnNode
     {
         private final CallExpression callExpression;
+        private final String alias;
 
-        public AggregationFunctionColumnNode(VariableReferenceExpression output, CallExpression callExpression)
+        public AggregationFunctionColumnNode(VariableReferenceExpression output, CallExpression callExpression, String alias)
         {
             super(ExpressionType.AGGREGATE, output);
             this.callExpression = requireNonNull(callExpression, "callExpression is null");
+            this.alias = requireNonNull(alias, "alias is null");
         }
 
         public CallExpression getCallExpression()
@@ -84,10 +86,15 @@ public abstract class DruidAggregationColumnNode
             return callExpression;
         }
 
+        public String getAlias()
+        {
+            return alias;
+        }
+
         @Override
         public String toString()
         {
-            return callExpression.toString();
+            return callExpression.toString() + ", " + alias;
         }
     }
 }
