@@ -18,6 +18,7 @@ import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
+import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -40,9 +41,10 @@ public class PageFileWriter
     public PageFileWriter(
             DataSink dataSink,
             PagesSerde pagesSerde,
+            DataSize pageFileStripeMaxSize,
             Callable<Void> rollbackAction)
     {
-        pageWriter = new PageWriter(dataSink);
+        pageWriter = new PageWriter(dataSink, pageFileStripeMaxSize);
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
     }

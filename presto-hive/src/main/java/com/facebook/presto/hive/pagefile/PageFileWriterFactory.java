@@ -36,6 +36,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getPageFileStripeMaxSize;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +81,7 @@ public class PageFileWriterFactory
                 fileSystem.delete(path, false);
                 return null;
             };
-            return Optional.of(new PageFileWriter(dataSink, pagesSerde, rollbackAction));
+            return Optional.of(new PageFileWriter(dataSink, pagesSerde, getPageFileStripeMaxSize(session), rollbackAction));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating pagefile", e);
