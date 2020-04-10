@@ -12,7 +12,7 @@ Data Structures
 
 KHyperLogLog is a data sketch that compactly represents the association of two
 columns. It is implemented in Presto as a two-level data structure composed of
-a MinHash structure whose entries map to :ref:`hyperloglog_type`.
+a MinHash structure whose entries map to ``HyperLogLog``.
 
 Serialization
 -------------
