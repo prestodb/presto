@@ -165,6 +165,8 @@ public class HiveClientConfig
     private long fileStatusCacheMaxSize;
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
+    private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1337,6 +1339,18 @@ public class HiveClientConfig
     public HiveClientConfig setAdaptiveFilterReorderingEnabled(boolean adaptiveFilterReorderingEnabled)
     {
         this.adaptiveFilterReorderingEnabled = adaptiveFilterReorderingEnabled;
+        return this;
+    }
+
+    public DataSize getPageFileStripeMaxSize()
+    {
+        return pageFileStripeMaxSize;
+    }
+
+    @Config("hive.pagefile.writer.stripe-max-size")
+    public HiveClientConfig setPageFileStripeMaxSize(DataSize pageFileStripeMaxSize)
+    {
+        this.pageFileStripeMaxSize = pageFileStripeMaxSize;
         return this;
     }
 }

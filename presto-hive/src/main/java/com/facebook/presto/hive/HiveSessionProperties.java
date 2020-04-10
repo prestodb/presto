@@ -63,6 +63,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
+    private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
@@ -241,6 +242,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
+                        false),
+                dataSizeSessionProperty(
+                        PAGEFILE_WRITER_MAX_STRIPE_SIZE,
+                        "PAGEFILE: Max stripe size",
+                        hiveClientConfig.getPageFileStripeMaxSize(),
                         false),
                 stringProperty(
                         HIVE_STORAGE_FORMAT,
@@ -551,6 +557,11 @@ public final class HiveSessionProperties
     public static DataSize getOrcOptimizedWriterMaxDictionaryMemory(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
+    }
+
+    public static DataSize getPageFileStripeMaxSize(ConnectorSession session)
+    {
+        return session.getProperty(PAGEFILE_WRITER_MAX_STRIPE_SIZE, DataSize.class);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
