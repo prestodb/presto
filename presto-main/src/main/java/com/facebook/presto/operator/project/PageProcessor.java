@@ -79,8 +79,9 @@ public class PageProcessor
     {
         List<Integer> outputChannels = projections.stream().map(PageProjectionWithOutputs::getOutputChannels).map(Arrays::stream).map(IntStream::boxed).flatMap(identity()).distinct().collect(toImmutableList());
         int outputCount = projections.stream().map(PageProjectionWithOutputs::getOutputCount).reduce(Integer::sum).orElse(0);
-        verify(outputChannels.size() == outputCount, format("outputChannels size: %d (%s), outputCount %d, projections: %s", outputChannels.size(), outputChannels, outputCount, projections));
-        verify(outputCount == 0 || outputChannels.stream().max(Integer::compareTo).orElse(0) == outputChannels.size() - 1, format("outputCount: %d, outputChannels: %s", outputCount, outputChannels));
+        verify(
+                outputChannels.size() == outputCount && (outputCount == 0 || outputChannels.stream().max(Integer::compareTo).orElse(0) == outputChannels.size() - 1),
+                format("Invalid outputChannels: outputCount: %d, outputChannels: %s", outputCount, outputChannels));
 
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
