@@ -137,8 +137,7 @@ public class MapSelectiveStreamReader
     @Override
     public void close()
     {
-        if (currentReader != null) {
-            currentReader.close();
-        }
+        directReader.close();
+        flatReader.close();
     }
 }
