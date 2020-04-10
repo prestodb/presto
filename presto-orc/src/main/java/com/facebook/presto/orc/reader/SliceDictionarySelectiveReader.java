@@ -609,6 +609,13 @@ public class SliceDictionarySelectiveReader
     @Override
     public void close()
     {
+        dictionary = null;
+        currentDictionaryData = null;
+        rowGroupDictionaryLength = null;
+        stripeDictionaryData = null;
+        stripeDictionaryLength = null;
+        values = null;
+        outputPositions = null;
         systemMemoryContext.close();
     }
 
