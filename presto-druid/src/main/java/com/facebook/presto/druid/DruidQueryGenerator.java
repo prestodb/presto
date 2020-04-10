@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -68,7 +69,8 @@ public class DruidQueryGenerator
             "min", "min",
             "max", "max",
             "avg", "avg",
-            "sum", "sum");
+            "sum", "sum",
+            "distinctcount", "DISTINCTCOUNT");
 
     private final TypeManager typeManager;
     private final FunctionMetadataManager functionMetadataManager;
@@ -194,6 +196,13 @@ public class DruidQueryGenerator
                 return ((VariableReferenceExpression) expression);
             }
             throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Unsupported pushdown for Druid connector. Expect variable reference, but get: " + expression);
+        }
+
+        @Override
+        public DruidQueryGeneratorContext visitMarkDistinct(MarkDistinctNode node, DruidQueryGeneratorContext context)
+        {
+            requireNonNull(context, "context is null");
+            return node.getSource().accept(this, context);
         }
 
         @Override
