@@ -15,18 +15,23 @@ package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
+import static com.facebook.presto.druid.DruidPushdownUtils.DRUID_COUNT_DISTINCT_FUNCTION_NAME;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -147,11 +152,39 @@ public class DruidQueryGeneratorContext
             int newAggregations,
             Set<VariableReferenceExpression> newHiddenColumnSet)
     {
-        checkState(!hasAggregation(), "Druid doesn't support aggregation on top of the aggregated data");
+        AtomicBoolean pushDownDistinctCount = new AtomicBoolean(false);
+        newSelections.values().forEach(selection -> {
+            if (selection.getDefinition().startsWith(DRUID_COUNT_DISTINCT_FUNCTION_NAME.toUpperCase(Locale.ENGLISH))) {
+                pushDownDistinctCount.set(true);
+            }
+        });
+        Map<VariableReferenceExpression, Selection> targetSelections = newSelections;
+        if (pushDownDistinctCount.get()) {
+            // Push down count distinct query to Druid, clean up hidden column set by the non-aggregation groupBy Plan.
+            newHiddenColumnSet = ImmutableSet.of();
+            ImmutableMap.Builder<VariableReferenceExpression, Selection> builder = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, Selection> entry : newSelections.entrySet()) {
+                if (entry.getValue().getDefinition().startsWith(DRUID_COUNT_DISTINCT_FUNCTION_NAME.toUpperCase(Locale.ENGLISH))) {
+                    String definition = entry.getValue().getDefinition();
+                    int start = definition.indexOf("(");
+                    int end = definition.indexOf(")");
+                    String countDistinctClause = "count ( distinct " + definition.substring(start + 1, end) + ")";
+                    Selection countDistinctSelection = new Selection(countDistinctClause, entry.getValue().getOrigin());
+                    builder.put(entry.getKey(), countDistinctSelection);
+                }
+                else {
+                    builder.put(entry.getKey(), entry.getValue());
+                }
+            }
+            targetSelections = builder.build();
+        }
+        else {
+            checkState(!hasAggregation(), "Druid doesn't support aggregation on top of the aggregated data");
+        }
         checkState(!hasLimit(), "Druid doesn't support aggregation on top of the limit");
         checkState(newAggregations > 0, "Invalid number of aggregations");
         return new DruidQueryGeneratorContext(
-                newSelections,
+                targetSelections,
                 from,
                 filter,
                 limit,
