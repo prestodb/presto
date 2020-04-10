@@ -282,13 +282,13 @@ Calculating the approximate distinct count can be done much more cheaply than an
 KHyperLogLog
 ------------
 
+.. _khyperloglog_type:
+
 ``KHyperLogLog``
 ^^^^^^^^^^^^^^^^
 
     A KHyperLogLog is a data sketch that can be used to compactly represents the association of two
     columns. See :doc:`/functions/khyperloglog`.
-
-.. _khyperloglog_type:
 
 Quantile Digest
 ---------------
