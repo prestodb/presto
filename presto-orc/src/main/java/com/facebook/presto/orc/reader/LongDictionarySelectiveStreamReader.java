@@ -367,6 +367,16 @@ public class LongDictionarySelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        nulls = null;
+        outputPositions = null;
+        dictionary = null;
+        dictionaryFilterStatus = null;
+
+        dataStreamSource = null;
+        dataStream = null;
+        dictionaryDataStreamSource = null;
+
         systemMemoryContext.close();
     }
 

@@ -370,6 +370,14 @@ public class LongDirectSelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        outputPositions = null;
+
+        presentStream = null;
+        presentStreamSource = null;
+        dataStream = null;
+        dataStreamSource = null;
+
         systemMemoryContext.close();
     }
 
