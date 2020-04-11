@@ -15,9 +15,9 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
-import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -841,7 +841,7 @@ public class OrcStorageManager
                 Path stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                OrcDataSink sink;
+                DataSink sink;
                 try {
                     sink = orcDataEnvironment.createOrcDataSink(fileSystem, stagingFile);
                 }

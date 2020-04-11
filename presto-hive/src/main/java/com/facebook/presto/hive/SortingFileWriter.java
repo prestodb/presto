@@ -19,7 +19,7 @@ import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
 import com.facebook.presto.hive.util.TempFileReader;
 import com.facebook.presto.hive.util.TempFileWriter;
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.Page;
@@ -312,7 +312,7 @@ public class SortingFileWriter
 
     public interface TempFileSinkFactory
     {
-        OrcDataSink createSink(FileSystem fileSystem, Path path)
+        DataSink createSink(FileSystem fileSystem, Path path)
                 throws IOException;
     }
 }

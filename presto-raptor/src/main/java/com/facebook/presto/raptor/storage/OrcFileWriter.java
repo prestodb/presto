@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
@@ -55,7 +55,7 @@ public class OrcFileWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, OrcDataSink target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
+    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, DataSink target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
     {
         this(columnIds, columnTypes, target, true, validate, stats, typeManager, compression);
     }
@@ -64,7 +64,7 @@ public class OrcFileWriter
     OrcFileWriter(
             List<Long> columnIds,
             List<Type> columnTypes,
-            OrcDataSink target,
+            DataSink target,
             boolean writeMetadata,
             boolean validate,
             OrcWriterStats stats,

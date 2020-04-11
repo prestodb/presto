@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
@@ -41,7 +41,7 @@ public class TempFileWriter
 {
     private final OrcWriter orcWriter;
 
-    public TempFileWriter(List<Type> types, OrcDataSink sink)
+    public TempFileWriter(List<Type> types, DataSink sink)
     {
         this.orcWriter = createOrcFileWriter(sink, types);
     }
@@ -68,7 +68,7 @@ public class TempFileWriter
         return orcWriter.getWrittenBytes();
     }
 
-    private static OrcWriter createOrcFileWriter(OrcDataSink sink, List<Type> types)
+    private static OrcWriter createOrcFileWriter(DataSink sink, List<Type> types)
     {
         List<String> columnNames = IntStream.range(0, types.size())
                 .mapToObj(String::valueOf)

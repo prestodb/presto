@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OutputStreamDataSink;
@@ -69,7 +69,7 @@ public class HdfsOrcDataEnvironment
     }
 
     @Override
-    public OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
+    public DataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
         return new OutputStreamDataSink(fileSystem.create(path));

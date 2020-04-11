@@ -24,7 +24,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class OutputStreamDataSink
-        implements OrcDataSink
+        implements DataSink
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamDataSink.class).instanceSize();
 
