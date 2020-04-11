@@ -20,7 +20,7 @@ import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
@@ -708,7 +708,7 @@ public class TestOrcFileRewriter
         return new OrcFileWriter(
                 columnIds,
                 columnTypes,
-                new OutputStreamOrcDataSink(new FileOutputStream(file)),
+                new OutputStreamDataSink(new FileOutputStream(file)),
                 writeMetadata,
                 true,
                 new OrcWriterStats(),

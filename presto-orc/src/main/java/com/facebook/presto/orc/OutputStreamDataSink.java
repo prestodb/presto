@@ -23,14 +23,14 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class OutputStreamOrcDataSink
+public class OutputStreamDataSink
         implements OrcDataSink
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamDataSink.class).instanceSize();
 
     private final OutputStreamSliceOutput output;
 
-    public OutputStreamOrcDataSink(OutputStream outputStream)
+    public OutputStreamDataSink(OutputStream outputStream)
     {
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
     }
