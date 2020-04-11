@@ -102,7 +102,7 @@ public class SortingFileWriterFactory
                 sortFields,
                 sortOrders,
                 pageSorter,
-                (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p),
+                (fs, p) -> orcFileWriterFactory.createDataSink(session, fs, p),
                 sortedWriteToTempPathEnabled);
     }
 }

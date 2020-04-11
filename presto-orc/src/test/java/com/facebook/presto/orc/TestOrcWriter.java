@@ -141,7 +141,7 @@ public class TestOrcWriter
             throws IOException
     {
         OrcWriter writer = new OrcWriter(
-                new MockOrcDataSink(),
+                new MockDataSink(),
                 ImmutableList.of("test1"),
                 ImmutableList.of(VARCHAR),
                 ORC,
@@ -178,10 +178,10 @@ public class TestOrcWriter
         }
     }
 
-    public static class MockOrcDataSink
-            implements OrcDataSink
+    public static class MockDataSink
+            implements DataSink
     {
-        public MockOrcDataSink()
+        public MockDataSink()
         {
         }
 

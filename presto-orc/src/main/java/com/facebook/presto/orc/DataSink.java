@@ -18,7 +18,7 @@ import com.facebook.presto.orc.stream.DataOutput;
 import java.io.IOException;
 import java.util.List;
 
-public interface OrcDataSink
+public interface DataSink
 {
     /**
      * Number of bytes written to this sink so far.
