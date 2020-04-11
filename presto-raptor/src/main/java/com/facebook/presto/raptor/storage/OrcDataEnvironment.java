@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import org.apache.hadoop.fs.FileSystem;
@@ -28,6 +28,6 @@ public interface OrcDataEnvironment
     OrcDataSource createOrcDataSource(FileSystem fileSystem, Path path, ReaderAttributes readerAttributes)
             throws IOException;
 
-    OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
+    DataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException;
 }

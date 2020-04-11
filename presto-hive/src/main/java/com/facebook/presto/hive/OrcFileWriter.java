@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.orc.OrcDataSink;
+import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -62,7 +62,7 @@ public class OrcFileWriter
     private long validationCpuNanos;
 
     public OrcFileWriter(
-            OrcDataSink orcDataSink,
+            DataSink dataSink,
             Callable<Void> rollbackAction,
             OrcEncoding orcEncoding,
             List<String> columnNames,
@@ -76,10 +76,10 @@ public class OrcFileWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        requireNonNull(orcDataSink, "orcDataSink is null");
+        requireNonNull(dataSink, "dataSink is null");
 
         orcWriter = new OrcWriter(
-                orcDataSink,
+                dataSink,
                 columnNames,
                 fileColumnTypes,
                 orcEncoding,

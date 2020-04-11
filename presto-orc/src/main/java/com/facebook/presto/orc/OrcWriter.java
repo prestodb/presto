@@ -91,7 +91,7 @@ public class OrcWriter
         PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
-    private final OrcDataSink orcDataSink;
+    private final DataSink dataSink;
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
     private final CompressionKind compression;
@@ -122,7 +122,7 @@ public class OrcWriter
     private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
-            OrcDataSink orcDataSink,
+            DataSink dataSink,
             List<String> columnNames,
             List<Type> types,
             OrcEncoding orcEncoding,
@@ -136,7 +136,7 @@ public class OrcWriter
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
-        this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
+        this.dataSink = requireNonNull(dataSink, "dataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.compression = requireNonNull(compression, "compression is null");
@@ -207,7 +207,7 @@ public class OrcWriter
      */
     public long getWrittenBytes()
     {
-        return orcDataSink.size();
+        return dataSink.size();
     }
 
     /**
@@ -223,7 +223,7 @@ public class OrcWriter
         return INSTANCE_SIZE +
                 columnWritersRetainedBytes +
                 closedStripesRetainedBytes +
-                orcDataSink.getRetainedSizeInBytes() +
+                dataSink.getRetainedSizeInBytes() +
                 (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
     }
 
@@ -324,7 +324,7 @@ public class OrcWriter
             throws IOException
     {
         List<DataOutput> outputData = new ArrayList<>();
-        long stripeStartOffset = orcDataSink.size();
+        long stripeStartOffset = dataSink.size();
         // add header to first stripe (this is not required but nice to have)
         if (closedStripes.isEmpty()) {
             outputData.add(createDataOutput(MAGIC));
@@ -340,7 +340,7 @@ public class OrcWriter
             }
 
             // write all data
-            orcDataSink.write(outputData);
+            dataSink.write(outputData);
         }
         finally {
             // open next stripe
@@ -449,7 +449,7 @@ public class OrcWriter
 
         flushStripe(CLOSED);
 
-        orcDataSink.close();
+        dataSink.close();
     }
 
     /**
