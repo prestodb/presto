@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -113,10 +114,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
 {
+    private static final Logger log = Logger.get(PageFunctionCompiler.class);
+
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
@@ -304,6 +308,11 @@ public class PageFunctionCompiler
                         .flatMap(m -> m.entrySet().stream())
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getVariable()));
                 projections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
+                log.warn("Extracted CSE:");
+                for (Map.Entry<RowExpression, VariableReferenceExpression> cse : commonSubExpressions.entrySet()) {
+                    log.warn(format("\t%s = %s", cse.getValue(), cse.getKey()));
+                }
+                log.warn(format("Final expression: %s", projections));
             }
         }
 
