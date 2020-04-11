@@ -27,6 +27,7 @@ public class ColumnarArray
     private final int[] offsets;
     private final Block elementsBlock;
     private final long retainedSizeInBytes;
+    private final long estimatedSerializedSizeInBytes;
 
     public static ColumnarArray toColumnarArray(Block block)
     {
@@ -55,24 +56,31 @@ public class ColumnarArray
         }
         elementsBlock = elementsBlock.getRegion(elementsOffset, elementsLength);
 
-        return new ColumnarArray(block, arrayBlock.getOffsetBase(), arrayBlock.getOffsets(), elementsBlock, INSTANCE_SIZE + block.getRetainedSizeInBytes());
+        return new ColumnarArray(
+                block,
+                arrayBlock.getOffsetBase(),
+                arrayBlock.getOffsets(),
+                elementsBlock,
+                INSTANCE_SIZE + block.getRetainedSizeInBytes(),
+                block.getSizeInBytes());
     }
 
     private static ColumnarArray toColumnarArray(DictionaryBlock dictionaryBlock)
     {
         ColumnarArray columnarArray = toColumnarArray(dictionaryBlock.getDictionary());
+        int positionCount = dictionaryBlock.getPositionCount();
 
         // build new offsets
-        int[] offsets = new int[dictionaryBlock.getPositionCount() + 1];
-        for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
             int dictionaryId = dictionaryBlock.getId(position);
             offsets[position + 1] = offsets[position] + columnarArray.getLength(dictionaryId);
         }
 
         // reindex dictionary
-        int[] dictionaryIds = new int[offsets[dictionaryBlock.getPositionCount()]];
+        int[] dictionaryIds = new int[offsets[positionCount]];
         int nextDictionaryIndex = 0;
-        for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
+        for (int position = 0; position < positionCount; position++) {
             int dictionaryId = dictionaryBlock.getId(position);
             int length = columnarArray.getLength(dictionaryId);
 
@@ -83,50 +91,66 @@ public class ColumnarArray
             }
         }
 
+        Block elementsBlock = columnarArray.getElementsBlock();
         return new ColumnarArray(
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds),
-                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, elementsBlock, dictionaryIds),
+                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
+                // The estimated serialized size is the sum of the following
+                // 1) the offsets size: Integer.BYTES * positionCount
+                // 2) nulls array size: Byte.BYTES * positionCount
+                // 3) the estimated serialized size for the elementsBlock which was just constructed as a new DictionaryBlock:
+                //     the average row size: elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * the number of rows: offsets[positionCount]
+                (Integer.BYTES + Byte.BYTES) * positionCount + (long) (elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * offsets[positionCount]));
     }
 
     private static ColumnarArray toColumnarArray(RunLengthEncodedBlock rleBlock)
     {
         ColumnarArray columnarArray = toColumnarArray(rleBlock.getValue());
+        int positionCount = rleBlock.getPositionCount();
 
         // build new offsets block
-        int[] offsets = new int[rleBlock.getPositionCount() + 1];
+        int[] offsets = new int[positionCount + 1];
         int valueLength = columnarArray.getLength(0);
         for (int i = 0; i < offsets.length; i++) {
             offsets[i] = i * valueLength;
         }
 
         // create indexes for a dictionary block of the elements
-        int[] dictionaryIds = new int[rleBlock.getPositionCount() * valueLength];
+        int[] dictionaryIds = new int[positionCount * valueLength];
         int nextDictionaryIndex = 0;
-        for (int position = 0; position < rleBlock.getPositionCount(); position++) {
+        for (int position = 0; position < positionCount; position++) {
             for (int entryIndex = 0; entryIndex < valueLength; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = entryIndex;
                 nextDictionaryIndex++;
             }
         }
 
+        Block elementsBlock = columnarArray.getElementsBlock();
         return new ColumnarArray(
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds),
-                INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, elementsBlock, dictionaryIds),
+                INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
+                // The estimated serialized size is the sum of the following
+                // 1) the offsets size: Integer.BYTES * positionCount
+                // 2) nulls array size: Byte.BYTES * positionCount
+                // 3) the estimated serialized size for the elementsBlock which was just constructed as a new DictionaryBlock:
+                //     the average row size: elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * the number of rows: offsets[positionCount]
+                (Integer.BYTES + Byte.BYTES) * positionCount + (long) (elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * offsets[positionCount]));
     }
 
-    private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock, long retainedSizeInBytes)
+    private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.elementsBlock = elementsBlock;
         this.retainedSizeInBytes = retainedSizeInBytes;
+        this.estimatedSerializedSizeInBytes = estimatedSerializedSizeInBytes;
     }
 
     public int getPositionCount()
@@ -162,6 +186,11 @@ public class ColumnarArray
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    public long getEstimatedSerializedSizeInBytes()
+    {
+        return estimatedSerializedSizeInBytes;
     }
 
     @Override
