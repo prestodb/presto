@@ -19,7 +19,7 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.stream.OrcDataOutput;
+import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -198,7 +198,7 @@ public class TestOrcWriter
         }
 
         @Override
-        public void write(List<OrcDataOutput> outputData)
+        public void write(List<DataOutput> outputData)
                 throws IOException
         {
             throw new IOException("Dummy exception from mocked instance");

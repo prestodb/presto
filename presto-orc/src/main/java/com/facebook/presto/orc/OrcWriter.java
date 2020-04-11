@@ -28,7 +28,7 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.orc.stream.OrcDataOutput;
+import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
@@ -63,7 +63,7 @@ import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
-import static com.facebook.presto.orc.stream.OrcDataOutput.createDataOutput;
+import static com.facebook.presto.orc.stream.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -323,7 +323,7 @@ public class OrcWriter
     private void flushStripe(FlushReason flushReason)
             throws IOException
     {
-        List<OrcDataOutput> outputData = new ArrayList<>();
+        List<DataOutput> outputData = new ArrayList<>();
         long stripeStartOffset = orcDataSink.size();
         // add header to first stripe (this is not required but nice to have)
         if (closedStripes.isEmpty()) {
@@ -356,7 +356,7 @@ public class OrcWriter
      * Collect the data for for the stripe.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
-    private List<OrcDataOutput> bufferStripeData(long stripeStartOffset, FlushReason flushReason)
+    private List<DataOutput> bufferStripeData(long stripeStartOffset, FlushReason flushReason)
             throws IOException
     {
         if (stripeRowCount == 0) {
@@ -375,7 +375,7 @@ public class OrcWriter
 
         columnWriters.forEach(ColumnWriter::close);
 
-        List<OrcDataOutput> outputData = new ArrayList<>();
+        List<DataOutput> outputData = new ArrayList<>();
         List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 3);
 
         // get index streams
@@ -456,10 +456,10 @@ public class OrcWriter
      * Collect the data for for the file footer.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
-    private List<OrcDataOutput> bufferFileFooter()
+    private List<DataOutput> bufferFileFooter()
             throws IOException
     {
-        List<OrcDataOutput> outputData = new ArrayList<>();
+        List<DataOutput> outputData = new ArrayList<>();
 
         Metadata metadata = new Metadata(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)

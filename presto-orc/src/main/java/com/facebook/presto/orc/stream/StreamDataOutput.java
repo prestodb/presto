@@ -23,7 +23,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamDataOutput
-        implements OrcDataOutput, Comparable<StreamDataOutput>
+        implements DataOutput, Comparable<StreamDataOutput>
 {
     private final ToLongFunction<SliceOutput> writer;
     private final Stream stream;

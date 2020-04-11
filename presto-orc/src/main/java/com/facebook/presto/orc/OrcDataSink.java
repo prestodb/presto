@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.stream.OrcDataOutput;
+import com.facebook.presto.orc.stream.DataOutput;
 
 import java.io.IOException;
 import java.util.List;
@@ -33,7 +33,7 @@ public interface OrcDataSink
     /**
      * Write a stripe and optionally header and footer data
      */
-    void write(List<OrcDataOutput> outputData)
+    void write(List<DataOutput> outputData)
             throws IOException;
 
     /**
