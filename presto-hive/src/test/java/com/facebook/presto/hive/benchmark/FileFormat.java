@@ -36,7 +36,7 @@ import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.writer.ParquetWriter;
@@ -527,7 +527,7 @@ public enum FileFormat
                 throws IOException
         {
             writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
+                    new OutputStreamDataSink(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
                     ORC,
@@ -564,7 +564,7 @@ public enum FileFormat
                 throws IOException
         {
             writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
+                    new OutputStreamDataSink(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
                     DWRF,

@@ -220,7 +220,7 @@ public class TestStructBatchStreamReader
             throws IOException
     {
         OrcWriter writer = new OrcWriter(
-                new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
+                new OutputStreamDataSink(new FileOutputStream(tempFile.getFile())),
                 ImmutableList.of(STRUCT_COL_NAME),
                 ImmutableList.of(writerType),
                 ORC,

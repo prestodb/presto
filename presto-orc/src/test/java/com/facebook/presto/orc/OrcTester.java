@@ -1340,7 +1340,7 @@ public class OrcTester
         metadata.put("columns.types", createSettableStructObjectInspector(types).getTypeName());
 
         OrcWriter writer = new OrcWriter(
-                new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
+                new OutputStreamDataSink(new FileOutputStream(outputFile)),
                 columnNames,
                 types,
                 format.getOrcEncoding(),

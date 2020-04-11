@@ -16,7 +16,7 @@ package com.facebook.presto.raptor.filesystem;
 import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.spi.PrestoException;
@@ -72,6 +72,6 @@ public class HdfsOrcDataEnvironment
     public OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.create(path));
+        return new OutputStreamDataSink(fileSystem.create(path));
     }
 }
