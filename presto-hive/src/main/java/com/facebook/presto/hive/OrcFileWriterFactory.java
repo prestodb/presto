@@ -22,7 +22,7 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -221,7 +221,7 @@ public class OrcFileWriterFactory
     protected OrcDataSink createOrcDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.create(path));
+        return new OutputStreamDataSink(fileSystem.create(path));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)

@@ -25,7 +25,7 @@ import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
@@ -123,7 +123,7 @@ final class OrcTestingUtil
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamOrcDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
+        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
     }
 
     public static OrcReaderOptions createDefaultTestConfig()
