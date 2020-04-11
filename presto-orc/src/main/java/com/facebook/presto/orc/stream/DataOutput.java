@@ -18,12 +18,12 @@ import io.airlift.slice.SliceOutput;
 
 import static java.util.Objects.requireNonNull;
 
-public interface OrcDataOutput
+public interface DataOutput
 {
-    static OrcDataOutput createDataOutput(Slice slice)
+    static DataOutput createDataOutput(Slice slice)
     {
         requireNonNull(slice, "slice is null");
-        return new OrcDataOutput()
+        return new DataOutput()
         {
             @Override
             public long size()
