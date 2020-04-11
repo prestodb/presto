@@ -42,6 +42,7 @@ class DecodedBlockNode
     private final Object decodedBlock;
     private final List<DecodedBlockNode> children;
     private final long retainedSizeInBytes;
+    private final long estimatedSerializedSizeInBytes;
 
     public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children)
     {
@@ -49,19 +50,26 @@ class DecodedBlockNode
         this.children = requireNonNull(children, "children is null");
 
         long retainedSize = INSTANCE_SIZE;
+        long estimatedSerializedSize = 0;
         if (decodedBlock instanceof Block) {
             retainedSize += ((Block) decodedBlock).getRetainedSizeInBytes();
+            // We use logical size as an estimation of the serialized size. For DictionaryBlock and RunLengthEncodedBlock, the logical size accounts for the size as if they were inflated.
+            estimatedSerializedSize += ((Block) decodedBlock).getLogicalSizeInBytes();
         }
         else if (decodedBlock instanceof ColumnarArray) {
             retainedSize += ((ColumnarArray) decodedBlock).getRetainedSizeInBytes();
+            estimatedSerializedSize += ((ColumnarArray) decodedBlock).getEstimatedSerializedSizeInBytes();
         }
         else if (decodedBlock instanceof ColumnarMap) {
             retainedSize += ((ColumnarMap) decodedBlock).getRetainedSizeInBytes();
+            estimatedSerializedSize += ((ColumnarMap) decodedBlock).getEstimatedSerializedSizeInBytes();
         }
         else if (decodedBlock instanceof ColumnarRow) {
             retainedSize += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
+            estimatedSerializedSize += ((ColumnarRow) decodedBlock).getEstimatedSerializedSizeInBytes();
         }
         retainedSizeInBytes = retainedSize;
+        estimatedSerializedSizeInBytes = estimatedSerializedSize;
     }
 
     public Object getDecodedBlock()
@@ -77,6 +85,11 @@ class DecodedBlockNode
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    public long getEstimatedSerializedSizeInBytes()
+    {
+        return estimatedSerializedSizeInBytes;
     }
 
     @Override
