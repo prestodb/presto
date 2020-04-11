@@ -33,6 +33,7 @@ public class ColumnarMap
     private final Type keyType;
     private final int[] hashTables;
     private final long retainedSizeInBytes;
+    private final long estimatedSerializedSizeInBytes;
 
     public static ColumnarMap toColumnarMap(Block block)
     {
@@ -61,24 +62,32 @@ public class ColumnarMap
         Block valuesBlock = mapBlock.getRawValueBlock().getRegion(firstEntryPosition, totalEntryCount);
         Optional<int[]> hashTables = mapBlock.getHashTables().get();
 
-        return new ColumnarMap(block, offsetBase, offsets, keysBlock, valuesBlock, mapBlock.keyType, hashTables, INSTANCE_SIZE + block.getRetainedSizeInBytes());
+        return new ColumnarMap(
+                block,
+                offsetBase,
+                offsets,
+                keysBlock,
+                valuesBlock,
+                mapBlock.keyType, hashTables, INSTANCE_SIZE + block.getRetainedSizeInBytes(),
+                block.getSizeInBytes());
     }
 
     private static ColumnarMap toColumnarMap(DictionaryBlock dictionaryBlock)
     {
         ColumnarMap columnarMap = toColumnarMap(dictionaryBlock.getDictionary());
+        int positionCount = dictionaryBlock.getPositionCount();
 
         // build new offsets
-        int[] offsets = new int[dictionaryBlock.getPositionCount() + 1];
-        for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
+        int[] offsets = new int[positionCount + 1];
+        for (int position = 0; position < positionCount; position++) {
             int dictionaryId = dictionaryBlock.getId(position);
             offsets[position + 1] = offsets[position] + columnarMap.getEntryCount(dictionaryId);
         }
 
         // reindex dictionary
-        int[] dictionaryIds = new int[offsets[dictionaryBlock.getPositionCount()]];
+        int[] dictionaryIds = new int[offsets[positionCount]];
         int nextDictionaryIndex = 0;
-        for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
+        for (int position = 0; position < positionCount; position++) {
             int dictionaryId = dictionaryBlock.getId(position);
             int entryCount = columnarMap.getEntryCount(dictionaryId);
 
@@ -89,50 +98,67 @@ public class ColumnarMap
             }
         }
 
+        Block keysBlock = columnarMap.getKeysBlock();
+        Block valuesBlock = columnarMap.getValuesBlock();
         return new ColumnarMap(
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds),
+                new DictionaryBlock(dictionaryIds.length, keysBlock, dictionaryIds),
+                new DictionaryBlock(dictionaryIds.length, valuesBlock, dictionaryIds),
                 columnarMap.keyType,
                 columnarMap.getHashTables(),
-                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
+                INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
+                // The estimated serialized size is the sum of the following
+                // 1) the offsets size: Integer.BYTES * positionCount
+                // 2) nulls array size: Byte.BYTES * positionCount
+                // 3) the estimated serialized size for the keysBlock and valuesBlock which were just constructed as new DictionaryBlocks:
+                //     the average row size: keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount() * the number of rows: offsets[positionCount]
+                (Integer.BYTES + Byte.BYTES) * positionCount + (long) ((keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount()) * offsets[positionCount]));
     }
 
     private static ColumnarMap toColumnarMap(RunLengthEncodedBlock rleBlock)
     {
         ColumnarMap columnarMap = toColumnarMap(rleBlock.getValue());
+        int positionCount = rleBlock.getPositionCount();
 
         // build new offsets block
-        int[] offsets = new int[rleBlock.getPositionCount() + 1];
+        int[] offsets = new int[positionCount + 1];
         int entryCount = columnarMap.getEntryCount(0);
         for (int i = 0; i < offsets.length; i++) {
             offsets[i] = i * entryCount;
         }
 
         // create indexes for a dictionary block of the elements
-        int[] dictionaryIds = new int[rleBlock.getPositionCount() * entryCount];
+        int[] dictionaryIds = new int[positionCount * entryCount];
         int nextDictionaryIndex = 0;
-        for (int position = 0; position < rleBlock.getPositionCount(); position++) {
+        for (int position = 0; position < positionCount; position++) {
             for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = entryIndex;
                 nextDictionaryIndex++;
             }
         }
 
+        Block keysBlock = columnarMap.getKeysBlock();
+        Block valuesBlock = columnarMap.getValuesBlock();
         return new ColumnarMap(
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds),
+                new DictionaryBlock(dictionaryIds.length, keysBlock, dictionaryIds),
+                new DictionaryBlock(dictionaryIds.length, valuesBlock, dictionaryIds),
                 columnarMap.keyType,
                 columnarMap.getHashTables(),
-                INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds));
+                INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
+                // The estimated serialized size is the sum of the following
+                // 1) the offsets size: Integer.BYTES * positionCount
+                // 2) nulls array size: Byte.BYTES * positionCount
+                // 3) the estimated serialized size for the keysBlock and valuesBlock which were just constructed as new DictionaryBlocks:
+                //     the average row size: keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount() * the number of rows: offsets[positionCount]
+                (Integer.BYTES + Byte.BYTES) * positionCount + (long) ((keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount()) * offsets[positionCount]));
     }
 
-    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock, Type keyType, Optional<int[]> hashTables, long retainedSizeInBytes)
+    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock, Type keyType, Optional<int[]> hashTables, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.offsetsOffset = offsetsOffset;
@@ -142,6 +168,7 @@ public class ColumnarMap
         this.keyType = keyType;
         this.hashTables = hashTables.orElse(null);
         this.retainedSizeInBytes = retainedSizeInBytes;
+        this.estimatedSerializedSizeInBytes = estimatedSerializedSizeInBytes;
     }
 
     public int getPositionCount()
@@ -197,6 +224,11 @@ public class ColumnarMap
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    public long getEstimatedSerializedSizeInBytes()
+    {
+        return estimatedSerializedSizeInBytes;
     }
 
     @Override
