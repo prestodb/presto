@@ -13,15 +13,60 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.facebook.presto.Session;
+import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
+
+@Test(singleThreaded = true)
 public class TestSqlFunctions
         extends AbstractTestQueryFramework
 {
     protected TestSqlFunctions()
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        super(TestSqlFunctions::createQueryRunner);
+    }
+
+    private static QueryRunner createQueryRunner()
+    {
+        try {
+            Session session = testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema(TINY_SCHEMA_NAME)
+                    .build();
+            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                    .setCoordinatorProperties(ImmutableMap.of("list-built-in-functions-only", "false"))
+                    .build();
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"));
+            queryRunner.createTestFunctionNamespace("testing", "common");
+            queryRunner.createTestFunctionNamespace("testing", "test");
+            queryRunner.createTestFunctionNamespace("example", "example");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @AfterMethod
+    public void dropSqlFunctions()
+    {
+        List<MaterializedRow> sqlFunctions = computeActual("SHOW FUNCTIONS").getMaterializedRows().stream()
+                .filter(row -> !((boolean) row.getField(7)))
+                .collect(toImmutableList());
+        for (MaterializedRow function : sqlFunctions) {
+            assertQuerySucceeds(format("DROP FUNCTION %s (%s)", function.getField(0), function.getField(2)));
+        }
     }
 
     @Test
@@ -72,5 +117,14 @@ public class TestSqlFunctions
         assertQueryFails(
                 "DROP FUNCTION presto.default.sin (double)",
                 "Cannot drop function in built-in function namespace: presto\\.default\\.sin");
+    }
+
+    @Test
+    public void testSqlFunctions()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.common.array_append(a array<int>, x int)\n" +
+                "RETURNS array<int>\n" +
+                "RETURN concat(a, array[x])");
+        assertQuery("SELECT testing.common.array_append(ARRAY[1, 2, 4], 8)", "SELECT ARRAY[1, 2, 4, 8]");
     }
 }

@@ -15,8 +15,14 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.TypeLiteral;
+import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+
+import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.sql.DriverManager;
 
@@ -31,6 +37,44 @@ public class MySqlConnectionModule
         configBinder(binder).bindConfig(MySqlConnectionConfig.class);
 
         String databaseUrl = buildConfigObject(MySqlConnectionConfig.class).getDatabaseUrl();
-        binder.bind(Jdbi.class).toInstance(Jdbi.create(() -> DriverManager.getConnection(databaseUrl)).installPlugin(new SqlObjectPlugin()));
+        Jdbi jdbi = createJdbi(
+                () -> DriverManager.getConnection(databaseUrl),
+                buildConfigObject(MySqlFunctionNamespaceManagerConfig.class));
+        binder.bind(Jdbi.class).toInstance(jdbi);
+        binder.bind(FunctionNamespaceDao.class).toProvider(FunctionNamespaceDaoProvider.class);
+        binder.bind(new TypeLiteral<Class<? extends FunctionNamespaceDao>>() {}).toInstance(FunctionNamespaceDao.class);
+    }
+
+    public static class FunctionNamespaceDaoProvider
+            implements Provider<FunctionNamespaceDao>
+    {
+        private Injector injector;
+
+        @Inject
+        public void setInjector(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+        @Override
+        public FunctionNamespaceDao get()
+        {
+            return injector.getInstance(Jdbi.class).onDemand(FunctionNamespaceDao.class);
+        }
+    }
+
+    public static Jdbi createJdbi(String url, MySqlFunctionNamespaceManagerConfig config)
+    {
+        return createJdbi(() -> DriverManager.getConnection(url), config);
+    }
+
+    public static Jdbi createJdbi(ConnectionFactory connectionFactory, MySqlFunctionNamespaceManagerConfig config)
+    {
+        Jdbi jdbi = Jdbi.create(connectionFactory).installPlugin(new SqlObjectPlugin());
+        jdbi.getConfig(FunctionNamespacesTableCustomizerFactory.Config.class)
+                .setTableName(config.getFunctionNamespacesTableName());
+        jdbi.getConfig(SqlFunctionsTableCustomizerFactory.Config.class)
+                .setTableName(config.getFunctionsTableName());
+        return jdbi;
     }
 }

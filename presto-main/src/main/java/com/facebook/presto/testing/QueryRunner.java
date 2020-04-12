@@ -80,6 +80,8 @@ public interface QueryRunner
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
+    void loadFunctionNamespaceManager(String catalogName, String connectorName, Map<String, String> properties);
+
     Lock getExclusiveLock();
 
     class MaterializedResultWithPlan

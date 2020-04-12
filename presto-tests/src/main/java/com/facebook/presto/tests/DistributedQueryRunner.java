@@ -48,6 +48,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -59,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -68,9 +71,11 @@ import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -91,6 +96,8 @@ public class DistributedQueryRunner
     private final TestingPrestoClient prestoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private final AtomicReference<Handle> testFunctionNamespacesHandle = new AtomicReference<>();
 
     @Deprecated
     public DistributedQueryRunner(Session defaultSession, int nodeCount)
@@ -124,7 +131,7 @@ public class DistributedQueryRunner
         requireNonNull(defaultSession, "defaultSession is null");
 
         try {
-            long start = System.nanoTime();
+            long start = nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -158,14 +165,14 @@ public class DistributedQueryRunner
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
-        long start = System.nanoTime();
+        long start = nanoTime();
         while (!allNodesGloballyVisible()) {
             Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
-        start = System.nanoTime();
+        start = nanoTime();
         for (TestingPrestoServer server : servers) {
             server.getMetadata().registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
@@ -185,7 +192,7 @@ public class DistributedQueryRunner
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment, Optional<Path> baseDataDir)
             throws Exception
     {
-        long start = System.nanoTime();
+        long start = nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
@@ -297,7 +304,7 @@ public class DistributedQueryRunner
     @Override
     public void installPlugin(Plugin plugin)
     {
-        long start = System.nanoTime();
+        long start = nanoTime();
         for (TestingPrestoServer server : servers) {
             server.installPlugin(plugin);
         }
@@ -312,7 +319,7 @@ public class DistributedQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        long start = System.nanoTime();
+        long start = nanoTime();
         Set<ConnectorId> connectorIds = new HashSet<>();
         for (TestingPrestoServer server : servers) {
             connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
@@ -321,7 +328,7 @@ public class DistributedQueryRunner
         log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
 
         // wait for all nodes to announce the new catalog
-        start = System.nanoTime();
+        start = nanoTime();
         while (!isConnectionVisibleToAllNodes(connectorId)) {
             Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + connectorId + " to be initialized in every node");
             try {
@@ -335,11 +342,42 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
     }
 
+    @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
             server.getMetadata().getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         }
+    }
+
+    /**
+     * This method exists only because it is currently impossible to create a function namespace from the query engine,
+     * and therefore the query runner needs to be aware of the H2 handle in order to create function namespaces when
+     * required by the tests.
+     * <p>
+     * TODO: Remove when there is a generic way of creating function namespaces as if creating schemas.
+     */
+    public void enableTestFunctionNamespaces(List<String> catalogNames)
+    {
+        checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
+
+        String databaseName = String.valueOf(nanoTime());
+        Map<String, String> properties = ImmutableMap.of("database-name", databaseName);
+        installPlugin(new H2FunctionNamespaceManagerPlugin());
+        for (String catalogName : catalogNames) {
+            loadFunctionNamespaceManager("h2", catalogName, properties);
+        }
+
+        Handle handle = Jdbi.open(H2ConnectionModule.getJdbcUrl(databaseName));
+        testFunctionNamespacesHandle.set(handle);
+        closer.register(handle);
+    }
+
+    public void createTestFunctionNamespace(String catalogName, String schemaName)
+    {
+        checkState(testFunctionNamespacesHandle.get() != null, "Test function namespaces not enabled");
+
+        testFunctionNamespacesHandle.get().execute("INSERT INTO function_namespaces SELECT ?, ?", catalogName, schemaName);
     }
 
     private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)

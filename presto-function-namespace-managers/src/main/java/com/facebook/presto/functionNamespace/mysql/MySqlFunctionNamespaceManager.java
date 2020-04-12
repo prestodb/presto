@@ -67,23 +67,20 @@ public class MySqlFunctionNamespaceManager
 
     private final Jdbi jdbi;
     private final FunctionNamespaceDao functionNamespaceDao;
+    private final Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass;
 
     @Inject
     public MySqlFunctionNamespaceManager(
             Jdbi jdbi,
             FunctionNamespaceDao functionNamespaceDao,
+            Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass,
             SqlInvokedFunctionNamespaceManagerConfig managerConfig,
-            MySqlFunctionNamespaceManagerConfig dbManagerConfig,
             @ServingCatalog String catalogName)
     {
         super(catalogName, managerConfig);
         this.jdbi = requireNonNull(jdbi, "jdbi is null");
         this.functionNamespaceDao = requireNonNull(functionNamespaceDao, "functionNamespaceDao is null");
-
-        jdbi.getConfig(FunctionNamespacesTableCustomizerFactory.Config.class)
-                .setTableName(dbManagerConfig.getFunctionNamespacesTableName());
-        jdbi.getConfig(SqlFunctionsTableCustomizerFactory.Config.class)
-                .setTableName(dbManagerConfig.getFunctionsTableName());
+        this.functionNamespaceDaoClass = requireNonNull(functionNamespaceDaoClass, "functionNamespaceDaoClass is null");
     }
 
     @PostConstruct
@@ -161,7 +158,7 @@ public class MySqlFunctionNamespaceManager
         checkFieldLength("Return type", function.getSignature().getReturnType().toString(), MAX_RETURN_TYPE_LENGTH);
 
         jdbi.useTransaction(handle -> {
-            FunctionNamespaceDao transactionDao = handle.attach(FunctionNamespaceDao.class);
+            FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             Optional<SqlInvokedFunctionRecord> latestVersion = transactionDao.getLatestRecordForUpdate(hash(function.getFunctionId()), function.getFunctionId());
             if (!replace && latestVersion.isPresent() && !latestVersion.get().isDeleted()) {
                 throw new PrestoException(ALREADY_EXISTS, "Function already exists: " + function.getFunctionId());
@@ -185,7 +182,7 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(functionName);
         jdbi.useTransaction(handle -> {
-            FunctionNamespaceDao transactionDao = handle.attach(FunctionNamespaceDao.class);
+            FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             List<SqlInvokedFunction> functions = getSqlFunctions(transactionDao, functionName, parameterTypes);
 
             checkUnique(functions, functionName);
@@ -215,7 +212,7 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(functionName);
         jdbi.useTransaction(handle -> {
-            FunctionNamespaceDao transactionDao = handle.attach(FunctionNamespaceDao.class);
+            FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             List<SqlInvokedFunction> functions = getSqlFunctions(transactionDao, functionName, parameterTypes);
 
             checkUnique(functions, functionName);

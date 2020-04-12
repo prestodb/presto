@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -35,23 +36,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.TypeLiteral;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.functionNamespace.mysql.MySqlConnectionModule.createJdbi;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
@@ -96,11 +98,18 @@ public class TestMySqlFunctionNamespaceManager
             throws Exception
     {
         this.mySqlServer = new TestingMySqlServer("testuser", "testpass", DB);
-        this.jdbi = Jdbi.create(() -> DriverManager.getConnection(mySqlServer.getJdbcUrl(DB))).installPlugin(new SqlObjectPlugin());
-
         Bootstrap app = new Bootstrap(
                 new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
-                binder -> binder.bind(Jdbi.class).toInstance(getJdbi()));
+                new AbstractConfigurationAwareModule()
+                {
+                    @Override
+                    protected void setup(Binder binder)
+                    {
+                        binder.bind(Jdbi.class).toInstance(createJdbi(mySqlServer.getJdbcUrl(DB), buildConfigObject(MySqlFunctionNamespaceManagerConfig.class)));
+                        binder.bind(FunctionNamespaceDao.class).toProvider(new MySqlConnectionModule.FunctionNamespaceDaoProvider());
+                        binder.bind(new TypeLiteral<Class<? extends FunctionNamespaceDao>>() {}).toInstance(FunctionNamespaceDao.class);
+                    }
+                });
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("function-cache-expiration", "0s")
@@ -113,6 +122,7 @@ public class TestMySqlFunctionNamespaceManager
                     .setRequiredConfigurationProperties(config)
                     .initialize();
             this.functionNamespaceManager = injector.getInstance(MySqlFunctionNamespaceManager.class);
+            this.jdbi = injector.getInstance(Jdbi.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -533,7 +543,6 @@ public class TestMySqlFunctionNamespaceManager
     private static TypeSignature createLargeRowType(int fieldCount)
     {
         String format = format("ROW(%s)", Joiner.on(",").join(nCopies(fieldCount, DOUBLE)));
-        System.out.println(format.length());
         return parseTypeSignature(format);
     }
 }
