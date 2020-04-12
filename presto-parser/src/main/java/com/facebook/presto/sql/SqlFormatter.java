@@ -88,6 +88,7 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
+import com.facebook.presto.sql.tree.ShowCreateFunction;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowRoleGrants;
@@ -728,6 +729,16 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitShowCreateFunction(ShowCreateFunction node, Integer context)
+        {
+            builder.append("SHOW CREATE FUNCTION ")
+                    .append(formatName(node.getName()));
+            node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
+
+            return null;
+        }
+
+        @Override
         protected Void visitShowColumns(ShowColumns node, Integer context)
         {
             builder.append("SHOW COLUMNS FROM ")
@@ -930,7 +941,7 @@ public final class SqlFormatter
                     .collect(joining(",\n", "(\n", "\n)"));
         }
 
-        public static String formatTypeList(List<String> types)
+        private static String formatTypeList(List<String> types)
         {
             return format("(%s)", Joiner.on(", ").join(types));
         }
