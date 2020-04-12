@@ -19,6 +19,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
@@ -166,5 +167,68 @@ public class TestSqlFunctions
                 .map(String.class::cast)
                 .collect(toImmutableList());
         assertEquals(functionNames, ImmutableList.of("example.example.b", "testing.common.a", "testing.common.d", "testing.test.c"));
+    }
+
+    public void testShowCreateFunctions()
+    {
+        @Language("SQL") String createFunctionInt = "CREATE FUNCTION testing.common.array_append(a array<int>, x int)\n" +
+                "RETURNS array<int>\n" +
+                "RETURN concat(a, array[x])";
+        @Language("SQL") String createFunctionDouble = "CREATE FUNCTION testing.common.array_append(a array<double>, x double)\n" +
+                "RETURNS array<double>\n" +
+                "RETURN concat(a, array[x])";
+        @Language("SQL") String createFunctionRand = "CREATE FUNCTION testing.common.rand()\n" +
+                "RETURNS double\n" +
+                "RETURN rand()";
+        String createFunctionIntFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
+                "   \"a\" ARRAY(integer),\n" +
+                "   \"x\" integer\n" +
+                ")\n" +
+                "RETURNS ARRAY(integer)\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN \"concat\"(a, ARRAY[x])";
+        String createFunctionDoubleFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
+                "   \"a\" ARRAY(double),\n" +
+                "   \"x\" double\n" +
+                ")\n" +
+                "RETURNS ARRAY(double)\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN \"concat\"(a, ARRAY[x])";
+        String createFunctionRandFormatted = "CREATE FUNCTION testing.common.rand ()\n" +
+                "RETURNS double\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN \"rand\"()";
+        String parameterTypeInt = "ARRAY(integer), integer";
+        String parameterTypeDouble = "ARRAY(double), double";
+
+        assertQuerySucceeds(createFunctionInt);
+        assertQuerySucceeds(createFunctionDouble);
+        assertQuerySucceeds(createFunctionRand);
+
+        MaterializedResult rows = computeActual("SHOW CREATE FUNCTION testing.common.array_append");
+        assertEquals(rows.getRowCount(), 2);
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionDoubleFormatted, parameterTypeDouble));
+        assertEquals(rows.getMaterializedRows().get(1).getFields(), ImmutableList.of(createFunctionIntFormatted, parameterTypeInt));
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.common.array_append(array(int), int)");
+        assertEquals(rows.getRowCount(), 1);
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionIntFormatted, parameterTypeInt));
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.common.rand()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionRandFormatted, ""));
+
+        assertQueryFails("SHOW CREATE FUNCTION testing.common.array_append()", "Function not found: testing\\.common\\.array_append\\(\\)");
+
+        assertQueryFails("SHOW CREATE FUNCTION array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
+        assertQueryFails("SHOW CREATE FUNCTION presto.default.array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
     }
 }

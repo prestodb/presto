@@ -109,7 +109,7 @@ public class FunctionManager
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
-    private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
 
@@ -198,6 +198,18 @@ public class FunctionManager
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && SystemSessionProperties.isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
+    }
+
+    public Collection<? extends SqlFunction> getFunctions(Optional<TransactionId> transactionId, QualifiedFunctionName functionName)
+    {
+        Optional<FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        if (!functionNamespaceManager.isPresent()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName));
+        }
+
+        Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId.map(
+                id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
+        return functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
     }
 
     public void createFunction(SqlInvokedFunction function, boolean replace)
@@ -438,7 +450,7 @@ public class FunctionManager
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
     }
 
-    private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
+    private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
     }

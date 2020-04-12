@@ -28,12 +28,14 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -43,6 +45,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -57,9 +60,11 @@ import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
+import com.facebook.presto.sql.tree.ShowCreateFunction;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowRoleGrants;
@@ -68,6 +73,7 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TableElement;
@@ -78,6 +84,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -92,11 +99,14 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -126,6 +136,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -133,6 +146,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 final class ShowQueriesRewrite
@@ -477,6 +491,64 @@ final class ShowQueriesRewrite
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");
+        }
+
+        @Override
+        protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
+        {
+            QualifiedFunctionName functionName = qualifyFunctionName(node.getName());
+            Collection<? extends SqlFunction> functions = metadata.getFunctionManager().getFunctions(session.getTransactionId(), functionName);
+            if (node.getParameterTypes().isPresent()) {
+                List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
+                        .map(TypeSignature::parseTypeSignature)
+                        .collect(toImmutableList());
+                functions = functions.stream()
+                        .filter(function -> function.getSignature().getArgumentTypes().equals(parameterTypes))
+                        .collect(toImmutableList());
+            }
+            if (functions.isEmpty()) {
+                String types = node.getParameterTypes().map(parameterTypes -> format("(%s)", Joiner.on(", ").join(parameterTypes))).orElse("");
+                throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s%s", functionName, types));
+            }
+
+            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+            for (SqlFunction function : functions) {
+                if (!(function instanceof SqlInvokedFunction)) {
+                    throw new PrestoException(GENERIC_USER_ERROR, "SHOW CREATE FUNCTION is only supported for SQL functions");
+                }
+
+                SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+                CreateFunction createFunction = new CreateFunction(
+                        node.getName(),
+                        false,
+                        sqlFunction.getParameters().stream()
+                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName(), true), parameter.getType().toString()))
+                                .collect(toImmutableList()),
+                        sqlFunction.getSignature().getReturnType().toString(),
+                        Optional.of(sqlFunction.getDescription()),
+                        new RoutineCharacteristics(
+                                Language.valueOf(sqlFunction.getRoutineCharacteristics().getLanguage().name()),
+                                Determinism.valueOf(sqlFunction.getRoutineCharacteristics().getDeterminism().name()),
+                                NullCallClause.valueOf(sqlFunction.getRoutineCharacteristics().getNullCallClause().name())),
+                        sqlParser.createRoutineBody(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
+                rows.add(row(
+                        new StringLiteral(formatSql(createFunction, Optional.empty())),
+                        new StringLiteral(function.getSignature().getArgumentTypes().stream()
+                                .map(TypeSignature::toString)
+                                .collect(joining(", ")))));
+            }
+
+            Map<String, String> columns = ImmutableMap.<String, String>builder()
+                    .put("create_function", "Create Function")
+                    .put("argument_types", "Argument Types")
+                    .build();
+
+            return simpleQuery(
+                    selectAll(columns.entrySet().stream()
+                            .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
+                            .collect(toImmutableList())),
+                    aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
+                    ordering(ascending("argument_types")));
         }
 
         private List<Property> buildProperties(

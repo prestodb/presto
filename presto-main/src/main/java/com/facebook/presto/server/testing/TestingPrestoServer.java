@@ -62,6 +62,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -132,6 +133,7 @@ public class TestingPrestoServer
     private final TestingHttpServer server;
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
+    private final SqlParser sqlParser;
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
@@ -302,6 +304,7 @@ public class TestingPrestoServer
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -435,6 +438,11 @@ public class TestingPrestoServer
     public TransactionManager getTransactionManager()
     {
         return transactionManager;
+    }
+
+    public SqlParser getSqlParser()
+    {
+        return sqlParser;
     }
 
     public Metadata getMetadata()
