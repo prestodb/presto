@@ -120,6 +120,15 @@ public class TestSqlFunctions
     }
 
     @Test
+    public void testNestedSqlFunctions()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.common.a() RETURNS int RETURN 1");
+        assertQueryFails(
+                "CREATE FUNCTION testing.common.b() RETURNS int RETURN testing.common.a()",
+                "Invoking a SQL function in SQL function body is not yet supported");
+    }
+
+    @Test
     public void testSqlFunctions()
     {
         assertQuerySucceeds("CREATE FUNCTION testing.common.array_append(a array<int>, x int)\n" +
