@@ -40,6 +40,7 @@ import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -335,7 +336,7 @@ public class TestReorderJoins
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
                                 Optional.of(comparisonRowExpression(LESS_THAN, variable("A1", BIGINT), call(
                                         RANDOM.toString(),
-                                        tester.getMetadata().getFunctionManager().resolveFunction(Optional.empty(), RANDOM, ImmutableList.of()),
+                                        tester.getMetadata().getFunctionManager().resolveFunction(Optional.empty(), qualifyFunctionName(RANDOM), ImmutableList.of()),
                                         BIGINT,
                                         ImmutableList.of())))))
                 .doesNotFire();

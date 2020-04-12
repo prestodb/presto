@@ -92,6 +92,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
+import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
@@ -405,7 +406,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionManager.resolveFunction(transactionId, node.getName(), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(), functionManager.resolveFunction(transactionId, qualifyFunctionName(node.getName()), argumentTypes), getType(node), arguments);
         }
 
         @Override

@@ -229,6 +229,17 @@ public class FunctionManager
         }
     }
 
+    public static QualifiedFunctionName qualifyFunctionName(QualifiedName name)
+    {
+        if (!name.getPrefix().isPresent()) {
+            return QualifiedFunctionName.of(DEFAULT_NAMESPACE, name.getSuffix());
+        }
+        if (name.getOriginalParts().size() != 3) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Non-builtin functions must be referenced by 'catalog.schema.function_name', found: %s", name));
+        }
+        return QualifiedFunctionName.of(new CatalogSchemaName(name.getOriginalParts().get(0), name.getOriginalParts().get(1)), name.getOriginalParts().get(2));
+    }
+
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is
@@ -237,22 +248,6 @@ public class FunctionManager
      *
      * @throws PrestoException if there are no matches or multiple matches
      */
-    public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        QualifiedFunctionName functionName;
-        if (!name.getPrefix().isPresent()) {
-            functionName = QualifiedFunctionName.of(DEFAULT_NAMESPACE, name.getSuffix());
-        }
-        else {
-            if (name.getOriginalParts().size() != 3) {
-                throw new PrestoException(FUNCTION_NOT_FOUND, format("Non-builtin functions must be reference by three parts: catalog.schema.function_name, found: %s", name.toString()));
-            }
-            functionName = QualifiedFunctionName.of(new CatalogSchemaName(name.getOriginalParts().get(0), name.getOriginalParts().get(1)), name.getOriginalParts().get(2));
-        }
-
-        return resolveFunction(transactionId, functionName, parameterTypes);
-    }
-
     public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
     {
         if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE) && parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
@@ -371,14 +366,14 @@ public class FunctionManager
     }
 
     /**
-     * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Optional, QualifiedName, List)}
+     * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Optional, QualifiedFunctionName, List)}
      * should be used for dynamically registered functions.
      *
      * @throws PrestoException if function could not be found
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(DEFAULT_NAMESPACE, name);
+        QualifiedFunctionName functionName = qualifyFunctionName(QualifiedName.of(name));
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }

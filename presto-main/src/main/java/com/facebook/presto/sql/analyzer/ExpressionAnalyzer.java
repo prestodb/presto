@@ -116,6 +116,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -1455,7 +1456,7 @@ public class ExpressionAnalyzer
     public static FunctionHandle resolveFunction(Optional<TransactionId> transactionId, FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
     {
         try {
-            return functionManager.resolveFunction(transactionId, node.getName(), argumentTypes);
+            return functionManager.resolveFunction(transactionId, qualifyFunctionName(node.getName()), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

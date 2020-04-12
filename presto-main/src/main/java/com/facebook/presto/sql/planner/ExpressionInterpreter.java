@@ -116,6 +116,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -900,7 +901,10 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session.getTransactionId(), node.getName(), fromTypes(argumentTypes));
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+                    session.getTransactionId(),
+                    qualifyFunctionName(node.getName()),
+                    fromTypes(argumentTypes));
             FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (int i = 0; i < argumentValues.size(); i++) {

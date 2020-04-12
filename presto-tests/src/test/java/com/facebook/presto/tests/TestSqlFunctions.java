@@ -130,6 +130,12 @@ public class TestSqlFunctions
                 "Invoking a dynamically registered function in SQL function body is not supported");
     }
 
+    public void testInvalidFunctionName()
+    {
+        assertQueryFails("SELECT x.y(1)", ".*Non-builtin functions must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y");
+        assertQueryFails("SELECT x.y.z.w()", ".*Non-builtin functions must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y\\.z\\.w");
+    }
+
     @Test
     public void testSqlFunctions()
     {
