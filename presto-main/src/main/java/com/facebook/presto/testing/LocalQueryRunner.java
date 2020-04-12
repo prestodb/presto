@@ -601,6 +601,12 @@ public class LocalQueryRunner
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    {
+        metadata.getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+    }
+
     public LocalQueryRunner printPlan()
     {
         printPlan = true;
