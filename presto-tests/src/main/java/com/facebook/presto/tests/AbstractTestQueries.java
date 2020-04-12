@@ -7043,9 +7043,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testNonReservedTimeWords()
     {
-        assertQuery("" +
-                "SELECT TIME, TIMESTAMP, DATE, INTERVAL\n" +
-                "FROM (SELECT 1 TIME, 2 TIMESTAMP, 3 DATE, 4 INTERVAL)");
+        assertQuery(
+                "SELECT TIME, TIMESTAMP, DATE, INTERVAL FROM (SELECT 1 TIME, 2 TIMESTAMP, 3 DATE, 4 INTERVAL)",
+                "SELECT 1, 2, 3, 4");
     }
 
     @Test
