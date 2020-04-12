@@ -276,6 +276,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public void loadFunctionNamespaceManager(String catalogName, String connectorName, Map<String, String> properties)
+        {
+            source.loadFunctionNamespaceManager(catalogName, connectorName, properties);
+        }
+
+        @Override
         public Lock getExclusiveLock()
         {
             return source.getExclusiveLock();

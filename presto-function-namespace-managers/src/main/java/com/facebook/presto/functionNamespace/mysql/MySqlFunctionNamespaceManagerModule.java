@@ -17,11 +17,7 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.SqlStatements;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.Scopes.SINGLETON;
@@ -45,13 +41,5 @@ public class MySqlFunctionNamespaceManagerModule
         configBinder(binder).bindConfig(SqlInvokedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(MySqlFunctionNamespaceManagerConfig.class);
         binder.bind(MySqlFunctionNamespaceManager.class).in(SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    public FunctionNamespaceDao provideFunctionNamespaceDao(Jdbi jdbi)
-    {
-        SqlStatements config = jdbi.getConfig(SqlStatements.class);
-        return jdbi.onDemand(FunctionNamespaceDao.class);
     }
 }
