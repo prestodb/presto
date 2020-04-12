@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
@@ -141,7 +142,7 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof JdbcSQLIntegrityConstraintViolationException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
         dao.insertSelector(1, 1, null, null, null, null, null);
@@ -157,7 +158,7 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof JdbcSQLIntegrityConstraintViolationException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
 
