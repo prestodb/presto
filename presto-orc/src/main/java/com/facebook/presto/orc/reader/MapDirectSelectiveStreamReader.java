@@ -189,7 +189,7 @@ public class MapDirectSelectiveStreamReader
                     return BigintRange.of(requiredIndices[0], requiredIndices[0], false);
                 }
 
-                return toBigintValues(requiredIndices, false);
+                return toBigintValues(requiredIndices, false, true);
             }
             case STRING:
             case CHAR:

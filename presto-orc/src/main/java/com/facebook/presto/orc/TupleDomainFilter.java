@@ -519,9 +519,10 @@ public interface TupleDomainFilter
         private final long max;
         private final long[] hashTable;
         private final int size;
+        private final boolean inclusive;
         private boolean containsEmptyMarker;
 
-        private BigintValuesUsingHashTable(long min, long max, long[] values, boolean nullAllowed)
+        private BigintValuesUsingHashTable(long min, long max, long[] values, boolean nullAllowed, boolean inclusive)
         {
             super(true, nullAllowed);
 
@@ -532,6 +533,7 @@ public interface TupleDomainFilter
             this.min = min;
             this.max = max;
             this.size = Integer.highestOneBit(values.length * 3);
+            this.inclusive = inclusive;
             this.hashTable = new long[size];
             Arrays.fill(hashTable, EMPTY_MARKER);
             for (long value : values) {
@@ -551,34 +553,15 @@ public interface TupleDomainFilter
             }
         }
 
-        public static BigintValuesUsingHashTable of(long min, long max, long[] values, boolean nullAllowed)
+        public static BigintValuesUsingHashTable of(long min, long max, long[] values, boolean nullAllowed, boolean inclusive)
         {
-            return new BigintValuesUsingHashTable(min, max, values, nullAllowed);
+            return new BigintValuesUsingHashTable(min, max, values, nullAllowed, inclusive);
         }
 
         @Override
         public boolean testLong(long value)
         {
-            if (containsEmptyMarker && value == EMPTY_MARKER) {
-                return true;
-            }
-
-            if (value < min || value > max) {
-                return false;
-            }
-
-            int pos = (int) ((value * M) & (size - 1));
-            for (int i = pos; i < pos + size; i++) {
-                int idx = i & (size - 1);
-                long l = hashTable[idx];
-                if (l == EMPTY_MARKER) {
-                    return false;
-                }
-                if (l == value) {
-                    return true;
-                }
-            }
-            return false;
+            return inclusive == checkContain(value);
         }
 
         @Override
@@ -614,6 +597,30 @@ public interface TupleDomainFilter
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }
+
+        private boolean checkContain(long value)
+        {
+            if (containsEmptyMarker && value == EMPTY_MARKER) {
+                return true;
+            }
+
+            if (value < min || value > max) {
+                return false;
+            }
+
+            int pos = (int) ((value * M) & (size - 1));
+            for (int i = pos; i < pos + size; i++) {
+                int idx = i & (size - 1);
+                long l = hashTable[idx];
+                if (l == EMPTY_MARKER) {
+                    return false;
+                }
+                if (l == value) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     class BigintValuesUsingBitmask
@@ -622,17 +629,19 @@ public interface TupleDomainFilter
         private final BitSet bitmask;
         private final long min;
         private final long max;
+        private final boolean inclusive;
 
-        private BigintValuesUsingBitmask(long min, long max, long[] values, boolean nullAllowed)
+        private BigintValuesUsingBitmask(long min, long max, long[] values, boolean nullAllowed, boolean inclusive)
         {
             super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
-            checkArgument(min < max, "min must be less than max");
-            checkArgument(values.length > 1, "values must contain at least 2 entries");
+            checkArgument(min <= max, "max must not be less than min");
+            checkArgument(values.length > 0, "values must not be empty");
 
             this.min = min;
             this.max = max;
+            this.inclusive = inclusive;
             bitmask = new BitSet(toIntExact(max - min + 1));
 
             for (int i = 0; i < values.length; i++) {
@@ -640,19 +649,15 @@ public interface TupleDomainFilter
             }
         }
 
-        public static BigintValuesUsingBitmask of(long min, long max, long[] values, boolean nullAllowed)
+        public static BigintValuesUsingBitmask of(long min, long max, long[] values, boolean nullAllowed, boolean inclusive)
         {
-            return new BigintValuesUsingBitmask(min, max, values, nullAllowed);
+            return new BigintValuesUsingBitmask(min, max, values, nullAllowed, inclusive);
         }
 
         @Override
         public boolean testLong(long value)
         {
-            if (value < min || value > max) {
-                return false;
-            }
-
-            return bitmask.get((int) (value - min));
+            return inclusive == checkContain(value);
         }
 
         @Override
@@ -688,6 +693,15 @@ public interface TupleDomainFilter
                     .add("bitmask", bitmask)
                     .add("nullAllowed", nullAllowed)
                     .toString();
+        }
+
+        private boolean checkContain(long value)
+        {
+            if (value < min || value > max) {
+                return false;
+            }
+
+            return bitmask.get((int) (value - min));
         }
     }
 

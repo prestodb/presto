@@ -214,10 +214,7 @@ public class TestTupleDomainFilterUtils
     public void testBigint()
     {
         assertEquals(toFilter(equal(C_BIGINT, bigintLiteral(2L))), BigintRange.of(2L, 2L, false));
-        assertEquals(toFilter(not(equal(C_BIGINT, bigintLiteral(2L)))),
-                BigintMultiRange.of(ImmutableList.of(
-                        BigintRange.of(Long.MIN_VALUE, 1L, false),
-                        BigintRange.of(3L, Long.MAX_VALUE, false)), false));
+        assertEquals(toFilter(not(equal(C_BIGINT, bigintLiteral(2L)))), BigintValuesUsingBitmask.of(2, 2, new long[] {2}, false, false));
 
         assertEquals(toFilter(lessThan(C_BIGINT, bigintLiteral(2L))), BigintRange.of(Long.MIN_VALUE, 1L, false));
         assertEquals(toFilter(lessThanOrEqual(C_BIGINT, bigintLiteral(2L))), BigintRange.of(Long.MIN_VALUE, 2L, false));
@@ -229,22 +226,19 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(not(greaterThan(C_BIGINT, bigintLiteral(2L)))), BigintRange.of(Long.MIN_VALUE, 2L, false));
         assertEquals(toFilter(not(greaterThanOrEqual(C_BIGINT, bigintLiteral(2L)))), BigintRange.of(Long.MIN_VALUE, 1L, false));
 
-        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100_000))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, false));
-        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, false));
-        assertEquals(toFilter(not(in(C_BIGINT, ImmutableList.of(1, 10, 100)))), BigintMultiRange.of(ImmutableList.of(
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100_000))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, false, true));
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, false, true));
+        assertEquals(toFilter(not(in(C_BIGINT, ImmutableList.of(1, 10, 100)))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, false, false));
+        assertEquals(toFilter(not(in(C_BIGINT, ImmutableList.of(1, 10, 100))), 3), BigintMultiRange.of(ImmutableList.of(
                 BigintRange.of(Long.MIN_VALUE, 0L, false),
                 BigintRange.of(2L, 9L, false),
                 BigintRange.of(11L, 99L, false),
                 BigintRange.of(101, Long.MAX_VALUE, false)), false));
 
         assertEquals(toFilter(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(10L))), BigintRange.of(1L, 10L, false));
-        assertEquals(toFilter(not(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(10L)))), BigintMultiRange.of(ImmutableList.of(
-                BigintRange.of(Long.MIN_VALUE, 0L, false),
-                BigintRange.of(11L, Long.MAX_VALUE, false)), false));
+        assertEquals(toFilter(not(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(10L)))), BigintValuesUsingBitmask.of(1, 10, new long[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, false, false));
 
-        assertEquals(toFilter(isDistinctFrom(C_BIGINT, bigintLiteral(1L))), BigintMultiRange.of(ImmutableList.of(
-                BigintRange.of(Long.MIN_VALUE, 0L, false),
-                BigintRange.of(2L, Long.MAX_VALUE, false)), true));
+        assertEquals(toFilter(isDistinctFrom(C_BIGINT, bigintLiteral(1L))), BigintValuesUsingBitmask.of(1, 1, new long[] {1}, true, false));
         assertEquals(toFilter(not(isDistinctFrom(C_BIGINT, bigintLiteral(1L)))), BigintRange.of(1, 1, false));
 
         assertEquals(toFilter(isNull(C_BIGINT)), IS_NULL);
@@ -253,17 +247,10 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(not(isNotNull(C_BIGINT))), IS_NULL);
 
         assertEquals(toFilter(or(equal(C_BIGINT, bigintLiteral(2L)), isNull(C_BIGINT))), BigintRange.of(2, 2, true));
-        assertEquals(toFilter(or(not(equal(C_BIGINT, bigintLiteral(2L))), isNull(C_BIGINT))),
-                BigintMultiRange.of(ImmutableList.of(
-                        BigintRange.of(Long.MIN_VALUE, 1L, false),
-                        BigintRange.of(3L, Long.MAX_VALUE, false)), true));
-        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100_000)), isNull(C_BIGINT))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, true));
-        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100)), isNull(C_BIGINT))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, true));
-        assertEquals(toFilter(or(not(in(C_BIGINT, ImmutableList.of(1, 10, 100))), isNull(C_BIGINT))), BigintMultiRange.of(ImmutableList.of(
-                BigintRange.of(Long.MIN_VALUE, 0L, false),
-                BigintRange.of(2L, 9L, false),
-                BigintRange.of(11L, 99L, false),
-                BigintRange.of(101, Long.MAX_VALUE, false)), true));
+        assertEquals(toFilter(or(not(equal(C_BIGINT, bigintLiteral(2L))), isNull(C_BIGINT))), BigintValuesUsingBitmask.of(2, 2, new long[] {2}, true, false));
+        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100_000)), isNull(C_BIGINT))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, true, true));
+        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100)), isNull(C_BIGINT))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, true, true));
+        assertEquals(toFilter(or(not(in(C_BIGINT, ImmutableList.of(1, 10, 100_000))), isNull(C_BIGINT))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, true, false));
     }
 
     @Test
@@ -381,10 +368,7 @@ public class TestTupleDomainFilterUtils
     {
         long days = TimeUnit.MILLISECONDS.toDays(DateTime.parse("2019-06-01").getMillis());
         assertEquals(toFilter(equal(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(days, days, false));
-        assertEquals(toFilter(not(equal(C_DATE, dateLiteral("2019-06-01")))),
-                BigintMultiRange.of(ImmutableList.of(
-                        BigintRange.of(Long.MIN_VALUE, days - 1, false),
-                        BigintRange.of(days + 1, Long.MAX_VALUE, false)), false));
+        assertEquals(toFilter(not(equal(C_DATE, dateLiteral("2019-06-01")))), BigintValuesUsingBitmask.of(days, days, new long[]{days}, false, false));
 
         assertEquals(toFilter(lessThan(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(Long.MIN_VALUE, days - 1, false));
         assertEquals(toFilter(lessThanOrEqual(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(Long.MIN_VALUE, days, false));
@@ -424,6 +408,14 @@ public class TestTupleDomainFilterUtils
         assertTrue(domains.isPresent());
         Domain domain = Iterables.getOnlyElement(domains.get().values());
         return TupleDomainFilterUtils.toFilter(domain, new TupleDomainConfig().getNotInThreshold());
+    }
+
+    private TupleDomainFilter toFilter(Expression expression, int notInThreshold)
+    {
+        Optional<Map<String, Domain>> domains = fromPredicate(expression).getTupleDomain().getDomains();
+        assertTrue(domains.isPresent());
+        Domain domain = Iterables.getOnlyElement(domains.get().values());
+        return TupleDomainFilterUtils.toFilter(domain, notInThreshold);
     }
 
     private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)

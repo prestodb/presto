@@ -33,10 +33,12 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -113,7 +115,13 @@ public class TupleDomainFilterUtils
                         bigintRanges.stream()
                                 .mapToLong(BigintRange::getLower)
                                 .toArray(),
-                        nullAllowed);
+                        nullAllowed,
+                        true);
+            }
+
+            Optional<List<Long>> exclusiveList = getExclusives(bigintRanges, notInThreshold);
+            if (exclusiveList.isPresent()) {
+                return toBigintValues(exclusiveList.get().stream().mapToLong(Long::longValue).toArray(), nullAllowed, false);
             }
 
             return BigintMultiRange.of(bigintRanges, nullAllowed);
@@ -150,6 +158,91 @@ public class TupleDomainFilterUtils
         }
 
         return MultiRange.of(rangeFilters, nullAllowed, false);
+    }
+
+    /**
+     * Returns the exclusive number list if it could use NOT IN filter optimization.
+     *
+     * We're not able to distinguish NOT IN statement from normal range compare
+     * E.g.
+     * NOT IN (9, 10, 25) would be [Long.MIN_VALUE, 8] [11, 24] [26, Long.MAX_VALUE]
+     * (num < 8 OR (num > 11 AND number < 24) OR num > 26) could be the same
+     *
+     * When count of exclusive numbers is under the threshold, we can use NOT IN optimization
+     * it would return exclusive number list; otherwise empty list.
+     */
+    private static Optional<List<Long>> getExclusives(List<BigintRange> bigintRanges, int notInThreshold)
+    {
+        if (bigintRanges.size() < 2) {
+            return Optional.empty();
+        }
+
+        long count = getExclusiveCount(bigintRanges);
+        if (count >= notInThreshold || count < 0) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<Long> exclusiveNumbers = new ImmutableList.Builder<>();
+        long start = Long.MIN_VALUE;
+        for (int i = 0; i < bigintRanges.size(); i++) {
+            if (start < bigintRanges.get(i).getLower()) {
+                addExclusiveNumbers(exclusiveNumbers, start, bigintRanges.get(i).getLower() - 1);
+            }
+
+            if (bigintRanges.get(i).getUpper() == Long.MAX_VALUE) {
+                start = Long.MAX_VALUE;
+                break;
+            }
+
+            start = bigintRanges.get(i).getUpper() + 1;
+        }
+        if (start < Long.MAX_VALUE) {
+            addExclusiveNumbers(exclusiveNumbers, start, Long.MAX_VALUE);
+        }
+        return Optional.of(exclusiveNumbers.build());
+    }
+
+    private static void addExclusiveNumbers(ImmutableList.Builder<Long> exclusiveNumbers, long start, long end)
+    {
+        while (start <= end) {
+            exclusiveNumbers.add(start);
+            start++;
+        }
+    }
+
+    private static long getExclusiveCount(List<BigintRange> bigintRanges)
+    {
+        long count = 0;
+        long start = Long.MIN_VALUE;
+        for (int i = 0; i < bigintRanges.size(); i++) {
+            if (start < bigintRanges.get(i).getLower()) {
+                // Handle out of boundary cases
+                if (bigintRanges.get(i).getLower() - start < 0) {
+                    return -1;
+                }
+                count = count + (bigintRanges.get(i).getLower() - start);
+                if (count < 0) {
+                    return -1;
+                }
+            }
+
+            if (bigintRanges.get(i).getUpper() == Long.MAX_VALUE) {
+                start = Long.MAX_VALUE;
+                break;
+            }
+
+            start = bigintRanges.get(i).getUpper() + 1;
+        }
+        if (start < Long.MAX_VALUE) {
+            if (Long.MAX_VALUE - start < 0) {
+                return -1;
+            }
+            count = count + (Long.MAX_VALUE - start) + 1;
+            if (count < 0) {
+                return -1;
+            }
+        }
+        return count;
     }
 
     /**
@@ -334,7 +427,7 @@ public class TupleDomainFilterUtils
                 high.getBound() == Marker.Bound.BELOW, nullAllowed);
     }
 
-    public static TupleDomainFilter toBigintValues(long[] values, boolean nullAllowed)
+    public static TupleDomainFilter toBigintValues(long[] values, boolean nullAllowed, boolean inclusive)
     {
         long min = values[0];
         long max = values[0];
@@ -348,9 +441,9 @@ public class TupleDomainFilterUtils
         // Filter based on a bitmap uses (max - min) / num-values bits per value.
         // Choose the filter that uses less bits per value.
         if ((max - min + 1) > Integer.MAX_VALUE || ((max - min + 1) / values.length) > 192) {
-            return BigintValuesUsingHashTable.of(min, max, values, nullAllowed);
+            return BigintValuesUsingHashTable.of(min, max, values, nullAllowed, inclusive);
         }
 
-        return BigintValuesUsingBitmask.of(min, max, values, nullAllowed);
+        return BigintValuesUsingBitmask.of(min, max, values, nullAllowed, inclusive);
     }
 }

@@ -65,7 +65,7 @@ public class TestTupleDomainFilter
     @Test
     public void testBigintValuesUsingHashTable()
     {
-        TupleDomainFilter filter = BigintValuesUsingHashTable.of(1, 1_000, new long[] {1, 10, 100, 1000}, false);
+        TupleDomainFilter filter = BigintValuesUsingHashTable.of(1, 1_000, new long[] {1, 10, 100, 1000}, false, true);
 
         assertTrue(filter.testLong(1));
         assertTrue(filter.testLong(10));
@@ -77,12 +77,25 @@ public class TestTupleDomainFilter
         assertFalse(filter.testLong(2));
         assertFalse(filter.testLong(102));
         assertFalse(filter.testLong(Long.MAX_VALUE));
+
+        filter = BigintValuesUsingHashTable.of(1, 1_000, new long[] {1, 10, 100, 1000}, false, false);
+
+        assertFalse(filter.testLong(1));
+        assertFalse(filter.testLong(10));
+        assertFalse(filter.testLong(100));
+        assertFalse(filter.testLong(1000));
+        assertFalse(filter.testNull());
+
+        assertTrue(filter.testLong(-1));
+        assertTrue(filter.testLong(2));
+        assertTrue(filter.testLong(102));
+        assertTrue(filter.testLong(Long.MAX_VALUE));
     }
 
     @Test
     public void testBigintValuesUsingBitmask()
     {
-        TupleDomainFilter filter = BigintValuesUsingBitmask.of(1, 1_000, new long[] {1, 10, 100, 1000}, false);
+        TupleDomainFilter filter = BigintValuesUsingBitmask.of(1, 1_000, new long[] {1, 10, 100, 1000}, false, true);
 
         assertTrue(filter.testLong(1));
         assertTrue(filter.testLong(10));
@@ -94,6 +107,19 @@ public class TestTupleDomainFilter
         assertFalse(filter.testLong(2));
         assertFalse(filter.testLong(102));
         assertFalse(filter.testLong(Long.MAX_VALUE));
+
+        filter = BigintValuesUsingBitmask.of(1, 1_000, new long[] {1, 10, 100, 1000}, false, false);
+
+        assertFalse(filter.testLong(1));
+        assertFalse(filter.testLong(10));
+        assertFalse(filter.testLong(100));
+        assertFalse(filter.testLong(1000));
+        assertFalse(filter.testNull());
+
+        assertTrue(filter.testLong(-1));
+        assertTrue(filter.testLong(2));
+        assertTrue(filter.testLong(102));
+        assertTrue(filter.testLong(Long.MAX_VALUE));
     }
 
     @Test

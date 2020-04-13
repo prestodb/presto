@@ -89,8 +89,8 @@ public class BenchmarkBigintValues
                 values[i] = random.nextInt(10_000);
             }
 
-            hashtableFilter = BigintValuesUsingHashTable.of(0, 10_000, values, false);
-            bitmaskFilter = BigintValuesUsingBitmask.of(0, 10_000, values, false);
+            hashtableFilter = BigintValuesUsingHashTable.of(0, 10_000, values, false, true);
+            bitmaskFilter = BigintValuesUsingBitmask.of(0, 10_000, values, false, true);
         }
     }
 

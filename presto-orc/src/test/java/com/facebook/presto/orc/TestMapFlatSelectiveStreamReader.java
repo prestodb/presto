@@ -395,7 +395,7 @@ public class TestMapFlatSelectiveStreamReader
         List<Integer> ids = IntStream.range(0, expectedValues.size()).map(i -> i % 10).boxed().collect(toImmutableList());
         ImmutableList<Type> types = ImmutableList.of(mapType, INTEGER);
 
-        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), toBigintValues(new long[] {1, 5, 6}, true)));
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), toBigintValues(new long[] {1, 5, 6}, true, true)));
         assertFileContentsPresto(
                 types,
                 new File(getResource(testOrcFileName).getFile()),
