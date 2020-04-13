@@ -64,6 +64,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.isNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
@@ -206,6 +207,7 @@ public class AccumulatorCompiler
         if (grouped) {
             generatePrepareFinal(definition);
         }
+
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
     }
 
@@ -565,12 +567,43 @@ public class AccumulatorCompiler
             }
         }
 
+        // Skip mask and null checks if there is no mask and no nulls
+        BytecodeExpression noMaskNoNulls = isNull(masksBlock);
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            Variable variableDefinition = parameterVariables.get(i);
+            noMaskNoNulls = and(noMaskNoNulls, not(variableDefinition.invoke("mayHaveNull", boolean.class)));
+        }
+
+        BytecodeNode streamlinedLoopBody = generateInvokeInputFunction(
+                scope,
+                stateField,
+                positionVariable,
+                parameterVariables,
+                parameterMetadatas,
+                lambdaInterfaces,
+                lambdaProviderFields,
+                inputFunction,
+                callSiteBinder,
+                grouped);
+
+        BytecodeNode streamlinedForLoop = new ForLoop()
+                .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
+                .condition(new BytecodeBlock()
+                        .getVariable(positionVariable)
+                        .getVariable(rowsVariable)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
+                .body(streamlinedLoopBody);
+
         block.append(new IfStatement("if(%s > 0)", rowsVariable.getName())
                 .condition(new BytecodeBlock()
                         .getVariable(rowsVariable)
                         .push(0)
                         .invokeStatic(CompilerOperations.class, "greaterThan", boolean.class, int.class, int.class))
-                .ifTrue(forLoop));
+                .ifTrue(new IfStatement()
+                        .condition(noMaskNoNulls)
+                        .ifTrue(streamlinedForLoop)
+                        .ifFalse(forLoop)));
 
         return block;
     }
