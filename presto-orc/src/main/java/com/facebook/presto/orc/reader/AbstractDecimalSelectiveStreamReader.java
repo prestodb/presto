@@ -322,6 +322,17 @@ public abstract class AbstractDecimalSelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        nulls = null;
+        outputPositions = null;
+
+        presentStream = null;
+        presentStreamSource = null;
+        dataStream = null;
+        dataStreamSource = null;
+        scaleStream = null;
+        scaleStreamSource = null;
+
         systemMemoryContext.close();
     }
 
