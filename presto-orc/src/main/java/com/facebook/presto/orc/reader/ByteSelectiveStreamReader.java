@@ -445,6 +445,15 @@ public class ByteSelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        outputPositions = null;
+        nulls = null;
+
+        dataStream = null;
+        presentStream = null;
+        presentStreamSource = null;
+        dataStreamSource = null;
+
         systemMemoryContext.close();
     }
 }
