@@ -679,6 +679,20 @@ public class ListSelectiveStreamReader
         if (elementStreamReader != null) {
             elementStreamReader.close();
         }
+
+        outputPositions = null;
+        nulls = null;
+        offsets = null;
+        elementOffsets = null;
+        elementLengths = null;
+        elementPositions = null;
+        elementOutputPositions = null;
+        indexOutOfBounds = null;
+
+        presentStream = null;
+        presentStreamSource = null;
+        lengthStream = null;
+        lengthStreamSource = null;
     }
 
     @Override
