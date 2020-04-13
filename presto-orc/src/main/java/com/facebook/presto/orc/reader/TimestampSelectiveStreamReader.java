@@ -442,6 +442,17 @@ public class TimestampSelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        outputPositions = null;
+        nulls = null;
+
+        presentStream = null;
+        presentStreamSource = null;
+        secondsStream = null;
+        secondsStreamSource = null;
+        nanosStream = null;
+        nanosStreamSource = null;
+
         systemMemoryContext.close();
     }
 
