@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@ThriftEnum
 public enum BufferState
 {
     /**
@@ -80,5 +84,11 @@ public enum BufferState
     public boolean isTerminal()
     {
         return terminal;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return ordinal();
     }
 }

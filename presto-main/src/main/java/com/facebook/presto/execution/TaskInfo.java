@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.operator.TaskStats;
@@ -28,12 +32,15 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class TaskInfo
 {
     private final TaskStatus taskStatus;
@@ -43,6 +50,14 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
+
+    private static final JsonCodec<TaskStats> TASK_STATS_CODEC = jsonCodec(TaskStats.class);
+
+    @ThriftConstructor
+    public TaskInfo(TaskStatus taskStatus, String lastHeartbeat, OutputBufferInfo outputBuffers, Set<String> noMoreSplits, String stats, boolean needsPlan)
+    {
+        this(taskStatus, DateTime.parse(lastHeartbeat), outputBuffers, noMoreSplits.stream().map(PlanNodeId::new).collect(toImmutableSet()), TASK_STATS_CODEC.fromJson(stats), needsPlan);
+    }
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -61,6 +76,7 @@ public class TaskInfo
         this.needsPlan = needsPlan;
     }
 
+    @ThriftField(1)
     @JsonProperty
     public TaskStatus getTaskStatus()
     {
@@ -73,6 +89,13 @@ public class TaskInfo
         return lastHeartbeat;
     }
 
+    @ThriftField(value = 2, name = "lastHeartbeat")
+    public String getLastHeartbeatString()
+    {
+        return lastHeartbeat.toString();
+    }
+
+    @ThriftField(3)
     @JsonProperty
     public OutputBufferInfo getOutputBuffers()
     {
@@ -85,12 +108,25 @@ public class TaskInfo
         return noMoreSplits;
     }
 
+    @ThriftField(value = 4, name = "noMoreSplits")
+    public Set<String> getNoMoreSplitsStringSet()
+    {
+        return noMoreSplits.stream().map(PlanNodeId::toString).collect(toImmutableSet());
+    }
+
     @JsonProperty
     public TaskStats getStats()
     {
         return stats;
     }
 
+    @ThriftField(value = 5, name = "stats")
+    public String getStatsJson()
+    {
+        return TASK_STATS_CODEC.toJson(stats);
+    }
+
+    @ThriftField(6)
     @JsonProperty
     public boolean isNeedsPlan()
     {

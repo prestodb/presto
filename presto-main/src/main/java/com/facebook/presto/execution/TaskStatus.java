@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +28,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@ThriftStruct
 public class TaskStatus
 {
     /**
@@ -50,6 +56,8 @@ public class TaskStatus
      * a final local task that is always newer than any remote task.
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
+
+    private static final JsonCodec<List<ExecutionFailureInfo>> LIST_EXECUTION_FAILURE_INFO_CODEC = listJsonCodec(ExecutionFailureInfo.class);
 
     private final TaskId taskId;
     private final String taskInstanceId;
@@ -73,6 +81,46 @@ public class TaskStatus
     private final Duration fullGcTime;
 
     private final List<ExecutionFailureInfo> failures;
+
+    @ThriftConstructor
+    public TaskStatus(
+            TaskId taskId,
+            String taskInstanceId,
+            long version,
+            TaskState state,
+            String self,
+            String nodeId,
+            Set<Lifespan> completedDriverGroups,
+            String failures,
+            int queuedPartitionedDrivers,
+            int runningPartitionedDrivers,
+            double outputBufferUtilization,
+            boolean outputBufferOverutilized,
+            String physicalWrittenDataSize,
+            String memoryReservation,
+            String systemMemoryReservation,
+            long fullGcCount,
+            String fullGcTime)
+    {
+        this(
+                taskId,
+                taskInstanceId,
+                version,
+                state,
+                URI.create(self),
+                nodeId,
+                completedDriverGroups,
+                LIST_EXECUTION_FAILURE_INFO_CODEC.fromJson(failures),
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                outputBufferUtilization,
+                outputBufferOverutilized,
+                DataSize.valueOf(physicalWrittenDataSize),
+                DataSize.valueOf(memoryReservation),
+                DataSize.valueOf(systemMemoryReservation),
+                fullGcCount,
+                Duration.valueOf(fullGcTime));
+    }
 
     @JsonCreator
     public TaskStatus(
@@ -124,28 +172,38 @@ public class TaskStatus
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public TaskId getTaskId()
     {
         return taskId;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public String getTaskInstanceId()
     {
         return taskInstanceId;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public long getVersion()
     {
         return version;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public TaskState getState()
     {
         return state;
+    }
+
+    @ThriftField(value = 5, name = "self")
+    public String getSelfString()
+    {
+        return self.toString();
     }
 
     @JsonProperty
@@ -154,16 +212,24 @@ public class TaskStatus
         return self;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public String getNodeId()
     {
         return nodeId;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public Set<Lifespan> getCompletedDriverGroups()
     {
         return completedDriverGroups;
+    }
+
+    @ThriftField(value = 8, name = "failures")
+    public String getFailuresJson()
+    {
+        return LIST_EXECUTION_FAILURE_INFO_CODEC.toJson(failures);
     }
 
     @JsonProperty
@@ -172,16 +238,32 @@ public class TaskStatus
         return failures;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public int getQueuedPartitionedDrivers()
     {
         return queuedPartitionedDrivers;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @ThriftField(11)
+    @JsonProperty
+    public double getOutputBufferUtilization()
+    {
+        return outputBufferUtilization;
+    }
+
+    @ThriftField(12)
+    @JsonProperty
+    public boolean isOutputBufferOverutilized()
+    {
+        return outputBufferOverutilized;
     }
 
     @JsonProperty
@@ -190,16 +272,10 @@ public class TaskStatus
         return physicalWrittenDataSize;
     }
 
-    @JsonProperty
-    public double getOutputBufferUtilization()
+    @ThriftField(value = 13, name = "physicalWrittenDataSize")
+    public String getPhysicalWrittenDataSizeString()
     {
-        return outputBufferUtilization;
-    }
-
-    @JsonProperty
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBufferOverutilized;
+        return physicalWrittenDataSize.toString();
     }
 
     @JsonProperty
@@ -208,12 +284,25 @@ public class TaskStatus
         return memoryReservation;
     }
 
+    @ThriftField(value = 14, name = "memoryReservation")
+    public String getMemoryReservationString()
+    {
+        return memoryReservation.toString();
+    }
+
     @JsonProperty
     public DataSize getSystemMemoryReservation()
     {
         return systemMemoryReservation;
     }
 
+    @ThriftField(value = 15, name = "systemMemoryReservation")
+    public String getSystemMemoryReservationString()
+    {
+        return systemMemoryReservation.toString();
+    }
+
+    @ThriftField(16)
     @JsonProperty
     public long getFullGcCount()
     {
@@ -224,6 +313,12 @@ public class TaskStatus
     public Duration getFullGcTime()
     {
         return fullGcTime;
+    }
+
+    @ThriftField(value = 17, name = "fullGcTime")
+    public String getFullGcTimeString()
+    {
+        return fullGcTime.toString();
     }
 
     @Override

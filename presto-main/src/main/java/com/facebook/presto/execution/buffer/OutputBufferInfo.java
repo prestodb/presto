@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@ThriftStruct
 public final class OutputBufferInfo
 {
     private final String type;
@@ -34,6 +38,7 @@ public final class OutputBufferInfo
     private final long totalPagesSent;
     private final List<BufferInfo> buffers;
 
+    @ThriftConstructor
     @JsonCreator
     public OutputBufferInfo(
             @JsonProperty("type") String type,
@@ -57,58 +62,67 @@ public final class OutputBufferInfo
         this.buffers = ImmutableList.copyOf(buffers);
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getType()
     {
         return type;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public BufferState getState()
     {
         return state;
     }
 
-    @JsonProperty
-    public List<BufferInfo> getBuffers()
-    {
-        return buffers;
-    }
-
+    @ThriftField(3)
     @JsonProperty
     public boolean isCanAddBuffers()
     {
         return canAddBuffers;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public boolean isCanAddPages()
     {
         return canAddPages;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public long getTotalBufferedBytes()
     {
         return totalBufferedBytes;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public long getTotalBufferedPages()
     {
         return totalBufferedPages;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public long getTotalRowsSent()
     {
         return totalRowsSent;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public long getTotalPagesSent()
     {
         return totalPagesSent;
+    }
+
+    @ThriftField(9)
+    @JsonProperty
+    public List<BufferInfo> getBuffers()
+    {
+        return buffers;
     }
 
     public OutputBufferInfo summarize()
