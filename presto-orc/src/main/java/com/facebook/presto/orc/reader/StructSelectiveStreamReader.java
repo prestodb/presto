@@ -607,6 +607,15 @@ public class StructSelectiveStreamReader
     @Override
     public void close()
     {
+        nestedReaders.values().stream().forEach(SelectiveStreamReader::close);
+
+        outputPositions = null;
+        nulls = null;
+        nestedOutputPositions = null;
+        nestedPositions = null;
+
+        presentStream = null;
+        presentStreamSource = null;
         systemMemoryContext.close();
     }
 
@@ -748,6 +757,7 @@ public class StructSelectiveStreamReader
         @Override
         public void close()
         {
+            outputPositions = null;
         }
 
         @Override
