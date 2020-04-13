@@ -173,6 +173,7 @@ public class OrcSelectiveRecordReader
             boolean cacheable)
     {
         super(includedColumns,
+                requiredSubfields,
                 createStreamReaders(
                         orcDataSource,
                         types,
