@@ -444,6 +444,15 @@ public class BooleanSelectiveStreamReader
     @Override
     public void close()
     {
+        values = null;
+        outputPositions = null;
+        nulls = null;
+
+        presentStream = null;
+        presentStreamSource = null;
+        dataStream = null;
+        dataStreamSource = null;
+
         systemMemoryContext.close();
     }
 }
