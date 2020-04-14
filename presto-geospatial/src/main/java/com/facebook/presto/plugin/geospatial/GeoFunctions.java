@@ -23,7 +23,6 @@ import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCGeometryCollection;
 import com.esri.core.geometry.ogc.OGCLineString;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.KdbTree;
@@ -57,9 +56,7 @@ import org.locationtech.jts.geom.TopologyException;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -88,6 +85,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.createJtsEmptyPolygon
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsLineString;
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsMultiPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsPoint;
+import static com.facebook.presto.geospatial.GeometryUtils.flattenCollection;
 import static com.facebook.presto.geospatial.GeometryUtils.getGeometryInvalidReason;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
@@ -1298,54 +1296,5 @@ public final class GeoFunctions
                 return GEOMETRY.getSlice(block, iteratorPosition++);
             }
         };
-    }
-
-    private static Iterable<OGCGeometry> flattenCollection(OGCGeometry geometry)
-    {
-        if (geometry == null) {
-            return ImmutableList.of();
-        }
-        if (!(geometry instanceof OGCConcreteGeometryCollection)) {
-            return ImmutableList.of(geometry);
-        }
-        if (((OGCConcreteGeometryCollection) geometry).numGeometries() == 0) {
-            return ImmutableList.of();
-        }
-        return () -> new GeometryCollectionIterator(geometry);
-    }
-
-    private static class GeometryCollectionIterator
-            implements Iterator<OGCGeometry>
-    {
-        private final Deque<OGCGeometry> geometriesDeque = new ArrayDeque<>();
-
-        GeometryCollectionIterator(OGCGeometry geometries)
-        {
-            geometriesDeque.push(requireNonNull(geometries, "geometries is null"));
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            if (geometriesDeque.isEmpty()) {
-                return false;
-            }
-            while (geometriesDeque.peek() instanceof OGCConcreteGeometryCollection) {
-                OGCGeometryCollection collection = (OGCGeometryCollection) geometriesDeque.pop();
-                for (int i = 0; i < collection.numGeometries(); i++) {
-                    geometriesDeque.push(collection.geometryN(i));
-                }
-            }
-            return !geometriesDeque.isEmpty();
-        }
-
-        @Override
-        public OGCGeometry next()
-        {
-            if (!hasNext()) {
-                throw new NoSuchElementException("Geometries have been consumed");
-            }
-            return geometriesDeque.pop();
-        }
     }
 }
