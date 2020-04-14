@@ -23,6 +23,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -65,11 +66,11 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<List<Block>> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
         try {
-            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, properties, page, selectedPositions);
+            return (Work<List<Block>>) pageProjectionWorkFactory.invoke(blockBuilder, properties, page, selectedPositions);
         }
         catch (Throwable e) {
             throw new RuntimeException(e);
