@@ -89,7 +89,7 @@ public class FilterAndProjectOperator
         checkState(mergingOutput.needsInput(), "Page buffer is full");
 
         mergingOutput.addInput(processor.process(
-                operatorContext.getSession().toConnectorSession(),
+                operatorContext.getSession().getSqlFunctionProperties(),
                 operatorContext.getDriverContext().getYieldSignal(),
                 pageProcessorMemoryContext,
                 page));

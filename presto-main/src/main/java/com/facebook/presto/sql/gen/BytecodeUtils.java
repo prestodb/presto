@@ -24,8 +24,8 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import com.google.common.base.Joiner;
@@ -257,8 +257,8 @@ public final class BytecodeUtils
                 block.append(instance.get());
                 boundInstance = true;
             }
-            else if (type == ConnectorSession.class) {
-                block.append(scope.getVariable("session"));
+            else if (type == SqlFunctionProperties.class) {
+                block.append(scope.getVariable("properties"));
             }
             else if (type == BlockBuilder.class) {
                 block.append(outputBlockVariableAndType.get().getOutputBlockVariable());

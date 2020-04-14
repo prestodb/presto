@@ -174,6 +174,6 @@ public class CallTask
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
-        return type.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
     }
 }

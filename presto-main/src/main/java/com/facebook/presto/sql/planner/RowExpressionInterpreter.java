@@ -266,7 +266,7 @@ public class RowExpressionInterpreter
             Object value;
             switch (functionMetadata.getImplementationType()) {
                 case BUILTIN:
-                    value = functionInvoker.invoke(functionHandle, session, argumentValues);
+                    value = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
                     break;
                 case SQL:
                     SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(functionHandle);
@@ -370,8 +370,8 @@ public class RowExpressionInterpreter
                             EQUAL,
                             ImmutableList.of(commonType, commonType),
                             ImmutableList.of(
-                                    functionInvoker.invoke(firstCast, session, left),
-                                    functionInvoker.invoke(secondCast, session, right))));
+                                    functionInvoker.invoke(firstCast, session.getSqlFunctionProperties(), left),
+                                    functionInvoker.invoke(secondCast, session.getSqlFunctionProperties(), right))));
 
                     if (equal) {
                         return null;
@@ -688,7 +688,7 @@ public class RowExpressionInterpreter
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
             FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
-            Object json = functionInvoker.invoke(jsonParse, session, utf8Slice(failureInfo));
+            Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
             FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
             if (exception instanceof PrestoException) {
                 long errorCode = ((PrestoException) exception).getErrorCode().getCode();
@@ -713,7 +713,7 @@ public class RowExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
-            return functionInvoker.invoke(operatorHandle, session, argumentValues);
+            return functionInvoker.invoke(operatorHandle, session.getSqlFunctionProperties(), argumentValues);
         }
 
         private List<RowExpression> toRowExpressions(List<Object> values, List<RowExpression> unchangedValues)
@@ -888,11 +888,11 @@ public class RowExpressionInterpreter
                 // this corresponds to ExpressionInterpreter::getConstantPattern
                 if (hasEscape) {
                     // like_pattern(pattern, escape)
-                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern, escape);
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), nonCompiledPattern, escape);
                 }
                 else {
                     // like_pattern(pattern)
-                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern);
+                    possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.getSqlFunctionProperties(), nonCompiledPattern);
                 }
 
                 checkState(possibleCompiledPattern instanceof Regex, "unexpected like pattern type " + possibleCompiledPattern.getClass());

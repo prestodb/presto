@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -28,6 +27,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -75,7 +75,7 @@ public final class ArrayJoin
             "arrayJoinStack",
             MethodHandle.class,
             Object.class,
-            ConnectorSession.class,
+            SqlFunctionProperties.class,
             Block.class,
             Slice.class);
 
@@ -83,7 +83,7 @@ public final class ArrayJoin
             ArrayJoin.class,
             "arrayJoinProvidedBlock",
             MethodHandle.class,
-            ConnectorSession.class,
+            SqlFunctionProperties.class,
             BlockBuilder.class,
             Block.class,
             Slice.class);
@@ -103,7 +103,7 @@ public final class ArrayJoin
                 "arrayJoinStack",
                 MethodHandle.class,
                 Object.class,
-                ConnectorSession.class,
+                SqlFunctionProperties.class,
                 Block.class,
                 Slice.class,
                 Slice.class);
@@ -112,7 +112,7 @@ public final class ArrayJoin
                 ArrayJoin.class,
                 "arrayJoinProvidedBlock",
                 MethodHandle.class,
-                ConnectorSession.class,
+                SqlFunctionProperties.class,
                 BlockBuilder.class,
                 Block.class,
                 Slice.class,
@@ -252,12 +252,12 @@ public final class ArrayJoin
 
                 MethodHandle cast = castFunction.getMethodHandle();
 
-                // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
-                if (cast.type().parameterArray()[0] != ConnectorSession.class) {
-                    cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
+                // if the cast doesn't take a SqlFunctionProperties, create an adapter that drops the provided session
+                if (cast.type().parameterArray()[0] != SqlFunctionProperties.class) {
+                    cast = MethodHandles.dropArguments(cast, 0, SqlFunctionProperties.class);
                 }
 
-                // Adapt a target cast that takes (ConnectorSession, ?) to one that takes (Block, int, ConnectorSession), which will be invoked by the implementation
+                // Adapt a target cast that takes (SqlFunctionProperties, ?) to one that takes (Block, int, SqlFunctionProperties), which will be invoked by the implementation
                 // The first two arguments (Block, int) are filtered through the element type's getXXX method to produce the underlying value that needs to be passed to
                 // the cast.
                 cast = MethodHandles.permuteArguments(cast, MethodType.methodType(Slice.class, cast.type().parameterArray()[1], cast.type().parameterArray()[0]), 1, 0);
@@ -292,29 +292,29 @@ public final class ArrayJoin
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
             Object state,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter)
     {
-        return arrayJoinStack(castFunction, state, session, arrayBlock, delimiter, null);
+        return arrayJoinStack(castFunction, state, properties, arrayBlock, delimiter, null);
     }
 
     @UsedByGeneratedCode
     public static void arrayJoinProvidedBlock(
             MethodHandle castFunction,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             BlockBuilder blockBuilder,
             Block arrayBlock,
             Slice delimiter)
     {
-        arrayJoinProvidedBlock(castFunction, session, blockBuilder, arrayBlock, delimiter, null);
+        arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, null);
     }
 
     @UsedByGeneratedCode
     public static Slice arrayJoinStack(
             MethodHandle castFunction,
             Object state,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             Block arrayBlock,
             Slice delimiter,
             Slice nullReplacement)
@@ -327,7 +327,7 @@ public final class ArrayJoin
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
         try {
-            arrayJoinProvidedBlock(castFunction, session, blockBuilder, arrayBlock, delimiter, nullReplacement);
+            arrayJoinProvidedBlock(castFunction, properties, blockBuilder, arrayBlock, delimiter, nullReplacement);
         }
         catch (PrestoException e) {
             // Restore pageBuilder into a consistent state
@@ -341,7 +341,7 @@ public final class ArrayJoin
     @UsedByGeneratedCode
     public static void arrayJoinProvidedBlock(
             MethodHandle castFunction,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             BlockBuilder blockBuilder,
             Block arrayBlock,
             Slice delimiter,
@@ -360,7 +360,7 @@ public final class ArrayJoin
             }
             else {
                 try {
-                    Slice slice = (Slice) castFunction.invokeExact(arrayBlock, i, session);
+                    Slice slice = (Slice) castFunction.invokeExact(arrayBlock, i, properties);
                     blockBuilder.writeBytes(slice, 0, slice.length());
                 }
                 catch (Throwable throwable) {

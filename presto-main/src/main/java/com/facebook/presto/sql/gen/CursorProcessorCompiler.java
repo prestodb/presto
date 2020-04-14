@@ -26,7 +26,6 @@ import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -98,11 +97,11 @@ public class CursorProcessorCompiler
 
     private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(CursorProcessorOutput.class), session, yieldSignal, cursor, pageBuilder);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(CursorProcessorOutput.class), properties, yieldSignal, cursor, pageBuilder);
 
         Scope scope = method.getScope();
         Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
@@ -132,7 +131,7 @@ public class CursorProcessorCompiler
                                         .putVariable(finishedVariable, true)
                                         .gotoLabel(done)))
                         .comment("do the projection")
-                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .append(createProjectIfStatement(classDefinition, method, properties, cursor, pageBuilder, projections))
                         .comment("completedPositions++;")
                         .incrementVariable(completedPositionsVariable, (byte) 1));
 
@@ -146,7 +145,7 @@ public class CursorProcessorCompiler
     private static IfStatement createProjectIfStatement(
             ClassDefinition classDefinition,
             MethodDefinition method,
-            Parameter session,
+            Parameter properties,
             Parameter cursor,
             Parameter pageBuilder,
             int projections)
@@ -155,9 +154,9 @@ public class CursorProcessorCompiler
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
                 .append(method.getThis())
-                .getVariable(session)
+                .getVariable(properties)
                 .getVariable(cursor)
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class));
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(SqlFunctionProperties.class), type(RecordCursor.class));
 
         // pageBuilder.declarePosition();
         ifStatement.ifTrue()
@@ -168,7 +167,7 @@ public class CursorProcessorCompiler
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
             ifStatement.ifTrue()
                     .append(method.getThis())
-                    .getVariable(session)
+                    .getVariable(properties)
                     .getVariable(cursor);
 
             // pageBuilder.getBlockBuilder(0)
@@ -182,7 +181,7 @@ public class CursorProcessorCompiler
                     .invokeVirtual(classDefinition.getType(),
                             "project_" + projectionIndex,
                             type(void.class),
-                            type(ConnectorSession.class),
+                            type(SqlFunctionProperties.class),
                             type(RecordCursor.class),
                             type(BlockBuilder.class));
         }
@@ -197,9 +196,9 @@ public class CursorProcessorCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), properties, cursor);
 
         method.comment("Filter: %s", filter);
 
@@ -239,10 +238,10 @@ public class CursorProcessorCompiler
             String methodName,
             RowExpression projection)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         Parameter output = arg("output", BlockBuilder.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), session, cursor, output);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), properties, cursor, output);
 
         method.comment("Projection: %s", projection.toString());
 

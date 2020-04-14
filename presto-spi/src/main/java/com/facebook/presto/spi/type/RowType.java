@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -136,7 +136,7 @@ public class RowType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -146,7 +146,7 @@ public class RowType
         List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            values.add(fields.get(i).getType().getObjectValue(session, arrayBlock, i));
+            values.add(fields.get(i).getType().getObjectValue(properties, arrayBlock, i));
         }
 
         return Collections.unmodifiableList(values);

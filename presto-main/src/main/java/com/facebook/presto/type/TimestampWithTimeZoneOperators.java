@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
@@ -141,26 +141,26 @@ public final class TimestampWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME)
-    public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
         }
         else {
-            return modulo24Hour(castToTimestamp(session, value));
+            return modulo24Hour(castToTimestamp(properties, value));
         }
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToTimeWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             int millis = modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
             return packDateTimeWithZone(millis, unpackZoneKey(value));
         }
         else {
-            long millis = modulo24Hour(castToTimestamp(session, value));
+            long millis = modulo24Hour(castToTimestamp(properties, value));
             ISOChronology localChronology = unpackChronology(value);
 
             // This cast does treat TIME as wall time in given TZ. This means that in order to get
@@ -174,9 +174,9 @@ public final class TimestampWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             return unpackMillisUtc(value);
         }
         else {
@@ -196,10 +196,10 @@ public final class TimestampWithTimeZoneOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static long castFromSlice(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+            return parseTimestampWithTimeZone(properties.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);

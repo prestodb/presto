@@ -231,7 +231,7 @@ public final class SessionPropertyManager
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
         writeNativeValue(expectedType, blockBuilder, value);
-        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+        Object objectValue = expectedType.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
 
         if (objectValue == null) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");

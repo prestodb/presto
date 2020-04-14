@@ -34,7 +34,6 @@ import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -200,7 +199,7 @@ public class PageFunctionCompiler
                 result.getRewrittenExpression(),
                 determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
+                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, SqlFunctionProperties.class, Page.class, SelectedPositions.class));
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
@@ -217,7 +216,7 @@ public class PageFunctionCompiler
                 type(Work.class));
 
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
+        FieldDefinition propertiesField = classDefinition.declareField(a(PRIVATE), "properties", SqlFunctionProperties.class);
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
@@ -226,7 +225,7 @@ public class PageFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         // process
-        generateProcessMethod(classDefinition, blockBuilderField, sessionField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
+        generateProcessMethod(classDefinition, blockBuilderField, propertiesField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
 
         // getResult
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
@@ -238,11 +237,11 @@ public class PageFunctionCompiler
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
         Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
 
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, page, selectedPositions);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, properties, page, selectedPositions);
 
         BytecodeBlock body = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
@@ -251,7 +250,7 @@ public class PageFunctionCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class)
                 .append(thisVariable.setField(blockBuilderField, blockBuilder))
-                .append(thisVariable.setField(sessionField, session))
+                .append(thisVariable.setField(propertiesField, properties))
                 .append(thisVariable.setField(pageField, page))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions))
                 .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)))
@@ -266,7 +265,7 @@ public class PageFunctionCompiler
     private static MethodDefinition generateProcessMethod(
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
-            FieldDefinition session,
+            FieldDefinition properties,
             FieldDefinition page,
             FieldDefinition selectedPositions,
             FieldDefinition nextIndexOrPosition,
@@ -294,14 +293,14 @@ public class PageFunctionCompiler
                         .condition(lessThan(index, to))
                         .update(index.increment())
                         .body(new BytecodeBlock()
-                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index))))));
+                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(properties), thisVariable.getField(page), positions.getElement(index))))));
 
         ifStatement.ifFalse(new ForLoop("range based loop")
                 .initialize(index.set(from))
                 .condition(lessThan(index, to))
                 .update(index.increment())
                 .body(new BytecodeBlock()
-                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))));
+                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(properties), thisVariable.getField(page), index))));
 
         body.comment("result = this.blockBuilder.build(); return true;")
                 .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
@@ -320,7 +319,7 @@ public class PageFunctionCompiler
             RowExpression projection,
             FieldDefinition blockBuilder)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
@@ -329,7 +328,7 @@ public class PageFunctionCompiler
                 "evaluate",
                 type(void.class),
                 ImmutableList.<Parameter>builder()
-                        .add(session)
+                        .add(properties)
                         .add(page)
                         .add(position)
                         .build());
@@ -449,7 +448,7 @@ public class PageFunctionCompiler
 
     private static MethodDefinition generatePageFilterMethod(ClassDefinition classDefinition, FieldDefinition selectedPositionsField)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
 
         MethodDefinition method = classDefinition.declareMethod(
@@ -457,7 +456,7 @@ public class PageFunctionCompiler
                 "filter",
                 type(SelectedPositions.class),
                 ImmutableList.<Parameter>builder()
-                        .add(session)
+                        .add(properties)
                         .add(page)
                         .build());
 
@@ -477,7 +476,7 @@ public class PageFunctionCompiler
                 .initialize(position.set(constantInt(0)))
                 .condition(lessThan(position, positionCount))
                 .update(position.increment())
-                .body(selectedPositions.setElement(position, thisVariable.invoke("filter", boolean.class, session, page, position))));
+                .body(selectedPositions.setElement(position, thisVariable.invoke("filter", boolean.class, properties, page, position))));
 
         body.append(invokeStatic(
                 PageFilter.class,
@@ -498,7 +497,7 @@ public class PageFunctionCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter)
     {
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
@@ -507,7 +506,7 @@ public class PageFunctionCompiler
                 "filter",
                 type(boolean.class),
                 ImmutableList.<Parameter>builder()
-                        .add(session)
+                        .add(properties)
                         .add(page)
                         .add(position)
                         .build());

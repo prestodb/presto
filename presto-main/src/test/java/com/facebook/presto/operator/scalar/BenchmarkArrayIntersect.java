@@ -78,7 +78,7 @@ public class BenchmarkArrayIntersect
     public List<Optional<Page>> arrayIntersect(BenchmarkData data)
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(
-                SESSION,
+                SESSION.getSqlFunctionProperties(),
                 new DriverYieldSignal(),
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 data.getPage()));

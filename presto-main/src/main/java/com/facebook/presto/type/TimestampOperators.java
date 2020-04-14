@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
@@ -122,12 +122,12 @@ public final class TimestampOperators
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DATE)
-    public static long castToDate(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
+    public static long castToDate(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
         ISOChronology chronology;
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             // round down the current timestamp to days
-            chronology = getChronology(session.getTimeZoneKey());
+            chronology = getChronology(properties.getTimeZoneKey());
             long date = chronology.dayOfYear().roundFloor(value);
             // date is currently midnight in timezone of the session
             // convert to UTC
@@ -141,10 +141,10 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME)
-    public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
+    public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        if (session.isLegacyTimestamp()) {
-            return modulo24Hour(getChronology(session.getTimeZoneKey()), value);
+        if (properties.isLegacyTimestamp()) {
+            return modulo24Hour(getChronology(properties.getTimeZoneKey()), value);
         }
         else {
             return modulo24Hour(value);
@@ -153,44 +153,44 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
+    public static long castToTimeWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        if (session.isLegacyTimestamp()) {
-            int timeMillis = modulo24Hour(getChronology(session.getTimeZoneKey()), value);
-            return packDateTimeWithZone(timeMillis, session.getTimeZoneKey());
+        if (properties.isLegacyTimestamp()) {
+            int timeMillis = modulo24Hour(getChronology(properties.getTimeZoneKey()), value);
+            return packDateTimeWithZone(timeMillis, properties.getTimeZoneKey());
         }
         else {
-            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+            ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
 
             // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(modulo24Hour(value), false), session.getTimeZoneKey());
+            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(modulo24Hour(value), false), properties.getTimeZoneKey());
         }
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
+    public static long castToTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        if (session.isLegacyTimestamp()) {
-            return packDateTimeWithZone(value, session.getTimeZoneKey());
+        if (properties.isLegacyTimestamp()) {
+            return packDateTimeWithZone(value, properties.getTimeZoneKey());
         }
         else {
-            ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+            ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
 
             // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), session.getTimeZoneKey());
+            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), properties.getTimeZoneKey());
         }
     }
 
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)
+    public static Slice castToSlice(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long value)
     {
-        if (session.isLegacyTimestamp()) {
-            return utf8Slice(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
+        if (properties.isLegacyTimestamp()) {
+            return utf8Slice(printTimestampWithoutTimeZone(properties.getTimeZoneKey(), value));
         }
         else {
             return utf8Slice(printTimestampWithoutTimeZone(value));
@@ -200,12 +200,12 @@ public final class TimestampOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castFromSlice(ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static long castFromSlice(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice value)
     {
         // This accepts value with or without time zone
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             try {
-                return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
+                return parseTimestampWithoutTimeZone(properties.getTimeZoneKey(), trim(value).toStringUtf8());
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);

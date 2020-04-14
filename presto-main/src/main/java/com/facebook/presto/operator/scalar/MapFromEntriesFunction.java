@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.aggregation.TypedSet;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -51,7 +51,7 @@ public final class MapFromEntriesFunction
     @SqlNullable
     public Block mapFromEntries(
             @TypeParameter("map(K,V)") MapType mapType,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             @SqlType("array(row(K,V))") Block block)
     {
         Type keyType = mapType.getKeyType();
@@ -85,7 +85,7 @@ public final class MapFromEntriesFunction
             if (uniqueKeys.contains(rowBlock, 0)) {
                 mapBlockBuilder.closeEntry();
                 pageBuilder.declarePosition();
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, rowBlock, 0)));
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(properties, rowBlock, 0)));
             }
             uniqueKeys.add(rowBlock, 0);
 

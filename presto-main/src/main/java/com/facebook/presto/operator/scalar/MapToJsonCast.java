@@ -17,9 +17,9 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -54,7 +54,7 @@ public class MapToJsonCast
         extends SqlOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlFunctionProperties.class, Block.class);
 
     private MapToJsonCast()
     {
@@ -87,7 +87,7 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, ConnectorSession session, Block block)
+    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlFunctionProperties properties, Block block)
     {
         try {
             Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
@@ -101,7 +101,7 @@ public class MapToJsonCast
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, block, entry.getValue(), session);
+                    writer.writeJsonValue(jsonGenerator, block, entry.getValue(), properties);
                 }
                 jsonGenerator.writeEndObject();
             }

@@ -17,7 +17,6 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -28,6 +27,7 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
@@ -69,7 +69,7 @@ public final class MapConstructor
             MethodHandle.class,
             MethodHandle.class,
             State.class,
-            ConnectorSession.class,
+            SqlFunctionProperties.class,
             Block.class,
             Block.class);
 
@@ -134,7 +134,7 @@ public final class MapConstructor
             MethodHandle keyHashCode,
             MethodHandle keyIndeterminate,
             State state,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             Block keyBlock,
             Block valueBlock)
     {
@@ -156,7 +156,7 @@ public final class MapConstructor
             Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
             try {
                 if ((boolean) keyIndeterminate.invoke(keyObject, false)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(properties, keyBlock, i));
                 }
             }
             catch (Throwable t) {
@@ -170,7 +170,7 @@ public final class MapConstructor
             mapBlockBuilder.closeEntryStrict();
         }
         catch (DuplicateMapKeyException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), session), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), properties), e);
         }
         finally {
             pageBuilder.declarePosition();

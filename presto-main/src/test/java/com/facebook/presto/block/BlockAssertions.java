@@ -84,7 +84,7 @@ public final class BlockAssertions
     public static Object getOnlyValue(Type type, Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
-        return type.getObjectValue(SESSION, block, 0);
+        return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, 0);
     }
 
     public static List<Object> toValues(Type type, Iterable<Block> blocks)
@@ -92,7 +92,7 @@ public final class BlockAssertions
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(SESSION, block, position));
+                values.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
             }
         }
         return Collections.unmodifiableList(values);
@@ -102,7 +102,7 @@ public final class BlockAssertions
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(SESSION, block, position));
+            values.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
         }
         return Collections.unmodifiableList(values);
     }
@@ -111,7 +111,7 @@ public final class BlockAssertions
     {
         assertEquals(actual.getPositionCount(), expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
+            assertEquals(type.getObjectValue(SESSION.getSqlFunctionProperties(), actual, position), type.getObjectValue(SESSION.getSqlFunctionProperties(), expected, position));
         }
     }
 

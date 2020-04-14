@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
@@ -62,16 +62,16 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timePlusIntervalDayToSecond(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        return modulo24Hour(getChronology(properties.getTimeZoneKey()), left + right);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
-    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME) long right)
+    public static long intervalDayToSecondPlusTime(SqlFunctionProperties properties, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME) long right)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        return modulo24Hour(getChronology(properties.getTimeZoneKey()), left + right);
     }
 
     @ScalarOperator(ADD)
@@ -162,10 +162,10 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampPlusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
+        if (properties.isLegacyTimestamp()) {
+            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, right);
         }
         else {
             return MONTH_OF_YEAR_UTC.add(left, right);
@@ -174,10 +174,10 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    public static long intervalYearToMonthPlusTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
     {
-        if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
+        if (properties.isLegacyTimestamp()) {
+            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(right, left);
         }
         else {
             return MONTH_OF_YEAR_UTC.add(right, left);
@@ -210,9 +210,9 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    public static long timeMinusIntervalDayToSecond(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left - right);
+        return modulo24Hour(getChronology(properties.getTimeZoneKey()), left - right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -238,7 +238,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long dateMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), -right);
         return TimeUnit.MILLISECONDS.toDays(millis);
@@ -260,10 +260,10 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        if (session.isLegacyTimestamp()) {
-            return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
+        if (properties.isLegacyTimestamp()) {
+            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, -right);
         }
         else {
             return MONTH_OF_YEAR_UTC.add(left, -right);

@@ -775,7 +775,7 @@ public abstract class AbstractTestHiveFileFormats
                     else {
                         BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
-                        expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
+                        expectedValue = type.getObjectValue(SESSION.getSqlFunctionProperties(), builder.build(), 0);
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                 }

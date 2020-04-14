@@ -23,10 +23,10 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
@@ -79,7 +79,7 @@ public class ArrayToArrayCast
         FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
         Class<?> castOperatorClass = generateArrayCast(typeManager, functionManager.getFunctionMetadata(functionHandle), function);
-        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
+        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
@@ -97,14 +97,14 @@ public class ArrayToArrayCast
                 makeClassName(Joiner.on("$").join("ArrayCast", elementCastFunctionMetadata.getArgumentTypes().get(0), elementCastFunctionMetadata.getReturnType())),
                 type(Object.class));
 
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter value = arg("value", Block.class);
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "castArray",
                 type(Block.class),
-                session,
+                properties,
                 value);
 
         Scope scope = method.getScope();

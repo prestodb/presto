@@ -482,7 +482,7 @@ public class RcFileTester
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
+                        data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
                     }
 
                     for (int i = 0; i < batchSize; i++) {

@@ -14,11 +14,11 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.JsonPath;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.TypeSignature;
 
@@ -36,7 +36,7 @@ public class JsonPathType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         throw new UnsupportedOperationException();
     }

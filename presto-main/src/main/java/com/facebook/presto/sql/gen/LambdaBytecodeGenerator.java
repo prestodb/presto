@@ -27,7 +27,6 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.LambdaProvider;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -137,7 +136,7 @@ public class LambdaBytecodeGenerator
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
 
-        parameters.add(arg("session", ConnectorSession.class));
+        parameters.add(arg("properties", SqlFunctionProperties.class));
         for (int i = 0; i < lambdaExpression.getArguments().size(); i++) {
             Class<?> type = Primitives.wrap(lambdaExpression.getArgumentTypes().get(i).getJavaType());
             String argumentName = lambdaExpression.getArguments().get(i);
@@ -225,7 +224,7 @@ public class LambdaBytecodeGenerator
         }
 
         List<BytecodeExpression> captureVariables = ImmutableList.<BytecodeExpression>builder()
-                .add(scope.getThis(), scope.getVariable("session"))
+                .add(scope.getThis(), scope.getVariable("properties"))
                 .addAll(captureVariableBuilder.build())
                 .build();
 
@@ -257,7 +256,7 @@ public class LambdaBytecodeGenerator
                 type(Object.class),
                 type(LambdaProvider.class));
 
-        FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
+        FieldDefinition propertiesField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "properties", SqlFunctionProperties.class);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
@@ -279,7 +278,7 @@ public class LambdaBytecodeGenerator
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         scope.declareVariable("wasNull", body, constantFalse());
-        scope.declareVariable("session", body, method.getThis().getField(sessionField));
+        scope.declareVariable("properties", body, method.getThis().getField(propertiesField));
 
         RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
                 lambdaProviderClassDefinition,
@@ -306,16 +305,16 @@ public class LambdaBytecodeGenerator
                 .retObject();
 
         // constructor
-        Parameter sessionParameter = arg("session", ConnectorSession.class);
+        Parameter propertiesParameter = arg("properties", SqlFunctionProperties.class);
 
-        MethodDefinition constructorDefinition = lambdaProviderClassDefinition.declareConstructor(a(PUBLIC), sessionParameter);
+        MethodDefinition constructorDefinition = lambdaProviderClassDefinition.declareConstructor(a(PUBLIC), propertiesParameter);
         BytecodeBlock constructorBody = constructorDefinition.getBody();
         Variable constructorThisVariable = constructorDefinition.getThis();
 
         constructorBody.comment("super();")
                 .append(constructorThisVariable)
                 .invokeConstructor(Object.class)
-                .append(constructorThisVariable.setField(sessionField, sessionParameter));
+                .append(constructorThisVariable.setField(propertiesField, propertiesParameter));
 
         cachedInstanceBinder.generateInitializations(constructorThisVariable, constructorBody);
         constructorBody.ret();

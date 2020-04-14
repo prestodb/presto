@@ -475,7 +475,7 @@ public final class FunctionAssertions
         int maxIterationCount = 0;
         for (int iterationCount = 0; iterationCount < Math.max(1000, maxIterationCount * 4); iterationCount++) {
             Iterator<Optional<Page>> output = processor.process(
-                    session.toConnectorSession(),
+                    session.getSqlFunctionProperties(),
                     new DriverYieldSignal(),
                     newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                     SOURCE_PAGE);
@@ -661,7 +661,7 @@ public final class FunctionAssertions
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
 
-        return type.getObjectValue(session.toConnectorSession(), block, 0);
+        return type.getObjectValue(session.getSqlFunctionProperties(), block, 0);
     }
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
@@ -907,7 +907,7 @@ public final class FunctionAssertions
         // convert result from stack type to Type ObjectValue
         Block block = Utils.nativeValueToBlock(expectedType, result);
 
-        return expectedType.getObjectValue(session.toConnectorSession(), block, 0);
+        return expectedType.getObjectValue(session.getSqlFunctionProperties(), block, 0);
     }
 
     private static OperatorFactory compileFilterWithNoInputColumns(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, ExpressionCompiler compiler)

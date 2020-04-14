@@ -1185,7 +1185,7 @@ public class PlanPrinter
 
         try {
             FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR.getTypeSignature());
-            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(cast, session.toConnectorSession(), value);
+            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(cast, session.getSqlFunctionProperties(), value);
             return coerced.toStringUtf8();
         }
         catch (OperatorNotFoundException e) {

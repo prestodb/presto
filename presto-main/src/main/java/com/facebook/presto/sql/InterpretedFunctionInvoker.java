@@ -16,8 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;
@@ -41,14 +41,14 @@ public class InterpretedFunctionInvoker
         this.functionManager = requireNonNull(functionManager, "registry is null");
     }
 
-    public Object invoke(FunctionHandle functionHandle, ConnectorSession session, Object... arguments)
+    public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, Object... arguments)
     {
-        return invoke(functionHandle, session, Arrays.asList(arguments));
+        return invoke(functionHandle, properties, Arrays.asList(arguments));
     }
 
-    public Object invoke(FunctionHandle functionHandle, ConnectorSession session, List<Object> arguments)
+    public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, List<Object> arguments)
     {
-        return invoke(functionManager.getBuiltInScalarFunctionImplementation(functionHandle), session, arguments);
+        return invoke(functionManager.getBuiltInScalarFunctionImplementation(functionHandle), properties, arguments);
     }
 
     /**
@@ -56,15 +56,15 @@ public class InterpretedFunctionInvoker
      * <p>
      * Returns a value in the native container type corresponding to the declared SQL return type
      */
-    private Object invoke(BuiltInScalarFunctionImplementation function, ConnectorSession session, List<Object> arguments)
+    private Object invoke(BuiltInScalarFunctionImplementation function, SqlFunctionProperties properties, List<Object> arguments)
     {
         MethodHandle method = function.getMethodHandle();
 
         // handle function on instance method, to allow use of fields
         method = bindInstanceFactory(method, function);
 
-        if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
-            method = method.bindTo(session);
+        if (method.type().parameterCount() > 0 && method.type().parameterType(0) == SqlFunctionProperties.class) {
+            method = method.bindTo(properties);
         }
         List<Object> actualArguments = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {

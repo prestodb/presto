@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -108,7 +108,7 @@ public final class BuiltInScalarFunctionImplementation
         private final ReturnPlaceConvention returnPlaceConvention;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> instanceFactory;
-        private final boolean hasSession;
+        private final boolean hasProperties;
 
         public ScalarImplementationChoice(
                 boolean nullable,
@@ -130,18 +130,18 @@ public final class BuiltInScalarFunctionImplementation
             }
 
             List<Class<?>> parameterList = methodHandle.type().parameterList();
-            boolean hasSession = false;
-            if (parameterList.contains(ConnectorSession.class)) {
-                checkArgument(parameterList.stream().filter(ConnectorSession.class::equals).count() == 1, "function implementation should have exactly one ConnectorSession parameter");
+            boolean hasProperties = false;
+            if (parameterList.contains(SqlFunctionProperties.class)) {
+                checkArgument(parameterList.stream().filter(SqlFunctionProperties.class::equals).count() == 1, "function implementation should have exactly one SqlFunctionProperties parameter");
                 if (!instanceFactory.isPresent()) {
-                    checkArgument(parameterList.get(0) == ConnectorSession.class, "ConnectorSession must be the first argument when instanceFactory is not present");
+                    checkArgument(parameterList.get(0) == SqlFunctionProperties.class, "SqlFunctionProperties must be the first argument when instanceFactory is not present");
                 }
                 else {
-                    checkArgument(parameterList.get(1) == ConnectorSession.class, "ConnectorSession must be the second argument when instanceFactory is present");
+                    checkArgument(parameterList.get(1) == SqlFunctionProperties.class, "SqlFunctionProperties must be the second argument when instanceFactory is present");
                 }
-                hasSession = true;
+                hasProperties = true;
             }
-            this.hasSession = hasSession;
+            this.hasProperties = hasProperties;
         }
 
         public boolean isNullable()
@@ -174,9 +174,9 @@ public final class BuiltInScalarFunctionImplementation
             return instanceFactory;
         }
 
-        public boolean hasSession()
+        public boolean hasProperties()
         {
-            return hasSession;
+            return hasProperties;
         }
     }
 

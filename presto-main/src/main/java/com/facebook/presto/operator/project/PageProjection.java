@@ -15,9 +15,9 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 
 public interface PageProjection
@@ -28,5 +28,5 @@ public interface PageProjection
 
     InputChannels getInputChannels();
 
-    Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions);
+    Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions);
 }

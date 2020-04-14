@@ -17,12 +17,12 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -62,7 +62,7 @@ public class JsonToRowCast
         extends SqlOperator
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender[].class, Optional.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender[].class, Optional.class, SqlFunctionProperties.class, Slice.class);
 
     private JsonToRowCast()
     {
@@ -96,7 +96,7 @@ public class JsonToRowCast
             RowType rowType,
             BlockBuilderAppender[] fieldAppenders,
             Optional<Map<String, Integer>> fieldNameToIndex,
-            ConnectorSession connectorSession,
+            SqlFunctionProperties properties,
             Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {

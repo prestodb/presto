@@ -99,7 +99,7 @@ public class TestStructBatchStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -122,7 +122,7 @@ public class TestStructBatchStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -145,7 +145,7 @@ public class TestStructBatchStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -185,7 +185,7 @@ public class TestStructBatchStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -209,7 +209,7 @@ public class TestStructBatchStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List actual = (List) readerType.getObjectValue(SESSION.getSqlFunctionProperties(), readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");

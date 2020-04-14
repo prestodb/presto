@@ -20,11 +20,11 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
@@ -105,7 +105,7 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
+        Iterator<Optional<Page>> output = pageProcessor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), memoryContext, inputPage);
         assertEquals(memoryContext.getBytes(), 0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
@@ -154,7 +154,7 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
+        Iterator<Optional<Page>> output = pageProcessor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), memoryContext, inputPage);
         assertEquals(memoryContext.getBytes(), 0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
@@ -169,7 +169,7 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 0));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
+        Iterator<Optional<Page>> output = pageProcessor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), memoryContext, inputPage);
         assertEquals(memoryContext.getBytes(), 0);
 
         // output should be one page containing no columns (only a count)
@@ -188,7 +188,7 @@ public class TestPageProcessor
         }));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
+        Iterator<Optional<Page>> output = pageProcessor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), memoryContext, inputPage);
         assertEquals(memoryContext.getBytes(), 0);
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 0);
@@ -205,7 +205,7 @@ public class TestPageProcessor
         }));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
+        Iterator<Optional<Page>> output = pageProcessor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), memoryContext, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
@@ -400,7 +400,7 @@ public class TestPageProcessor
         ExpressionProfiler profiler = new ExpressionProfiler(testingTicker, SPLIT_RUN_QUANTA);
         for (int i = 0; i < 100; i++) {
             profiler.start();
-            Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+            Work<Block> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), page, SelectedPositions.positionsRange(0, page.getPositionCount()));
             if (i < 10) {
                 // increment the ticker with a large value to mark the expression as expensive
                 testingTicker.increment(10, SECONDS);
@@ -497,7 +497,7 @@ public class TestPageProcessor
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page inputPage)
     {
         Iterator<Optional<Page>> output = pageProcessor.process(
-                SESSION,
+                SESSION.getSqlFunctionProperties(),
                 yieldSignal,
                 memoryContext.newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 inputPage);
@@ -535,10 +535,10 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
-            return delegate.project(session, yieldSignal, page, selectedPositions);
+            return delegate.project(properties, yieldSignal, page, selectedPositions);
         }
 
         public int getInvocationCount()
@@ -561,9 +561,9 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            return new YieldPageProjectionWork(session, yieldSignal, page, selectedPositions);
+            return new YieldPageProjectionWork(properties, yieldSignal, page, selectedPositions);
         }
 
         private class YieldPageProjectionWork
@@ -572,10 +572,10 @@ public class TestPageProcessor
             private final DriverYieldSignal yieldSignal;
             private final Work<Block> work;
 
-            public YieldPageProjectionWork(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            public YieldPageProjectionWork(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
-                this.work = delegate.project(session, yieldSignal, page, selectedPositions);
+                this.work = delegate.project(properties, yieldSignal, page, selectedPositions);
             }
 
             @Override
@@ -617,7 +617,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             return new CompletedWork<>(page.getBlock(0).getLoadedBlock());
         }
@@ -646,7 +646,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(SqlFunctionProperties properties, Page page)
         {
             return selectedPositions;
         }
@@ -668,7 +668,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(SqlFunctionProperties properties, Page page)
         {
             return positionsRange(0, page.getPositionCount());
         }
@@ -690,7 +690,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(SqlFunctionProperties properties, Page page)
         {
             return positionsRange(0, 0);
         }

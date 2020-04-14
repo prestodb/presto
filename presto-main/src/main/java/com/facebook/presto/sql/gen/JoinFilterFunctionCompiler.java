@@ -27,7 +27,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
@@ -129,21 +128,21 @@ public class JoinFilterFunctionCompiler
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
+        FieldDefinition propertiesField = classDefinition.declareField(a(PRIVATE, FINAL), "properties", SqlFunctionProperties.class);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField);
 
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
+        generateConstructor(classDefinition, propertiesField, cachedInstanceBinder);
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
-            FieldDefinition sessionField,
+            FieldDefinition propertiesField,
             CachedInstanceBinder cachedInstanceBinder)
     {
-        Parameter sessionParameter = arg("session", ConnectorSession.class);
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
+        Parameter propertiesParameter = arg("properties", SqlFunctionProperties.class);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), propertiesParameter);
 
         BytecodeBlock body = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
@@ -152,7 +151,7 @@ public class JoinFilterFunctionCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
-        body.append(thisVariable.setField(sessionField, sessionParameter));
+        body.append(thisVariable.setField(propertiesField, propertiesParameter));
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
     }
@@ -165,7 +164,7 @@ public class JoinFilterFunctionCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter,
             int leftBlocksSize,
-            FieldDefinition sessionField)
+            FieldDefinition propertiesField)
     {
         // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -189,7 +188,7 @@ public class JoinFilterFunctionCompiler
 
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        scope.declareVariable("session", body, method.getThis().getField(sessionField));
+        scope.declareVariable("properties", body, method.getThis().getField(propertiesField));
 
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 classDefinition,
@@ -222,7 +221,7 @@ public class JoinFilterFunctionCompiler
 
     public interface JoinFilterFunctionFactory
     {
-        JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages);
+        JoinFilterFunction create(SqlFunctionProperties properties, LongArrayList addresses, List<Page> pages);
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
@@ -312,7 +311,7 @@ public class JoinFilterFunctionCompiler
         {
             try {
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
-                        .getConstructor(ConnectorSession.class);
+                        .getConstructor(SqlFunctionProperties.class);
 
                 Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateClass(
                         new DynamicClassLoader(getClass().getClassLoader()),
@@ -326,10 +325,10 @@ public class JoinFilterFunctionCompiler
         }
 
         @Override
-        public JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages)
+        public JoinFilterFunction create(SqlFunctionProperties properties, LongArrayList addresses, List<Page> pages)
         {
             try {
-                InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(session);
+                InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(properties);
                 return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, pages);
             }
             catch (ReflectiveOperationException e) {
