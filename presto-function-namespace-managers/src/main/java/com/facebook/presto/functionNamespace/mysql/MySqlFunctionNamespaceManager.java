@@ -23,6 +23,7 @@ import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerC
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlParameter;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
@@ -145,7 +145,7 @@ public class MySqlFunctionNamespaceManager
         if (function.getParameters().size() > MAX_PARAMETER_COUNT) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Function has more than %s parameters: %s", MAX_PARAMETER_COUNT, function.getParameters().size()));
         }
-        for (SqlParameter parameter : function.getParameters()) {
+        for (Parameter parameter : function.getParameters()) {
             checkFieldLength("Parameter name", parameter.getName(), MAX_PARAMETER_NAME_LENGTH);
         }
 

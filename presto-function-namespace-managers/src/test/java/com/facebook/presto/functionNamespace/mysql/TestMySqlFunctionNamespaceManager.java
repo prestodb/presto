@@ -24,11 +24,11 @@ import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -217,39 +217,39 @@ public class TestMySqlFunctionNamespaceManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function has more than 100 parameters: 101")
     public void testTooManyParameters()
     {
-        List<SqlParameter> parameters = nCopies(101, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        List<Parameter> parameters = nCopies(101, new Parameter("x", parseTypeSignature(DOUBLE)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     public void testLargeParameterCount()
     {
-        List<SqlParameter> parameters = nCopies(100, new SqlParameter("x", parseTypeSignature(DOUBLE)));
+        List<Parameter> parameters = nCopies(100, new Parameter("x", parseTypeSignature(DOUBLE)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter name exceeds max length of 100.*")
     public void testParameterNameTooLong()
     {
-        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter(dummyString(101), parseTypeSignature(DOUBLE)));
+        List<Parameter> parameters = ImmutableList.of(new Parameter(dummyString(101), parseTypeSignature(DOUBLE)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     public void testLongParameterName()
     {
-        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter(dummyString(100), parseTypeSignature(DOUBLE)));
+        List<Parameter> parameters = ImmutableList.of(new Parameter(dummyString(100), parseTypeSignature(DOUBLE)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parameter type list exceeds max length of 30000.*")
     public void testParameterTypeListTooLong()
     {
-        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter("x", createLargeRowType(4286)));
+        List<Parameter> parameters = ImmutableList.of(new Parameter("x", createLargeRowType(4286)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
     public void testLongParameterTypeList()
     {
-        List<SqlParameter> parameters = ImmutableList.of(new SqlParameter("x", createLargeRowType(4285)));
+        List<Parameter> parameters = ImmutableList.of(new Parameter("x", createLargeRowType(4285)));
         createFunction(createFunctionTangent(parameters), false);
     }
 
@@ -280,7 +280,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_POWER_TOWER_INT.withVersion(1L),
                 new SqlInvokedFunction(
                         POWER_TOWER,
-                        ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+                        ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
                         parseTypeSignature(DOUBLE),
                         "power tower",
                         RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
@@ -484,7 +484,7 @@ public class TestMySqlFunctionNamespaceManager
     {
         return new SqlInvokedFunction(
                 functionName,
-                ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+                ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
                 parseTypeSignature(DOUBLE),
                 "power tower",
                 RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
@@ -504,7 +504,7 @@ public class TestMySqlFunctionNamespaceManager
                 Optional.empty());
     }
 
-    private static SqlInvokedFunction createFunctionTangent(List<SqlParameter> parameters)
+    private static SqlInvokedFunction createFunctionTangent(List<Parameter> parameters)
     {
         return new SqlInvokedFunction(
                 FUNCTION_TANGENT.getFunctionId().getFunctionName(),
