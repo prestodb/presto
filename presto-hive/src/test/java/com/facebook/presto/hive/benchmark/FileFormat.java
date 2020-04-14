@@ -454,6 +454,7 @@ public enum FileFormat
                                 "location",
                                 Optional.empty(),
                                 false,
+                                ImmutableMap.of(),
                                 ImmutableMap.of()),
                         ImmutableMap.of(),
                         columnHandles,

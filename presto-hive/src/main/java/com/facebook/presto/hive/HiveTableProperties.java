@@ -48,6 +48,7 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
+    public static final String PREFERRED_ORDERING_COLUMNS = "preferred_ordering_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -124,7 +125,22 @@ public class HiveTableProperties
                         config.getOrcDefaultBloomFilterFpp(),
                         false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
-                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false));
+                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
+                new PropertyMetadata<>(
+                        PREFERRED_ORDERING_COLUMNS,
+                        "Preferred ordering columns for unbucketed table",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(SortingColumn::sortingColumnFromString)
+                                .collect(toImmutableList()),
+                        value -> ((Collection<?>) value).stream()
+                                .map(SortingColumn.class::cast)
+                                .map(SortingColumn::sortingColumnToString)
+                                .collect(toImmutableList())));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -198,5 +214,18 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<SortingColumn> getPreferredOrderingColumns(Map<String, Object> tableProperties)
+    {
+        List<SortingColumn> preferredOrderingColumns = (List<SortingColumn>) tableProperties.get(PREFERRED_ORDERING_COLUMNS);
+        if (preferredOrderingColumns == null) {
+            return ImmutableList.of();
+        }
+        if (!preferredOrderingColumns.isEmpty() && getBucketProperty(tableProperties).isPresent()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must not be specified when %s is specified", PREFERRED_ORDERING_COLUMNS, BUCKETED_BY_PROPERTY));
+        }
+        return preferredOrderingColumns;
     }
 }

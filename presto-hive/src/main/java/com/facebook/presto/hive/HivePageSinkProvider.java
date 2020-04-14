@@ -29,7 +29,6 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.DataSize;
@@ -127,11 +126,14 @@ public class HivePageSinkProvider
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean partitionCommitRequired)
     {
         OptionalInt bucketCount = OptionalInt.empty();
-        List<SortingColumn> sortedBy = ImmutableList.of();
+        List<SortingColumn> sortedBy;
 
         if (handle.getBucketProperty().isPresent()) {
             bucketCount = OptionalInt.of(handle.getBucketProperty().get().getBucketCount());
             sortedBy = handle.getBucketProperty().get().getSortedBy();
+        }
+        else {
+            sortedBy = handle.getPreferredOrderingColumns();
         }
 
         HiveWriterFactory writerFactory = new HiveWriterFactory(

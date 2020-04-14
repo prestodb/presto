@@ -35,6 +35,7 @@ public class Storage
     private final Optional<HiveBucketProperty> bucketProperty;
     private final boolean skewed;
     private final Map<String, String> serdeParameters;
+    private final Map<String, String> parameters;
 
     @JsonCreator
     public Storage(
@@ -42,13 +43,15 @@ public class Storage
             @JsonProperty("location") String location,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("skewed") boolean skewed,
-            @JsonProperty("serdeParameters") Map<String, String> serdeParameters)
+            @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
+            @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.location = requireNonNull(location, "location is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.skewed = skewed;
         this.serdeParameters = ImmutableMap.copyOf(requireNonNull(serdeParameters, "serdeParameters is null"));
+        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
     @JsonProperty
@@ -81,6 +84,12 @@ public class Storage
         return serdeParameters;
     }
 
+    @JsonProperty
+    public Map<String, String> getParameters()
+    {
+        return parameters;
+    }
+
     @Override
     public String toString()
     {
@@ -90,6 +99,7 @@ public class Storage
                 .add("location", location)
                 .add("bucketProperty", bucketProperty)
                 .add("serdeParameters", serdeParameters)
+                .add("parameters", parameters)
                 .toString();
     }
 
@@ -108,13 +118,14 @@ public class Storage
                 Objects.equals(storageFormat, storage.storageFormat) &&
                 Objects.equals(location, storage.location) &&
                 Objects.equals(bucketProperty, storage.bucketProperty) &&
-                Objects.equals(serdeParameters, storage.serdeParameters);
+                Objects.equals(serdeParameters, storage.serdeParameters) &&
+                Objects.equals(parameters, storage.parameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(skewed, storageFormat, location, bucketProperty, serdeParameters);
+        return Objects.hash(skewed, storageFormat, location, bucketProperty, serdeParameters, parameters);
     }
 
     public static Builder builder()
@@ -134,6 +145,7 @@ public class Storage
         private Optional<HiveBucketProperty> bucketProperty = Optional.empty();
         private boolean skewed;
         private Map<String, String> serdeParameters = ImmutableMap.of();
+        private Map<String, String> parameters = ImmutableMap.of();
 
         private Builder()
         {
@@ -146,6 +158,7 @@ public class Storage
             this.bucketProperty = storage.bucketProperty;
             this.skewed = storage.skewed;
             this.serdeParameters = storage.serdeParameters;
+            this.parameters = storage.parameters;
         }
 
         public Builder setStorageFormat(StorageFormat storageFormat)
@@ -178,9 +191,15 @@ public class Storage
             return this;
         }
 
+        public Builder setParameters(Map<String, String> parameters)
+        {
+            this.parameters = parameters;
+            return this;
+        }
+
         public Storage build()
         {
-            return new Storage(storageFormat, location, bucketProperty, skewed, serdeParameters);
+            return new Storage(storageFormat, location, bucketProperty, skewed, serdeParameters, parameters);
         }
     }
 }

@@ -2253,6 +2253,55 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testWritePreferredOrderingTable()
+    {
+        try {
+            // create table
+            assertUpdate(
+                    "CREATE TABLE create_partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    "SELECT count(*) FROM create_partitioned_ordering_table",
+                    "SELECT count(*) * 100 FROM orders");
+
+            assertUpdate(
+                    "CREATE TABLE create_unpartitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    "SELECT count(*) FROM create_unpartitioned_ordering_table",
+                    "SELECT count(*) * 100 FROM orders");
+
+            // insert
+            assertUpdate(
+                    "CREATE TABLE insert_partitioned_ordering_table (LIKE create_partitioned_ordering_table) " +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey'])");
+
+            assertUpdate(
+                    "INSERT INTO insert_partitioned_ordering_table\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    "SELECT count(*) FROM insert_partitioned_ordering_table",
+                    "SELECT count(*) * 100 FROM orders");
+
+            // invalid
+            assertQueryFails(
+                    "CREATE TABLE invalid_bucketed_ordering_table (LIKE create_partitioned_ordering_table) " +
+                            "WITH (preferred_ordering_columns = ARRAY['orderkey'], bucketed_by = ARRAY['totalprice'], bucket_count = 13)",
+                    ".*preferred_ordering_columns must not be specified when bucketed_by is specified.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS create_partitioned_ordering_table");
+            assertUpdate("DROP TABLE IF EXISTS create_unpartitioned_ordering_table");
+            assertUpdate("DROP TABLE IF EXISTS insert_partitioned_ordering_table");
+        }
+    }
+
+    @Test
     public void testScaleWriters()
     {
         try {

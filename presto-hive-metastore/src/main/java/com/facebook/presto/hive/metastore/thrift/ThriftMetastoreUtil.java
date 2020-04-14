@@ -625,7 +625,8 @@ public final class ThriftMetastoreUtil
                 .setLocation(nullToEmpty(storageDescriptor.getLocation()))
                 .setBucketProperty(HiveBucketProperty.fromStorageDescriptor(storageDescriptor, tablePartitionName))
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
-                .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
+                .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters())
+                .setParameters(storageDescriptor.getParameters() == null ? ImmutableMap.of() : storageDescriptor.getParameters());
     }
 
     private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage)
@@ -646,7 +647,7 @@ public final class ThriftMetastoreUtil
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
-        sd.setParameters(ImmutableMap.of());
+        sd.setParameters(storage.getParameters());
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
