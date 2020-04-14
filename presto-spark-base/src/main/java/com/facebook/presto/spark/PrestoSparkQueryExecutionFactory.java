@@ -274,7 +274,7 @@ public class PrestoSparkQueryExecutionFactory
                 for (Type type : types) {
                     BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                     blockBuilder.readPositionFrom(sliceInput);
-                    columns.add(type.getObjectValue(connectorSession, blockBuilder, 0));
+                    columns.add(type.getObjectValue(connectorSession.getSqlFunctionProperties(), blockBuilder, 0));
                 }
                 result.add(columns.build());
             }

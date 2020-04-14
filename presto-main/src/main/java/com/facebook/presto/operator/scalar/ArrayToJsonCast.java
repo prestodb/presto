@@ -16,9 +16,9 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -50,7 +50,7 @@ public class ArrayToJsonCast
         extends SqlOperator
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, SqlFunctionProperties.class, Block.class);
 
     private ArrayToJsonCast()
     {
@@ -79,14 +79,14 @@ public class ArrayToJsonCast
                 methodHandle);
     }
 
-    public static Slice toJson(JsonGeneratorWriter writer, ConnectorSession session, Block block)
+    public static Slice toJson(JsonGeneratorWriter writer, SqlFunctionProperties properties, Block block)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartArray();
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    writer.writeJsonValue(jsonGenerator, block, i, session);
+                    writer.writeJsonValue(jsonGenerator, block, i, properties);
                 }
                 jsonGenerator.writeEndArray();
             }

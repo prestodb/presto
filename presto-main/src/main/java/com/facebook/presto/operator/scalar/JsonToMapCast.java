@@ -17,11 +17,11 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -58,7 +58,7 @@ public class JsonToMapCast
         extends SqlOperator
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, BlockBuilderAppender.class, SqlFunctionProperties.class, Slice.class);
 
     private JsonToMapCast()
     {
@@ -88,7 +88,7 @@ public class JsonToMapCast
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(MapType mapType, BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, ConnectorSession connectorSession, Slice json)
+    public static Block toMap(MapType mapType, BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, SqlFunctionProperties properties, Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
             jsonParser.nextToken();

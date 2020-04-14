@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
@@ -58,8 +58,8 @@ public class P4HyperLogLogType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
-        return HYPER_LOG_LOG.getObjectValue(session, block, position);
+        return HYPER_LOG_LOG.getObjectValue(properties, block, position);
     }
 }

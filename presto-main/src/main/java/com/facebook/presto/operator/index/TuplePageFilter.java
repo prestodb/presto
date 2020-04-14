@@ -16,9 +16,9 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -66,7 +66,7 @@ public class TuplePageFilter
     }
 
     @Override
-    public SelectedPositions filter(ConnectorSession session, Page page)
+    public SelectedPositions filter(SqlFunctionProperties properties, Page page)
     {
         if (selectedPositions.length < page.getPositionCount()) {
             selectedPositions = new boolean[page.getPositionCount()];

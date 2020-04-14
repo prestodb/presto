@@ -17,9 +17,9 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -53,7 +53,7 @@ public class RowToJsonCast
         extends SqlOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, SqlFunctionProperties.class, Block.class);
 
     private RowToJsonCast()
     {
@@ -85,7 +85,7 @@ public class RowToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(List<JsonGeneratorWriter> fieldWriters, ConnectorSession session, Block block)
+    public static Slice toJson(List<JsonGeneratorWriter> fieldWriters, SqlFunctionProperties session, Block block)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);

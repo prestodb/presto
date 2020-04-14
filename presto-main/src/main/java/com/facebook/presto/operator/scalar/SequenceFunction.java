@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -89,14 +89,14 @@ public final class SequenceFunction
     @ScalarFunction("sequence")
     @SqlType("array(date)")
     public static Block sequenceDateYearToMonth(
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact(diffDate(session, MONTH, start, stop) / step + 1);
+        int length = toIntExact(diffDate(properties, MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
         BlockBuilder blockBuilder = DATE.createBlockBuilder(null, length);
@@ -123,21 +123,21 @@ public final class SequenceFunction
     @ScalarFunction("sequence")
     @SqlType("array(timestamp)")
     public static Block sequenceTimestampYearToMonth(
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             @SqlType(StandardTypes.TIMESTAMP) long start,
             @SqlType(StandardTypes.TIMESTAMP) long stop,
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
+        int length = toIntExact(diffTimestamp(properties, MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
 
         int value = 0;
         for (int i = 0; i < length; ++i) {
-            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(session, start, value));
+            BIGINT.writeLong(blockBuilder, DateTimeOperators.timestampPlusIntervalYearToMonth(properties, start, value));
             value += step;
         }
 

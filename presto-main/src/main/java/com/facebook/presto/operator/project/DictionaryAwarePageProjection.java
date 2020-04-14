@@ -16,12 +16,12 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -70,15 +70,15 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page, selectedPositions);
+        return new DictionaryAwarePageProjectionWork(properties, yieldSignal, page, selectedPositions);
     }
 
     private class DictionaryAwarePageProjectionWork
             implements Work<Block>
     {
-        private final ConnectorSession session;
+        private final SqlFunctionProperties properties;
         private final DriverYieldSignal yieldSignal;
         private final Block block;
         private final SelectedPositions selectedPositions;
@@ -89,9 +89,9 @@ public class DictionaryAwarePageProjection
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
         private Work<Block> fallbackProcessingProjectionWork;
 
-        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public DictionaryAwarePageProjectionWork(@Nullable SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            this.session = session;
+            this.properties = properties;
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
 
             Block block = requireNonNull(page, "page is null").getBlock(0).getLoadedBlock();
@@ -171,7 +171,7 @@ public class DictionaryAwarePageProjection
             // there is no dictionary handling or dictionary handling failed; fall back to general projection
             verify(dictionaryProcessingProjectionWork == null);
             verify(fallbackProcessingProjectionWork == null);
-            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, new Page(block), selectedPositions);
+            fallbackProcessingProjectionWork = projection.project(properties, yieldSignal, new Page(block), selectedPositions);
             if (fallbackProcessingProjectionWork.process()) {
                 result = fallbackProcessingProjectionWork.getResult();
                 return true;
@@ -210,7 +210,7 @@ public class DictionaryAwarePageProjection
             lastOutputDictionary = Optional.empty();
 
             if (shouldProcessDictionary) {
-                return projection.project(session, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
+                return projection.project(properties, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
             }
             return null;
         }

@@ -22,7 +22,6 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -165,7 +164,7 @@ public class RowExpressionPredicateCompiler
     {
         Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, metadata, sqlFunctionProperties);
 
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
@@ -174,7 +173,7 @@ public class RowExpressionPredicateCompiler
                 "evaluate",
                 type(boolean.class),
                 ImmutableList.<Parameter>builder()
-                        .add(session)
+                        .add(properties)
                         .add(page)
                         .add(position)
                         .build());

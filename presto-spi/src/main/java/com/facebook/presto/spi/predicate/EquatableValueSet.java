@@ -241,7 +241,7 @@ public class EquatableValueSet
     public String toString(ConnectorSession session)
     {
         return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()
-                .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
+                .map(entry -> type.getObjectValue(session.getSqlFunctionProperties(), entry.getBlock(), 0).toString())
                 .collect(Collectors.joining(", ")) + " ]";
     }
 

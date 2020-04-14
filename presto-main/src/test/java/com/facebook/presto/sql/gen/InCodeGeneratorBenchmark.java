@@ -135,7 +135,7 @@ public class InCodeGeneratorBenchmark
     {
         return ImmutableList.copyOf(
                 processor.process(
-                        SESSION,
+                        SESSION.getSqlFunctionProperties(),
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         inputPage));

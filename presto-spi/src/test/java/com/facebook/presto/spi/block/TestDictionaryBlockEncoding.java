@@ -64,7 +64,7 @@ public class TestDictionaryBlockEncoding
     private static void assertBlockEquals(Type type, Block actual, Block expected)
     {
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
+            assertEquals(type.getObjectValue(SESSION.getSqlFunctionProperties(), actual, position), type.getObjectValue(SESSION.getSqlFunctionProperties(), expected, position));
         }
     }
 }

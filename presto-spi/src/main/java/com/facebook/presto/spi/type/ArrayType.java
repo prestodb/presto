@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.AbstractArrayBlock;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -122,27 +122,27 @@ public class ArrayType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
         if (block instanceof AbstractArrayBlock) {
-            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(properties, valuesBlock, start, length), position);
         }
         else {
             Block arrayBlock = block.getBlock(position);
-            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
+            return arrayBlockToObjectValues(properties, arrayBlock, 0, arrayBlock.getPositionCount());
         }
     }
 
-    private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
+    private List<Object> arrayBlockToObjectValues(SqlFunctionProperties properties, Block block, int start, int length)
     {
         List<Object> values = new ArrayList<>(length);
 
         for (int i = 0; i < length; i++) {
-            values.add(elementType.getObjectValue(session, block, i + start));
+            values.add(elementType.getObjectValue(properties, block, i + start));
         }
 
         return Collections.unmodifiableList(values);

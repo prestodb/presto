@@ -55,7 +55,7 @@ final class StatsUtil
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
             FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
 
-            return OptionalDouble.of((double) functionInvoker.invoke(cast, session, singletonList(value)));
+            return OptionalDouble.of((double) functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(value)));
         }
 
         if (DateType.DATE.equals(type)) {

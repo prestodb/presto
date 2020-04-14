@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 
 import static java.lang.String.format;
@@ -31,8 +31,8 @@ public class DuplicateMapKeyException
         this.position = position;
     }
 
-    public String getDetailedMessage(Type keyType, ConnectorSession session)
+    public String getDetailedMessage(Type keyType, SqlFunctionProperties properties)
     {
-        return format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
+        return format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(properties, block, position));
     }
 }

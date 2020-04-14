@@ -640,7 +640,7 @@ public class TestMapFlatSelectiveStreamReader
                     if (mapBlock.isNull(position)) {
                         return false;
                     }
-                    Map map = (Map) mapType.getObjectValue(session, mapBlock, position);
+                    Map map = (Map) mapType.getObjectValue(TEST_SESSION.getSqlFunctionProperties(), mapBlock, position);
                     return map.containsKey(1);
                 }
             });

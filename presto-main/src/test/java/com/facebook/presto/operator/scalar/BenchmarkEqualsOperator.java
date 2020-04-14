@@ -126,7 +126,7 @@ public class BenchmarkEqualsOperator
     {
         List<Page> output = new ArrayList<>();
         Iterator<Optional<Page>> pageProcessorOutput = compiledProcessor.process(
-                SESSION,
+                SESSION.getSqlFunctionProperties(),
                 SIGNAL,
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 data.page);

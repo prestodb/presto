@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.UncheckedBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
@@ -55,7 +55,7 @@ public final class DoubleType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

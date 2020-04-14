@@ -73,7 +73,7 @@ public class BenchmarkRowToRowCast
     public List<Optional<Page>> benchmark(BenchmarkData data)
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(
-                SESSION,
+                SESSION.getSqlFunctionProperties(),
                 new DriverYieldSignal(),
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 data.getPage()));

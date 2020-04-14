@@ -86,7 +86,7 @@ public class BenchmarkTransformKey
     {
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(
-                        SESSION,
+                        SESSION.getSqlFunctionProperties(),
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         data.getPage()));

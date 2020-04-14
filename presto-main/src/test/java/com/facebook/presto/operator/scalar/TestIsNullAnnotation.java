@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -51,7 +51,7 @@ public class TestIsNullAnnotation
     @ScalarFunction(value = "test_is_null", calledOnNullInput = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice testIsNull(
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             @SqlType(StandardTypes.INTEGER) long longValue,
             @IsNull boolean isNullLong,
             @SqlType(StandardTypes.VARCHAR) Slice varcharNotNullable,
@@ -60,7 +60,7 @@ public class TestIsNullAnnotation
             @SqlType(StandardTypes.VARCHAR) Slice varcharIsNull,
             @IsNull boolean isNullVarchar)
     {
-        checkArgument(session != null, "session is null");
+        checkArgument(properties != null, "properties is null");
 
         StringBuilder builder = new StringBuilder();
 
