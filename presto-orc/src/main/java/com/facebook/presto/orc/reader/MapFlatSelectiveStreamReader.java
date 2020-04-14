@@ -604,6 +604,21 @@ public class MapFlatSelectiveStreamReader
     @Override
     public void close()
     {
+        keyIndices = null;
+        nestedReadOffsets = null;
+        offsets = null;
+        nulls = null;
+        outputPositions = null;
+        nestedLengths = null;
+        nestedPositions = null;
+        nestedPositionCounts = null;
+        nestedOutputPositions = null;
+        inMap = null;
+        valueStreamReaders.stream().forEach(SelectiveStreamReader::close);
+
+        presentStream = null;
+        presentStreamSource = null;
+
         localMemoryContext.close();
     }
 
