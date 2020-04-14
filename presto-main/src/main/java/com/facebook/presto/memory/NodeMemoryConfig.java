@@ -26,14 +26,18 @@ public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
+    public static final String QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG = "query.soft-max-memory-per-node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.max-total-memory-per-node";
+    public static final String QUERY_SOFT_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.soft-max-total-memory-per-node";
 
     private boolean isReservedPoolEnabled = true;
 
     private DataSize maxQueryMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE);
+    private DataSize softMaxQueryMemoryPerNode;
 
     // This is a per-query limit for the user plus system allocations.
     private DataSize maxQueryTotalMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
+    private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
 
     @NotNull
@@ -46,6 +50,22 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSoftMaxQueryMemoryPerNode()
+    {
+        if (softMaxQueryMemoryPerNode == null) {
+            return getMaxQueryMemoryPerNode();
+        }
+        return softMaxQueryMemoryPerNode;
+    }
+
+    @Config(QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG)
+    public NodeMemoryConfig setSoftMaxQueryMemoryPerNode(DataSize softMaxQueryMemoryPerNode)
+    {
+        this.softMaxQueryMemoryPerNode = softMaxQueryMemoryPerNode;
         return this;
     }
 
@@ -71,6 +91,22 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryTotalMemoryPerNode(DataSize maxQueryTotalMemoryPerNode)
     {
         this.maxQueryTotalMemoryPerNode = maxQueryTotalMemoryPerNode;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSoftMaxQueryTotalMemoryPerNode()
+    {
+        if (softMaxQueryTotalMemoryPerNode == null) {
+            return getMaxQueryTotalMemoryPerNode();
+        }
+        return softMaxQueryTotalMemoryPerNode;
+    }
+
+    @Config(QUERY_SOFT_MAX_TOTAL_MEMORY_PER_NODE_CONFIG)
+    public NodeMemoryConfig setSoftMaxQueryTotalMemoryPerNode(DataSize softMaxQueryTotalMemoryPerNode)
+    {
+        this.softMaxQueryTotalMemoryPerNode = softMaxQueryTotalMemoryPerNode;
         return this;
     }
 
