@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.CallExpression;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -90,7 +91,7 @@ public class TestPageFunctionCompiler
         String classSuffix = stageId + "_" + planNodeId;
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(SESSION.getSqlFunctionProperties(), ADD_10_EXPRESSION, Optional.of(classSuffix));
         PageProjection projection = projectionSupplier.get();
-        Work<Block> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
+        Work<List<Block>> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
         // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
         assertTrue(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId));
     }
@@ -129,9 +130,9 @@ public class TestPageFunctionCompiler
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
-        Work<Block> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), page, selectedPositions);
+        Work<List<Block>> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), page, selectedPositions);
         assertTrue(work.process());
-        return work.getResult();
+        return work.getResult().get(0);
     }
 
     private static Page createLongBlockPage(long... values)

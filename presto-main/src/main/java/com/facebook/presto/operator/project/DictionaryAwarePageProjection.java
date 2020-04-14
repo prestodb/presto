@@ -26,11 +26,13 @@ import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -40,7 +42,7 @@ public class DictionaryAwarePageProjection
     private final Function<DictionaryBlock, DictionaryId> sourceIdFunction;
 
     private Block lastInputDictionary;
-    private Optional<Block> lastOutputDictionary;
+    private Optional<List<Block>> lastOutputDictionary;
     private long lastDictionaryUsageCount;
 
     public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction)
@@ -70,24 +72,24 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<List<Block>> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         return new DictionaryAwarePageProjectionWork(properties, yieldSignal, page, selectedPositions);
     }
 
     private class DictionaryAwarePageProjectionWork
-            implements Work<Block>
+            implements Work<List<Block>>
     {
         private final SqlFunctionProperties properties;
         private final DriverYieldSignal yieldSignal;
         private final Block block;
         private final SelectedPositions selectedPositions;
 
-        private Block result;
+        private List<Block> results;
         // if the block is RLE or dictionary block, we may use dictionary processing
-        private Work<Block> dictionaryProcessingProjectionWork;
+        private Work<List<Block>> dictionaryProcessingProjectionWork;
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
-        private Work<Block> fallbackProcessingProjectionWork;
+        private Work<List<Block>> fallbackProcessingProjectionWork;
 
         public DictionaryAwarePageProjectionWork(@Nullable SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
@@ -114,16 +116,16 @@ public class DictionaryAwarePageProjection
         @Override
         public boolean process()
         {
-            checkState(result == null, "result has been generated");
+            checkState(results == null, "result has been generated");
             if (fallbackProcessingProjectionWork != null) {
                 if (fallbackProcessingProjectionWork.process()) {
-                    result = fallbackProcessingProjectionWork.getResult();
+                    results = fallbackProcessingProjectionWork.getResult();
                     return true;
                 }
                 return false;
             }
 
-            Optional<Block> dictionaryOutput = Optional.empty();
+            Optional<List<Block>> dictionaryOutput = Optional.empty();
             if (dictionaryProcessingProjectionWork != null) {
                 try {
                     if (!dictionaryProcessingProjectionWork.process()) {
@@ -153,7 +155,9 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    results = dictionaryOutput.get().stream()
+                            .map(block -> new RunLengthEncodedBlock(block, selectedPositions.size()))
+                            .collect(toImmutableList());
                     return true;
                 }
 
@@ -161,7 +165,9 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    results = dictionaryOutput.get().stream()
+                            .map(block -> new DictionaryBlock(selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock)))
+                            .collect(toImmutableList());
                     return true;
                 }
 
@@ -173,20 +179,20 @@ public class DictionaryAwarePageProjection
             verify(fallbackProcessingProjectionWork == null);
             fallbackProcessingProjectionWork = projection.project(properties, yieldSignal, new Page(block), selectedPositions);
             if (fallbackProcessingProjectionWork.process()) {
-                result = fallbackProcessingProjectionWork.getResult();
+                results = fallbackProcessingProjectionWork.getResult();
                 return true;
             }
             return false;
         }
 
         @Override
-        public Block getResult()
+        public List<Block> getResult()
         {
-            checkState(result != null, "result has not been generated");
-            return result;
+            checkState(results != null, "result has not been generated");
+            return results;
         }
 
-        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
+        private Work<List<Block>> createDictionaryBlockProjection(Optional<Block> dictionary)
         {
             if (!dictionary.isPresent()) {
                 lastOutputDictionary = Optional.empty();
@@ -195,7 +201,7 @@ public class DictionaryAwarePageProjection
 
             if (lastInputDictionary == dictionary.get()) {
                 // we must have fallen back last time if lastOutputDictionary is null
-                return lastOutputDictionary.map(CompletedWork::new).orElse(null);
+                return lastOutputDictionary.<Work<List<Block>>>map(CompletedWork::new).orElse(null);
             }
 
             // Process dictionary if:
