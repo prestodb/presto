@@ -18,10 +18,10 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -84,8 +84,8 @@ public class CreateFunctionTask
     private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement)
     {
         QualifiedFunctionName functionName = qualifyFunctionName(statement.getFunctionName());
-        List<SqlParameter> parameters = statement.getParameters().stream()
-                .map(parameter -> new SqlParameter(parameter.getName().toString().toLowerCase(ENGLISH), parseTypeSignature(parameter.getType())))
+        List<Parameter> parameters = statement.getParameters().stream()
+                .map(parameter -> new Parameter(parameter.getName().toString().toLowerCase(ENGLISH), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());
         TypeSignature returnType = parseTypeSignature(statement.getReturnType());
         String description = statement.getComment().orElse("");

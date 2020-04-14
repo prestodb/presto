@@ -34,7 +34,7 @@ import static java.util.stream.Collectors.toList;
 public class SqlInvokedFunction
         implements SqlFunction
 {
-    private final List<SqlParameter> parameters;
+    private final List<Parameter> parameters;
     private final String description;
     private final RoutineCharacteristics routineCharacteristics;
     private final String body;
@@ -45,7 +45,7 @@ public class SqlInvokedFunction
 
     public SqlInvokedFunction(
             QualifiedFunctionName functionName,
-            List<SqlParameter> parameters,
+            List<Parameter> parameters,
             TypeSignature returnType,
             String description,
             RoutineCharacteristics routineCharacteristics,
@@ -58,7 +58,7 @@ public class SqlInvokedFunction
         this.body = requireNonNull(body, "body is null");
 
         List<TypeSignature> argumentTypes = parameters.stream()
-                .map(SqlParameter::getType)
+                .map(Parameter::getType)
                 .collect(collectingAndThen(toList(), Collections::unmodifiableList));
         this.signature = new Signature(functionName, SCALAR, returnType, argumentTypes);
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
@@ -110,7 +110,7 @@ public class SqlInvokedFunction
         return description;
     }
 
-    public List<SqlParameter> getParameters()
+    public List<Parameter> getParameters()
     {
         return parameters;
     }

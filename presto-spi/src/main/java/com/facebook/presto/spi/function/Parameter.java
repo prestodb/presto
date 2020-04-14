@@ -21,13 +21,13 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class SqlParameter
+public class Parameter
 {
     private final String name;
     private final TypeSignature type;
 
     @JsonCreator
-    public SqlParameter(
+    public Parameter(
             @JsonProperty("name") String name,
             @JsonProperty("type") TypeSignature type)
     {
@@ -56,7 +56,7 @@ public class SqlParameter
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SqlParameter o = (SqlParameter) obj;
+        Parameter o = (Parameter) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(type, o.type);
     }

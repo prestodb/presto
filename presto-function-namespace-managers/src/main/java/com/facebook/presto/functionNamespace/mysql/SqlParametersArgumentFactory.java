@@ -14,7 +14,7 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.function.SqlParameter;
+import com.facebook.presto.spi.function.Parameter;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
 import org.jdbi.v3.core.argument.ObjectArgument;
@@ -26,9 +26,9 @@ import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static java.sql.Types.VARCHAR;
 
 public class SqlParametersArgumentFactory
-        extends AbstractArgumentFactory<List<SqlParameter>>
+        extends AbstractArgumentFactory<List<Parameter>>
 {
-    private static final JsonCodec<List<SqlParameter>> CODEC = listJsonCodec(SqlParameter.class);
+    private static final JsonCodec<List<Parameter>> CODEC = listJsonCodec(Parameter.class);
 
     public SqlParametersArgumentFactory()
     {
@@ -36,7 +36,7 @@ public class SqlParametersArgumentFactory
     }
 
     @Override
-    public Argument build(List<SqlParameter> parameters, ConfigRegistry config)
+    public Argument build(List<Parameter> parameters, ConfigRegistry config)
     {
         return new ObjectArgument(CODEC.toJson(parameters), VARCHAR);
     }
