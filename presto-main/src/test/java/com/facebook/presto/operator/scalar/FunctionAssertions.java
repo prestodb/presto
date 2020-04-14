@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -53,6 +52,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -233,7 +233,7 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<? extends BuiltInFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
     {
         metadata.registerBuiltInFunctions(functionInfos);
         return this;

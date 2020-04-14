@@ -373,7 +373,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class BuiltInFunctionNamespaceManager
-        implements FunctionNamespaceManager<BuiltInFunction>
+        implements FunctionNamespaceManager<SqlFunction>
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
@@ -706,7 +706,7 @@ public class BuiltInFunctionNamespaceManager
         registerBuiltInFunctions(builder.getFunctions());
     }
 
-    public synchronized void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
+    public synchronized void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
             for (SqlFunction existingFunction : this.functions.list()) {
@@ -756,13 +756,13 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public Collection<BuiltInFunction> listFunctions()
+    public Collection<SqlFunction> listFunctions()
     {
         return functions.list();
     }
 
     @Override
-    public Collection<BuiltInFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
+    public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         return functions.get(functionName);
     }
@@ -786,7 +786,7 @@ public class BuiltInFunctionNamespaceManager
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
         }
-        BuiltInFunction function = functionKey.getFunction();
+        SqlFunction function = functionKey.getFunction();
         Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
         if (operatorType.isPresent()) {
             return new FunctionMetadata(
@@ -876,11 +876,11 @@ public class BuiltInFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<BuiltInFunction> candidates = getFunctions(null, signature.getName());
+        Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
-        for (BuiltInFunction candidate : candidates) {
+        for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
@@ -891,7 +891,7 @@ public class BuiltInFunctionNamespaceManager
         // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
         // so do a second pass allowing "type only" coercions
         List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-        for (BuiltInFunction candidate : candidates) {
+        for (SqlFunction candidate : candidates) {
             SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
             Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
             if (!boundVariables.isPresent()) {
@@ -950,23 +950,23 @@ public class BuiltInFunctionNamespaceManager
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedFunctionName, BuiltInFunction> functions;
+        private final Multimap<QualifiedFunctionName, SqlFunction> functions;
 
         public FunctionMap()
         {
             functions = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<? extends BuiltInFunction> functions)
+        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
         {
-            this.functions = ImmutableListMultimap.<QualifiedFunctionName, BuiltInFunction>builder()
+            this.functions = ImmutableListMultimap.<QualifiedFunctionName, SqlFunction>builder()
                     .putAll(map.functions)
                     .putAll(Multimaps.index(functions, function -> function.getSignature().getName()))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedFunctionName, Collection<BuiltInFunction>> entry : this.functions.asMap().entrySet()) {
-                Collection<BuiltInFunction> values = entry.getValue();
+            for (Map.Entry<QualifiedFunctionName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
+                Collection<SqlFunction> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(function -> function.getSignature().getKind())
                         .filter(kind -> kind == AGGREGATE)
@@ -975,12 +975,12 @@ public class BuiltInFunctionNamespaceManager
             }
         }
 
-        public List<BuiltInFunction> list()
+        public List<SqlFunction> list()
         {
             return ImmutableList.copyOf(functions.values());
         }
 
-        public Collection<BuiltInFunction> get(QualifiedFunctionName name)
+        public Collection<SqlFunction> get(QualifiedFunctionName name)
         {
             return functions.get(name);
         }

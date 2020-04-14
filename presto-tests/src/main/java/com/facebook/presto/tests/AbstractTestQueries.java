@@ -18,9 +18,9 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -103,7 +103,7 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     // We can just use the default type registry, since we don't use any parametric types
-    public static final List<BuiltInFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
+    public static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
             .aggregates(CustomSum.class)
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
