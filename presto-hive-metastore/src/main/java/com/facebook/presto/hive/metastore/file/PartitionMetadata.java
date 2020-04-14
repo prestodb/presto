@@ -36,6 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionMetadata
@@ -45,6 +46,7 @@ public class PartitionMetadata
 
     private final Optional<HiveStorageFormat> storageFormat;
     private final Optional<HiveBucketProperty> bucketProperty;
+    private final Map<String, String> storageParameters;
     private final Map<String, String> serdeParameters;
 
     private final Optional<String> externalLocation;
@@ -57,6 +59,7 @@ public class PartitionMetadata
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("storageParameters") Map<String, String> storageParameters,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
             @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
@@ -66,6 +69,7 @@ public class PartitionMetadata
 
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
+        this.storageParameters = ImmutableMap.copyOf(firstNonNull(storageParameters, ImmutableMap.of()));
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
 
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
@@ -93,6 +97,7 @@ public class PartitionMetadata
         }
 
         bucketProperty = partition.getStorage().getBucketProperty();
+        storageParameters = partition.getStorage().getParameters();
         serdeParameters = partition.getStorage().getSerdeParameters();
         columnStatistics = ImmutableMap.copyOf(statistics.getColumnStatistics());
     }
@@ -122,6 +127,12 @@ public class PartitionMetadata
     }
 
     @JsonProperty
+    public Map<String, String> getStorageParameters()
+    {
+        return storageParameters;
+    }
+
+    @JsonProperty
     public Map<String, String> getSerdeParameters()
     {
         return serdeParameters;
@@ -141,12 +152,12 @@ public class PartitionMetadata
 
     public PartitionMetadata withParameters(Map<String, String> parameters)
     {
-        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics);
     }
 
     public PartitionMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
     {
-        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics);
     }
 
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)
@@ -160,6 +171,7 @@ public class PartitionMetadata
                         .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
                         .setSerdeParameters(serdeParameters)
+                        .setParameters(parameters)
                         .build(),
                 columns,
                 parameters);

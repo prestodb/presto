@@ -45,7 +45,8 @@ public class HivePartitionObjectBuilder
                                 StorageFormat.fromHiveStorageFormat(HiveSessionProperties.getHiveStorageFormat(session)))
                         .setLocation(partitionUpdate.getTargetPath().toString())
                         .setBucketProperty(table.getStorage().getBucketProperty())
-                        .setSerdeParameters(table.getStorage().getSerdeParameters()))
+                        .setSerdeParameters(table.getStorage().getSerdeParameters())
+                        .setParameters(table.getStorage().getParameters()))
                 .build();
     }
 }

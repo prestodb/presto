@@ -118,6 +118,7 @@ public final class GlueToPrestoConverter
                 .setBucketProperty(bucketProperty)
                 .setSkewed(sd.getSkewedInfo() != null && !isNullOrEmpty(sd.getSkewedInfo().getSkewedColumnNames()))
                 .setSerdeParameters(firstNonNull(serdeInfo.getParameters(), ImmutableMap.of()))
+                .setParameters(firstNonNull(sd.getParameters(), ImmutableMap.of()))
                 .build();
     }
 

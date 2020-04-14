@@ -77,7 +77,7 @@ public class SortingFileWriterFactory
         this.sortedWriteTempFileSubdirectoryCount = sortedWriteTempFileSubdirectoryCount;
     }
 
-    public SortingFileWriter createSortingFileWriter(Path path, HiveFileWriter outputWriter, int bucketNumber, Optional<Path> tempPath)
+    public SortingFileWriter createSortingFileWriter(Path path, HiveFileWriter outputWriter, int fileNumber, Optional<Path> tempPath)
     {
         checkState(tempPath.isPresent() == sortedWriteToTempPathEnabled, "tempPath existence is not consistent with sortedWriteToTempPathEnabled config");
 
@@ -90,7 +90,7 @@ public class SortingFileWriterFactory
         }
 
         Path prefix = sortedWriteToTempPathEnabled
-                ? new Path(tempPath.get(), format(".tmp-sort-%s/.tmp-sort-%s", bucketNumber % sortedWriteTempFileSubdirectoryCount, path.getName()))
+                ? new Path(tempPath.get(), format(".tmp-sort-%s/.tmp-sort-%s", fileNumber % sortedWriteTempFileSubdirectoryCount, path.getName()))
                 : new Path(path.getParent(), ".tmp-sort." + path.getName());
         return new SortingFileWriter(
                 fileSystem,
