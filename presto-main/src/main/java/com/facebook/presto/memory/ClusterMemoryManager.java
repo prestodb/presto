@@ -181,6 +181,10 @@ public class ClusterMemoryManager
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
+        verify(config.getSoftMaxQueryMemory().toBytes() <= maxQueryMemory.toBytes(),
+                "Soft max query memory cannot be greater than hard limit");
+        verify(config.getSoftMaxQueryTotalMemory().toBytes() <= maxQueryTotalMemory.toBytes(),
+                "Soft max query total memory cannot be greater than hard limit");
 
         this.pools = createClusterMemoryPools(nodeMemoryConfig.isReservedPoolEnabled());
     }

@@ -28,6 +28,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
 import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
+import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG;
+import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_SOFT_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -64,6 +66,16 @@ public final class LocalMemoryManager
                 "Max query memory per node (%s) cannot be greater than the max query total memory per node (%s).",
                 QUERY_MAX_MEMORY_PER_NODE_CONFIG,
                 QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
+        checkArgument(
+                config.getMaxQueryMemoryPerNode().toBytes() >= config.getSoftMaxQueryMemoryPerNode().toBytes(),
+                "Max query memory per node (%s) must be >= soft limit (%s).",
+                QUERY_MAX_MEMORY_PER_NODE_CONFIG,
+                QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG);
+        checkArgument(
+                config.getMaxQueryTotalMemoryPerNode().toBytes() >= config.getSoftMaxQueryTotalMemoryPerNode().toBytes(),
+                "Max query total memory per node (%s) must be >= soft limit (%s).",
+                QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG,
+                QUERY_SOFT_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         long generalPoolSize = maxMemory.toBytes();
         if (config.isReservedPoolEnabled()) {
