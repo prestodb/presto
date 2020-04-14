@@ -527,7 +527,7 @@ public class ParquetTester
     {
         Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(SESSION, mapBlock, i), valueType.getObjectValue(SESSION, mapBlock, i + 1));
+            map.put(keyType.getObjectValue(SESSION.getSqlFunctionProperties(), mapBlock, i), valueType.getObjectValue(SESSION.getSqlFunctionProperties(), mapBlock, i + 1));
         }
         return Collections.unmodifiableMap(map);
     }
@@ -536,7 +536,7 @@ public class ParquetTester
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < arrayBlock.getPositionCount(); position++) {
-            values.add(elementType.getObjectValue(SESSION, arrayBlock, position));
+            values.add(elementType.getObjectValue(SESSION.getSqlFunctionProperties(), arrayBlock, position));
         }
         return Collections.unmodifiableList(values);
     }
@@ -545,7 +545,7 @@ public class ParquetTester
     {
         List<Object> values = new ArrayList<>(rowBlock.getPositionCount());
         for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-            values.add(fieldTypes.get(i).getObjectValue(SESSION, rowBlock, i));
+            values.add(fieldTypes.get(i).getObjectValue(SESSION.getSqlFunctionProperties(), rowBlock, i));
         }
         return Collections.unmodifiableList(values);
     }
@@ -692,7 +692,7 @@ public class ParquetTester
             return null;
         }
 
-        return type.getObjectValue(SESSION, block, position);
+        return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
     private static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)

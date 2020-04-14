@@ -49,7 +49,7 @@ public class FunctionInvokerProvider
     {
         BuiltInScalarFunctionImplementation builtInScalarFunctionImplementation = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
         for (ScalarImplementationChoice choice : builtInScalarFunctionImplementation.getAllChoices()) {
-            if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
+            if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasProperties(), invocationConvention)) {
                 return new FunctionInvoker(choice.getMethodHandle());
             }
         }

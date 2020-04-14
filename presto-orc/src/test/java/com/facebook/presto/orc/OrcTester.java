@@ -806,7 +806,7 @@ public class OrcTester
 
                     List<Object> data = new ArrayList<>(positionCount);
                     for (int position = 0; position < positionCount; position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
+                        data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
                     }
 
                     for (int position = 0; position < positionCount; position++) {
@@ -899,7 +899,7 @@ public class OrcTester
 
                         List<Object> data = new ArrayList<>(block.getPositionCount());
                         for (int position = 0; position < block.getPositionCount(); position++) {
-                            data.add(type.getObjectValue(SESSION, block, position));
+                            data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
                         }
 
                         for (int position = 0; position < block.getPositionCount(); position++) {

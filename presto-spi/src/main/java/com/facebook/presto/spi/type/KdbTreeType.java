@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
@@ -33,7 +33,7 @@ public final class KdbTreeType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         throw new UnsupportedOperationException();
     }

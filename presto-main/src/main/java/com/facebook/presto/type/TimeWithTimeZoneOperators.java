@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
@@ -121,18 +121,18 @@ public final class TimeWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME)
-    public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
         // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
         // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
-        return castToTimestamp(session, value);
+        return castToTimestamp(properties, value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             return unpackMillisUtc(value);
         }
         else {

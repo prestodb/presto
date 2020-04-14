@@ -15,10 +15,10 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 
@@ -65,11 +65,11 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
         try {
-            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
+            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, properties, page, selectedPositions);
         }
         catch (Throwable e) {
             throw new RuntimeException(e);

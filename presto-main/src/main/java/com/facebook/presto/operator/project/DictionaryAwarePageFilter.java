@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.util.Optional;
 
@@ -54,13 +54,13 @@ public class DictionaryAwarePageFilter
     }
 
     @Override
-    public SelectedPositions filter(ConnectorSession session, Page page)
+    public SelectedPositions filter(SqlFunctionProperties properties, Page page)
     {
         Block block = page.getBlock(0).getLoadedBlock();
 
         if (block instanceof RunLengthEncodedBlock) {
             Block value = ((RunLengthEncodedBlock) block).getValue();
-            Optional<boolean[]> selectedPosition = processDictionary(session, value);
+            Optional<boolean[]> selectedPosition = processDictionary(properties, value);
             // single value block is always considered effective, but the processing could have thrown
             // in that case we fallback and process again so the correct error message sent
             if (selectedPosition.isPresent()) {
@@ -71,7 +71,7 @@ public class DictionaryAwarePageFilter
         if (block instanceof DictionaryBlock) {
             DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
             // Attempt to process the dictionary.  If dictionary is processing has not been considered effective, an empty response will be returned
-            Optional<boolean[]> selectedDictionaryPositions = processDictionary(session, dictionaryBlock.getDictionary());
+            Optional<boolean[]> selectedDictionaryPositions = processDictionary(properties, dictionaryBlock.getDictionary());
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount += page.getPositionCount();
             // if dictionary was processed, produce a dictionary block; otherwise do normal processing
@@ -80,10 +80,10 @@ public class DictionaryAwarePageFilter
             }
         }
 
-        return filter.filter(session, new Page(block));
+        return filter.filter(properties, new Page(block));
     }
 
-    private Optional<boolean[]> processDictionary(ConnectorSession session, Block dictionary)
+    private Optional<boolean[]> processDictionary(SqlFunctionProperties properties, Block dictionary)
     {
         if (lastInputDictionary == dictionary) {
             return lastOutputDictionary;
@@ -100,7 +100,7 @@ public class DictionaryAwarePageFilter
 
         if (shouldProcessDictionary) {
             try {
-                SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
+                SelectedPositions selectedDictionaryPositions = filter.filter(properties, new Page(dictionary));
                 lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
             }
             catch (Exception ignored) {

@@ -133,7 +133,7 @@ public final class Marker
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return type.getObjectValue(session, valueBlock.get(), 0);
+        return type.getObjectValue(session.getSqlFunctionProperties(), valueBlock.get(), 0);
     }
 
     @JsonProperty

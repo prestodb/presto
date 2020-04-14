@@ -50,7 +50,7 @@ public class TestColumnarPageProcessor
         Page page = createPage(types, false);
         Page outputPage = getOnlyElement(
                 processor.process(
-                        SESSION,
+                        SESSION.getSqlFunctionProperties(),
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         page))
@@ -65,7 +65,7 @@ public class TestColumnarPageProcessor
         Page page = createPage(types, true);
         Page outputPage = getOnlyElement(
                 processor.process(
-                        SESSION,
+                        SESSION.getSqlFunctionProperties(),
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         page))

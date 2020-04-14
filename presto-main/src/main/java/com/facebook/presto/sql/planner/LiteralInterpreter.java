@@ -243,12 +243,12 @@ public final class LiteralInterpreter
 
             if (JSON.equals(type)) {
                 FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
-                return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
+                return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
                 FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
-                return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
+                return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);

@@ -429,7 +429,7 @@ public class TestMapFlatBatchStreamReader
                     Block block = recordReader.readBlock(0);
 
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        assertEquals(mapType.getObjectValue(SESSION, block, position), expectedValuesIterator.next());
+                        assertEquals(mapType.getObjectValue(SESSION.getSqlFunctionProperties(), block, position), expectedValuesIterator.next());
                     }
                 }
 

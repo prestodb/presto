@@ -67,7 +67,7 @@ public class TestTupleFilterProcessor
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
         Page actualPage = getOnlyElement(
                 tupleFilterProcessor.process(
-                        SESSION,
+                        SESSION.getSqlFunctionProperties(),
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         inputPage))

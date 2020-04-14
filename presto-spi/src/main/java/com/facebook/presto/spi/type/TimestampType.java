@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
@@ -33,14 +33,14 @@ public final class TimestampType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
-        if (session.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), session.getTimeZoneKey());
+        if (properties.isLegacyTimestamp()) {
+            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey());
         }
         else {
             return new SqlTimestamp(block.getLong(position));

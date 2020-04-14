@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractIntType;
@@ -112,14 +112,14 @@ public final class DateOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
+    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long value)
     {
-        if (session.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp()) {
             long utcMillis = TimeUnit.DAYS.toMillis(value);
 
             // date is encoded as milliseconds at midnight in UTC
             // convert to midnight in the session timezone
-            ISOChronology chronology = getChronology(session.getTimeZoneKey());
+            ISOChronology chronology = getChronology(properties.getTimeZoneKey());
             return utcMillis - chronology.getZone().getOffset(utcMillis);
         }
         else {
@@ -129,15 +129,15 @@ public final class DateOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
+    public static long castToTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long value)
     {
         long utcMillis = TimeUnit.DAYS.toMillis(value);
 
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight in the session timezone
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
+        ISOChronology chronology = getChronology(properties.getTimeZoneKey());
         long millis = utcMillis - chronology.getZone().getOffset(utcMillis);
-        return packDateTimeWithZone(millis, session.getTimeZoneKey());
+        return packDateTimeWithZone(millis, properties.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)

@@ -559,7 +559,7 @@ public final class RowExpressionDomainTranslator
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
             return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session, value));
+                    .map((operator) -> functionInvoker.invoke(operator, session.getSqlFunctionProperties(), value));
         }
 
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
@@ -575,7 +575,7 @@ public final class RowExpressionDomainTranslator
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
             FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
-            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session, coercedValue);
+            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.getSqlFunctionProperties(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
             return originalValueType.compareTo(originalValueBlock, 0, coercedValueBlock, 0);

@@ -19,12 +19,12 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
@@ -97,13 +97,13 @@ public class PageProcessor
         this(filter, projections, OptionalInt.of(1));
     }
 
-    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
+    public Iterator<Optional<Page>> process(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
-        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, page);
+        WorkProcessor<Page> processor = createWorkProcessor(properties, yieldSignal, memoryContext, page);
         return processor.yieldingIterator();
     }
 
-    private WorkProcessor<Page> createWorkProcessor(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
+    private WorkProcessor<Page> createWorkProcessor(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -113,7 +113,7 @@ public class PageProcessor
         }
 
         if (filter.isPresent()) {
-            SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
+            SelectedPositions selectedPositions = filter.get().filter(properties, filter.get().getInputChannels().getInputChannels(page));
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
             }
@@ -124,17 +124,17 @@ public class PageProcessor
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
-                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, selectedPositions));
+                return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, selectedPositions));
             }
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount())));
+        return WorkProcessor.create(new ProjectSelectedPositions(properties, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount())));
     }
 
     private class ProjectSelectedPositions
             implements WorkProcessor.Process<Page>
     {
-        private final ConnectorSession session;
+        private final SqlFunctionProperties properties;
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
 
@@ -148,11 +148,11 @@ public class PageProcessor
         private int lastComputeBatchSize;
         private Work<Block> pageProjectWork;
 
-        private ProjectSelectedPositions(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, SelectedPositions selectedPositions)
+        private ProjectSelectedPositions(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, SelectedPositions selectedPositions)
         {
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
 
-            this.session = session;
+            this.properties = properties;
             this.yieldSignal = yieldSignal;
             this.page = page;
             this.memoryContext = memoryContext;
@@ -290,7 +290,7 @@ public class PageProcessor
                 else {
                     if (pageProjectWork == null) {
                         expressionProfiler.start();
-                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                        pageProjectWork = projection.project(properties, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
                         expressionProfiler.stop(positionsBatch.size());
                     }
                     if (!pageProjectWork.process()) {

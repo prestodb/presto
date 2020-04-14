@@ -17,11 +17,11 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -47,11 +47,11 @@ import static java.lang.String.format;
 public class MapSubscriptOperator
         extends SqlOperator
 {
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, ConnectorSession.class, Block.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, SqlFunctionProperties.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, SqlFunctionProperties.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, SqlFunctionProperties.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, SqlFunctionProperties.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", boolean.class, MissingKeyExceptionFactory.class, Type.class, SqlFunctionProperties.class, Block.class, Object.class);
 
     private final boolean legacyMissingKey;
 
@@ -101,7 +101,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, boolean key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, boolean key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -109,13 +109,13 @@ public class MapSubscriptOperator
             if (legacyMissingKey) {
                 return null;
             }
-            throw missingKeyExceptionFactory.create(session, key);
+            throw missingKeyExceptionFactory.create(properties, key);
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, long key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, long key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -123,13 +123,13 @@ public class MapSubscriptOperator
             if (legacyMissingKey) {
                 return null;
             }
-            throw missingKeyExceptionFactory.create(session, key);
+            throw missingKeyExceptionFactory.create(properties, key);
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, double key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, double key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -137,13 +137,13 @@ public class MapSubscriptOperator
             if (legacyMissingKey) {
                 return null;
             }
-            throw missingKeyExceptionFactory.create(session, key);
+            throw missingKeyExceptionFactory.create(properties, key);
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, Slice key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, Slice key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -151,13 +151,13 @@ public class MapSubscriptOperator
             if (legacyMissingKey) {
                 return null;
             }
-            throw missingKeyExceptionFactory.create(session, key);
+            throw missingKeyExceptionFactory.create(properties, key);
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, ConnectorSession session, Block map, Object key)
+    public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact((Block) key);
@@ -165,7 +165,7 @@ public class MapSubscriptOperator
             if (legacyMissingKey) {
                 return null;
             }
-            throw missingKeyExceptionFactory.create(session, key);
+            throw missingKeyExceptionFactory.create(properties, key);
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
@@ -188,11 +188,11 @@ public class MapSubscriptOperator
             this.castFunction = castFunction;
         }
 
-        public PrestoException create(ConnectorSession session, Object value)
+        public PrestoException create(SqlFunctionProperties properties, Object value)
         {
             if (castFunction != null) {
                 try {
-                    Slice varcharValue = (Slice) functionInvoker.invoke(castFunction, session, value);
+                    Slice varcharValue = (Slice) functionInvoker.invoke(castFunction, properties, value);
                     return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue.toStringUtf8()));
                 }
                 catch (RuntimeException ignored) {

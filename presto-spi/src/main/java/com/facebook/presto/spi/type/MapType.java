@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -21,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -196,7 +196,7 @@ public class MapType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -208,7 +208,7 @@ public class MapType
         }
         Map<Object, Object> map = new HashMap<>();
         for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, singleMapBlock, i), valueType.getObjectValue(session, singleMapBlock, i + 1));
+            map.put(keyType.getObjectValue(properties, singleMapBlock, i), valueType.getObjectValue(properties, singleMapBlock, i + 1));
         }
 
         return Collections.unmodifiableMap(map);

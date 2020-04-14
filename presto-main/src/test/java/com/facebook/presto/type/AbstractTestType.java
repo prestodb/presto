@@ -141,7 +141,7 @@ public abstract class AbstractTestType
 
     private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
     {
-        Object objectValue = type.getObjectValue(SESSION, block, position);
+        Object objectValue = type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
         assertEquals(objectValue, expectedObjectValue);
         if (objectValue != null) {
             assertInstanceOf(objectValue, objectValueType);
@@ -330,13 +330,13 @@ public abstract class AbstractTestType
     private void verifyInvalidPositionHandling(Block block)
     {
         try {
-            type.getObjectValue(SESSION, block, -1);
+            type.getObjectValue(SESSION.getSqlFunctionProperties(), block, -1);
             fail("expected RuntimeException");
         }
         catch (RuntimeException expected) {
         }
         try {
-            type.getObjectValue(SESSION, block, block.getPositionCount());
+            type.getObjectValue(SESSION.getSqlFunctionProperties(), block, block.getPositionCount());
             fail("expected RuntimeException");
         }
         catch (RuntimeException expected) {
@@ -583,7 +583,7 @@ public abstract class AbstractTestType
     {
         SortedMap<Integer, Object> values = new TreeMap<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.put(position, type.getObjectValue(SESSION, block, position));
+            values.put(position, type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
         }
         return unmodifiableSortedMap(values);
     }

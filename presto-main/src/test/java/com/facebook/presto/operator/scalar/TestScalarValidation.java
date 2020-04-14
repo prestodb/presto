@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -202,7 +202,7 @@ public class TestScalarValidation
     {
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
-        public static long bad(ConnectorSession session, @IsNull boolean isNull)
+        public static long bad(SqlFunctionProperties properties, @IsNull boolean isNull)
         {
             return 0;
         }

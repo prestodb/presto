@@ -163,7 +163,7 @@ public class KuduPageSink
         else if (isVarcharType(type)) {
             Type originalType = originalColumnTypes.get(destChannel);
             if (DATE.equals(originalType)) {
-                SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession, block, position);
+                SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession.getSqlFunctionProperties(), block, position);
                 LocalDateTime ldt = LocalDateTime.ofEpochSecond(TimeUnit.DAYS.toSeconds(date.getDays()), 0, ZoneOffset.UTC);
                 byte[] bytes = ldt.format(DateTimeFormatter.ISO_LOCAL_DATE).getBytes(StandardCharsets.UTF_8);
                 row.addStringUtf8(destChannel, bytes);
@@ -176,7 +176,7 @@ public class KuduPageSink
             row.addBinary(destChannel, type.getSlice(block, position).toByteBuffer());
         }
         else if (type instanceof DecimalType) {
-            SqlDecimal sqlDecimal = (SqlDecimal) type.getObjectValue(connectorSession, block, position);
+            SqlDecimal sqlDecimal = (SqlDecimal) type.getObjectValue(connectorSession.getSqlFunctionProperties(), block, position);
             row.addDecimal(destChannel, sqlDecimal.toBigDecimal());
         }
         else {

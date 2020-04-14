@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 public interface CursorProcessor
 {
-    CursorProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder);
+    CursorProcessorOutput process(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder);
 }

@@ -25,13 +25,13 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
@@ -86,7 +86,7 @@ public class RowToRowCast
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionManager);
-        MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
+        MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
@@ -109,14 +109,14 @@ public class RowToRowCast
                 makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
                 type(Object.class));
 
-        Parameter session = arg("session", ConnectorSession.class);
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter value = arg("value", Block.class);
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "castRow",
                 type(Block.class),
-                session,
+                properties,
                 value);
 
         Scope scope = method.getScope();

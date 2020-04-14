@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 public interface PageFilter
 {
@@ -22,7 +22,7 @@ public interface PageFilter
 
     InputChannels getInputChannels();
 
-    SelectedPositions filter(ConnectorSession session, Page page);
+    SelectedPositions filter(SqlFunctionProperties properties, Page page);
 
     static SelectedPositions positionsArrayToSelectedPositions(boolean[] selectedPositions, int size)
     {

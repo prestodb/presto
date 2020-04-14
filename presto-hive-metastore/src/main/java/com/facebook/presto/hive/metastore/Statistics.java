@@ -424,17 +424,17 @@ public final class Statistics
     private static OptionalLong getIntegerValue(ConnectorSession session, Type type, Block block)
     {
         // works for BIGINT as well as for other integer types TINYINT/SMALLINT/INTEGER that store values as byte/short/int
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(((Number) type.getObjectValue(session, block, 0)).longValue());
+        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(((Number) type.getObjectValue(session.getSqlFunctionProperties(), block, 0)).longValue());
     }
 
     private static OptionalDouble getDoubleValue(ConnectorSession session, Type type, Block block)
     {
-        return block.isNull(0) ? OptionalDouble.empty() : OptionalDouble.of(((Number) type.getObjectValue(session, block, 0)).doubleValue());
+        return block.isNull(0) ? OptionalDouble.empty() : OptionalDouble.of(((Number) type.getObjectValue(session.getSqlFunctionProperties(), block, 0)).doubleValue());
     }
 
     private static Optional<LocalDate> getDateValue(ConnectorSession session, Type type, Block block)
     {
-        return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session, block, 0)).getDays()));
+        return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session.getSqlFunctionProperties(), block, 0)).getDays()));
     }
 
     private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
@@ -445,7 +445,7 @@ public final class Statistics
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)
     {
-        return block.isNull(0) ? Optional.empty() : Optional.of(((SqlDecimal) type.getObjectValue(session, block, 0)).toBigDecimal());
+        return block.isNull(0) ? Optional.empty() : Optional.of(((SqlDecimal) type.getObjectValue(session.getSqlFunctionProperties(), block, 0)).toBigDecimal());
     }
 
     public enum ReduceOperator

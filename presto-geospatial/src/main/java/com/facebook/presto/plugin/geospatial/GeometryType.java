@@ -14,10 +14,10 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.GeometryException;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
@@ -80,7 +80,7 @@ public class GeometryType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
