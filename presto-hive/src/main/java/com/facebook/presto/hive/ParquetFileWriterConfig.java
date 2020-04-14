@@ -21,6 +21,8 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class ParquetFileWriterConfig
 {
+    private boolean parquetOptimizedWriterEnabled;
+
     private DataSize blockSize = new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE);
     private DataSize pageSize = new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE);
 
@@ -45,6 +47,18 @@ public class ParquetFileWriterConfig
     public ParquetFileWriterConfig setPageSize(DataSize pageSize)
     {
         this.pageSize = pageSize;
+        return this;
+    }
+
+    public boolean isParquetOptimizedWriterEnabled()
+    {
+        return parquetOptimizedWriterEnabled;
+    }
+
+    @Config("hive.parquet.optimized-writer.enabled")
+    public ParquetFileWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
+    {
+        this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;
         return this;
     }
 }
