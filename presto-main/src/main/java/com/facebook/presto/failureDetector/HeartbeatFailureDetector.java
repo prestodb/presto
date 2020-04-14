@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareHead;
 import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
@@ -259,7 +260,8 @@ public class HeartbeatFailureDetector
                 URI uri = getHttpUri(service);
 
                 if (uri != null) {
-                    tasks.put(service.getId(), new MonitoringTask(service, uri));
+                    URI pingURI = uriBuilderFrom(uri).appendPath("/v1/status").build();
+                    tasks.put(service.getId(), new MonitoringTask(service, pingURI));
                 }
             }
 
