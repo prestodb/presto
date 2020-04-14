@@ -15,9 +15,9 @@ package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -42,7 +42,7 @@ public class SqlInvokedFunctionTestUtils
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedFunction(
             POWER_TOWER,
-            ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
@@ -51,7 +51,7 @@ public class SqlInvokedFunctionTestUtils
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE_UPDATED = new SqlInvokedFunction(
             POWER_TOWER,
-            ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
@@ -60,7 +60,7 @@ public class SqlInvokedFunctionTestUtils
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_INT = new SqlInvokedFunction(
             POWER_TOWER,
-            ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER))),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(INTEGER))),
             parseTypeSignature(INTEGER),
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
@@ -69,7 +69,7 @@ public class SqlInvokedFunctionTestUtils
 
     public static final SqlInvokedFunction FUNCTION_TANGENT = new SqlInvokedFunction(
             TANGENT,
-            ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
             "tangent",
             RoutineCharacteristics.builder()

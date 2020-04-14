@@ -14,10 +14,10 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlParameter;
 import org.jdbi.v3.sqlobject.config.RegisterArgumentFactories;
 import org.jdbi.v3.sqlobject.config.RegisterArgumentFactory;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
@@ -263,7 +263,7 @@ public interface FunctionNamespaceDao
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("function_name") String functionName,
-            @Bind("parameters") List<SqlParameter> parameters,
+            @Bind("parameters") List<Parameter> parameters,
             @Bind("return_type") TypeSignature returnType,
             @Bind("description") String description,
             @Bind("routine_characteristics") RoutineCharacteristics routineCharacteristics,
