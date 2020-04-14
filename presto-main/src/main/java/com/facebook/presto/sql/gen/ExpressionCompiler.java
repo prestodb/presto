@@ -20,6 +20,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -38,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -107,11 +109,10 @@ public class ExpressionCompiler
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
                 .map(projection -> pageFunctionCompiler.compileProjection(sqlFunctionProperties, projection, classNameSuffix))
                 .collect(toImmutableList());
-
         return () -> {
             Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
-            List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
-                    .map(Supplier::get)
+            List<PageProjectionWithOutputs> pageProjections = IntStream.range(0, pageProjectionSuppliers.size())
+                    .mapToObj(index -> new PageProjectionWithOutputs(pageProjectionSuppliers.get(index).get(), new int[] {index}))
                     .collect(toImmutableList());
             return new PageProcessor(filterFunction, pageProjections, initialBatchSize);
         };

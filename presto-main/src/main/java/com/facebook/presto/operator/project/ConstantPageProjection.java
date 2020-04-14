@@ -24,6 +24,8 @@ import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 
 public class ConstantPageProjection
@@ -61,8 +63,8 @@ public class ConstantPageProjection
     }
 
     @Override
-    public Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<List<Block>> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new CompletedWork<>(new RunLengthEncodedBlock(value, selectedPositions.size()));
+        return new CompletedWork<>(ImmutableList.of(new RunLengthEncodedBlock(value, selectedPositions.size())));
     }
 }
