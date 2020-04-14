@@ -15,6 +15,8 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -162,8 +164,10 @@ public class MergingPageOutput
         pageBuilder.declarePositions(page.getPositionCount());
         for (int channel = 0; channel < types.size(); channel++) {
             Type type = types.get(channel);
+            Block block = page.getBlock(channel);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
             for (int position = 0; position < page.getPositionCount(); position++) {
-                type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                type.appendTo(block, position, blockBuilder);
             }
         }
         if (pageBuilder.isFull()) {
