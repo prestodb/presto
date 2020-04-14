@@ -75,6 +75,7 @@ public class TestHiveSplit
                         "location",
                         Optional.empty(),
                         false,
+                        ImmutableMap.of(),
                         ImmutableMap.of()),
                 partitionKeys,
                 addresses,

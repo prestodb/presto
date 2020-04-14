@@ -61,7 +61,7 @@ public class TestHivePartitionManager
             TABLE_NAME,
             USER_NAME,
             PrestoTableType.MANAGED_TABLE,
-            new Storage(fromHiveStorageFormat(ORC), LOCATION, Optional.of(new HiveBucketProperty(ImmutableList.of(BUCKET_COLUMN.getName()), 100, ImmutableList.of())), false, ImmutableMap.of()),
+            new Storage(fromHiveStorageFormat(ORC), LOCATION, Optional.of(new HiveBucketProperty(ImmutableList.of(BUCKET_COLUMN.getName()), 100, ImmutableList.of())), false, ImmutableMap.of(), ImmutableMap.of()),
             ImmutableList.of(BUCKET_COLUMN),
             ImmutableList.of(PARTITION_COLUMN),
             ImmutableMap.of(),

@@ -112,6 +112,7 @@ public class AlluxioProtoUtils
                     .setViewOriginalText(Optional.empty())
                     .setViewExpandedText(Optional.empty());
             alluxio.grpc.table.layout.hive.Storage storage = partitionInfo.getStorage();
+            // TODO: We should also set storage parameters here when they are available in alluxio.grpc.table.layout.hive.Storage
             builder.getStorageBuilder()
                     .setSkewed(storage.getSkewed())
                     .setStorageFormat(fromProto(storage.getStorageFormat()))
@@ -212,6 +213,7 @@ public class AlluxioProtoUtils
                 .setValues(Lists.newArrayList(info.getValuesList()))
                 .setTableName(info.getTableName());
 
+        // TODO: We should also set storage parameters here when they are available in alluxio.grpc.table.layout.hive.Storage
         builder.getStorageBuilder()
                 .setSkewed(info.getStorage().getSkewed())
                 .setStorageFormat(fromProto(info.getStorage().getStorageFormat()))

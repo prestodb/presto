@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
+import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,6 +35,7 @@ public class HiveInsertTableHandle
             @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("preferredOrderingColumns") List<SortingColumn> preferredOrderingColumns,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec)
@@ -46,6 +48,7 @@ public class HiveInsertTableHandle
                 pageSinkMetadata,
                 locationHandle,
                 bucketProperty,
+                preferredOrderingColumns,
                 tableStorageFormat,
                 partitionStorageFormat,
                 compressionCodec);

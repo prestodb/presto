@@ -84,6 +84,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -366,11 +367,12 @@ public class HiveWriterFactory
         }
 
         if (sortingFileWriterFactory.isPresent()) {
-            checkState(bucketNumber.isPresent(), "missing bucket number for sorted table write");
+            // File number in createSortingFileWriter() is used for determining the temporary directory to store the temporary file.
+            // Limit file number for unbucketed table to have the same magnitude as bucket number
             hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(
                     path,
                     hiveFileWriter,
-                    bucketNumber.getAsInt(),
+                    bucketNumber.orElse(abs(path.hashCode() % 1024)),
                     writerParameters.getWriteInfo().getTempPath());
         }
 

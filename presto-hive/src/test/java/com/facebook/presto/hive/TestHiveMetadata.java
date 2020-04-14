@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.SortingColumn;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -22,9 +24,17 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveMetadata.createPredicate;
+import static com.facebook.presto.hive.HiveMetadata.decodePreferredOrderingColumnsFromStorage;
+import static com.facebook.presto.hive.HiveMetadata.encodePreferredOrderingColumns;
+import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
+import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveMetadata
 {
@@ -84,5 +94,31 @@ public class TestHiveMetadata
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+    }
+
+    @Test
+    public void testPreferredOrderingColumnsSerDe()
+    {
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of());
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", ASCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", DESCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", ASCENDING), new SortingColumn("b", DESCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", ASCENDING), new SortingColumn("b", ASCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", DESCENDING), new SortingColumn("b", ASCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("a", DESCENDING), new SortingColumn("b", DESCENDING)));
+
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("ASC", ASCENDING)));
+        verifyPreferredOrderingColumnsRoundTrip(ImmutableList.of(new SortingColumn("DESC", DESCENDING)));
+    }
+
+    private void verifyPreferredOrderingColumnsRoundTrip(List<SortingColumn> sortingColumns)
+    {
+        List<SortingColumn> decoded = decodePreferredOrderingColumnsFromStorage(
+                Storage.builder()
+                        .setStorageFormat(VIEW_STORAGE_FORMAT)
+                        .setLocation("test")
+                        .setParameters(ImmutableMap.of(PREFERRED_ORDERING_COLUMNS, encodePreferredOrderingColumns(sortingColumns)))
+                        .build());
+        assertEquals(sortingColumns, decoded);
     }
 }

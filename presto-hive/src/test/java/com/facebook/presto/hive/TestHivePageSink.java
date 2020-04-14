@@ -237,6 +237,7 @@ public class TestHivePageSink
                         "location",
                         Optional.empty(),
                         false,
+                        ImmutableMap.of(),
                         ImmutableMap.of()),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -286,6 +287,7 @@ public class TestHivePageSink
                 config.getCompressionCodec(),
                 ImmutableList.of(),
                 Optional.empty(),
+                ImmutableList.of(),
                 "test",
                 ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);

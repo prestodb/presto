@@ -430,6 +430,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     "location",
                     Optional.empty(),
                     false,
+                    ImmutableMap.of(),
                     ImmutableMap.of());
 
             partitionKeys = testColumns.stream()

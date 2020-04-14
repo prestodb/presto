@@ -435,6 +435,7 @@ public class TestHiveSplitSource
                                     "location",
                                     Optional.empty(),
                                     false,
+                                    ImmutableMap.of(),
                                     ImmutableMap.of()),
                             new Path("path").toUri(),
                             ImmutableList.of(),

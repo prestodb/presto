@@ -69,7 +69,8 @@ public class TestRecordingHiveMetastore
             "location",
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
             true,
-            ImmutableMap.of("param", "value2"));
+            ImmutableMap.of("param", "value2"),
+            ImmutableMap.of());
     private static final Table TABLE = new Table(
             "database",
             "table",

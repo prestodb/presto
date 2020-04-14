@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +47,7 @@ public class TableMetadata
 
     private final Optional<HiveStorageFormat> storageFormat;
     private final Optional<HiveBucketProperty> bucketProperty;
+    private final Map<String, String> storageParameters;
     private final Map<String, String> serdeParameters;
 
     private final Optional<String> externalLocation;
@@ -64,6 +66,7 @@ public class TableMetadata
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("storageParameters") Map<String, String> storageParameters,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
@@ -75,7 +78,7 @@ public class TableMetadata
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
-
+        this.storageParameters = ImmutableMap.copyOf(firstNonNull(storageParameters, ImmutableMap.of()));
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
@@ -111,6 +114,7 @@ public class TableMetadata
                 .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
                 .findFirst();
         bucketProperty = table.getStorage().getBucketProperty();
+        storageParameters = table.getStorage().getParameters();
         serdeParameters = table.getStorage().getSerdeParameters();
 
         if (tableType.equals(EXTERNAL_TABLE)) {
@@ -183,6 +187,12 @@ public class TableMetadata
     }
 
     @JsonProperty
+    public Map<String, String> getStorageParameters()
+    {
+        return storageParameters;
+    }
+
+    @JsonProperty
     public Map<String, String> getSerdeParameters()
     {
         return serdeParameters;
@@ -222,6 +232,7 @@ public class TableMetadata
                 parameters,
                 storageFormat,
                 bucketProperty,
+                storageParameters,
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
@@ -239,6 +250,7 @@ public class TableMetadata
                 parameters,
                 storageFormat,
                 bucketProperty,
+                storageParameters,
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
@@ -256,6 +268,7 @@ public class TableMetadata
                 parameters,
                 storageFormat,
                 bucketProperty,
+                storageParameters,
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
@@ -274,6 +287,7 @@ public class TableMetadata
                         .setLocation(externalLocation.orElse(location))
                         .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
+                        .setParameters(storageParameters)
                         .setSerdeParameters(serdeParameters)
                         .build(),
                 dataColumns,

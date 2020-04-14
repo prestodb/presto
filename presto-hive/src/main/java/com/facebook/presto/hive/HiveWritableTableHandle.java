@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
+import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +34,7 @@ public class HiveWritableTableHandle
     private HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
     private final Optional<HiveBucketProperty> bucketProperty;
+    private final List<SortingColumn> preferredOrderingColumns;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final HiveCompressionCodec compressionCodec;
@@ -45,6 +47,7 @@ public class HiveWritableTableHandle
             HivePageSinkMetadata pageSinkMetadata,
             LocationHandle locationHandle,
             Optional<HiveBucketProperty> bucketProperty,
+            List<SortingColumn> preferredOrderingColumns,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             HiveCompressionCodec compressionCodec)
@@ -56,6 +59,7 @@ public class HiveWritableTableHandle
         this.pageSinkMetadata = requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
+        this.preferredOrderingColumns = requireNonNull(preferredOrderingColumns, "preferredOrderingColumns is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
@@ -108,6 +112,12 @@ public class HiveWritableTableHandle
     public Optional<HiveBucketProperty> getBucketProperty()
     {
         return bucketProperty;
+    }
+
+    @JsonProperty
+    public List<SortingColumn> getPreferredOrderingColumns()
+    {
+        return preferredOrderingColumns;
     }
 
     @JsonProperty
