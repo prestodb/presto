@@ -19,6 +19,7 @@ import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 public class MapColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnWriter.class).instanceSize();
+
     private final ColumnWriter keyWriter;
     private final ColumnWriter valueWriter;
     private final int maxDefinitionLevel;
@@ -77,6 +80,12 @@ public class MapColumnWriter
     public long getBufferedBytes()
     {
         return keyWriter.getBufferedBytes() + valueWriter.getBufferedBytes();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE + keyWriter.getRetainedBytes() + valueWriter.getRetainedBytes();
     }
 
     @Override
