@@ -27,6 +27,7 @@ import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
+import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
@@ -171,6 +172,7 @@ public class HiveClientModule
         fileWriterFactoryBinder.addBinding().to(PageFileWriterFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
+        fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
         binder.install(new MetastoreClientModule());
     }
 
