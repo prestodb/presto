@@ -16,6 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
@@ -98,8 +99,8 @@ public class DynamicTupleFilterFactory
         TuplePageFilter filter = new TuplePageFilter(filterTuple, filterTypes, outputFilterChannels);
         return () -> new PageProcessor(
                 Optional.of(filter),
-                outputProjections.stream()
-                        .map(Supplier::get)
+                IntStream.range(0, outputProjections.size())
+                        .mapToObj(index -> new PageProjectionWithOutputs(outputProjections.get(index).get(), new int[] {index}))
                         .collect(toImmutableList()), initialBatchSize);
     }
 

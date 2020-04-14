@@ -29,7 +29,7 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -503,9 +503,9 @@ public final class FunctionAssertions
         }
     }
 
-    private long getRetainedSizeOfCachedInstance(PageProjection projection)
+    private long getRetainedSizeOfCachedInstance(PageProjectionWithOutputs projection)
     {
-        Field[] fields = projection.getClass().getDeclaredFields();
+        Field[] fields = projection.getPageProjection().getClass().getDeclaredFields();
         long retainedSize = 0;
         for (Field field : fields) {
             field.setAccessible(true);

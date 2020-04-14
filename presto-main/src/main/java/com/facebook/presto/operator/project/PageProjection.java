@@ -20,6 +20,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
+
 public interface PageProjection
 {
     Type getType();
@@ -28,5 +30,5 @@ public interface PageProjection
 
     InputChannels getInputChannels();
 
-    Work<Block> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions);
+    Work<List<Block>> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions);
 }

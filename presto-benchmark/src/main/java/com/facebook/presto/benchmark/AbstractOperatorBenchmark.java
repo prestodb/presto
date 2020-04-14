@@ -35,7 +35,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.project.InputPageProjection;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -210,12 +210,12 @@ public abstract class AbstractOperatorBenchmark
     {
         ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Integer> variableToInputMapping = ImmutableMap.builder();
-        ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
+        ImmutableList.Builder<PageProjectionWithOutputs> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
             VariableReferenceExpression variable = new VariableReferenceExpression("h" + channel, types.get(channel));
             variables.add(variable);
             variableToInputMapping.put(variable, channel);
-            projections.add(new InputPageProjection(channel, types.get(channel)));
+            projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel, types.get(channel)), new int[] {channel}));
         }
 
         Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionManager(), variables.build());
@@ -223,7 +223,7 @@ public abstract class AbstractOperatorBenchmark
         RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
-        projections.add(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get());
+        projections.add(new PageProjectionWithOutputs(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get(), new int[] {types.size()}));
 
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
