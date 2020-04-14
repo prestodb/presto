@@ -60,7 +60,7 @@ public interface Metadata
 
     List<SqlFunction> listFunctions(Session session);
 
-    void registerBuiltInFunctions(List<? extends BuiltInFunction> functions);
+    void registerBuiltInFunctions(List<? extends SqlFunction> functions);
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
 

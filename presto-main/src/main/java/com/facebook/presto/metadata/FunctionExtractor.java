@@ -18,6 +18,7 @@ import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 
 import java.util.Collection;
@@ -29,7 +30,7 @@ public final class FunctionExtractor
 {
     private FunctionExtractor() {}
 
-    public static List<BuiltInFunction> extractFunctions(Collection<Class<?>> classes)
+    public static List<SqlFunction> extractFunctions(Collection<Class<?>> classes)
     {
         return classes.stream()
                 .map(FunctionExtractor::extractFunctions)
@@ -37,7 +38,7 @@ public final class FunctionExtractor
                 .collect(toImmutableList());
     }
 
-    public static List<? extends BuiltInFunction> extractFunctions(Class<?> clazz)
+    public static List<? extends SqlFunction> extractFunctions(Class<?> clazz)
     {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
             @SuppressWarnings("unchecked")

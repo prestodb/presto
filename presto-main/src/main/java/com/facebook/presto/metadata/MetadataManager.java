@@ -270,7 +270,7 @@ public class MetadataManager
     }
 
     @Override
-    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functionInfos)
+    public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         functions.registerBuiltInFunctions(functionInfos);
     }
