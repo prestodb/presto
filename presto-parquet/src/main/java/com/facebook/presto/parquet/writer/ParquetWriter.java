@@ -28,6 +28,7 @@ import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -56,6 +57,8 @@ import static org.apache.parquet.hadoop.metadata.CompressionCodecName.ZSTD;
 public class ParquetWriter
         implements Closeable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+
     private final List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
     private final List<Type> types;
@@ -90,6 +93,23 @@ public class ParquetWriter
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
 
         this.chunkMaxLogicalBytes = max(1, writerOption.getMaxBlockSize() / 2);
+    }
+
+    public long getWrittenBytes()
+    {
+        return outputStream.size();
+    }
+
+    public long getBufferedBytes()
+    {
+        return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+    }
+
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                outputStream.getRetainedSize() +
+                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     public void write(Page page)

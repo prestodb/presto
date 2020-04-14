@@ -286,7 +286,16 @@ public class PrimitiveColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() + definitionLevelEncoder.getBufferedSize() + repetitionLevelEncoder.getBufferedSize();
+        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() +
+                definitionLevelEncoder.getBufferedSize() +
+                repetitionLevelEncoder.getBufferedSize() +
+                primitiveValueWriter.getBufferedSize();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return 0;
     }
 
     @Override
