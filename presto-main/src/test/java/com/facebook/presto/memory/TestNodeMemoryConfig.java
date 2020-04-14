@@ -25,6 +25,7 @@ import static com.facebook.presto.memory.LocalMemoryManager.validateHeapHeadroom
 import static com.facebook.presto.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestNodeMemoryConfig
 {
@@ -33,7 +34,9 @@ public class TestNodeMemoryConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
                 .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
+                .setSoftMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
+                .setSoftMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setReservedPoolEnabled(true));
     }
@@ -43,14 +46,18 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory-per-node", "1GB")
+                .put("query.soft-max-memory-per-node", "512MB")
                 .put("query.max-total-memory-per-node", "3GB")
+                .put("query.soft-max-total-memory-per-node", "2GB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .put("experimental.reserved-pool-enabled", "false")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setSoftMaxQueryMemoryPerNode(new DataSize(512, MEGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
+                .setSoftMaxQueryTotalMemoryPerNode(new DataSize(2, GIGABYTE))
                 .setHeapHeadroom(new DataSize(1, GIGABYTE))
                 .setReservedPoolEnabled(false);
 

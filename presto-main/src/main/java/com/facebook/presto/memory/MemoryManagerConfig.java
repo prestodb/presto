@@ -33,8 +33,10 @@ public class MemoryManagerConfig
 {
     // enforced against user memory allocations
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
+    private DataSize softMaxQueryMemory;
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
+    private DataSize softMaxQueryTotalMemory;
     private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -79,6 +81,22 @@ public class MemoryManagerConfig
     }
 
     @NotNull
+    public DataSize getSoftMaxQueryMemory()
+    {
+        if (softMaxQueryMemory == null) {
+            return getMaxQueryMemory();
+        }
+        return softMaxQueryMemory;
+    }
+
+    @Config("query.soft-max-memory")
+    public MemoryManagerConfig setSoftMaxQueryMemory(DataSize softMaxQueryMemory)
+    {
+        this.softMaxQueryMemory = softMaxQueryMemory;
+        return this;
+    }
+
+    @NotNull
     public DataSize getMaxQueryTotalMemory()
     {
         if (maxQueryTotalMemory == null) {
@@ -91,6 +109,25 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setMaxQueryTotalMemory(DataSize maxQueryTotalMemory)
     {
         this.maxQueryTotalMemory = maxQueryTotalMemory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSoftMaxQueryTotalMemory()
+    {
+        if (softMaxQueryTotalMemory == null) {
+            if (maxQueryTotalMemory != null) {
+                return maxQueryTotalMemory;
+            }
+            return succinctBytes(getSoftMaxQueryMemory().toBytes() * 2);
+        }
+        return softMaxQueryTotalMemory;
+    }
+
+    @Config("query.soft-max-total-memory")
+    public MemoryManagerConfig setSoftMaxQueryTotalMemory(DataSize softMaxQueryTotalMemory)
+    {
+        this.softMaxQueryTotalMemory = softMaxQueryTotalMemory;
         return this;
     }
 
