@@ -73,6 +73,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -450,6 +451,11 @@ public final class HiveSessionProperties
                         USE_LIST_DIRECTORY_CACHE,
                         "Use list directory cache if available when set to true",
                         !hiveClientConfig.getFileStatusCacheTables().isEmpty(),
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_WRITER_ENABLED,
+                        "Experimental: Enable optimized writer",
+                        parquetFileWriterConfig.isParquetOptimizedWriterEnabled(),
                         false));
     }
 
@@ -784,5 +790,10 @@ public final class HiveSessionProperties
     public static boolean isUseListDirectoryCache(ConnectorSession session)
     {
         return session.getProperty(USE_LIST_DIRECTORY_CACHE, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 }
