@@ -13,24 +13,26 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.SqlFunction;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
 public class SpecializedFunctionKey
 {
-    private final BuiltInFunction function;
+    private final SqlFunction function;
     private final BoundVariables boundVariables;
     private final int arity;
 
-    public SpecializedFunctionKey(BuiltInFunction function, BoundVariables boundVariables, int arity)
+    public SpecializedFunctionKey(SqlFunction function, BoundVariables boundVariables, int arity)
     {
         this.function = requireNonNull(function, "function is null");
         this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
         this.arity = arity;
     }
 
-    public BuiltInFunction getFunction()
+    public SqlFunction getFunction()
     {
         return function;
     }

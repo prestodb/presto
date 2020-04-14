@@ -124,7 +124,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: presto.default.custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
@@ -140,7 +140,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'presto.default.sum' is both an aggregation and a scalar function")
     public void testConflictingScalarAggregation()
     {
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
