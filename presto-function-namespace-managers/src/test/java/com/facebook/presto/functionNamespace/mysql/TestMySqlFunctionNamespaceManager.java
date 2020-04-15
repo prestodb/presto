@@ -15,7 +15,6 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -36,9 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.TypeLiteral;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
@@ -53,7 +50,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
-import static com.facebook.presto.functionNamespace.mysql.MySqlConnectionModule.createJdbi;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
@@ -100,20 +96,12 @@ public class TestMySqlFunctionNamespaceManager
         this.mySqlServer = new TestingMySqlServer("testuser", "testpass", DB);
         Bootstrap app = new Bootstrap(
                 new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
-                new AbstractConfigurationAwareModule()
-                {
-                    @Override
-                    protected void setup(Binder binder)
-                    {
-                        binder.bind(Jdbi.class).toInstance(createJdbi(mySqlServer.getJdbcUrl(DB), buildConfigObject(MySqlFunctionNamespaceManagerConfig.class)));
-                        binder.bind(FunctionNamespaceDao.class).toProvider(new MySqlConnectionModule.FunctionNamespaceDaoProvider());
-                        binder.bind(new TypeLiteral<Class<? extends FunctionNamespaceDao>>() {}).toInstance(FunctionNamespaceDao.class);
-                    }
-                });
+                new MySqlConnectionModule());
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("function-cache-expiration", "0s")
                 .put("function-instance-cache-expiration", "0s")
+                .put("database-url", mySqlServer.getJdbcUrl(DB))
                 .build();
 
         try {
