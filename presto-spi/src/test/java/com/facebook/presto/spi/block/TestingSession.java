@@ -87,7 +87,7 @@ public final class TestingSession
         @Override
         public SqlFunctionProperties getSqlFunctionProperties()
         {
-            return SqlFunctionProperties.builder().setTimeZoneKey(UTC_KEY).build();
+            return SqlFunctionProperties.builder().setTimeZoneKey(UTC_KEY).setSessionStartTime(getStartTime()).setSessionLocale(getLocale()).setSessionUser(getUser()).build();
         }
 
         @Override
