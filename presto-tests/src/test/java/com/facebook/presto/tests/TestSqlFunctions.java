@@ -125,7 +125,7 @@ public class TestSqlFunctions
         assertQuerySucceeds("CREATE FUNCTION testing.common.a() RETURNS int RETURN 1");
         assertQueryFails(
                 "CREATE FUNCTION testing.common.b() RETURNS int RETURN testing.common.a()",
-                "Invoking a SQL function in SQL function body is not yet supported");
+                "Invoking a dynamically registered function in SQL function body is not supported");
     }
 
     @Test
