@@ -21,7 +21,6 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -96,13 +95,11 @@ public class PrestoS3ClientFactory
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(s3UserAgentSuffix);
 
-        PrestoS3FileSystemStats stats = new PrestoS3FileSystemStats();
-        RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(stats);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
         AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(metricCollector)
+                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
                 .enablePathStyleAccess();
 
         boolean regionOrEndpointSet = false;
