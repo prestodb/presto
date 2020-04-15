@@ -13,23 +13,13 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.Request;
-import com.amazonaws.Response;
-import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.util.AWSRequestMetrics;
-import com.amazonaws.util.TimingInfo;
+import com.facebook.presto.hive.aws.AbstractSdkMetricsCollector;
 import io.airlift.units.Duration;
 
-import static com.amazonaws.util.AWSRequestMetrics.Field.ClientExecuteTime;
-import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientRetryCount;
-import static com.amazonaws.util.AWSRequestMetrics.Field.HttpRequestTime;
-import static com.amazonaws.util.AWSRequestMetrics.Field.RequestCount;
-import static com.amazonaws.util.AWSRequestMetrics.Field.ThrottleException;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoS3FileSystemMetricCollector
-        extends RequestMetricCollector
+        extends AbstractSdkMetricsCollector
 {
     private final PrestoS3FileSystemStats stats;
 
@@ -39,35 +29,38 @@ public class PrestoS3FileSystemMetricCollector
     }
 
     @Override
-    public void collectMetrics(Request<?> request, Response<?> response)
+    protected void recordRequestCount(long count)
     {
-        AWSRequestMetrics metrics = request.getAWSRequestMetrics();
+        stats.updateAwsRequestCount(count);
+    }
 
-        TimingInfo timingInfo = metrics.getTimingInfo();
-        Number requestCounts = timingInfo.getCounter(RequestCount.name());
-        Number retryCounts = timingInfo.getCounter(HttpClientRetryCount.name());
-        Number throttleExceptions = timingInfo.getCounter(ThrottleException.name());
-        TimingInfo requestTime = timingInfo.getSubMeasurement(HttpRequestTime.name());
-        TimingInfo clientExecuteTime = timingInfo.getSubMeasurement(ClientExecuteTime.name());
+    @Override
+    protected void recordRetryCount(long count)
+    {
+        stats.updateAwsRetryCount(count);
+    }
 
-        if (requestCounts != null) {
-            stats.updateAwsRequestCount(requestCounts.longValue());
-        }
+    @Override
+    protected void recordThrottleExceptionCount(long count)
+    {
+        stats.updateAwsThrottleExceptionsCount(count);
+    }
 
-        if (retryCounts != null) {
-            stats.updateAwsRetryCount(retryCounts.longValue());
-        }
+    @Override
+    protected void recordHttpRequestTime(Duration duration)
+    {
+        stats.addAwsRequestTime(duration);
+    }
 
-        if (throttleExceptions != null) {
-            stats.updateAwsThrottleExceptionsCount(throttleExceptions.longValue());
-        }
+    @Override
+    protected void recordClientExecutionTime(Duration duration)
+    {
+        stats.addAwsClientExecuteTime(duration);
+    }
 
-        if (requestTime != null && requestTime.getTimeTakenMillisIfKnown() != null) {
-            stats.addAwsRequestTime(new Duration(requestTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
-        }
-
-        if (clientExecuteTime != null && clientExecuteTime.getTimeTakenMillisIfKnown() != null) {
-            stats.addAwsClientExecuteTime(new Duration(clientExecuteTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
-        }
+    @Override
+    protected void recordRetryPauseTime(Duration duration)
+    {
+        stats.addAwsClientRetryPauseTime(duration);
     }
 }

@@ -51,6 +51,7 @@ public class PrestoS3FileSystemStats
     private final CounterStat awsThrottleExceptions = new CounterStat();
     private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
+    private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
 
     @Managed
     @Nested
@@ -187,6 +188,13 @@ public class PrestoS3FileSystemStats
 
     @Managed
     @Nested
+    public TimeStat getAwsClientRetryPauseTime()
+    {
+        return awsClientRetryPauseTime;
+    }
+
+    @Managed
+    @Nested
     public CounterStat getGetObjectRetries()
     {
         return getObjectRetries;
@@ -300,6 +308,11 @@ public class PrestoS3FileSystemStats
     public void addAwsClientExecuteTime(Duration duration)
     {
         awsClientExecuteTime.add(duration);
+    }
+
+    public void addAwsClientRetryPauseTime(Duration duration)
+    {
+        awsClientRetryPauseTime.add(duration);
     }
 
     public void newGetObjectRetry()
