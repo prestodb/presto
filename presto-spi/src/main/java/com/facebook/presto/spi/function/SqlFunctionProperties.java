@@ -15,6 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.type.TimeZoneKey;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -26,19 +27,28 @@ public class SqlFunctionProperties
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
     private final boolean legacyMapSubscript;
+    private final long sessionStartTime;
+    private final Locale sessionLocale;
+    private final String sessionUser;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
             boolean legacyRowFieldOrdinalAccessEnabled,
             TimeZoneKey timeZoneKey,
             boolean legacyTimestamp,
-            boolean legacyMapSubscript)
+            boolean legacyMapSubscript,
+            long sessionStartTime,
+            Locale sessionLocale,
+            String sessionUser)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.legacyTimestamp = legacyTimestamp;
         this.legacyMapSubscript = legacyMapSubscript;
+        this.sessionStartTime = sessionStartTime;
+        this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
+        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -65,6 +75,21 @@ public class SqlFunctionProperties
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
+    }
+
+    public long getSessionStartTime()
+    {
+        return sessionStartTime;
+    }
+
+    public Locale getSessionLocale()
+    {
+        return sessionLocale;
+    }
+
+    public String getSessionUser()
+    {
+        return sessionUser;
     }
 
     @Override
@@ -102,6 +127,9 @@ public class SqlFunctionProperties
         private TimeZoneKey timeZoneKey;
         private boolean legacyTimestamp;
         private boolean legacyMapSubscript;
+        private long sessionStartTime;
+        private Locale sessionLocale;
+        private String sessionUser;
 
         private Builder() {}
 
@@ -135,9 +163,27 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setSessionStartTime(long sessionStartTime)
+        {
+            this.sessionStartTime = sessionStartTime;
+            return this;
+        }
+
+        public Builder setSessionLocale(Locale sessionLocale)
+        {
+            this.sessionLocale = sessionLocale;
+            return this;
+        }
+
+        public Builder setSessionUser(String sessionUser)
+        {
+            this.sessionUser = sessionUser;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser);
         }
     }
 }

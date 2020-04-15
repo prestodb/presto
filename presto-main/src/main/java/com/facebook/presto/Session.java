@@ -435,6 +435,9 @@ public final class Session
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
+                .setSessionStartTime(getStartTime())
+                .setSessionLocale(getLocale())
+                .setSessionUser(getUser())
                 .build();
     }
 
