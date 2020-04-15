@@ -110,6 +110,7 @@ import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -428,10 +429,14 @@ public class PageFunctionCompiler
         List<RowExpression> rewrittenProjections;
 
         if (!commonSubExpressionsByLevel.isEmpty()) {
+            Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
+                    .flatMap(m -> m.entrySet().stream())
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            rewrittenProjections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
+
             int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
             int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
-            Map<RowExpression, VariableReferenceExpression> commonSubExpressions = new HashMap<>();
-            Map<VariableReferenceExpression, Variable> variableMap = new HashMap<>();
+            Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap = new HashMap<>();
             for (int i = startLevel; i <= maxLevel; i++) {
                 if (commonSubExpressionsByLevel.containsKey(i)) {
                     RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
@@ -444,10 +449,10 @@ public class PageFunctionCompiler
                             compiledLambdaMap);
                     for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {
                         RowExpression cse = entry.getKey();
-                        commonSubExpressions.put(cse, entry.getValue());
                         Class<?> type = Primitives.wrap(cse.getType().getJavaType());
                         Variable cseVariable = scope.createTempVariable(type);
-                        variableMap.put(entry.getValue(), cseVariable);
+                        Variable cseEvaluated = scope.createTempVariable(boolean.class);
+                        variableMap.put(entry.getValue(), new CommonSubExpressionVariables(cseEvaluated, cseVariable));
                         body.append(cseCompiler.compile(cse, scope, Optional.empty()))
                                 .append(boxPrimitiveIfNecessary(scope, type))
                                 .putVariable(cseVariable);
@@ -462,7 +467,6 @@ public class PageFunctionCompiler
                     metadata,
                     sqlFunctionProperties,
                     compiledLambdaMap);
-            rewrittenProjections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
             log.warn("Extracted CSE:");
             for (Map.Entry<RowExpression, VariableReferenceExpression> cse : commonSubExpressions.entrySet()) {
                 log.warn(format("\t%s = %s", cse.getValue(), cse.getKey()));
@@ -470,6 +474,7 @@ public class PageFunctionCompiler
             log.warn(format("Final expression: %s", rewrittenProjections));
         }
         else {
+            rewrittenProjections = projections;
             compiler = new RowExpressionCompiler(
                     classDefinition,
                     callSiteBinder,
@@ -478,7 +483,6 @@ public class PageFunctionCompiler
                     metadata,
                     sqlFunctionProperties,
                     compiledLambdaMap);
-            rewrittenProjections = projections;
         }
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
@@ -738,13 +742,24 @@ public class PageFunctionCompiler
                 callSiteBinder);
     }
 
+    private static class CommonSubExpressionVariables
+    {
+        private final Variable evaluated;
+        private final Variable result;
+        public CommonSubExpressionVariables(Variable evaluated, Variable result)
+        {
+            this.evaluated = evaluated;
+            this.result = result;
+        }
+    }
+
     private static class FieldAndVariableReferenceCompiler
             implements RowExpressionVisitor<BytecodeNode, Scope>
     {
         private final InputReferenceCompiler inputReferenceCompiler;
-        private final Map<VariableReferenceExpression, Variable> variableMap;
+        private final Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap;
 
-        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, Variable> variableMap)
+        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap)
         {
             this.inputReferenceCompiler = new InputReferenceCompiler(
                     (scope, field) -> scope.getVariable("block_" + field),
@@ -780,7 +795,7 @@ public class PageFunctionCompiler
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
         {
             return new BytecodeBlock()
-                    .append(variableMap.get(reference))
+                    .append(variableMap.get(reference).result)
                     .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
         }
 
