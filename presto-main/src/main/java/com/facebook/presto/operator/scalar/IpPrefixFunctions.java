@@ -134,7 +134,7 @@ public final class IpPrefixFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isPrefixSubnetOf(@SqlType(StandardTypes.IPPREFIX) Slice first, @SqlType(StandardTypes.IPPREFIX) Slice second)
     {
-        return between(ipSubnetMin(second), ipSubnetMin(first), ipSubnetMax(first));
+        return between(ipSubnetMin(second), ipSubnetMin(first), ipSubnetMax(first)) && between(ipSubnetMax(second), ipSubnetMin(first), ipSubnetMax(first));
     }
 
     private static InetAddress toInetAddress(Slice ipAddress)
