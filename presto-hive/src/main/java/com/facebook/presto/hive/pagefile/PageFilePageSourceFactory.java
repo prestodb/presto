@@ -80,8 +80,10 @@ public class PageFilePageSourceFactory
         }
 
         FSDataInputStream inputStream;
+        PageFilePageSource pageFilePageSource;
         try {
             inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
+            pageFilePageSource = new PageFilePageSource(inputStream, start, length, fileSize, pagesSerde, columns);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -91,7 +93,7 @@ public class PageFilePageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        return Optional.of(new PageFilePageSource(inputStream, pagesSerde, columns));
+        return Optional.of(pageFilePageSource);
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)
