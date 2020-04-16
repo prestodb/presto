@@ -71,11 +71,11 @@ public class TestRowExpressionPredicateCompiler
         assertEquals(Arrays.asList(1, 0), Ints.asList(compiledSum.getInputChannels()));
 
         Page page = new Page(bBlock, aBlock);
-        assertFalse(compiledSum.evaluate(SESSION, page, 0));
-        assertFalse(compiledSum.evaluate(SESSION, page, 1));
-        assertTrue(compiledSum.evaluate(SESSION, page, 2));
-        assertTrue(compiledSum.evaluate(SESSION, page, 3));
-        assertFalse(compiledSum.evaluate(SESSION, page, 4));
+        assertFalse(compiledSum.evaluate(SESSION.getSqlFunctionProperties(), page, 0));
+        assertFalse(compiledSum.evaluate(SESSION.getSqlFunctionProperties(), page, 1));
+        assertTrue(compiledSum.evaluate(SESSION.getSqlFunctionProperties(), page, 2));
+        assertTrue(compiledSum.evaluate(SESSION.getSqlFunctionProperties(), page, 3));
+        assertFalse(compiledSum.evaluate(SESSION.getSqlFunctionProperties(), page, 4));
 
         // b * 2 < 10
         RowExpression timesTwo = call(
@@ -89,11 +89,11 @@ public class TestRowExpressionPredicateCompiler
         assertEquals(Arrays.asList(1), Ints.asList(compiledTimesTwo.getInputChannels()));
 
         page = new Page(bBlock);
-        assertTrue(compiledTimesTwo.evaluate(SESSION, page, 0));
-        assertTrue(compiledTimesTwo.evaluate(SESSION, page, 1));
-        assertFalse(compiledTimesTwo.evaluate(SESSION, page, 2));
-        assertFalse(compiledTimesTwo.evaluate(SESSION, page, 3));
-        assertTrue(compiledTimesTwo.evaluate(SESSION, page, 4));
+        assertTrue(compiledTimesTwo.evaluate(SESSION.getSqlFunctionProperties(), page, 0));
+        assertTrue(compiledTimesTwo.evaluate(SESSION.getSqlFunctionProperties(), page, 1));
+        assertFalse(compiledTimesTwo.evaluate(SESSION.getSqlFunctionProperties(), page, 2));
+        assertFalse(compiledTimesTwo.evaluate(SESSION.getSqlFunctionProperties(), page, 3));
+        assertTrue(compiledTimesTwo.evaluate(SESSION.getSqlFunctionProperties(), page, 4));
     }
 
     @Test
