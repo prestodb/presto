@@ -14,10 +14,10 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -626,7 +626,7 @@ public class TestMapFlatSelectiveStreamReader
 
         public TestingFilterFunction(final Type mapType)
         {
-            super(TEST_SESSION.toConnectorSession(), true, new Predicate() {
+            super(TEST_SESSION.getSqlFunctionProperties(), true, new Predicate() {
                 @Override
                 public int[] getInputChannels()
                 {
@@ -634,7 +634,7 @@ public class TestMapFlatSelectiveStreamReader
                 }
 
                 @Override
-                public boolean evaluate(ConnectorSession session, Page page, int position)
+                public boolean evaluate(SqlFunctionProperties properties, Page page, int position)
                 {
                     Block mapBlock = page.getBlock(0);
                     if (mapBlock.isNull(position)) {
