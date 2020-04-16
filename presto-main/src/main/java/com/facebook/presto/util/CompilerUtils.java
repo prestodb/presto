@@ -15,9 +15,11 @@ package com.facebook.presto.util;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.ParameterizedType;
 
+import java.io.StringWriter;
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -60,6 +62,14 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         log.debug("Defining class: %s", classDefinition.getName());
-        return classGenerator(classLoader).defineClass(classDefinition, superType);
+        StringWriter writer = new StringWriter();
+        try {
+            Class<? extends T> clazz = classGenerator(classLoader, writer).defineClass(classDefinition, superType);
+            log.warn(writer.toString());
+            return clazz;
+        } catch (Exception e) {
+            log.warn(writer.toString());
+            throw e;
+        }
     }
 }

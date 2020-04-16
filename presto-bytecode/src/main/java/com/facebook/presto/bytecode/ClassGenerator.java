@@ -61,9 +61,9 @@ public class ClassGenerator
         return classGenerator(new DynamicClassLoader(parentClassLoader, callSiteBindings));
     }
 
-    public static ClassGenerator classGenerator(DynamicClassLoader classLoader)
+    public static ClassGenerator classGenerator(DynamicClassLoader classLoader, Writer writer)
     {
-        return new ClassGenerator(classLoader, false, false, false, nullWriter(), Optional.empty());
+        return new ClassGenerator(classLoader, false, false, false, writer, Optional.empty());
     }
 
     private ClassGenerator(
@@ -77,7 +77,7 @@ public class ClassGenerator
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.fakeLineNumbers = fakeLineNumbers;
         this.runAsmVerifier = runAsmVerifier;
-        this.dumpRawBytecode = dumpRawBytecode;
+        this.dumpRawBytecode = true;
         this.output = requireNonNull(output, "output is null");
         this.dumpClassPath = requireNonNull(dumpClassPath, "dumpClassPath is null");
     }
