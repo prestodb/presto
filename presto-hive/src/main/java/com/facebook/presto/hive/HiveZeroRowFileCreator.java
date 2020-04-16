@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
@@ -99,7 +100,11 @@ public class HiveZeroRowFileCreator
 
         try {
             Path target = new Path(format("file://%s/%s", tmpDirectoryPath, tmpFileName));
-            JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, target), compressionCodec);
+
+            //https://github.com/prestodb/presto/issues/14401 JSON Format reader does not fetch compression from source system
+            JobConf conf = configureCompression(
+                    hdfsEnvironment.getConfiguration(hdfsContext, target),
+                    outputFormatName.equals(HiveStorageFormat.JSON.getOutputFormat()) ? compressionCodec : NONE);
 
             if (outputFormatName.equals(HiveStorageFormat.PAGEFILE.getOutputFormat())) {
                 FSDataOutputStream outputStream = target.getFileSystem(conf).create(target);
