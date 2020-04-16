@@ -19,7 +19,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.page.PagesSerde;
-import io.airlift.slice.InputStreamSliceInput;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
@@ -27,7 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.page.PagesSerdeUtil.readPages;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PageFilePageSource
@@ -45,13 +44,27 @@ public class PageFilePageSource
 
     public PageFilePageSource(
             FSDataInputStream inputStream,
+            long start,
+            long splitLength,
+            long fileSize,
             PagesSerde pagesSerde,
             List<HiveColumnHandle> columns)
+            throws IOException
     {
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
-        pageReader = readPages(
-                requireNonNull(pagesSerde, "pagesSerde is null"),
-                new InputStreamSliceInput(inputStream));
+        PageFileFooterReader pageFileFooterReader = new PageFileFooterReader(inputStream, fileSize);
+
+        OffsetAndLength readStartAndLength = getReadStartAndLength(
+                start,
+                splitLength,
+                pageFileFooterReader.getFooterOffset(),
+                pageFileFooterReader.getStripeOffsets());
+
+        pageReader = new PageFilePageReader(
+                readStartAndLength.getOffset(),
+                readStartAndLength.getLength(),
+                inputStream,
+                pagesSerde);
 
         int size = requireNonNull(columns, "columns is null").size();
         this.hiveColumnIndexes = new int[size];
@@ -126,5 +139,62 @@ public class PageFilePageSource
     {
         inputStream.close();
         closed = true;
+    }
+
+    private static OffsetAndLength getReadStartAndLength(
+            long splitStart,
+            long splitLength,
+            long lastStripeEnd,
+            List<Long> stripeOffsets)
+    {
+        checkArgument(stripeOffsets != null, "stripeOffsets is null, failed to read page file footer.");
+        if (stripeOffsets.isEmpty()) {
+            return new OffsetAndLength(0, 0);
+        }
+
+        long readStart = 0;
+        long readEnd = 0;
+        boolean stripeFound = false;
+        for (int i = 0; i < stripeOffsets.size(); ++i) {
+            if (splitContainsStripe(splitStart, splitLength, stripeOffsets.get(i))) {
+                if (!stripeFound) {
+                    readStart = stripeOffsets.get(i);
+                    stripeFound = true;
+                }
+                readEnd = i == stripeOffsets.size() - 1 ? lastStripeEnd : stripeOffsets.get(i + 1);
+            }
+            else if (stripeFound) {
+                break;
+            }
+        }
+
+        return new OffsetAndLength(readStart, readEnd - readStart);
+    }
+
+    private static boolean splitContainsStripe(long splitStart, long splitLength, long stripeOffset)
+    {
+        return splitStart <= stripeOffset && stripeOffset < splitStart + splitLength;
+    }
+
+    private static class OffsetAndLength
+    {
+        private final long offset;
+        private final long length;
+
+        OffsetAndLength(long offset, long length)
+        {
+            this.offset = offset;
+            this.length = length;
+        }
+
+        private long getOffset()
+        {
+            return offset;
+        }
+
+        private long getLength()
+        {
+            return length;
+        }
     }
 }

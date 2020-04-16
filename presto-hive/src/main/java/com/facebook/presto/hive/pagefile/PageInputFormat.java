@@ -33,6 +33,6 @@ public class PageInputFormat
 
     protected boolean isSplitable(FileSystem fs, Path file)
     {
-        return false;
+        return true;
     }
 }
