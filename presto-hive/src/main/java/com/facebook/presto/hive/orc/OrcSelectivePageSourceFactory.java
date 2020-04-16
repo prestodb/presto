@@ -45,6 +45,7 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -594,7 +595,7 @@ public class OrcSelectivePageSourceFactory
     {
         ImmutableList.Builder<FilterFunction> filterFunctions = ImmutableList.builder();
 
-        bucketAdapter.map(predicate -> new FilterFunction(session, true, predicate))
+        bucketAdapter.map(predicate -> new FilterFunction(session.getSqlFunctionProperties(), true, predicate))
                 .ifPresent(filterFunctions::add);
 
         if (TRUE_CONSTANT.equals(filter)) {
@@ -602,13 +603,13 @@ public class OrcSelectivePageSourceFactory
         }
 
         if (!isAdaptiveFilterReorderingEnabled(session)) {
-            filterFunctions.add(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
             return filterFunctions.build();
         }
 
         List<RowExpression> conjuncts = extractConjuncts(filter);
         if (conjuncts.size() == 1) {
-            filterFunctions.add(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
             return filterFunctions.build();
         }
 
@@ -620,7 +621,7 @@ public class OrcSelectivePageSourceFactory
 
         inputsToConjuncts.values().stream()
                 .map(expressions -> binaryExpression(AND, expressions))
-                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
+                .map(predicate -> new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
                 .forEach(filterFunctions::add);
 
         return filterFunctions.build();
@@ -676,7 +677,7 @@ public class OrcSelectivePageSourceFactory
         }
 
         @Override
-        public boolean evaluate(ConnectorSession session, Page page, int position)
+        public boolean evaluate(SqlFunctionProperties properties, Page page, int position)
         {
             int bucket = getHiveBucket(tableBucketCount, typeInfoList, page, position);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {

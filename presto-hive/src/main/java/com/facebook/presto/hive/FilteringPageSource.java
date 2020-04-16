@@ -119,7 +119,8 @@ public class FilteringPageSource
         }
         else {
             RowExpression expression = replaceExpression(optimizedRemainingPredicate, variableToInput);
-            this.filterFunction = new FilterFunction(session,
+            this.filterFunction = new FilterFunction(
+                    session.getSqlFunctionProperties(),
                     rowExpressionService.getDeterminismEvaluator().isDeterministic(expression),
                     rowExpressionService.getPredicateCompiler().compilePredicate(session.getSqlFunctionProperties(), expression).get());
         }

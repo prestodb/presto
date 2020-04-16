@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +38,7 @@ public class TestFilterFunction
     public void testFilter()
     {
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
-        FilterFunction filter = new FilterFunction(session, true, new IsOddPredicate());
+        FilterFunction filter = new FilterFunction(session.getSqlFunctionProperties(), true, new IsOddPredicate());
 
         Block numbers = makeNumbers(0, 1000);
         int[] allPositions = makePositions(0, 1000, 1);
@@ -129,7 +130,7 @@ public class TestFilterFunction
         }
 
         @Override
-        public boolean evaluate(ConnectorSession session, Page page, int position)
+        public boolean evaluate(SqlFunctionProperties properties, Page page, int position)
         {
             long number = page.getBlock(0).getLong(position);
             if (number == UNLUCKY) {

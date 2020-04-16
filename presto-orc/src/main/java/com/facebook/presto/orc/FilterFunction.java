@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.Predicate;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
@@ -31,7 +31,7 @@ public class FilterFunction
     private static final byte FILTER_PASSED = 1;
     private static final byte FILTER_FAILED = 2;
 
-    private final ConnectorSession session;
+    private final SqlFunctionProperties properties;
     private final Predicate predicate;
     private final boolean deterministic;
     private final int[] inputChannels;
@@ -42,9 +42,9 @@ public class FilterFunction
     private Block previousDictionary;
     private Page dictionaryPage;
 
-    public FilterFunction(ConnectorSession session, boolean deterministic, Predicate predicate)
+    public FilterFunction(SqlFunctionProperties properties, boolean deterministic, Predicate predicate)
     {
-        this.session = requireNonNull(session, "session is null");
+        this.properties = requireNonNull(properties, "properties is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.deterministic = deterministic;
         this.inputChannels = requireNonNull(predicate.getInputChannels(), "inputChannels is null");
@@ -52,7 +52,7 @@ public class FilterFunction
 
     /**
      * Evaluates specified positions and returns the number of positions that passed the filter.
-     *
+     * <p>
      * Upon return, the positions array will contain positions that passed the filter or encountered
      * an error. The errors array will contain errors that occurred while evaluating this filter as
      * well as errors that happened earlier. The latter will be preserved only for positions that
@@ -61,7 +61,7 @@ public class FilterFunction
      * @param positions Monotonically increasing list of positions to evaluate
      * @param positionCount Number of valid entries in the positions array
      * @param errors Errors encountered while evaluating other filters, if any;
-     *                  contains at least positionCount entries; null value indicates no error
+     * contains at least positionCount entries; null value indicates no error
      */
     public int filter(Page page, int[] positions, int positionCount, RuntimeException[] errors)
     {
@@ -76,7 +76,7 @@ public class FilterFunction
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
             try {
-                if (predicate.evaluate(session, page, position)) {
+                if (predicate.evaluate(properties, page, position)) {
                     positions[outputCount] = position;
                     errors[outputCount] = errors[i];
                     outputCount++;
@@ -118,7 +118,7 @@ public class FilterFunction
                     continue;
                 case FILTER_NOT_EVALUATED:
                     try {
-                        if (predicate.evaluate(session, dictionaryPage, dictionaryPosition)) {
+                        if (predicate.evaluate(properties, dictionaryPage, dictionaryPosition)) {
                             positions[outputCount] = position;
                             errors[outputCount] = errors[i];
                             outputCount++;
