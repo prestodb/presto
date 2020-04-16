@@ -7,6 +7,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.CommonSubExpressionRewriter.SubExpressionInfo;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -45,11 +46,16 @@ public class TestCommonSubExpressionRewritter
     void testCseDedupe()
     {
         List<RowExpression> expressions = ImmutableList.of(rowExpression("x * 2 + y + z"), rowExpression("(x * 2 + y + z) * 2"), rowExpression("x * 2"));
-        Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel = collectCSEByLevel(expressions);
+        Map<Integer, Map<RowExpression, CommonSubExpressionRewriter.SubExpressionInfo>> cseByLevel = collectCSEByLevel(expressions);
         // x * 2 + y is redundant thus should not appear in results
         assertEquals(cseByLevel, ImmutableMap.of(
-                3, ImmutableMap.of(rowExpression("\"multiply$cse\" + y + z"), rowExpression("\"add$cse\"")),
-                1, ImmutableMap.of(rowExpression("x * 2"), rowExpression("\"multiply$cse\""))));
+                3, ImmutableMap.of(rowExpression("\"multiply$cse\" + y + z"), subExpressionInfo("\"add$cse\"", 2)),
+                1, ImmutableMap.of(rowExpression("x * 2"), subExpressionInfo("\"multiply$cse\"", 3))));
+    }
+
+    private SubExpressionInfo subExpressionInfo(String variable, int occurence)
+    {
+        return new SubExpressionInfo((VariableReferenceExpression) rowExpression(variable), occurence);
     }
 
     private RowExpression rowExpression(String sql)

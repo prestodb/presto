@@ -154,6 +154,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCSEJsonParse()
+    {
+        assertQuery("select try_cast(json_parse(x) as varchar), try_cast(json_parse(x) as array<varchar>) from (select comment x from orders limit 2)", "select '1', '2'");
+    }
+
+    @Test
     public void testParsingError()
     {
         assertQueryFails("SELECT foo FROM", "line 1:16: mismatched input '<EOF>'. Expecting: .*");

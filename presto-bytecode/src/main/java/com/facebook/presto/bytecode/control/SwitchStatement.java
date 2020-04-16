@@ -41,23 +41,31 @@ public class SwitchStatement
         return new SwitchBuilder();
     }
 
+    public static SwitchBuilder switchBuilder(boolean skipEndLabel)
+    {
+        return new SwitchBuilder(skipEndLabel);
+    }
+
     private final LabelNode endLabel = new LabelNode("switchEnd");
     private final LabelNode defaultLabel = new LabelNode("switchDefault");
     private final String comment;
     private final BytecodeExpression expression;
     private final SortedSet<CaseStatement> cases;
     private final BytecodeNode defaultBody;
+    private final boolean skipEndLabel;
 
     private SwitchStatement(
             String comment,
             BytecodeExpression expression,
             Iterable<CaseStatement> cases,
-            BytecodeNode defaultBody)
+            BytecodeNode defaultBody,
+            boolean skipEndLabel)
     {
         this.comment = comment;
         this.expression = requireNonNull(expression, "expression is null");
         this.cases = ImmutableSortedSet.copyOf(comparing(CaseStatement::getKey), cases);
         this.defaultBody = defaultBody;
+        this.skipEndLabel = skipEndLabel;
     }
 
     @Override
@@ -110,8 +118,10 @@ public class SwitchStatement
 
         for (CaseStatement caseStatement : cases) {
             block.visitLabel(caseStatement.getLabel())
-                    .append(caseStatement.getBody())
-                    .gotoLabel(endLabel);
+                    .append(caseStatement.getBody());
+            if (!skipEndLabel) {
+                block.gotoLabel(endLabel);
+            }
         }
 
         // build default block
@@ -120,8 +130,9 @@ public class SwitchStatement
         if (defaultBody != null) {
             block.append(defaultBody);
         }
-
-        block.visitLabel(endLabel);
+        if (!skipEndLabel) {
+            block.visitLabel(endLabel);
+        }
 
         // emit code
         expression.accept(visitor, generationContext);
@@ -148,6 +159,17 @@ public class SwitchStatement
         private BytecodeExpression expression;
         private LabelNode defaultLabel;
         private BytecodeNode defaultBody;
+        private boolean skipEndLabel;
+
+        public SwitchBuilder()
+        {
+            this(false);
+        }
+
+        public SwitchBuilder(boolean skipEndLabel)
+        {
+            this.skipEndLabel = skipEndLabel;
+        }
 
         public SwitchBuilder comment(String format, Object... args)
         {
@@ -179,7 +201,7 @@ public class SwitchStatement
         public SwitchStatement build()
         {
             checkState(expression != null, "expression is not set");
-            return new SwitchStatement(comment, expression, cases, defaultBody);
+            return new SwitchStatement(comment, expression, cases, defaultBody, skipEndLabel);
         }
     }
 }

@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -40,13 +41,65 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class CommonSubExpressionRewriter
 {
     private CommonSubExpressionRewriter() {}
 
-    public static Map<Integer, Map<RowExpression, VariableReferenceExpression>> collectCSEByLevel(List<? extends RowExpression> expressions)
+    public static class SubExpressionInfo {
+        private final VariableReferenceExpression variable;
+        private final int occurrence;
+
+        public SubExpressionInfo(VariableReferenceExpression variable, int occurrence)
+        {
+            this.variable = requireNonNull(variable, "variable is null");
+            this.occurrence = occurrence;
+        }
+
+        public VariableReferenceExpression getVariable()
+        {
+            return this.variable;
+        }
+
+        public int getOccurrence()
+        {
+            return occurrence;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+
+            SubExpressionInfo other = (SubExpressionInfo) obj;
+            return Objects.equals(this.variable, other.variable)
+                    && this.occurrence == other.occurrence;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(variable, occurrence);
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("(%s: %d)", variable, occurrence);
+        }
+    }
+
+    public static Map<Integer, Map<RowExpression, SubExpressionInfo>> collectCSEByLevel(List<? extends RowExpression> expressions)
     {
         if (expressions.isEmpty()) {
             return ImmutableMap.of();
@@ -54,35 +107,34 @@ public class CommonSubExpressionRewriter
 
         CommonSubExpressionCollector expressionCollector = new CommonSubExpressionCollector();
         expressions.forEach(expression -> expression.accept(expressionCollector, true));
-        Map<Integer, Set<RowExpression>> cseByLevel = expressionCollector.cseByLevel;
-        if (cseByLevel.isEmpty()) {
+        if (expressionCollector.cseByLevel.isEmpty()) {
             return ImmutableMap.of();
         }
 
-        cseByLevel  = removeRedundantCSE(cseByLevel, expressionCollector.expressionCount);
+        Map<Integer, Map<RowExpression, Integer>> cseByLevel  = removeRedundantCSE(expressionCollector.cseByLevel, expressionCollector.expressionCount);
 
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
-        ImmutableMap.Builder<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressions = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Map<RowExpression, SubExpressionInfo>> commonSubExpressions = ImmutableMap.builder();
         Map<RowExpression, VariableReferenceExpression> rewriteWith = new HashMap<>();
         int startCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();
         int maxCSELevel = cseByLevel.keySet().stream().reduce(Math::max).get();
         for (int i = startCSELevel; i <= maxCSELevel; i++) {
             if (cseByLevel.containsKey(i)) {
                 ExpressionRewritter rewritter = new ExpressionRewritter(rewriteWith);
-                ImmutableMap.Builder<RowExpression, VariableReferenceExpression> expressionVariableMapBuilder = ImmutableMap.builder();
-                for (RowExpression expression : cseByLevel.get(i)) {
-                    RowExpression rewritten = expression.accept(rewritter, null);
-                    expressionVariableMapBuilder.put(rewritten, variableAllocator.newVariable(rewritten, "cse"));
+                ImmutableMap.Builder<RowExpression, SubExpressionInfo> expressionVariableMapBuilder = ImmutableMap.builder();
+                for (Map.Entry<RowExpression, Integer> entry : cseByLevel.get(i).entrySet()) {
+                    RowExpression rewrittenExpression = entry.getKey().accept(rewritter, null);
+                    expressionVariableMapBuilder.put(rewrittenExpression, new SubExpressionInfo(variableAllocator.newVariable(rewrittenExpression, "cse"), entry.getValue()));
                 }
-                Map<RowExpression, VariableReferenceExpression> expressionVariableMap = expressionVariableMapBuilder.build();
+                Map<RowExpression, SubExpressionInfo> expressionVariableMap = expressionVariableMapBuilder.build();
                 commonSubExpressions.put(i, expressionVariableMap);
-                rewriteWith.putAll(expressionVariableMap);
+                rewriteWith.putAll(expressionVariableMap.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().variable)));
             }
         }
         return commonSubExpressions.build();
     }
 
-    public static Map<Integer, Map<RowExpression, VariableReferenceExpression>> collectCSEByLevel(RowExpression expression)
+    public static Map<Integer, Map<RowExpression, SubExpressionInfo>> collectCSEByLevel(RowExpression expression)
     {
         return collectCSEByLevel(ImmutableList.of(expression));
     }
@@ -105,17 +157,18 @@ public class CommonSubExpressionRewriter
         return expression.accept(rewritter, null);
     }
 
-    private static Map<Integer, Set<RowExpression>> removeRedundantCSE(Map<Integer, Set<RowExpression>> cseByLevel, Map<RowExpression, Integer> expressionCount)
+    private static Map<Integer, Map<RowExpression, Integer>> removeRedundantCSE(Map<Integer, Set<RowExpression>> cseByLevel, Map<RowExpression, Integer> expressionCount)
     {
-        Map<Integer, Set<RowExpression>> results = new HashMap<>();
+        Map<Integer, Map<RowExpression, Integer>> results = new HashMap<>();
+        Map<RowExpression, Integer> originalCount = ImmutableMap.copyOf(expressionCount);
         int startCSELevel = cseByLevel.keySet().stream().reduce(Math::max).get();
         int stopCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();
         for (int i = startCSELevel; i > stopCSELevel; i--) {
-            Set<RowExpression> expressions = cseByLevel.get(i).stream().filter(expression -> expressionCount.get(expression) > 0).collect(toImmutableSet());
+            Map<RowExpression, Integer> expressions = cseByLevel.get(i).stream().filter(expression -> expressionCount.get(expression) > 0).collect(toImmutableMap(identity(), expressionCount::get));
             if (!expressions.isEmpty()) {
                 results.put(i, expressions);
             }
-            for (RowExpression expression : expressions) {
+            for (RowExpression expression : expressions.keySet()) {
                 int expressionOccurrence = expressionCount.get(expression);
                 subExpressions(expression).stream()
                         .filter(subExpression -> !subExpression.equals(expression))
@@ -126,7 +179,7 @@ public class CommonSubExpressionRewriter
                         });
             }
         }
-        Set<RowExpression> expressions = cseByLevel.get(stopCSELevel).stream().filter(expression -> expressionCount.get(expression) > 0).collect(toImmutableSet());
+        Map<RowExpression, Integer> expressions = cseByLevel.get(stopCSELevel).stream().filter(expression -> expressionCount.get(expression) > 0).collect(toImmutableMap(identity(), originalCount::get));
         if (!expressions.isEmpty()) {
             results.put(stopCSELevel, expressions);
         }

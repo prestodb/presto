@@ -25,6 +25,8 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.control.SwitchStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
@@ -50,6 +52,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.gen.CommonSubExpressionRewriter.SubExpressionInfo;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.Expressions;
@@ -83,6 +86,7 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.BytecodeUtils.dumpBytecodeTree;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
@@ -96,11 +100,13 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
+import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsWithCSE;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
@@ -247,6 +253,7 @@ public class PageFunctionCompiler
 
         // generate Work
         ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, rewrittenExpression, callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix);
+        log.warn(dumpBytecodeTree(pageProjectionWorkDefinition));
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
@@ -420,9 +427,9 @@ public class PageFunctionCompiler
         declareBlockVariables(projections, page, scope, body);
         scope.declareVariable("wasNull", body, constantFalse());
 
-        Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = ImmutableMap.of();
+        Map<Integer, Map<RowExpression, SubExpressionInfo>> commonSubExpressionsByLevel = ImmutableMap.of();
         if (isOptimizeCommonSubExpression) {
-            commonSubExpressionsByLevel = CommonSubExpressionRewriter.collectCSEByLevel(projections);
+            commonSubExpressionsByLevel = collectCSEByLevel(projections);
         }
 
         RowExpressionCompiler compiler;
@@ -431,31 +438,53 @@ public class PageFunctionCompiler
         if (!commonSubExpressionsByLevel.isEmpty()) {
             Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
                     .flatMap(m -> m.entrySet().stream())
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getVariable()));
             rewrittenProjections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
+            Map<VariableReferenceExpression, CommonSubExpressionState> cseMap = new HashMap<>();
 
             int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
             int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
-            Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap = new HashMap<>();
             for (int i = startLevel; i <= maxLevel; i++) {
                 if (commonSubExpressionsByLevel.containsKey(i)) {
                     RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
                             classDefinition,
                             callSiteBinder,
                             cachedInstanceBinder,
-                            new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                            new CSEFieldAndVariableReferenceCompiler(callSiteBinder, cseMap),
                             metadata,
                             sqlFunctionProperties,
                             compiledLambdaMap);
-                    for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {
+                    for (Map.Entry<RowExpression, SubExpressionInfo> entry : commonSubExpressionsByLevel.get(i).entrySet()) {
                         RowExpression cse = entry.getKey();
+                        VariableReferenceExpression cseVariable = entry.getValue().getVariable();
+                        int cseOccurrence = entry.getValue().getOccurrence();
+
                         Class<?> type = Primitives.wrap(cse.getType().getJavaType());
-                        Variable cseVariable = scope.createTempVariable(type);
-                        Variable cseEvaluated = scope.createTempVariable(boolean.class);
-                        variableMap.put(entry.getValue(), new CommonSubExpressionVariables(cseEvaluated, cseVariable));
-                        body.append(cseCompiler.compile(cse, scope, Optional.empty()))
-                                .append(boxPrimitiveIfNecessary(scope, type))
-                                .putVariable(cseVariable);
+                        Variable cseResultVariable = scope.declareVariable(cseVariable.getName() + "Result", body, constantNull(type));
+                        Variable instanceVariable = scope.declareVariable(cseVariable.getName() + "Instance", body, constantInt(0));
+                        Variable evaluatedVariable = scope.declareVariable(cseVariable.getName() + "Evaluated", body, constantBoolean(false));
+
+                        LabelNode evalLabel = new LabelNode("evaluate" + cseVariable.getName());
+                        List<LabelNode> instanceLabels = IntStream.range(1, cseOccurrence + 1)
+                                .mapToObj(instance -> new LabelNode(cseVariable.getName() + instance))
+                                .collect(toImmutableList());
+                        LabelNode end = new LabelNode("end");
+
+                        IfStatement evaluateCSE = new IfStatement("if (!evaluated) cseResult = eval; evaluated = true")
+                                .condition(evaluatedVariable)
+                                .ifFalse(new BytecodeBlock()
+                                        .append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                        .append(boxPrimitiveIfNecessary(scope, type))
+                                        .putVariable(cseResultVariable)
+                                        .append(evaluatedVariable.set(constantBoolean(true))));
+                        SwitchStatement.SwitchBuilder switchBuilder = SwitchStatement.switchBuilder(true).expression(instanceVariable)
+                                .comment("switch (instanceVariable) { case 0: goto instance0; case 1: goto instance1; case 2: goto instance2 ... }");
+                        for (int j = 0; j < cseOccurrence; j++) {
+                            switchBuilder.addCase(j, jump(instanceLabels.get(j)));
+                        }
+
+                        body.gotoLabel(end).visitLabel(evalLabel).append(evaluateCSE).append(switchBuilder.build()).visitLabel(end);
+                        cseMap.put(entry.getValue().getVariable(), new CommonSubExpressionState(cseResultVariable, evalLabel, instanceVariable, instanceLabels));
                     }
                 }
             }
@@ -463,7 +492,7 @@ public class PageFunctionCompiler
                     classDefinition,
                     callSiteBinder,
                     cachedInstanceBinder,
-                    new FieldAndVariableReferenceCompiler(callSiteBinder, variableMap),
+                    new CSEFieldAndVariableReferenceCompiler(callSiteBinder, cseMap),
                     metadata,
                     sqlFunctionProperties,
                     compiledLambdaMap);
@@ -742,24 +771,34 @@ public class PageFunctionCompiler
                 callSiteBinder);
     }
 
-    private static class CommonSubExpressionVariables
+    private static class CommonSubExpressionState
     {
-        private final Variable evaluated;
-        private final Variable result;
-        public CommonSubExpressionVariables(Variable evaluated, Variable result)
+        private final Variable resultVariable;
+        private final LabelNode evalLabel;
+        private final Variable instanceVariable;
+        private final List<LabelNode> instanceLabels;
+        private int occurrence;
+
+        public CommonSubExpressionState(Variable resultVariable, LabelNode evalLabel, Variable instanceVariable, List<LabelNode> instanceLabels)
         {
-            this.evaluated = evaluated;
-            this.result = result;
+            this.resultVariable = resultVariable;
+            this.evalLabel = evalLabel;
+            this.instanceVariable = instanceVariable;
+            this.instanceLabels = instanceLabels;
+        }
+        public void incrementOccurrence()
+        {
+            this.occurrence += 1;
         }
     }
 
-    private static class FieldAndVariableReferenceCompiler
+    private static class CSEFieldAndVariableReferenceCompiler
             implements RowExpressionVisitor<BytecodeNode, Scope>
     {
         private final InputReferenceCompiler inputReferenceCompiler;
-        private final Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap;
+        private final Map<VariableReferenceExpression, CommonSubExpressionState> variableMap;
 
-        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, CommonSubExpressionVariables> variableMap)
+        public CSEFieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, CommonSubExpressionState> variableMap)
         {
             this.inputReferenceCompiler = new InputReferenceCompiler(
                     (scope, field) -> scope.getVariable("block_" + field),
@@ -794,9 +833,15 @@ public class PageFunctionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
         {
-            return new BytecodeBlock()
-                    .append(variableMap.get(reference).result)
+            CommonSubExpressionState state = variableMap.get(reference);
+            BytecodeNode node = new BytecodeBlock()
+                    .append(state.instanceVariable.set(constantInt(state.occurrence)))
+                    .gotoLabel(state.evalLabel)
+                    .visitLabel(state.instanceLabels.get(state.occurrence))
+                    .append(state.resultVariable)
                     .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
+            state.incrementOccurrence();
+            return node;
         }
 
         @Override
