@@ -63,7 +63,7 @@ public class PagesSerdeUtil
         output.writeBytes(page.getSlice());
     }
 
-    private static SerializedPage readSerializedPage(SliceInput sliceInput)
+    public static SerializedPage readSerializedPage(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
         byte codecMarker = sliceInput.readByte();
