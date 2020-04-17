@@ -64,7 +64,7 @@ public class DispatchManager
     private final QueryIdGenerator queryIdGenerator;
     private final QueryPreparer queryPreparer;
     private final ResourceGroupManager<?> resourceGroupManager;
-    private final WarningCollector warningCollector;
+    private final WarningCollectorFactory warningCollectorFactory;
     private final DispatchQueryFactory dispatchQueryFactory;
     private final FailedDispatchQueryFactory failedDispatchQueryFactory;
     private final TransactionManager transactionManager;
@@ -99,7 +99,7 @@ public class DispatchManager
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
-        this.warningCollector = warningCollectorFactory.create();
+        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
         this.failedDispatchQueryFactory = requireNonNull(failedDispatchQueryFactory, "failedDispatchQueryFactory is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -178,6 +178,7 @@ public class DispatchManager
             session = sessionSupplier.createSession(queryId, sessionContext);
 
             // prepare query
+            WarningCollector warningCollector = warningCollectorFactory.create();
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
 
             // select resource group
