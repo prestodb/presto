@@ -107,12 +107,6 @@ public class TestingConnectorSession
     }
 
     @Override
-    public TimeZoneKey getTimeZoneKey()
-    {
-        return sqlFunctionProperties.getTimeZoneKey();
-    }
-
-    @Override
     public Locale getLocale()
     {
         return locale;
@@ -134,12 +128,6 @@ public class TestingConnectorSession
     public Optional<String> getClientInfo()
     {
         return clientInfo;
-    }
-
-    @Override
-    public boolean isLegacyTimestamp()
-    {
-        return sqlFunctionProperties.isLegacyTimestamp();
     }
 
     @Override

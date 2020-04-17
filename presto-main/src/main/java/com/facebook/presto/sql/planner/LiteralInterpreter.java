@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -100,6 +101,7 @@ public final class LiteralInterpreter
     public static Object evaluate(ConnectorSession session, ConstantExpression node)
     {
         Type type = node.getType();
+        SqlFunctionProperties properties = session.getSqlFunctionProperties();
 
         if (node.getValue() == null) {
             return null;
@@ -137,15 +139,15 @@ public final class LiteralInterpreter
             return new SqlDate(((Long) node.getValue()).intValue());
         }
         if (type instanceof TimeType) {
-            if (session.isLegacyTimestamp()) {
-                return new SqlTime((long) node.getValue(), session.getTimeZoneKey());
+            if (properties.isLegacyTimestamp()) {
+                return new SqlTime((long) node.getValue(), properties.getTimeZoneKey());
             }
             return new SqlTime((long) node.getValue());
         }
         if (type instanceof TimestampType) {
             try {
-                if (session.isLegacyTimestamp()) {
-                    return new SqlTimestamp((long) node.getValue(), session.getTimeZoneKey());
+                if (properties.isLegacyTimestamp()) {
+                    return new SqlTimestamp((long) node.getValue(), properties.getTimeZoneKey());
                 }
                 return new SqlTimestamp((long) node.getValue());
             }
@@ -258,8 +260,10 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
         {
-            if (session.isLegacyTimestamp()) {
-                return parseTimeLiteral(session.getTimeZoneKey(), node.getValue());
+            SqlFunctionProperties properties = session.getSqlFunctionProperties();
+
+            if (properties.isLegacyTimestamp()) {
+                return parseTimeLiteral(properties.getTimeZoneKey(), node.getValue());
             }
             else {
                 return parseTimeLiteral(node.getValue());
@@ -269,9 +273,11 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
+            SqlFunctionProperties properties = session.getSqlFunctionProperties();
+
             try {
-                if (session.isLegacyTimestamp()) {
-                    return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (properties.isLegacyTimestamp()) {
+                    return parseTimestampLiteral(properties.getTimeZoneKey(), node.getValue());
                 }
                 else {
                     return parseTimestampLiteral(node.getValue());

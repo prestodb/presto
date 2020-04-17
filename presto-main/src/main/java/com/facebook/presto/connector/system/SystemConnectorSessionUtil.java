@@ -41,7 +41,7 @@ public final class SystemConnectorSessionUtil
                 .setCatalog("catalog")
                 .setSchema("schema")
                 .setIdentity(identity)
-                .setTimeZoneKey(session.getTimeZoneKey())
+                .setTimeZoneKey(session.getSqlFunctionProperties().getTimeZoneKey())
                 .setLocale(session.getLocale())
                 .setStartTime(session.getStartTime())
                 .build();

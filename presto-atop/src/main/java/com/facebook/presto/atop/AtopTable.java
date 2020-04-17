@@ -65,7 +65,7 @@ public enum AtopTable
     REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_WITH_TIME_ZONE, (fields, type, builder, session) -> {
         long millisUtc = Long.valueOf(fields.get(2)) * 1000;
         long durationMillis = Long.valueOf(fields.get(5)) * 1000;
-        long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
+        long value = packDateTimeWithZone(millisUtc - durationMillis, session.getSqlFunctionProperties().getTimeZoneKey());
         type.writeLong(builder, value);
     })));
 
@@ -125,13 +125,13 @@ public enum AtopTable
         public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_WITH_TIME_ZONE, ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             long durationMillis = Long.valueOf(fields.get(5)) * 1000;
-            long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
+            long value = packDateTimeWithZone(millisUtc - durationMillis, session.getSqlFunctionProperties().getTimeZoneKey());
             type.writeLong(builder, value);
         }));
 
         public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_WITH_TIME_ZONE, ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
-            type.writeLong(builder, packDateTimeWithZone(millisUtc, session.getTimeZoneKey()));
+            type.writeLong(builder, packDateTimeWithZone(millisUtc, session.getSqlFunctionProperties().getTimeZoneKey()));
         }));
 
         private final String name;
