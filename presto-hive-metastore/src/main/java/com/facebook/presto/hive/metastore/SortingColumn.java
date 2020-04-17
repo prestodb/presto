@@ -23,9 +23,12 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -93,6 +96,25 @@ public class SortingColumn
     public static SortingColumn fromMetastoreApiOrder(org.apache.hadoop.hive.metastore.api.Order order, String tablePartitionName)
     {
         return new SortingColumn(order.getCol(), Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
+    }
+
+    public static SortingColumn sortingColumnFromString(String name)
+    {
+        SortingColumn.Order order = ASCENDING;
+        String upper = name.toUpperCase(ENGLISH);
+        if (upper.endsWith(" ASC")) {
+            name = name.substring(0, name.length() - 4).trim();
+        }
+        else if (upper.endsWith(" DESC")) {
+            name = name.substring(0, name.length() - 5).trim();
+            order = DESCENDING;
+        }
+        return new SortingColumn(name, order);
+    }
+
+    public static String sortingColumnToString(SortingColumn column)
+    {
+        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
     }
 
     @Override
