@@ -45,6 +45,7 @@ public class HiveOutputTableHandle
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("actualStorageFormat") HiveStorageFormat actualStorageFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
@@ -63,6 +64,7 @@ public class HiveOutputTableHandle
                 preferredOrderingColumns,
                 tableStorageFormat,
                 partitionStorageFormat,
+                actualStorageFormat,
                 compressionCodec);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
