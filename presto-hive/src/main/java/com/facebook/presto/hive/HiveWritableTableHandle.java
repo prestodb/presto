@@ -31,12 +31,14 @@ public class HiveWritableTableHandle
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
     private final String filePrefix;
+
     private HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
     private final Optional<HiveBucketProperty> bucketProperty;
     private final List<SortingColumn> preferredOrderingColumns;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
+    private final HiveStorageFormat actualStorageFormat;
     private final HiveCompressionCodec compressionCodec;
 
     public HiveWritableTableHandle(
@@ -50,6 +52,7 @@ public class HiveWritableTableHandle
             List<SortingColumn> preferredOrderingColumns,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
+            HiveStorageFormat actualStorageFormat,
             HiveCompressionCodec compressionCodec)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -62,13 +65,11 @@ public class HiveWritableTableHandle
         this.preferredOrderingColumns = requireNonNull(preferredOrderingColumns, "preferredOrderingColumns is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
+        this.actualStorageFormat = requireNonNull(actualStorageFormat, "actualStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
 
-        if (!compressionCodec.isSupportedStorageFormat(tableStorageFormat)) {
-            throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), tableStorageFormat.name()));
-        }
-        if (!compressionCodec.isSupportedStorageFormat(partitionStorageFormat)) {
-            throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), partitionStorageFormat.name()));
+        if (!compressionCodec.isSupportedStorageFormat(actualStorageFormat)) {
+            throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), actualStorageFormat.name()));
         }
     }
 
@@ -120,16 +121,30 @@ public class HiveWritableTableHandle
         return preferredOrderingColumns;
     }
 
+    /* Use {@link #getActualStorageFormat()}*/
+    @Deprecated
     @JsonProperty
     public HiveStorageFormat getTableStorageFormat()
     {
         return tableStorageFormat;
     }
 
+    /* Use {@link #getActualStorageFormat()}*/
+    @Deprecated
     @JsonProperty
     public HiveStorageFormat getPartitionStorageFormat()
     {
         return partitionStorageFormat;
+    }
+
+    /**
+     * The actualStorageFormat is the real storage format that gets used later in the pipeline.
+     * It could be either representing tableStorageFormat, or partitionStorageFormat.
+     */
+    @JsonProperty
+    public HiveStorageFormat getActualStorageFormat()
+    {
+        return actualStorageFormat;
     }
 
     @JsonProperty
