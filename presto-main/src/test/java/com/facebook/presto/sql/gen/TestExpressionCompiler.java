@@ -1530,9 +1530,9 @@ public class TestExpressionCompiler
             case SECOND:
                 return DateTimeFunctions.secondFromTimestamp(value);
             case TIMEZONE_MINUTE:
-                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
             case TIMEZONE_HOUR:
-                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
         }
         throw new AssertionError("Unhandled field: " + field);
     }

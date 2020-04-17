@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -72,7 +73,7 @@ public final class DateTimeTestingUtils
             TimeZoneKey timestampZone,
             ConnectorSession session)
     {
-        if (session.isLegacyTimestamp()) {
+        if (session.getSqlFunctionProperties().isLegacyTimestamp()) {
             return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone).getMillis(), timestampZone);
         }
         return sqlTimestampOf(LocalDateTime.of(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond)));
@@ -98,8 +99,10 @@ public final class DateTimeTestingUtils
 
     public static SqlTimestamp sqlTimestampOf(long millis, ConnectorSession session)
     {
-        if (session.isLegacyTimestamp()) {
-            return new SqlTimestamp(millis, session.getTimeZoneKey());
+        SqlFunctionProperties properties = session.getSqlFunctionProperties();
+
+        if (properties.isLegacyTimestamp()) {
+            return new SqlTimestamp(millis, properties.getTimeZoneKey());
         }
         else {
             return new SqlTimestamp(millis);
@@ -119,7 +122,7 @@ public final class DateTimeTestingUtils
 
     public static SqlTime sqlTimeOf(LocalTime time, Session session)
     {
-        if (session.toConnectorSession().isLegacyTimestamp()) {
+        if (session.getSqlFunctionProperties().isLegacyTimestamp()) {
             long millisUtc = LocalDate.ofEpochDay(0)
                     .atTime(time)
                     .atZone(UTC)

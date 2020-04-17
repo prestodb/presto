@@ -103,7 +103,6 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -1022,12 +1021,6 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
-            public TimeZoneKey getTimeZoneKey()
-            {
-                return session.getTimeZoneKey();
-            }
-
-            @Override
             public Locale getLocale()
             {
                 return session.getLocale();
@@ -1049,12 +1042,6 @@ public abstract class AbstractTestHiveClient
             public long getStartTime()
             {
                 return session.getStartTime();
-            }
-
-            @Override
-            public boolean isLegacyTimestamp()
-            {
-                return session.isLegacyTimestamp();
             }
 
             @Override

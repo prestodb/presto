@@ -137,7 +137,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new TextRcFileEncoding(DateTimeZone.forID(session.getTimeZoneKey().getId())),
+                    new TextRcFileEncoding(DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId())),
                     compressionCodec);
         }
     },
@@ -170,7 +170,7 @@ public enum FileFormat
                     targetFile,
                     columnNames,
                     columnTypes,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                    DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                     compressionCodec);
         }
     },
@@ -196,7 +196,7 @@ public enum FileFormat
                     targetFile,
                     columnNames,
                     columnTypes,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                    DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                     compressionCodec);
         }
 
@@ -418,7 +418,7 @@ public enum FileFormat
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
-                        DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                        DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                         TYPE_MANAGER,
                         false)
                 .get();
@@ -458,7 +458,7 @@ public enum FileFormat
                         ImmutableMap.of(),
                         columnHandles,
                         TupleDomain.all(),
-                        DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                        DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                         DEFAULT_HIVE_FILE_CONTEXT)
                 .get();
     }

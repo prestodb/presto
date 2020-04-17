@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
@@ -94,12 +93,6 @@ public class FullConnectorSession
     }
 
     @Override
-    public TimeZoneKey getTimeZoneKey()
-    {
-        return session.getTimeZoneKey();
-    }
-
-    @Override
     public Locale getLocale()
     {
         return session.getLocale();
@@ -121,12 +114,6 @@ public class FullConnectorSession
     public Optional<String> getClientInfo()
     {
         return session.getClientInfo();
-    }
-
-    @Override
-    public boolean isLegacyTimestamp()
-    {
-        return sqlFunctionProperties.isLegacyTimestamp();
     }
 
     @Override
@@ -153,7 +140,6 @@ public class FullConnectorSession
                 .add("user", getUser())
                 .add("source", getSource().orElse(null))
                 .add("traceToken", getTraceToken().orElse(null))
-                .add("timeZoneKey", getTimeZoneKey())
                 .add("locale", getLocale())
                 .add("startTime", getStartTime())
                 .add("properties", properties)
