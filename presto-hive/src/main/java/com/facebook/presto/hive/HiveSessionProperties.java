@@ -66,6 +66,7 @@ public final class HiveSessionProperties
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
+    private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
@@ -259,6 +260,15 @@ public final class HiveSessionProperties
                         VARCHAR,
                         HiveCompressionCodec.class,
                         hiveClientConfig.getCompressionCodec(),
+                        false,
+                        value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
+                        HiveCompressionCodec::name),
+                new PropertyMetadata<>(
+                        ORC_COMPRESSION_CODEC,
+                        "The preferred compression codec to use when writing ORC and DWRF files",
+                        VARCHAR,
+                        HiveCompressionCodec.class,
+                        hiveClientConfig.getOrcCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
@@ -572,6 +582,11 @@ public final class HiveSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+    }
+
+    public static HiveCompressionCodec getOrcCompressionCodec(ConnectorSession session)
+    {
+        return session.getProperty(ORC_COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)

@@ -38,6 +38,7 @@ public class HiveInsertTableHandle
             @JsonProperty("preferredOrderingColumns") List<SortingColumn> preferredOrderingColumns,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
+            @JsonProperty("actualStorageFormat") HiveStorageFormat actualStorageFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec)
     {
         super(
@@ -51,6 +52,7 @@ public class HiveInsertTableHandle
                 preferredOrderingColumns,
                 tableStorageFormat,
                 partitionStorageFormat,
+                actualStorageFormat,
                 compressionCodec);
     }
 }

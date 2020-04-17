@@ -161,6 +161,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSchema;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableStorageFormat;
@@ -174,6 +175,10 @@ import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitione
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -730,7 +735,7 @@ public class HiveMetadata
 
     /**
      * Returns a TupleDomain of constraints that is suitable for Explain (Type IO)
-     *
+     * <p>
      * Only Hive partition columns that are used in IO planning.
      */
     @Override
@@ -905,7 +910,7 @@ public class HiveMetadata
 
     private void validateColumns(HiveStorageFormat hiveStorageFormat, List<HiveColumnHandle> handles)
     {
-        if (hiveStorageFormat == HiveStorageFormat.AVRO) {
+        if (hiveStorageFormat == AVRO) {
             for (HiveColumnHandle handle : handles) {
                 if (!handle.isPartitionKey()) {
                     validateAvroType(handle.getHiveType().getTypeInfo(), handle.getName());
@@ -962,7 +967,7 @@ public class HiveMetadata
         String avroSchemaUrl = getAvroSchemaUrl(tableMetadata.getProperties());
         if (avroSchemaUrl != null) {
             HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-            if (hiveStorageFormat != HiveStorageFormat.AVRO) {
+            if (hiveStorageFormat != AVRO) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", AVRO_SCHEMA_URL, hiveStorageFormat));
             }
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
@@ -1283,7 +1288,8 @@ public class HiveMetadata
                 locationHandle,
                 tableStorageFormat,
                 partitionStorageFormat,
-                getCompressionCodec(session),
+                actualStorageFormat,
+                getHiveCompressionCodec(session, false, actualStorageFormat),
                 partitionedBy,
                 bucketProperty,
                 preferredOrderingColumns,
@@ -1523,6 +1529,8 @@ public class HiveMetadata
             locationHandle = locationService.forExistingTable(metastore, session, table.get(), tempPathRequired);
         }
 
+        HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session);
+        HiveStorageFormat actualStorageFormat = table.get().getPartitionColumns().isEmpty() ? tableStorageFormat : partitionStorageFormat;
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -1533,8 +1541,9 @@ public class HiveMetadata
                 table.get().getStorage().getBucketProperty(),
                 decodePreferredOrderingColumnsFromStorage(table.get().getStorage()),
                 tableStorageFormat,
-                isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session),
-                isTemporaryTable ? getTemporaryTableCompressionCodec(session) : getCompressionCodec(session));
+                partitionStorageFormat,
+                actualStorageFormat,
+                getHiveCompressionCodec(session, isTemporaryTable, actualStorageFormat));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(
@@ -1546,6 +1555,17 @@ public class HiveMetadata
                 tableName,
                 isTemporaryTable);
         return result;
+    }
+
+    private HiveCompressionCodec getHiveCompressionCodec(ConnectorSession session, boolean isTemporaryTable, HiveStorageFormat storageFormat)
+    {
+        if (isTemporaryTable) {
+            return getTemporaryTableCompressionCodec(session);
+        }
+        if (storageFormat == ORC || storageFormat == DWRF) {
+            return getOrcCompressionCodec(session);
+        }
+        return getCompressionCodec(session);
     }
 
     @Override
@@ -2023,7 +2043,7 @@ public class HiveMetadata
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
         if (pushdownFilterEnabled) {
             HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
-            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF) {
+            if (hiveStorageFormat == ORC || hiveStorageFormat == DWRF) {
                 return true;
             }
         }
@@ -2590,7 +2610,7 @@ public class HiveMetadata
         String outputFormat = storageFormat.getOutputFormat();
         String serde = storageFormat.getSerDe();
 
-        for (HiveStorageFormat format : HiveStorageFormat.values()) {
+        for (HiveStorageFormat format : values()) {
             if (format.getOutputFormat().equals(outputFormat) && format.getSerDe().equals(serde)) {
                 return format;
             }

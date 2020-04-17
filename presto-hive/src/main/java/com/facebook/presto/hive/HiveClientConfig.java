@@ -85,6 +85,7 @@ public class HiveClientConfig
 
     private HiveStorageFormat hiveStorageFormat = ORC;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.GZIP;
+    private HiveCompressionCodec orcCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private boolean insertOverwriteImmutablePartitions;
@@ -507,6 +508,18 @@ public class HiveClientConfig
     public HiveClientConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public HiveCompressionCodec getOrcCompressionCodec()
+    {
+        return orcCompressionCodec;
+    }
+
+    @Config("hive.orc-compression-codec")
+    public HiveClientConfig setOrcCompressionCodec(HiveCompressionCodec orcCompressionCodec)
+    {
+        this.orcCompressionCodec = orcCompressionCodec;
         return this;
     }
 
