@@ -17,14 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -32,7 +31,8 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunne
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static org.testng.Assert.fail;
+import static com.google.common.collect.Sets.difference;
+import static org.testng.Assert.assertTrue;
 
 public class TestWarnings
 {
@@ -64,40 +64,50 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
-        assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableList.of());
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableSet.of());
     }
 
     @Test
     public void testNonReservedWordWarning()
     {
         String query = "SELECT CURRENT_ROLE, t.current_role FROM (VALUES (3)) t(current_role)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
     }
 
     @Test
     public void testNewReservedWordsWarning()
     {
         String query = "SELECT CALLED, t.called FROM (VALUES (3)) t(called)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testWarningsAreNotStateful()
+    {
+        String query = "SELECT CALLED, t.called FROM (VALUES (3)) t(called)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        // Make sure the previous warning is not carried into the next query
+        query = "SELECT UNCALLED, t.uncalled FROM (VALUES (3)) t(uncalled)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
     }
 
     @Test
     public void testQuotedIdentifiersDoNotTriggerWarning()
     {
         String query = "SELECT \"CALLED\" FROM (VALUES (3)) t(\"called\")";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of());
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
     }
 
-    private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, List<WarningCode> expectedWarnings)
+    private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)
     {
         Set<WarningCode> warnings = queryRunner.execute(session, sql).getWarnings().stream()
                 .map(PrestoWarning::getWarningCode)
                 .collect(toImmutableSet());
-        for (WarningCode warningCode : expectedWarnings) {
-            if (!warnings.contains(warningCode)) {
-                fail("Expected warning: " + warningCode);
-            }
-        }
+        Set<WarningCode> expectedButMissing = difference(expectedWarnings, warnings);
+        Set<WarningCode> unexpectedWarnings = difference(warnings, expectedWarnings);
+        assertTrue(expectedButMissing.isEmpty(), "Expected warnings: " + expectedButMissing);
+        assertTrue(unexpectedWarnings.isEmpty(), "Unexpected warnings: " + unexpectedWarnings);
     }
 }
