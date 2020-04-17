@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
-import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -102,11 +100,11 @@ public class HiveTableProperties
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(HiveTableProperties::sortingColumnFromString)
+                                .map(SortingColumn::sortingColumnFromString)
                                 .collect(toImmutableList()),
                         value -> ((Collection<?>) value).stream()
                                 .map(SortingColumn.class::cast)
-                                .map(HiveTableProperties::sortingColumnToString)
+                                .map(SortingColumn::sortingColumnToString)
                                 .collect(toImmutableList())),
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
@@ -200,24 +198,5 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
-    }
-
-    private static SortingColumn sortingColumnFromString(String name)
-    {
-        SortingColumn.Order order = ASCENDING;
-        String lower = name.toUpperCase(ENGLISH);
-        if (lower.endsWith(" ASC")) {
-            name = name.substring(0, name.length() - 4).trim();
-        }
-        else if (lower.endsWith(" DESC")) {
-            name = name.substring(0, name.length() - 5).trim();
-            order = DESCENDING;
-        }
-        return new SortingColumn(name, order);
-    }
-
-    private static String sortingColumnToString(SortingColumn column)
-    {
-        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
     }
 }
