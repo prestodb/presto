@@ -21,6 +21,7 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
@@ -296,7 +297,7 @@ public class TestBackgroundHiveSplitLoader
                                 ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 table,
@@ -322,7 +323,7 @@ public class TestBackgroundHiveSplitLoader
                         ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -342,7 +343,7 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,

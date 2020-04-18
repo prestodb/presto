@@ -40,6 +40,7 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
 import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -100,6 +101,7 @@ public class HiveClientModule
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
         configBinder(binder).bindConfig(HiveClientConfig.class);
+        configBinder(binder).bindConfig(TupleDomainConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);

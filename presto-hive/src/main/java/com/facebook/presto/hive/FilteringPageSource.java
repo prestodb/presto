@@ -42,6 +42,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.hive.HiveSessionProperties.getTupleDomainNotInOptimizationThreshold;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toFilter;
@@ -97,7 +98,7 @@ public class FilteringPageSource
                 HiveColumnHandle columnHandle = columnMappings.get(i).getHiveColumnHandle();
                 int hiveColumnIndex = columnHandle.getHiveColumnIndex();
                 if (domains.containsKey(hiveColumnIndex)) {
-                    domainFilters[i] = toFilter(domains.get(hiveColumnIndex));
+                    domainFilters[i] = toFilter(domains.get(hiveColumnIndex), getTupleDomainNotInOptimizationThreshold(session));
                     columnTypes[i] = columnHandle.getHiveType().getType(typeManager);
                 }
             }

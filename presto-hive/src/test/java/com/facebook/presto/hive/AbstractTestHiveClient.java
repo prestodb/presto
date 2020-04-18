@@ -45,6 +45,7 @@ import com.facebook.presto.hive.pagefile.PageFilePageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -965,7 +966,7 @@ public abstract class AbstractTestHiveClient
                 PARTITION_UPDATE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(hiveClientConfig, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(hiveClientConfig, metastoreClientConfig), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
@@ -989,7 +990,7 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()));
+        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()));
     }
 
     protected ConnectorSession newSession(HiveSessionProperties hiveSessionProperties)
@@ -3609,7 +3610,8 @@ public abstract class AbstractTestHiveClient
         return newSession(new HiveSessionProperties(
                 getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
                 new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig()));
+                new ParquetFileWriterConfig(),
+                new TupleDomainConfig()));
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)

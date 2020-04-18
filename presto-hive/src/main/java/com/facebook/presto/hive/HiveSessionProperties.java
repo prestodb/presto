@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -98,6 +99,7 @@ public final class HiveSessionProperties
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
+    public static final String TUPLE_DOMAIN_NOT_IN_OPTIMIZATION_THRESHOLD = "tuple_domain_not_in_optimization_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -120,7 +122,7 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
+    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig, TupleDomainConfig tupleDomainConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -434,6 +436,11 @@ public final class HiveSessionProperties
                         FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED,
                         "Fail fast when trying to insert into an immutable partition. Increases load on the metastore",
                         hiveClientConfig.isFailFastOnInsertIntoImmutablePartitionsEnabled(),
+                        false),
+                integerProperty(
+                        TUPLE_DOMAIN_NOT_IN_OPTIMIZATION_THRESHOLD,
+                        "Threshold to turn on not in optimization for TupleDomain",
+                        tupleDomainConfig.getNotInThreshold(),
                         false));
     }
 
@@ -758,5 +765,10 @@ public final class HiveSessionProperties
     public static boolean isFailFastOnInsertIntoImmutablePartitionsEnabled(ConnectorSession session)
     {
         return session.getProperty(FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED, Boolean.class);
+    }
+
+    public static int getTupleDomainNotInOptimizationThreshold(ConnectorSession session)
+    {
+        return session.getProperty(TUPLE_DOMAIN_NOT_IN_OPTIMIZATION_THRESHOLD, Integer.class);
     }
 }

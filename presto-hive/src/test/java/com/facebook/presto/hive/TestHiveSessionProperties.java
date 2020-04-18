@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -32,7 +33,8 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig(),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new TupleDomainConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), NO_PREFERENCE);
     }
 
@@ -43,7 +45,8 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig().setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE")),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new TupleDomainConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), NO_PREFERENCE);
     }
 
@@ -54,7 +57,8 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig().setNodeSelectionStrategy(HARD_AFFINITY),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new TupleDomainConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), HARD_AFFINITY);
     }
 }

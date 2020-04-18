@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -113,7 +114,8 @@ public class TestDomainTranslator
                         new HiveSessionProperties(
                                 new HiveClientConfig().setRangeFiltersOnSubscriptsEnabled(true),
                                 new OrcFileWriterConfig(),
-                                new ParquetFileWriterConfig()).getSessionProperties())).toColumnExtractor();
+                                new ParquetFileWriterConfig(),
+                                new TupleDomainConfig()).getSessionProperties())).toColumnExtractor();
     }
 
     @Test

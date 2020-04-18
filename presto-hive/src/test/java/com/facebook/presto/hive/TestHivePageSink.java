@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -305,7 +306,7 @@ public class TestHivePageSink
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
         return provider.createPageSink(transaction, getSession(config), handle, PageSinkProperties.defaultProperties());
@@ -313,7 +314,7 @@ public class TestHivePageSink
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new TupleDomainConfig()).getSessionProperties());
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

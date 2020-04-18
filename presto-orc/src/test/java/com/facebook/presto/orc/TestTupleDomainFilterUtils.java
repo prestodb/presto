@@ -423,7 +423,7 @@ public class TestTupleDomainFilterUtils
         Optional<Map<String, Domain>> domains = fromPredicate(expression).getTupleDomain().getDomains();
         assertTrue(domains.isPresent());
         Domain domain = Iterables.getOnlyElement(domains.get().values());
-        return TupleDomainFilterUtils.toFilter(domain);
+        return TupleDomainFilterUtils.toFilter(domain, new TupleDomainConfig().getNotInThreshold());
     }
 
     private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)

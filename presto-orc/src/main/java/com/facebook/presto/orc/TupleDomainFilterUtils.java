@@ -62,7 +62,7 @@ public class TupleDomainFilterUtils
 {
     private TupleDomainFilterUtils() {}
 
-    public static TupleDomainFilter toFilter(Domain domain)
+    public static TupleDomainFilter toFilter(Domain domain, int notInThreshold)
     {
         ValueSet values = domain.getValues();
         boolean nullAllowed = domain.isNullAllowed();

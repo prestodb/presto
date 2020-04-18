@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.TupleDomainConfig;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.predicate.Domain;
 import com.google.common.cache.CacheBuilder;
@@ -23,17 +24,25 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toFilter;
 import static java.lang.System.identityHashCode;
 
 public final class TupleDomainFilterCache
 {
-    private final LoadingCache<DomainCacheKey, TupleDomainFilter> cache = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(10_000)
-            .build(CacheLoader.from(cacheKey -> toFilter(cacheKey.getDomain())));
-    private final CacheStatsMBean cacheStats = new CacheStatsMBean(cache);
+    private final LoadingCache<DomainCacheKey, TupleDomainFilter> cache;
+    private final CacheStatsMBean cacheStats;
+
+    @Inject
+    public TupleDomainFilterCache(TupleDomainConfig tupleDomainConfig)
+    {
+        cache = CacheBuilder.newBuilder()
+                .recordStats()
+                .maximumSize(10_000)
+                .build(CacheLoader.from(cacheKey -> toFilter(cacheKey.getDomain(), tupleDomainConfig.getNotInThreshold())));
+        cacheStats = new CacheStatsMBean(cache);
+    }
 
     public TupleDomainFilter getFilter(Domain domain)
     {
