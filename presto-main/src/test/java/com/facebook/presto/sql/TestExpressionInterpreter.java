@@ -779,6 +779,30 @@ public class TestExpressionInterpreter
         assertOptimizedMatches("cast(unbound_string as VARCHAR)", "unbound_string");
         assertOptimizedMatches("cast(unbound_integer as INTEGER)", "unbound_integer");
         assertOptimizedMatches("cast(unbound_string as VARCHAR(10))", "cast(unbound_string as VARCHAR(10))");
+
+        // nested varchar
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(unbound_string as VARCHAR) as VARCHAR)", "unbound_string");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(unbound_string as VARCHAR) as VARCHAR(5))", "cast(unbound_string as VARCHAR(5))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(5))", "cast(unbound_string as VARCHAR(5))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(unbound_string as VARCHAR(5)) as VARCHAR)", "cast(unbound_string as VARCHAR(5))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(cast(unbound_string as VARCHAR(5)) as VARCHAR) as VARCHAR)", "cast(unbound_string as VARCHAR(5))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(4)) as VARCHAR)", "cast(unbound_string as VARCHAR(4))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(6)) as VARCHAR(2))", "cast(unbound_string as VARCHAR(2))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(cast(unbound_integer as VARCHAR(50)) as VARCHAR(3000)) as VARCHAR(40))", "cast(unbound_integer as VARCHAR(40))");
+        assertRowExpressionEquals(OPTIMIZED, "cast(cast(cast(cast(cast(cast(unbound_integer as VARCHAR(50)) as VARCHAR(3000)) as VARCHAR(40))  as VARCHAR(38)) as VARCHAR(3001)) as VARCHAR(40))", "cast(unbound_integer as VARCHAR(38))");
+
+        assertOptimizedEquals("cast(cast('hello' as VARCHAR(4)) as VARCHAR(7))", "'hell'");
+        assertOptimizedEquals("cast(cast(cast('hello' as VARCHAR(1)) as VARCHAR(7)) as VARCHAR)", "'h'");
+        assertOptimizedEquals("cast(cast(cast('hello' as VARCHAR(100)) as VARCHAR(70)) as VARCHAR(5))", "'hello'");
+        assertOptimizedEquals("cast(cast(null as VARCHAR(5)) as VARCHAR)", "null");
+
+        assertDoNotOptimize("cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(2))", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(unbound_string as VARCHAR(2)) as VARCHAR(5))", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(unbound_string as VARCHAR(5)) as VARCHAR)", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(4)) as VARCHAR)", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(cast(unbound_string as VARCHAR(5)) as VARCHAR(6)) as VARCHAR(2))", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(cast(unbound_integer as VARCHAR(50)) as VARCHAR(3000)) as VARCHAR(40))", SERIALIZABLE);
+        assertDoNotOptimize("cast(cast(cast(cast(cast(cast(unbound_integer as VARCHAR(50)) as VARCHAR(3000)) as VARCHAR(40)) as VARCHAR(38)) as VARCHAR(3001)) as VARCHAR(40))", SERIALIZABLE);
     }
 
     @Test

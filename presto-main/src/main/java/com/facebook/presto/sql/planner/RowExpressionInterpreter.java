@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -70,6 +71,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
@@ -77,6 +79,7 @@ import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
@@ -767,6 +770,20 @@ public class RowExpressionInterpreter
             return notChanged();
         }
 
+        private VarcharType narrowVarcharType(VarcharType type, VarcharType other)
+        {
+            if (type.isUnbounded()) {
+                return other;
+            }
+            if (other.isUnbounded()) {
+                return type;
+            }
+
+            return type.getLengthSafe() < other.getLengthSafe()
+                    ? type
+                    : other;
+        }
+
         private SpecialCallResult tryHandleCast(CallExpression callExpression, List<Object> argumentValues)
         {
             checkArgument(resolution.isCastFunction(callExpression.getFunctionHandle()));
@@ -779,6 +796,42 @@ public class RowExpressionInterpreter
 
             if (value == null) {
                 return changed(null);
+            }
+
+            // Simplify nested casts to varchar types.
+            if (optimizationLevel == OPTIMIZED && source instanceof CallExpression && isVarcharType(targetType)) {
+                CallExpression innerCall = (CallExpression) source;
+                Type innerType = innerCall.getType();
+                if (isVarcharType(innerType) && resolution.isCastFunction(innerCall.getFunctionHandle()) && innerCall.getArguments().size() == 1) {
+                    VarcharType narrowestType = narrowVarcharType((VarcharType) targetType, (VarcharType) innerType);
+
+                    RowExpression castArg = innerCall.getArguments().get(0);
+                    if (castArg instanceof VariableReferenceExpression) {
+                        VariableReferenceExpression arg = (VariableReferenceExpression) castArg;
+                        Type argType = arg.getType();
+                        if (isVarcharType(argType)) {
+                            narrowestType = narrowVarcharType(narrowestType, (VarcharType) argType);
+                        }
+                    }
+                    else if (castArg instanceof ConstantExpression) {
+                        ConstantExpression arg = (ConstantExpression) castArg;
+                        Type argType = arg.getType();
+                        if (isVarcharType(argType)) {
+                            narrowestType = narrowVarcharType(narrowestType, (VarcharType) argType);
+                        }
+
+                        if (arg.getValue() instanceof Slice) {
+                            return narrowestType == argType
+                                    ? changed(arg.getValue())
+                                    : changed(((Slice) arg.getValue()).slice(0, narrowestType.getLengthSafe()));
+                        }
+                    }
+
+                    FunctionHandle castFunctionHandle = functionManager.lookupCast(CAST, castArg.getType().getTypeSignature(), narrowestType.getTypeSignature());
+                    CallExpression callExpr = call(CAST.name(), castFunctionHandle, narrowestType, ImmutableList.of(toRowExpression(castArg, source)));
+                    SpecialCallResult result = tryHandleCast(callExpr, ImmutableList.of(callExpr.getArguments().get(0)));
+                    return result.isChanged() ? result : changed(callExpr);
+                }
             }
 
             if (value instanceof RowExpression) {
