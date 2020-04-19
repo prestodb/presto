@@ -281,6 +281,8 @@ public class PrimitiveColumnWriter
             dictPage.add(pageData);
             totalCompressedSize += pageHeader.size() + compressedSize;
             totalUnCompressedSize += pageHeader.size() + uncompressedSize;
+
+            primitiveValueWriter.resetDictionary();
         }
         getDataStreamsCalled = true;
 
@@ -308,9 +310,6 @@ public class PrimitiveColumnWriter
     @Override
     public void reset()
     {
-        primitiveValueWriter.reset();
-        primitiveValueWriter.resetDictionary();
-
         pageBuffer.clear();
         closed = false;
 
