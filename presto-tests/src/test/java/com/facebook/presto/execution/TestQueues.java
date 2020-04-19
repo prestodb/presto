@@ -13,14 +13,23 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.facebook.presto.type.TypeRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,9 +39,12 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -49,6 +61,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
@@ -58,17 +71,27 @@ public class TestQueues
     public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     private DistributedQueryRunner queryRunner;
+    private ObjectMapper objectMapper;
+    private HttpClient client;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
         queryRunner = createQueryRunner();
+        client = new JettyHttpClient();
+        objectMapper = new ObjectMapperProvider().get();
+        objectMapper.registerModule(new SimpleModule() {
+            {
+                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(new TypeRegistry()));
+            }
+        });
     }
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
+        closeQuietly(client);
         closeQuietly(queryRunner);
         queryRunner = null;
     }
@@ -298,6 +321,33 @@ public class TestQueues
         }
     }
 
+    @Test(timeOut = 240_000)
+    public void testQueuedQueryInfo()
+            throws Exception
+    {
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+
+        // submit first "dashboard" query
+        QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
+
+        // wait for the first "dashboard" query to start
+        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+
+        // submit second "dashboard" query
+        QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
+
+        // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
+        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
+
+        // Retrieve information for the queued query
+        QueryInfo queryInfo = getQueryInfo("/v1/query/" + secondDashboardQuery.getId());
+        assertNotNull(queryInfo);
+        assertEquals(queryInfo.getState(), QUEUED);
+        assertEquals(queryInfo.getQuery(), LONG_LASTING_QUERY);
+        assertNotNull(queryInfo.getQueryStats());
+    }
+
     private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, ResourceGroupId expectedResourceGroup)
             throws InterruptedException
     {
@@ -374,5 +424,14 @@ public class TestQueues
                 .add(requireNonNull(root, "root is null"))
                 .addAll(asList(subGroups))
                 .build());
+    }
+
+    private QueryInfo getQueryInfo(String path)
+            throws IOException
+    {
+        requireNonNull(path, "path is null");
+        Request request = prepareGet().setUri(queryRunner.getCoordinator().resolve(path)).build();
+        String body = client.execute(request, createStringResponseHandler()).getBody();
+        return objectMapper.readValue(body, QueryInfo.class);
     }
 }
