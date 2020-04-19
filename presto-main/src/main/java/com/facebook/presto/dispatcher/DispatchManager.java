@@ -285,6 +285,14 @@ public class DispatchManager
                 });
     }
 
+    public void failQuery(QueryId queryId, Throwable cause)
+    {
+        requireNonNull(cause, "cause is null");
+
+        queryTracker.tryGetQuery(queryId)
+                .ifPresent(query -> query.fail(cause));
+    }
+
     public void cancelQuery(QueryId queryId)
     {
         queryTracker.tryGetQuery(queryId)
