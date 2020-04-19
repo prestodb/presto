@@ -39,11 +39,14 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import javax.ws.rs.core.Response.Status;
+
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.Request.Builder.preparePut;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -55,11 +58,14 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.Response.Status.fromStatusCode;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -322,7 +328,7 @@ public class TestQueues
     }
 
     @Test(timeOut = 240_000)
-    public void testQueuedQueryInfo()
+    public void testQueuedQueryInteraction()
             throws Exception
     {
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -346,6 +352,20 @@ public class TestQueues
         assertEquals(queryInfo.getState(), QUEUED);
         assertEquals(queryInfo.getQuery(), LONG_LASTING_QUERY);
         assertNotNull(queryInfo.getQueryStats());
+
+        killQuery(format("/v1/query/%s/killed", secondDashboardQuery.getId()));
+        queryInfo = getQueryInfo("/v1/query/" + secondDashboardQuery.getId());
+        assertNotNull(queryInfo);
+        assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_KILLED.toErrorCode());
+
+        // submit third "dashboard" query
+        QueryId thirdDashboardQuery = createDashboardQuery(queryRunner);
+        waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
+
+        killQuery(format("/v1/query/%s/preempted", thirdDashboardQuery.getId()));
+        queryInfo = getQueryInfo("/v1/query/" + thirdDashboardQuery.getId());
+        assertNotNull(queryInfo);
+        assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_PREEMPTED.toErrorCode());
     }
 
     private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, ResourceGroupId expectedResourceGroup)
@@ -433,5 +453,13 @@ public class TestQueues
         Request request = prepareGet().setUri(queryRunner.getCoordinator().resolve(path)).build();
         String body = client.execute(request, createStringResponseHandler()).getBody();
         return objectMapper.readValue(body, QueryInfo.class);
+    }
+
+    private void killQuery(String path)
+    {
+        requireNonNull(path, "path is null");
+        Request request = preparePut().setUri(queryRunner.getCoordinator().resolve(path)).build();
+        Status status = fromStatusCode(client.execute(request, createStringResponseHandler()).getStatusCode());
+        assertEquals(Status.OK, status);
     }
 }
