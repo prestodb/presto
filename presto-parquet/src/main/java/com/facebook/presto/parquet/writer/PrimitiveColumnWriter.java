@@ -122,7 +122,6 @@ public class PrimitiveColumnWriter
 
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
-        encodings.add(primitiveValueWriter.getEncoding());
 
         // write definition levels
         Iterator<Integer> defIterator = DefinitionLevelIterables.getIterator(current.getDefinitionLevelIterables());
@@ -194,6 +193,9 @@ public class PrimitiveColumnWriter
         BytesInput bytes = primitiveValueWriter.getBytes();
         ParquetDataOutput repetitions = createDataOutput(copy(repetitionLevelEncoder.toBytes()));
         ParquetDataOutput definitions = createDataOutput(copy(definitionLevelEncoder.toBytes()));
+
+        // Add encoding should be called after primitiveValueWriter.getBytes() and before primitiveValueWriter.reset()
+        encodings.add(primitiveValueWriter.getEncoding());
 
         long uncompressedSize = bytes.size() + repetitions.size() + definitions.size();
 
