@@ -703,7 +703,10 @@ public class ParquetTester
                 new FileOutputStream(outputFile),
                 columnNames,
                 types,
-                ParquetWriterOptions.builder().build(),
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.succinctBytes(100))
+                        .setMaxBlockSize(DataSize.succinctBytes(100000))
+                        .build(),
                 compressionCodecName.getHadoopCompressionCodecClassName());
 
         PageBuilder pageBuilder = new PageBuilder(types);
