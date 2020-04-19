@@ -23,7 +23,6 @@ public class ParquetWriterOptions
     private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.valueOf("128MB");
     private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.valueOf("1MB");
 
-
     public static ParquetWriterOptions.Builder builder()
     {
         return new ParquetWriterOptions.Builder();
