@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -219,6 +220,14 @@ public class LocalDispatchQuery
         return tryGetQueryExecution()
                 .map(QueryExecution::getBasicQueryInfo)
                 .orElse(stateMachine.getBasicQueryInfo(Optional.empty()));
+    }
+
+    @Override
+    public QueryInfo getQueryInfo()
+    {
+        return tryGetQueryExecution()
+                .map(QueryExecution::getQueryInfo)
+                .orElse(stateMachine.getQueryInfo(Optional.empty()));
     }
 
     @Override

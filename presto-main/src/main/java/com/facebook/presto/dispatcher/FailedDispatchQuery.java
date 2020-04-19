@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -30,8 +31,8 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
 import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.server.BasicQueryInfo.immediateFailureQueryInfo;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +41,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class FailedDispatchQuery
         implements DispatchQuery
 {
-    private final BasicQueryInfo queryInfo;
+    private final QueryInfo queryInfo;
+    private final BasicQueryInfo basicQueryInfo;
     private final Session session;
     private final Executor executor;
     private final DispatchInfo dispatchInfo;
@@ -60,7 +62,8 @@ public class FailedDispatchQuery
         requireNonNull(failure, "failure is null");
         requireNonNull(executor, "executor is null");
 
-        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, failure.getErrorCode());
+        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, failure);
+        this.basicQueryInfo = new BasicQueryInfo(queryInfo);
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
 
@@ -72,6 +75,12 @@ public class FailedDispatchQuery
 
     @Override
     public BasicQueryInfo getBasicQueryInfo()
+    {
+        return basicQueryInfo;
+    }
+
+    @Override
+    public QueryInfo getQueryInfo()
     {
         return queryInfo;
     }

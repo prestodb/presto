@@ -31,9 +31,11 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryStats
 {
@@ -236,6 +238,60 @@ public class QueryStats
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+    }
+
+    public static QueryStats immediateFailureQueryStats()
+    {
+        DateTime now = DateTime.now();
+        return new QueryStats(
+                now,
+                now,
+                now,
+                now,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                false,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                false,
+                ImmutableSet.of(),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                ImmutableList.of(),
+                ImmutableList.of());
     }
 
     @JsonProperty

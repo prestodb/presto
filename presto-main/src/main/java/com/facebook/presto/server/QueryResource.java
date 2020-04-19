@@ -77,7 +77,7 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+            QueryInfo queryInfo = dispatchManager.getFullQueryInfo(queryId);
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {
