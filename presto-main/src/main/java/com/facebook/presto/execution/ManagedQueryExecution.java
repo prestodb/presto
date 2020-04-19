@@ -45,6 +45,8 @@ public interface ManagedQueryExecution
 
     BasicQueryInfo getBasicQueryInfo();
 
+    QueryInfo getQueryInfo();
+
     boolean isDone();
 
     /**

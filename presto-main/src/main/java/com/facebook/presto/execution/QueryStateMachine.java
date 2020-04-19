@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -388,8 +387,7 @@ public class QueryStateMachine
                 warningCollector.getWarnings());
     }
 
-    @VisibleForTesting
-    QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
+    public QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
     {
         // Query state must be captured first in order to provide a
         // correct view of the query.  For example, building this
