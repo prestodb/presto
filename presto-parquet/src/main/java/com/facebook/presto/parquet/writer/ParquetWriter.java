@@ -266,7 +266,9 @@ public class ParquetWriter
         ImmutableList.Builder<ColumnMetaData> builder = ImmutableList.builder();
         long currentOffset = offset;
         for (ColumnMetaData column : columns) {
-            builder.add(new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset));
+            ColumnMetaData columnMetaData = new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset);
+            columnMetaData.setStatistics(column.getStatistics());
+            builder.add(columnMetaData);
             currentOffset += column.getTotal_compressed_size();
         }
         return builder.build();
