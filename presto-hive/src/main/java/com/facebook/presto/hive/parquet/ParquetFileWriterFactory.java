@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
@@ -94,6 +95,8 @@ public class ParquetFileWriterFactory
             return Optional.empty();
         }
 
+        CompressionCodecName compressionCodecName = getCompression(conf);
+
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
         List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
@@ -118,10 +121,19 @@ public class ParquetFileWriterFactory
                     fileColumnTypes,
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    CompressionCodecName.SNAPPY));
+                    compressionCodecName));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
         }
+    }
+
+    private static CompressionCodecName getCompression(JobConf configuration)
+    {
+        String compressionName = configuration.get(ParquetOutputFormat.COMPRESSION);
+        if (compressionName == null) {
+            return CompressionCodecName.GZIP;
+        }
+        return CompressionCodecName.valueOf(compressionName);
     }
 }
