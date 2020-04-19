@@ -90,7 +90,7 @@ public class QueryResource
     public void cancelQuery(@PathParam("queryId") QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
-        queryManager.cancelQuery(queryId);
+        dispatchManager.cancelQuery(queryId);
     }
 
     @PUT
@@ -112,17 +112,17 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryState state = queryManager.getQueryState(queryId);
+            BasicQueryInfo state = dispatchManager.getQueryInfo(queryId);
 
             // check before killing to provide the proper error code (this is racy)
-            if (state.isDone()) {
+            if (state.getState().isDone()) {
                 return Response.status(Status.CONFLICT).build();
             }
 
-            queryManager.failQuery(queryId, queryException);
+            dispatchManager.failQuery(queryId, queryException);
 
             // verify if the query was failed (if not, we lost the race)
-            if (!queryException.getErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
+            if (!queryException.getErrorCode().equals(dispatchManager.getQueryInfo(queryId).getErrorCode())) {
                 return Response.status(Status.CONFLICT).build();
             }
 
