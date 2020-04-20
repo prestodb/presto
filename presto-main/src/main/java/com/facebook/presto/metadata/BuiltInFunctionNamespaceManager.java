@@ -152,6 +152,8 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
+import com.facebook.presto.operator.scalar.sql.ArrayArithmeticFunctions;
+import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -168,14 +170,17 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
@@ -316,6 +321,7 @@ import static com.facebook.presto.operator.window.AggregateWindowFunction.suppli
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
@@ -367,6 +373,7 @@ import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -380,7 +387,7 @@ public class BuiltInFunctionNamespaceManager
 
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
-    private final LoadingCache<SpecializedFunctionKey, BuiltInScalarFunctionImplementation> specializedScalarCache;
+    private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final MagicLiteralFunction magicLiteralFunction;
@@ -410,8 +417,15 @@ public class BuiltInFunctionNamespaceManager
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)));
+                .build(CacheLoader.from(key -> {
+                    checkArgument(
+                            key.getFunction() instanceof SqlScalarFunction || key.getFunction() instanceof SqlInvokedFunction,
+                            "Unsupported scalar function class: %s",
+                            key.getFunction().getClass());
+                    return key.getFunction() instanceof SqlScalarFunction
+                            ? ((SqlScalarFunction) key.getFunction()).specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)
+                            : new SqlInvokedScalarFunctionImplementation(((SqlInvokedFunction) key.getFunction()).getBody());
+                }));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -686,7 +700,9 @@ public class BuiltInFunctionNamespaceManager
                 .scalars(TDigestOperators.class)
                 .scalars(TDigestFunctions.class)
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
-                .function(MergeTDigestFunction.MERGE);
+                .function(MergeTDigestFunction.MERGE)
+                .sqlInvokedScalar(MapNormalizeFunction.class)
+                .sqlInvokedScalars(ArrayArithmeticFunctions.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
@@ -787,8 +803,13 @@ public class BuiltInFunctionNamespaceManager
             throw e;
         }
         SqlFunction function = functionKey.getFunction();
+        FunctionImplementationType implementationType = function instanceof SqlInvokedFunction ? SQL : BUILTIN;
+        Optional<List<String>> argumentNames = (function instanceof SqlInvokedFunction)
+                ? Optional.of(((SqlInvokedFunction) function).getParameters().stream().map(Parameter::getName).collect(toImmutableList()))
+                : Optional.empty();
         Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
         if (operatorType.isPresent()) {
+            checkArgument(implementationType == BUILTIN, "Operator must be implemented as built-in, found: %s", implementationType);
             return new FunctionMetadata(
                     operatorType.get(),
                     signature.getArgumentTypes(),
@@ -802,10 +823,10 @@ public class BuiltInFunctionNamespaceManager
             return new FunctionMetadata(
                     signature.getName(),
                     signature.getArgumentTypes(),
-                    Optional.empty(),
+                    argumentNames,
                     signature.getReturnType(),
                     signature.getKind(),
-                    BUILTIN,
+                    implementationType,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
@@ -850,7 +871,7 @@ public class BuiltInFunctionNamespaceManager
         return getScalarFunctionImplementation(((BuiltInFunctionHandle) functionHandle).getSignature());
     }
 
-    public BuiltInScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);

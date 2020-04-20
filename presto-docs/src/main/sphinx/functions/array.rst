@@ -35,6 +35,11 @@ Array Functions
     array is empty); ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false``
     for all other elements.
 
+.. function:: array_average(array(double)) -> double
+
+    Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
+    ``null``.
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
@@ -101,6 +106,14 @@ Array Functions
                           (x, y) -> IF(cardinality(x) < cardinality(y),
                                        -1,
                                        IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
+
+.. function:: array_sum(array(T)) -> bigint/double
+
+    Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
+    The behavior is similar to aggregation function :func:`sum`.
+
+    ``T`` must be coercible to ``double``.
+    Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
 
 .. function:: arrays_overlap(x, y) -> boolean
 

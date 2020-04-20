@@ -110,7 +110,7 @@ public class AggregationFromAnnotationsParser
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> stateSerializerFactories = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
+        List<Method> stateSerializerFactories = FunctionsParserHelper.findPublicStaticMethods(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
                 .filter(method -> ((AggregationStateSerializerFactory) method.getAnnotation(AggregationStateSerializerFactory.class)).value().equals(stateClass))
                 .collect(toImmutableList());
 
@@ -174,7 +174,7 @@ public class AggregationFromAnnotationsParser
     public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
+        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethods(clazz, CombineFunction.class).stream()
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 0)] == stateClass)
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
                 .collect(toImmutableList());
@@ -186,7 +186,7 @@ public class AggregationFromAnnotationsParser
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
+        List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethods(clazz, OutputFunction.class).stream()
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass)
                 .collect(toImmutableList());
 
@@ -197,7 +197,7 @@ public class AggregationFromAnnotationsParser
     private static List<Method> getInputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
-        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
+        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethods(clazz, InputFunction.class).stream()
                 .filter(method -> (method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass))
                 .collect(toImmutableList());
 
@@ -208,7 +208,7 @@ public class AggregationFromAnnotationsParser
     private static Set<Class<?>> getStateClasses(Class<?> clazz)
     {
         ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
-        for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
+        for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethods(clazz, InputFunction.class)) {
             checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
             Class<?> stateClass = AggregationImplementation.Parser.findAggregationStateParamType(inputFunction);
 
