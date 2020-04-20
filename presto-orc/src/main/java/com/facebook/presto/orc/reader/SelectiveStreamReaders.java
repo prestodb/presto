@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;

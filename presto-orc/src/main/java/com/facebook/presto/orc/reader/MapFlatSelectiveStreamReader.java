@@ -59,9 +59,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
