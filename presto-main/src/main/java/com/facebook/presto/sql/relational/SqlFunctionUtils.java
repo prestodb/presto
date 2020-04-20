@@ -61,6 +61,7 @@ public final class SqlFunctionUtils
     public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
+        checkArgument(functionMetadata.getArgumentNames().isPresent(), "Argument name is missing");
         Expression expression = parseSqlFunctionExpression(implementation, sqlFunctionProperties);
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }

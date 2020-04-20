@@ -159,7 +159,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @ScalarFunction must be public")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Annotated method \\[.*\\] must be public")
     public void testNonPublicAnnnotatedMethod()
     {
         extractScalars(NonPublicAnnnotatedMethod.class);
