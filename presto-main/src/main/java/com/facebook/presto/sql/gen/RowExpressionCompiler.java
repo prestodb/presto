@@ -31,15 +31,18 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubExpressionState;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
@@ -68,6 +71,7 @@ public class RowExpressionCompiler
     private final Metadata metadata;
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
+    private final Map<VariableReferenceExpression, CommonSubExpressionState> commonSubExpressions;
 
     RowExpressionCompiler(
             ClassDefinition classDefinition,
@@ -76,7 +80,8 @@ public class RowExpressionCompiler
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            Map<VariableReferenceExpression, CommonSubExpressionState> commonSubExpressions)
     {
         this.classDefinition = classDefinition;
         this.callSiteBinder = callSiteBinder;
@@ -85,6 +90,7 @@ public class RowExpressionCompiler
         this.metadata = metadata;
         this.sqlFunctionProperties = sqlFunctionProperties;
         this.compiledLambdaMap = compiledLambdaMap;
+        this.commonSubExpressions = commonSubExpressions;
     }
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Variable> outputBlockVariable)
@@ -102,9 +108,22 @@ public class RowExpressionCompiler
     private class Visitor
             implements RowExpressionVisitor<BytecodeNode, Context>
     {
+        private void computeCommonSubExpression(BytecodeBlock codeBlock, List<RowExpression> arguments)
+        {
+            arguments.stream()
+                    .filter(VariableReferenceExpression.class::isInstance)
+                    .map(VariableReferenceExpression.class::cast)
+                    .map(commonSubExpressions::get)
+                    .forEach(state -> state.calcuateCommonSubExpression(codeBlock));
+        }
+
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
+            BytecodeBlock callBlock = new BytecodeBlock();
+
+            computeCommonSubExpression(callBlock, call.getArguments());
+
             FunctionManager functionManager = metadata.getFunctionManager();
             FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
@@ -116,7 +135,8 @@ public class RowExpressionCompiler
                             callSiteBinder,
                             cachedInstanceBinder,
                             functionManager);
-                    return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+                    callBlock.append((new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable()));
+                    break;
                 case SQL:
                     SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(call.getFunctionHandle());
                     RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, sqlFunctionProperties, call.getArguments());
@@ -129,38 +149,40 @@ public class RowExpressionCompiler
                             .forEach(newCompiledLambdaMap::putIfAbsent);
 
                     // generate bytecode for SQL function
-                    RowExpressionCompiler newRowExpressionCompiler = new RowExpressionCompiler(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, ImmutableMap.copyOf(newCompiledLambdaMap));
+                    RowExpressionCompiler newRowExpressionCompiler = new RowExpressionCompiler(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, ImmutableMap.copyOf(newCompiledLambdaMap), commonSubExpressions);
                     // If called on null input, directly use the generated bytecode
                     if (functionMetadata.isCalledOnNullInput() || call.getArguments().isEmpty()) {
-                        return newRowExpressionCompiler.compile(
+                        callBlock.append(newRowExpressionCompiler.compile(
                                 function,
                                 context.getScope(),
                                 context.getOutputBlockVariable(),
-                                context.getLambdaInterface());
+                                context.getLambdaInterface()));
                     }
+                    else {
+                        // If returns null on null input, generate if(any input is null, null, generated bytecode)
+                        generatorContext = new BytecodeGeneratorContext(
+                                newRowExpressionCompiler,
+                                context.getScope(),
+                                callSiteBinder,
+                                cachedInstanceBinder,
+                                functionManager);
 
-                    // If returns null on null input, generate if(any input is null, null, generated bytecode)
-                    generatorContext = new BytecodeGeneratorContext(
-                            newRowExpressionCompiler,
-                            context.getScope(),
-                            callSiteBinder,
-                            cachedInstanceBinder,
-                            functionManager);
-
-                    return (new IfCodeGenerator()).generateExpression(
-                            generatorContext,
-                            call.getType(),
-                            ImmutableList.of(
-                                    call.getArguments().stream()
-                                            .map(argument -> new SpecialFormExpression(IS_NULL, BOOLEAN, argument))
-                                            .reduce((a, b) -> new SpecialFormExpression(OR, BOOLEAN, a, b)).get(),
-                                    new ConstantExpression(null, call.getType()),
-                                    function),
-                            context.getOutputBlockVariable());
-
+                        callBlock.append((new IfCodeGenerator()).generateExpression(
+                                generatorContext,
+                                call.getType(),
+                                ImmutableList.of(
+                                        call.getArguments().stream()
+                                                .map(argument -> new SpecialFormExpression(IS_NULL, BOOLEAN, argument))
+                                                .reduce((a, b) -> new SpecialFormExpression(OR, BOOLEAN, a, b)).get(),
+                                        new ConstantExpression(null, call.getType()),
+                                        function),
+                                context.getOutputBlockVariable()));
+                    }
+                    break;
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }
+            return callBlock;
         }
 
         @Override
@@ -332,7 +354,9 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     metadata.getFunctionManager());
 
-            return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
+            BytecodeBlock block = new BytecodeBlock();
+            computeCommonSubExpression(block, specialForm.getArguments());
+            return block.append(generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable()));
         }
     }
 

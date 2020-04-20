@@ -163,7 +163,8 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(parameterMapBuilder.build()),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableMap.of());
 
         return defineLambdaMethod(
                 innerExpressionCompiler,
@@ -298,7 +299,8 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(ImmutableMap.of()),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableMap.of());
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                 rowExpressionCompiler,

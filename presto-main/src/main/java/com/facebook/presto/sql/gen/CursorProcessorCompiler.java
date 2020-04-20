@@ -40,6 +40,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
@@ -212,7 +213,8 @@ public class CursorProcessorCompiler
                 fieldReferenceCompiler(cursor),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableMap.of());
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -255,7 +257,8 @@ public class CursorProcessorCompiler
                 fieldReferenceCompiler(cursor),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableMap.of());
 
         method.getBody()
                 .comment("boolean wasNull = false;")

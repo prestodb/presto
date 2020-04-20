@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.NULL_IF;
@@ -96,6 +100,34 @@ public class CommonSubExpressionRewriter
         public String toString()
         {
             return format("(%s: %d)", variable, occurrence);
+        }
+    }
+
+    public static class CommonSubExpressionState
+    {
+        private final Variable resultVariable;
+        private final LabelNode evalLabel;
+        private final Variable instanceVariable;
+        private final List<LabelNode> instanceLabels;
+        private int occurrence;
+
+        public CommonSubExpressionState(Variable resultVariable, LabelNode evalLabel, Variable instanceVariable, List<LabelNode> instanceLabels)
+        {
+            this.resultVariable = resultVariable;
+            this.evalLabel = evalLabel;
+            this.instanceVariable = instanceVariable;
+            this.instanceLabels = instanceLabels;
+        }
+        public void calcuateCommonSubExpression(BytecodeBlock block)
+        {
+            block.append(instanceVariable.set(constantInt(occurrence)))
+                    .gotoLabel(evalLabel)
+                    .visitLabel(instanceLabels.get(occurrence));
+            this.occurrence += 1;
+        }
+        public void appendResultVariable(BytecodeBlock block)
+        {
+            block.append(resultVariable);
         }
     }
 

@@ -37,6 +37,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
@@ -193,7 +194,8 @@ public class RowExpressionPredicateCompiler
                 fieldReferenceCompiler(callSiteBinder),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableMap.of());
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(predicate, scope, Optional.empty()))
