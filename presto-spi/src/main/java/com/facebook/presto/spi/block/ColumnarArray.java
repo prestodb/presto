@@ -103,7 +103,7 @@ public class ColumnarArray
                 // 2) nulls array size: Byte.BYTES * positionCount
                 // 3) the estimated serialized size for the elementsBlock which was just constructed as a new DictionaryBlock:
                 //     the average row size: elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * the number of rows: offsets[positionCount]
-                (Integer.BYTES + Byte.BYTES) * positionCount + (long) (elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * offsets[positionCount]));
+                (Integer.BYTES + Byte.BYTES) * positionCount + elementsBlock.getPositionCount() == 0 ? 0 : (long) (elementsBlock.getSizeInBytes() / (double) elementsBlock.getPositionCount() * offsets[positionCount]));
     }
 
     private static ColumnarArray toColumnarArray(RunLengthEncodedBlock rleBlock)
