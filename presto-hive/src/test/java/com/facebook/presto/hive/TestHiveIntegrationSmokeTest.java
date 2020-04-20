@@ -59,7 +59,9 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -4734,6 +4736,19 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT sum(custkey) FROM test_pagefile_orders", "SELECT sum(custkey) FROM orders");
 
         assertUpdate("DROP TABLE test_pagefile_orders");
+    }
+
+    @Test
+    public void testReadWithEmptySplit()
+            throws IOException
+    {
+        assertUpdate("CREATE TABLE table_with_empty_split (col1 BIGINT, col2 BIGINT) WITH (format = 'DWRF')");
+        assertUpdate("INSERT INTO table_with_empty_split VALUES (1,2)", 1);
+        String path = ((String) computeScalar("SELECT \"$path\" from table_with_empty_split")).replace("file:", "");
+        java.nio.file.Path emptyFile = java.nio.file.Files.createFile(Paths.get(path).getParent().resolve("empty_file"));
+        assertEquals(0, java.nio.file.Files.size(emptyFile));
+        assertQuery("SELECT * FROM table_with_empty_split", "SELECT 1, 2");
+        assertUpdate("DROP TABLE table_with_empty_split");
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
