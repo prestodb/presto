@@ -88,7 +88,7 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
-    private boolean exchangeCompressionEnabled;
+    private boolean exchangeCompressionEnabled = true;
     private boolean legacyArrayAgg;
     private boolean legacyLogFunction;
     private boolean groupByUsesEqualTo;
