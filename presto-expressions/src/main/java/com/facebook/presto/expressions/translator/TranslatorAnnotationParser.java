@@ -88,6 +88,7 @@ class TranslatorAnnotationParser
         return new FunctionMetadata(
                 metadata.getName(),
                 argumentsBuilder.build(),
+                Optional.empty(),
                 metadata.getReturnType(),
                 metadata.getFunctionKind(),
                 metadata.getImplementationType(),
@@ -161,7 +162,7 @@ class TranslatorAnnotationParser
         if (header.getOperatorType().isPresent()) {
             return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
+        return new FunctionMetadata(header.getName(), argumentTypes.build(), Optional.empty(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
     }
 
     @SafeVarargs

@@ -802,6 +802,7 @@ public class BuiltInFunctionNamespaceManager
             return new FunctionMetadata(
                     signature.getName(),
                     signature.getArgumentTypes(),
+                    Optional.empty(),
                     signature.getReturnType(),
                     signature.getKind(),
                     BUILTIN,
