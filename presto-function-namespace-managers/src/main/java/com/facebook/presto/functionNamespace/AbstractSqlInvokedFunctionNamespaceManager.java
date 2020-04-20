@@ -200,9 +200,9 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return new FunctionMetadata(
                 function.getSignature().getName(),
                 function.getSignature().getArgumentTypes(),
-                function.getParameters().stream()
+                Optional.of(function.getParameters().stream()
                         .map(Parameter::getName)
-                        .collect(toImmutableList()),
+                        .collect(toImmutableList())),
                 function.getSignature().getReturnType(),
                 SCALAR,
                 function.getFunctionImplementationType(),

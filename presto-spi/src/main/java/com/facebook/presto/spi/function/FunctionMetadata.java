@@ -40,26 +40,14 @@ public class FunctionMetadata
     public FunctionMetadata(
             QualifiedFunctionName name,
             List<TypeSignature> argumentTypes,
+            Optional<List<String>> argumentNames,
             TypeSignature returnType,
             FunctionKind functionKind,
             FunctionImplementationType implementationType,
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, implementationType, deterministic, calledOnNullInput);
-    }
-
-    public FunctionMetadata(
-            QualifiedFunctionName name,
-            List<TypeSignature> argumentTypes,
-            List<String> argumentNames,
-            TypeSignature returnType,
-            FunctionKind functionKind,
-            FunctionImplementationType implementationType,
-            boolean deterministic,
-            boolean calledOnNullInput)
-    {
-        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, implementationType, deterministic, calledOnNullInput);
+        this(name, Optional.empty(), argumentTypes, argumentNames, returnType, functionKind, implementationType, deterministic, calledOnNullInput);
     }
 
     public FunctionMetadata(
