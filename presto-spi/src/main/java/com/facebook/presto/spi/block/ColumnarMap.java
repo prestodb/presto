@@ -114,7 +114,8 @@ public class ColumnarMap
                 // 2) nulls array size: Byte.BYTES * positionCount
                 // 3) the estimated serialized size for the keysBlock and valuesBlock which were just constructed as new DictionaryBlocks:
                 //     the average row size: keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount() * the number of rows: offsets[positionCount]
-                (Integer.BYTES + Byte.BYTES) * positionCount + (long) ((keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount()) * offsets[positionCount]));
+                (Integer.BYTES + Byte.BYTES) * positionCount +
+                         (long) ((keysBlock.getPositionCount() == 0 ? 0 : keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getPositionCount() == 0 ? 0 : valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount()) * offsets[positionCount]));
     }
 
     private static ColumnarMap toColumnarMap(RunLengthEncodedBlock rleBlock)

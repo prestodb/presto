@@ -86,7 +86,7 @@ public final class ColumnarRow
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
             Block field = columnarRow.getField(i);
             fields[i] = new DictionaryBlock(nonNullPositionCount, field, dictionaryIds);
-            averageRowSize += field.getSizeInBytes() / field.getPositionCount();
+            averageRowSize += field.getPositionCount() == 0 ? 0 : field.getSizeInBytes() / field.getPositionCount();
         }
         return new ColumnarRow(
                 dictionaryBlock,
