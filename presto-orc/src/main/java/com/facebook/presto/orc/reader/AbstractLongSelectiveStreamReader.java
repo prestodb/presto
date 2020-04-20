@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 
 import java.util.Optional;
 
-import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;

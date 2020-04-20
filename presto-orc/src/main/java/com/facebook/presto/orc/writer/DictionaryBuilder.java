@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
-import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.orc.array.IntBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
