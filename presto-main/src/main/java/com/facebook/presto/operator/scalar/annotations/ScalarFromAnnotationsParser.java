@@ -21,6 +21,7 @@ import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplement
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -69,7 +70,7 @@ public final class ScalarFromAnnotationsParser
         checkArgument(!classHeaders.isEmpty(), "Class [%s] that defines function must be annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
 
         for (ScalarImplementationHeader header : classHeaders) {
-            Set<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
+            Set<Method> methods = FunctionsParserHelper.findPublicMethods(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
             checkCondition(!methods.isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Parametric class [%s] does not have any annotated methods", annotated.getName());
             for (Method method : methods) {
                 checkArgument(method.getAnnotation(ScalarFunction.class) == null, "Parametric class method [%s] is annotated with @ScalarFunction", method);
@@ -84,16 +85,17 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
+        for (Method method : FunctionsParserHelper.findPublicMethods(
+                annotated,
+                ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class),
+                ImmutableSet.of(SqlInvokedScalarFunction.class))) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
             for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
                 builder.add(new ScalarHeaderAndMethods(header, ImmutableSet.of(method)));
             }
         }
-        List<ScalarHeaderAndMethods> methods = builder.build();
-        checkArgument(!methods.isEmpty(), "Class [%s] does not have any methods annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
-        return methods;
+        return builder.build();
     }
 
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)

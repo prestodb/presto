@@ -52,6 +52,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
 {
+    private static final double DELTA = 1e-5;
+
     protected final Session session;
     private final FeaturesConfig config;
     protected FunctionAssertions functionAssertions;
@@ -93,6 +95,16 @@ public abstract class AbstractTestFunctions
     protected void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    protected void assertFunctionWithError(String projection, Type expectedType, double expected)
+    {
+        assertFunctionWithError(projection, expectedType, expected, DELTA);
+    }
+
+    protected void assertFunctionWithError(String projection, Type expectedType, double expected, double delta)
+    {
+        functionAssertions.assertFunctionWithError(projection, expectedType, expected, delta);
     }
 
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
