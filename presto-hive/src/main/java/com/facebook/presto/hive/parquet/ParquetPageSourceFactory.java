@@ -317,23 +317,20 @@ public class ParquetPageSourceFactory
             GroupType groupType = parquetType.asGroupType();
             switch (prestoType) {
                 case ROW:
-                    if (groupType.getFields().size() == type.getTypeParameters().size()) {
-                        RowType rowType = (RowType) type;
-                        Map<String, Type> prestoFieldMap = rowType.getFields().stream().collect(
-                                Collectors.toMap(
-                                        field -> field.getName().get().toLowerCase(Locale.ENGLISH),
-                                        field -> field.getType()));
-                        for (int i = 0; i < groupType.getFields().size(); i++) {
-                            org.apache.parquet.schema.Type parquetFieldType = groupType.getFields().get(i);
-                            String fieldName = parquetFieldType.getName().toLowerCase(Locale.ENGLISH);
-                            Type prestoFieldType = prestoFieldMap.get(fieldName);
-                            if (prestoFieldType != null && !checkSchemaMatch(parquetFieldType, prestoFieldType)) {
-                                return false;
-                            }
+                    RowType rowType = (RowType) type;
+                    Map<String, Type> prestoFieldMap = rowType.getFields().stream().collect(
+                            Collectors.toMap(
+                                    field -> field.getName().get().toLowerCase(Locale.ENGLISH),
+                                    field -> field.getType()));
+                    for (int i = 0; i < groupType.getFields().size(); i++) {
+                        org.apache.parquet.schema.Type parquetFieldType = groupType.getFields().get(i);
+                        String fieldName = parquetFieldType.getName().toLowerCase(Locale.ENGLISH);
+                        Type prestoFieldType = prestoFieldMap.get(fieldName);
+                        if (prestoFieldType != null && !checkSchemaMatch(parquetFieldType, prestoFieldType)) {
+                            return false;
                         }
-                        return true;
                     }
-                    return false;
+                    return true;
                 case MAP:
                     if (groupType.getFields().size() != 1) {
                         return false;
