@@ -45,6 +45,12 @@ public class ConnectorPlanOptimizerManager
                 "ConnectorPlanOptimizerProvider for connector '%s' is already registered", connectorId);
     }
 
+    public void removePlanOptimizerProvider(ConnectorId connectorId)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        planOptimizerProviders.remove(connectorId);
+    }
+
     public Map<ConnectorId, Set<ConnectorPlanOptimizer>> getOptimizers(PlanPhase phase)
     {
         switch (phase) {

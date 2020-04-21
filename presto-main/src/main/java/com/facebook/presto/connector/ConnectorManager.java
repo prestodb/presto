@@ -334,6 +334,7 @@ public class ConnectorManager
         metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
         metadataManager.getAnalyzePropertyManager().removeProperties(connectorId);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
+        connectorPlanOptimizerManager.removePlanOptimizerProvider(connectorId);
 
         MaterializedConnector materializedConnector = connectors.remove(connectorId);
         if (materializedConnector != null) {
