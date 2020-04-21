@@ -699,18 +699,15 @@ public class TestHiveFileFormats
                 .withSession(parquetPageSourceSession)
                 .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageRowLongLong);
 
-        String expectedMessageMapLongRowLong = "The column column_name is declared as type struct<s_bigint:bigint>, but the Parquet file declares the column as type optional group column_name (MAP) {\n"
-                + "  repeated group map (MAP_KEY_VALUE) {\n"
-                + "    required int64 key;\n"
-                + "    optional int64 value;\n"
-                + "  }\n"
-                + "}";
-
+        TestColumn rowLongColumnReadOnMap = new TestColumn("column_name",
+                getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
+                new Long[] {1L},
+                null);
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(mapLongColumn))
-                .withReadColumns(ImmutableList.of(rowLongColumn))
+                .withReadColumns(ImmutableList.of(rowLongColumnReadOnMap))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageMapLongRowLong);
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
         String expectedMessageRowLongNest = "The column column_name is declared as type map<string,array<struct<s_int:int>>>, but the Parquet file declares the column as type optional group column_name {\n"
                 + "  optional int64 s_bigint;\n"
@@ -731,23 +728,39 @@ public class TestHiveFileFormats
         TestColumn writeColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("s_int", "s_double"),
-                                        ImmutableList.of(javaIntObjectInspector, javaDoubleObjectInspector)))),
-                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(1, 5.0))),
-                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE))),
-                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE)), rowBlockOf(ImmutableList.of(INTEGER, DOUBLE), 1L, 5.0))));
+                            getStandardStructObjectInspector(
+                                    ImmutableList.of("s_int", "s_double"),
+                                    ImmutableList.of(javaIntObjectInspector, javaDoubleObjectInspector))),
+                ImmutableMap.of("test", Arrays.asList(1, 5.0)),
+                mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE)),
+                        "test", rowBlockOf(ImmutableList.of(INTEGER, DOUBLE), 1L, 5.0)));
         TestColumn readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("s_double", "s_int"),  //out of order
-                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
-                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
-                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
-                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+                            getStandardStructObjectInspector(
+                                    ImmutableList.of("s_double", "s_int"),  //out of order
+                                    ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
+                ImmutableMap.of("test", Arrays.asList(5.0, 1)),
+                mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)),
+                        "test", rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L)));
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withRowsCount(1)
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+
+        //test add/remove sub-fields
+        readColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                        javaStringObjectInspector,
+                        getStandardStructObjectInspector(
+                                ImmutableList.of("s_int", "s_int_new"),  //add sub-field s_int_new, remove s_double
+                                ImmutableList.of(javaIntObjectInspector, javaIntObjectInspector))),
+                ImmutableMap.of("test", Arrays.asList(1, 5.0)),
+                mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(INTEGER, INTEGER)),
+                        "test", rowBlockOf(ImmutableList.of(INTEGER, INTEGER), 1L, null))); //expected null for s_int_new
+
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
@@ -759,13 +772,12 @@ public class TestHiveFileFormats
         readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("s_DOUBLE", "s_INT"),  //out of order
-                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
-                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
-                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
-                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+                            getStandardStructObjectInspector(
+                                    ImmutableList.of("s_DOUBLE", "s_INT"),  //out of order
+                                    ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
+                ImmutableMap.of("test", Arrays.asList(5.0, 1)),
+                mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)),
+                        "test", rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L)));
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
@@ -773,29 +785,24 @@ public class TestHiveFileFormats
                 .withSession(parquetPageSourceSession)
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
-        //test field name mismatch in nested Row type
+        //test sub-field type mismatch in nested Row type
         readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("s_double_old_name", "s_int"),  //rename a sub-field
-                                        ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector)))),
-                ImmutableMap.of("test", ImmutableList.<Object>of(Arrays.asList(5.0, 1))),
-                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER))),
-                        "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)), rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L))));
+                            getStandardStructObjectInspector(
+                                    ImmutableList.of("s_double", "s_int"),
+                                    ImmutableList.of(javaIntObjectInspector, javaIntObjectInspector))), //re-type a sub-field
+                ImmutableMap.of("test", Arrays.asList(5, 1)),
+                mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(INTEGER, INTEGER)),
+                        "test", rowBlockOf(ImmutableList.of(INTEGER, INTEGER), 5L, 1L)));
 
         HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
-        String expectedMessageRowLongNest = "The column column_name is declared as type map<string,array<struct<s_double_old_name:double,s_int:int>>>, but the Parquet file declares the column as type optional group column_name (MAP) {\n" +
+        String expectedMessageRowLongNest = "The column column_name is declared as type map<string,struct<s_double:int,s_int:int>>, but the Parquet file declares the column as type optional group column_name (MAP) {\n" +
                 "  repeated group map (MAP_KEY_VALUE) {\n" +
                 "    required binary key (UTF8);\n" +
-                "    optional group value (LIST) {\n" +
-                "      repeated group bag {\n" +
-                "        optional group array_element {\n" +
-                "          optional int32 s_int;\n" +
-                "          optional double s_double;\n" +
-                "        }\n" +
-                "      }\n" +
+                "    optional group value {\n" +
+                "      optional int32 s_int;\n" +
+                "      optional double s_double;\n" +
                 "    }\n" +
                 "  }\n" +
                 "}";
