@@ -819,7 +819,7 @@ public class HiveMetadata
         }
         else {
             tableType = MANAGED_TABLE;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty));
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
@@ -1273,7 +1273,7 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty));
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1512,7 +1512,10 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         LocationHandle locationHandle;
         boolean isTemporaryTable = table.get().getTableType().equals(TEMPORARY_TABLE);
-        boolean tempPathRequired = isTempPathRequired(session, table.map(Table::getStorage).flatMap(Storage::getBucketProperty));
+        boolean tempPathRequired = isTempPathRequired(
+                session,
+                table.map(Table::getStorage).flatMap(Storage::getBucketProperty),
+                decodePreferredOrderingColumnsFromStorage(table.get().getStorage()));
         if (isTemporaryTable) {
             locationHandle = locationService.forTemporaryTable(metastore, session, table.get(), tempPathRequired);
         }
@@ -1656,9 +1659,10 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
-    private static boolean isTempPathRequired(ConnectorSession session, Optional<HiveBucketProperty> bucketProperty)
+    private static boolean isTempPathRequired(ConnectorSession session, Optional<HiveBucketProperty> bucketProperty, List<SortingColumn> preferredOrderingColumns)
     {
-        return isSortedWriteToTempPathEnabled(session) && bucketProperty.map(property -> !property.getSortedBy().isEmpty()).orElse(false);
+        boolean hasSortedWrite = bucketProperty.map(property -> !property.getSortedBy().isEmpty()).orElse(false) || !preferredOrderingColumns.isEmpty();
+        return isSortedWriteToTempPathEnabled(session) && hasSortedWrite;
     }
 
     private List<String> getTargetFileNames(List<FileWriteInfo> fileWriteInfos)
