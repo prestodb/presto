@@ -609,18 +609,18 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.commitPartitionAsync(session, tableHandle, fragments);
+            return delegate.commitPageSinkAsync(session, tableHandle, fragments);
         }
     }
 
     @Override
-    public CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    public CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.commitPartitionAsync(session, tableHandle, fragments);
+            return delegate.commitPageSinkAsync(session, tableHandle, fragments);
         }
     }
 }

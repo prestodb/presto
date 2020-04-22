@@ -165,7 +165,7 @@ public class HiveWriterFactory
             HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
             OrcFileWriterFactory orcFileWriterFactory,
-            boolean partitionCommitRequired)
+            boolean commitRequired)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -291,7 +291,7 @@ public class HiveWriterFactory
 
         // In Hive connector, bucket commit is fulfilled by writing to temporary file in TableWriterOperator, and rename in TableFinishOpeartor
         // (note Presto partition here loosely maps to Hive bucket)
-        this.writeToTempFile = partitionCommitRequired;
+        this.writeToTempFile = commitRequired;
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)

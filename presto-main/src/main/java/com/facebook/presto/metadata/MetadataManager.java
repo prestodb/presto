@@ -1174,25 +1174,25 @@ public class MetadataManager
     }
 
     @Override
-    public ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPageSinkAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        return toListenableFuture(metadata.commitPartitionAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
+        return toListenableFuture(metadata.commitPageSinkAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
     }
 
     @Override
-    public ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPageSinkAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        return toListenableFuture(metadata.commitPartitionAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
+        return toListenableFuture(metadata.commitPageSinkAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
     }
 
     @Override

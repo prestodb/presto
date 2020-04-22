@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PARTITION_COMMIT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -236,6 +236,6 @@ public class HiveConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PARTITION_COMMIT);
+        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PAGE_SINK_COMMIT);
     }
 }

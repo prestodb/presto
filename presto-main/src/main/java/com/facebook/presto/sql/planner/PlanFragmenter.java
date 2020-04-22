@@ -97,7 +97,7 @@ import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOper
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
-import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PARTITION_COMMIT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1085,7 +1085,7 @@ public class PlanFragmenter
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (target instanceof CreateName || target instanceof InsertReference) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+                recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
             }
             else {
                 recoveryEligible = false;
