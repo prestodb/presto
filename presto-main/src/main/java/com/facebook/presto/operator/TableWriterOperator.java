@@ -125,10 +125,10 @@ public class TableWriterOperator
         private ConnectorPageSink createPageSink()
         {
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.builder().setPartitionCommitRequired(partitionCommitRequired).build());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.builder().setCommitRequired(partitionCommitRequired).build());
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.builder().setPartitionCommitRequired(partitionCommitRequired).build());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.builder().setCommitRequired(partitionCommitRequired).build());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

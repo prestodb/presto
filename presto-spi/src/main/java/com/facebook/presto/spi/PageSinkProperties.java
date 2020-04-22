@@ -17,11 +17,11 @@ public class PageSinkProperties
 {
     private static final PageSinkProperties DEFAULT_PAGE_SINK_PROPERTIES = PageSinkProperties.builder().build();
 
-    private final boolean partitionCommitRequired;
+    private final boolean commitRequired;
 
-    private PageSinkProperties(boolean partitionCommitRequired)
+    private PageSinkProperties(boolean commitRequired)
     {
-        this.partitionCommitRequired = partitionCommitRequired;
+        this.commitRequired = commitRequired;
     }
 
     public static PageSinkProperties defaultProperties()
@@ -29,9 +29,9 @@ public class PageSinkProperties
         return DEFAULT_PAGE_SINK_PROPERTIES;
     }
 
-    public boolean isPartitionCommitRequired()
+    public boolean isCommitRequired()
     {
-        return partitionCommitRequired;
+        return commitRequired;
     }
 
     public static Builder builder()
@@ -41,17 +41,17 @@ public class PageSinkProperties
 
     public static final class Builder
     {
-        private boolean partitionCommitRequired;
+        private boolean commitRequired;
 
-        public Builder setPartitionCommitRequired(boolean partitionCommitRequired)
+        public Builder setCommitRequired(boolean commitRequired)
         {
-            this.partitionCommitRequired = partitionCommitRequired;
+            this.commitRequired = commitRequired;
             return this;
         }
 
         public PageSinkProperties build()
         {
-            return new PageSinkProperties(partitionCommitRequired);
+            return new PageSinkProperties(commitRequired);
         }
     }
 }
