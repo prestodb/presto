@@ -17,6 +17,7 @@ public enum PageSinkCommitStrategy
 {
     NO_COMMIT(false),
     LIFESPAN_COMMIT(true),
+    TASK_COMMIT(true),
     /**/;
 
     private final boolean commitRequired;
