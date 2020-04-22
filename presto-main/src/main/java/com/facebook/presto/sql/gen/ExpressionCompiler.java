@@ -91,20 +91,21 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, classNameSuffix, OptionalInt.empty());
     }
 
     private Supplier<PageProcessor> compilePageProcessor(
             SqlFunctionProperties sqlFunctionProperties,
             Optional<RowExpression> filter,
             List<? extends RowExpression> projections,
+            boolean isOptimizeCommonSubExpression,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix));
-        List<Supplier<PageProjectionWithOutputs>> pageProjectionSuppliers = pageFunctionCompiler.compileProjections(sqlFunctionProperties, projections, classNameSuffix);
+        List<Supplier<PageProjectionWithOutputs>> pageProjectionSuppliers = pageFunctionCompiler.compileProjections(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, classNameSuffix);
 
         return () -> {
             Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
@@ -115,15 +116,16 @@ public class ExpressionCompiler
         };
     }
 
+    @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, true, Optional.empty());
     }
 
     @VisibleForTesting
-    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, int initialBatchSize)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, Optional.empty(), OptionalInt.of(initialBatchSize));
     }
 
     private <T> Class<? extends T> compile(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)

@@ -157,7 +157,6 @@ public class RowExpressionCompiler
                                     new ConstantExpression(null, call.getType()),
                                     function),
                             context.getOutputBlockVariable());
-
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }

@@ -95,7 +95,7 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityRLE()
     {
-        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR)), false, MAX_BATCH_SIZE).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
@@ -127,7 +127,7 @@ public class TestPageProcessorCompiler
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
-        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), false, MAX_BATCH_SIZE).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(
@@ -166,7 +166,7 @@ public class TestPageProcessorCompiler
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
-        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, BIGINT)), false, MAX_BATCH_SIZE).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
         Page outputPage = getOnlyElement(
@@ -187,7 +187,7 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityColumnarDictionary()
     {
-        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, VARCHAR)), false, MAX_BATCH_SIZE).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(
@@ -215,7 +215,7 @@ public class TestPageProcessorCompiler
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
-        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(lessThanRandomExpression), false, MAX_BATCH_SIZE).get();
 
         assertFalse(new RowExpressionDeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
 
