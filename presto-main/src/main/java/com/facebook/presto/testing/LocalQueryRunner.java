@@ -814,7 +814,8 @@ public class LocalQueryRunner
                         throw new UnsupportedOperationException();
                     }
                 },
-                createTableWriteInfo(streamingSubPlan, metadata, session));
+                createTableWriteInfo(streamingSubPlan, metadata, session),
+                false);
 
         // generate sources
         List<TaskSource> sources = new ArrayList<>();

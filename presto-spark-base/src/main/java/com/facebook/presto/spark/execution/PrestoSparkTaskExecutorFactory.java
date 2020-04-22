@@ -238,7 +238,8 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getTableScanSchedulingOrder(),
                 new PrestoSparkOutputFactory(rowBuffer),
                 new PrestoSparkRemoteSourceFactory(sparkInputs),
-                taskDescriptor.getTableWriteInfo());
+                taskDescriptor.getTableWriteInfo(),
+                true);
 
         List<Driver> drivers = createDrivers(
                 localExecutionPlan,
