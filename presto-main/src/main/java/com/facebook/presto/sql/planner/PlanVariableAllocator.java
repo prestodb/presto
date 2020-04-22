@@ -163,6 +163,11 @@ public class PlanVariableAllocator
 
     public VariableReferenceExpression newVariable(RowExpression expression)
     {
+        return newVariable(expression, null);
+    }
+
+    public VariableReferenceExpression newVariable(RowExpression expression, String suffix)
+    {
         String nameHint = "expr";
         if (expression instanceof VariableReferenceExpression) {
             nameHint = ((VariableReferenceExpression) expression).getName();
@@ -170,6 +175,6 @@ public class PlanVariableAllocator
         else if (expression instanceof CallExpression) {
             nameHint = ((CallExpression) expression).getDisplayName();
         }
-        return newVariable(nameHint, expression.getType(), null);
+        return newVariable(nameHint, expression.getType(), suffix);
     }
 }

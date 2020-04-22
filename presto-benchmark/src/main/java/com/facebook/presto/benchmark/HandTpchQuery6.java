@@ -72,7 +72,12 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        List<Supplier<PageProjectionWithOutputs>> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0).compileProjections(session.getSqlFunctionProperties(), ImmutableList.of(field(0, BIGINT)), Optional.empty());
+        List<Supplier<PageProjectionWithOutputs>> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0)
+                .compileProjections(
+                        session.getSqlFunctionProperties(),
+                        ImmutableList.of(field(0, BIGINT)),
+                        false,
+                        Optional.empty());
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,

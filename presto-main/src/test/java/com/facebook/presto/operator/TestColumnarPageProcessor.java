@@ -81,6 +81,6 @@ public class TestColumnarPageProcessor
     private PageProcessor newPageProcessor()
     {
         return new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
+                .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), false, MAX_BATCH_SIZE).get();
     }
 }
