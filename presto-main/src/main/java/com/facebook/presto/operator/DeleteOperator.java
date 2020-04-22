@@ -30,6 +30,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
@@ -191,7 +192,7 @@ public class DeleteOperator
                 new TableCommitContext(
                         operatorContext.getDriverContext().getLifespan(),
                         taskId,
-                        false,
+                        NO_COMMIT,
                         true)));
 
         return new Page(positionCount, rowsBuilder.build(), fragmentBuilder.build(), RunLengthEncodedBlock.create(VARBINARY, tableCommitContext, positionCount));

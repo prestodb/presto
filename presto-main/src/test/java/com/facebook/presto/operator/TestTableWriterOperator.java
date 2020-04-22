@@ -62,6 +62,7 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -256,7 +257,12 @@ public class TestTableWriterOperator
 
     private static Slice getTableCommitContext(boolean lastPage)
     {
-        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), new TaskId("query", 0, 0, 0), false, lastPage)));
+        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
+                new TableCommitContext(
+                        Lifespan.taskWide(),
+                        new TaskId("query", 0, 0, 0),
+                        NO_COMMIT,
+                        lastPage)));
     }
 
     private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)
@@ -318,7 +324,7 @@ public class TestTableWriterOperator
                 statisticsAggregation,
                 outputTypes,
                 TABLE_COMMIT_CONTEXT_CODEC,
-                false);
+                NO_COMMIT);
         return factory.createOperator(driverContext);
     }
 

@@ -52,6 +52,8 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.PageSinkCommitStrategy.LIFESPAN_COMMIT;
+import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
 import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -127,10 +129,10 @@ public class TestTableFinishOperator
 
         List<Type> inputTypes = ImmutableList.of(BIGINT, VARBINARY, VARBINARY, BIGINT);
 
-        byte[] tableCommitContextForStatsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, false);
+        byte[] tableCommitContextForStatsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, NO_COMMIT, false);
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, tableCommitContextForStatsPage, 6).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, tableCommitContextForStatsPage, 7).build().get(0));
-        byte[] tableCommitContextForFragmentsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, true);
+        byte[] tableCommitContextForFragmentsPage = getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, NO_COMMIT, true);
         operator.addInput(rowPagesBuilder(inputTypes).row(4, new byte[] {1}, tableCommitContextForFragmentsPage, null).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(5, new byte[] {2}, tableCommitContextForFragmentsPage, null).build().get(0));
 
@@ -209,25 +211,25 @@ public class TestTableFinishOperator
 
         // pages for non-grouped execution
         // expect lifespan committer not to be called and stats
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, false), 1).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(3, new byte[] {2}, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, true), null).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, NO_COMMIT, false), 1).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(3, new byte[] {2}, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, NO_COMMIT, true), null).build().get(0));
         assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for unrecoverable grouped execution
         // expect lifespan committer not to be called
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, false), 4).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(6, new byte[] {5}, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, true), null).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, NO_COMMIT, false), 4).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(6, new byte[] {5}, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, NO_COMMIT, true), null).build().get(0));
         assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for failed recoverable grouped execution
         // expect lifespan committer not to be called and page ignored
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 2, true, false), 100).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 2, LIFESPAN_COMMIT, false), 100).build().get(0));
         assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for successful recoverable grouped execution
         // expect lifespan committer to be called and pages published
-        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, false), 9).build().get(0));
-        operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, true), null).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, false), 9).build().get(0));
+        operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, LIFESPAN_COMMIT, true), null).build().get(0));
         assertEquals(getOnlyElement(pageSinkCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
 
         assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
@@ -267,9 +269,14 @@ public class TestTableFinishOperator
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
-    private static byte[] getTableCommitContextBytes(Lifespan lifespan, int stageId, int taskId, boolean lifespanCommitRequired, boolean lastPage)
+    private static byte[] getTableCommitContextBytes(Lifespan lifespan, int stageId, int taskId, PageSinkCommitStrategy pageSinkCommitStrategy, boolean lastPage)
     {
-        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, new TaskId("query", stageId, 0, taskId), lifespanCommitRequired, lastPage));
+        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
+                new TableCommitContext(
+                        lifespan,
+                        new TaskId("query", stageId, 0, taskId),
+                        pageSinkCommitStrategy,
+                        lastPage));
     }
 
     private static class TestingTableFinisher

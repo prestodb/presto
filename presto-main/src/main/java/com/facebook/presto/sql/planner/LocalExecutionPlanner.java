@@ -58,6 +58,7 @@ import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PageSinkCommitStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.PartitionFunction;
@@ -2322,7 +2323,9 @@ public class LocalExecutionPlanner
                     statisticsAggregation,
                     getVariableTypes(node.getOutputVariables()),
                     tableCommitContextCodec,
-                    stageExecutionDescriptor.isRecoverableGroupedExecution());
+                    stageExecutionDescriptor.isRecoverableGroupedExecution()
+                            ? PageSinkCommitStrategy.LIFESPAN_COMMIT
+                            : PageSinkCommitStrategy.NO_COMMIT);
 
             return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
         }
