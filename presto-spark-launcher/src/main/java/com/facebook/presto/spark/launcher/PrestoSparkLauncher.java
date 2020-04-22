@@ -15,15 +15,8 @@ package com.facebook.presto.spark.launcher;
 
 import io.airlift.airline.ParseException;
 import io.airlift.airline.SingleCommand;
-import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
-
-import java.io.File;
 
 import static com.facebook.presto.spark.launcher.Commands.parseCommandNoValidate;
-import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
-import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
-import static com.facebook.presto.spark.launcher.LauncherUtils.loadProperties;
 import static io.airlift.airline.SingleCommand.singleCommand;
 import static java.lang.System.exit;
 
@@ -32,22 +25,6 @@ public class PrestoSparkLauncher
     private PrestoSparkLauncher() {}
 
     public static void main(String[] args)
-    {
-        runPrestoSpark(args, clientOptions -> {
-            SparkConf sparkConfiguration = new SparkConf()
-                    .setAppName("Presto");
-            SparkContext sparkContext = new SparkContext(sparkConfiguration);
-            TargzBasedPackageSupplier packageSupplier = new TargzBasedPackageSupplier(new File(clientOptions.packagePath));
-            packageSupplier.deploy(sparkContext);
-            return new PrestoSparkDistribution(
-                    sparkContext,
-                    packageSupplier,
-                    loadProperties(checkFile(new File(clientOptions.config))),
-                    loadCatalogProperties(new File(clientOptions.catalogs)));
-        });
-    }
-
-    public static void runPrestoSpark(String[] args, PrestoSparkDistributionFactory distributionFactory)
     {
         SingleCommand<PrestoSparkLauncherCommand> command = singleCommand(PrestoSparkLauncherCommand.class);
 
@@ -69,7 +46,7 @@ public class PrestoSparkLauncher
         }
 
         try {
-            console.run(distributionFactory);
+            console.run();
             exit(0);
         }
         catch (RuntimeException e) {
