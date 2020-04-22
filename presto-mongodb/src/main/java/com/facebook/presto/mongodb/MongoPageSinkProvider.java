@@ -41,7 +41,7 @@ public class MongoPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Mongo connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Mongo connector does not support page sink commit");
 
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
@@ -50,7 +50,7 @@ public class MongoPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Mongo connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Mongo connector does not support page sink commit");
 
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());

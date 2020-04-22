@@ -2606,14 +2606,14 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             SchemaTableName temporaryCreateTable = temporaryTable("create");
-            SchemaTableName temporaryCreateTableForPartitionCommit = temporaryTable("create_partition_commit");
+            SchemaTableName temporaryCreateTableForPageSinkCommit = temporaryTable("create_table_page_sink_commit");
             try {
                 doCreateTable(temporaryCreateTable, storageFormat, PageSinkProperties.defaultProperties());
-                doCreateTable(temporaryCreateTableForPartitionCommit, storageFormat, PageSinkProperties.builder().setPartitionCommitRequired(true).build());
+                doCreateTable(temporaryCreateTableForPageSinkCommit, storageFormat, PageSinkProperties.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryCreateTable);
-                dropTable(temporaryCreateTableForPartitionCommit);
+                dropTable(temporaryCreateTableForPageSinkCommit);
             }
         }
     }
@@ -2904,14 +2904,14 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             SchemaTableName temporaryInsertTable = temporaryTable("insert");
-            SchemaTableName temporaryInsertTableForPartitionCommit = temporaryTable("insert_partition_commit");
+            SchemaTableName temporaryInsertTableForPageSinkCommit = temporaryTable("insert_table_page_sink_commit");
             try {
                 doInsert(storageFormat, temporaryInsertTable, PageSinkProperties.defaultProperties());
-                doInsert(storageFormat, temporaryInsertTableForPartitionCommit, PageSinkProperties.builder().setPartitionCommitRequired(true).build());
+                doInsert(storageFormat, temporaryInsertTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertTable);
-                dropTable(temporaryInsertTableForPartitionCommit);
+                dropTable(temporaryInsertTableForPageSinkCommit);
             }
         }
     }
@@ -2922,14 +2922,14 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             SchemaTableName temporaryInsertIntoNewPartitionTable = temporaryTable("insert_new_partitioned");
-            SchemaTableName temporaryInsertIntoNewPartitionTableForPartitionCommit = temporaryTable("insert_new_partitioned_partition_commit");
+            SchemaTableName temporaryInsertIntoNewPartitionTableForPageSinkCommit = temporaryTable("insert_new_partitioned_page_sink_commit");
             try {
                 doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTable, PageSinkProperties.defaultProperties());
-                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPartitionCommit, PageSinkProperties.builder().setPartitionCommitRequired(true).build());
+                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertIntoNewPartitionTable);
-                dropTable(temporaryInsertIntoNewPartitionTableForPartitionCommit);
+                dropTable(temporaryInsertIntoNewPartitionTableForPageSinkCommit);
             }
         }
     }
@@ -2940,14 +2940,14 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             SchemaTableName temporaryInsertIntoExistingPartitionTable = temporaryTable("insert_existing_partitioned");
-            SchemaTableName temporaryInsertIntoExistingPartitionTableForPartitionCommit = temporaryTable("insert_existing_partitioned_partition_commit");
+            SchemaTableName temporaryInsertIntoExistingPartitionTableForPageSinkCommit = temporaryTable("insert_existing_partitioned_page_sink_commit");
             try {
                 doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTable, PageSinkProperties.defaultProperties());
-                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPartitionCommit, PageSinkProperties.builder().setPartitionCommitRequired(true).build());
+                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertIntoExistingPartitionTable);
-                dropTable(temporaryInsertIntoExistingPartitionTableForPartitionCommit);
+                dropTable(temporaryInsertIntoExistingPartitionTableForPageSinkCommit);
             }
         }
     }
@@ -3696,8 +3696,8 @@ public abstract class AbstractTestHiveClient
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
-            if (pageSinkProperties.isPartitionCommitRequired()) {
-                assertValidPartitionCommitFragments(fragments);
+            if (pageSinkProperties.isCommitRequired()) {
+                assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPartitionAsync(session, outputHandle, fragments).get();
             }
 
@@ -3865,8 +3865,8 @@ public abstract class AbstractTestHiveClient
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isPartitionCommitRequired()) {
-                assertValidPartitionCommitFragments(fragments);
+            if (pageSinkProperties.isCommitRequired()) {
+                assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
@@ -4088,8 +4088,8 @@ public abstract class AbstractTestHiveClient
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkProperties);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isPartitionCommitRequired()) {
-                assertValidPartitionCommitFragments(fragments);
+            if (pageSinkProperties.isCommitRequired()) {
+                assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
@@ -4207,8 +4207,8 @@ public abstract class AbstractTestHiveClient
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isPartitionCommitRequired()) {
-                assertValidPartitionCommitFragments(fragments);
+            if (pageSinkProperties.isCommitRequired()) {
+                assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
@@ -4260,7 +4260,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertValidPartitionCommitFragments(Collection<Slice> fragments)
+    private static void assertValidPageSinkCommitFragments(Collection<Slice> fragments)
     {
         fragments.stream()
                 .map(Slice::getBytes)
