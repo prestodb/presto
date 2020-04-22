@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
+import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
 import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.extractStatisticsRows;
@@ -347,7 +348,7 @@ public class TableFinishOperator
             // Case 1: lifespan commit is not required, this can be one of the following cases:
             //  - The source fragment is ungrouped execution (lifespan is TASK_WIDE).
             //  - The source fragment is grouped execution but not recoverable.
-            if (!tableCommitContext.isLifespanCommitRequired()) {
+            if (tableCommitContext.getPageSinkCommitStrategy() == NO_COMMIT) {
                 unrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
                 return;
             }
@@ -380,7 +381,7 @@ public class TableFinishOperator
         List<Page> getStatisticsPagesToProcess(Page page, TableCommitContext tableCommitContext)
         {
             LifespanAndStage lifespanAndStage = LifespanAndStage.fromTableCommitContext(tableCommitContext);
-            if (!tableCommitContext.isLifespanCommitRequired()) {
+            if (tableCommitContext.getPageSinkCommitStrategy() == NO_COMMIT) {
                 return extractStatisticsRows(page).map(ImmutableList::of).orElse(ImmutableList.of());
             }
             if (!committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {

@@ -223,7 +223,7 @@ public class TableWriterMergeOperator
     {
         return first.getLifespan().equals(second.getLifespan()) &&
                 first.getTaskId().equals(second.getTaskId()) &&
-                first.isLifespanCommitRequired() == second.isLifespanCommitRequired();
+                first.getPageSinkCommitStrategy() == second.getPageSinkCommitStrategy();
     }
 
     private long getRetainedMemoryBytes()
@@ -313,7 +313,7 @@ public class TableWriterMergeOperator
         return wrappedBuffer(tableCommitContextCodec.toJsonBytes(new TableCommitContext(
                 lastTableCommitContext.getLifespan(),
                 lastTableCommitContext.getTaskId(),
-                lastTableCommitContext.isLifespanCommitRequired(),
+                lastTableCommitContext.getPageSinkCommitStrategy(),
                 lastPage)));
     }
 
