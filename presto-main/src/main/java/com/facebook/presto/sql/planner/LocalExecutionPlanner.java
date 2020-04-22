@@ -75,7 +75,7 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.TableCommitContext;
-import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
+import com.facebook.presto.operator.TableFinishOperator.PageSinkCommitter;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TableWriterMergeOperator.TableWriterMergeOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -2452,7 +2452,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     createTableFinisher(session, metadata, writerTarget),
-                    createLifespanCommitter(session, metadata, writerTarget),
+                    createPageSinkCommitter(session, metadata, writerTarget),
                     statisticsAggregation,
                     descriptor,
                     session,
@@ -2907,14 +2907,14 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static LifespanCommitter createLifespanCommitter(Session session, Metadata metadata, ExecutionWriterTarget target)
+    private static PageSinkCommitter createPageSinkCommitter(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
         return fragments -> {
             if (target instanceof CreateHandle) {
-                return metadata.commitPartitionAsync(session, ((CreateHandle) target).getHandle(), fragments);
+                return metadata.commitPageSinkAsync(session, ((CreateHandle) target).getHandle(), fragments);
             }
             else if (target instanceof InsertHandle) {
-                return metadata.commitPartitionAsync(session, ((InsertHandle) target).getHandle(), fragments);
+                return metadata.commitPageSinkAsync(session, ((InsertHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
