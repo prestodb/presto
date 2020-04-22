@@ -150,6 +150,7 @@ public class FeaturesConfig
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
     private boolean useLegacyScheduler = true;
+    private boolean optimizeCommonSubExpressions = true;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1221,6 +1222,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
     {
         this.useLegacyScheduler = useLegacyScheduler;
+        return this;
+    }
+
+    public boolean isOptimizeCommonSubExpressions()
+    {
+        return optimizeCommonSubExpressions;
+    }
+
+    @Config("optimize-common-sub-expressions")
+    @ConfigDescription("Extract and compute common sub expression in projections")
+    public FeaturesConfig setOptimizeCommonSubExpressions(boolean optimizeCommonSubExpressions)
+    {
+        this.optimizeCommonSubExpressions = optimizeCommonSubExpressions;
         return this;
     }
 }

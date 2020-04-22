@@ -149,6 +149,7 @@ public final class SystemSessionProperties
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
     public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
     public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
+    public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -752,11 +753,15 @@ public final class SystemSessionProperties
                         "Enable listing of functions marked as experimental",
                         featuresConfig.isExperimentalFunctionsEnabled(),
                         false),
-
                 booleanProperty(
                         USE_LEGACY_SCHEDULER,
                         "Use version of scheduler before refactorings for section retries",
                         featuresConfig.isUseLegacyScheduler(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_COMMON_SUB_EXPRESSIONS,
+                        "Extract and compute common sub-expressions in projection",
+                        featuresConfig.isOptimizeCommonSubExpressions(),
                         false));
     }
 
@@ -1282,5 +1287,10 @@ public final class SystemSessionProperties
     public static boolean isUseLegacyScheduler(Session session)
     {
         return session.getSystemProperty(USE_LEGACY_SCHEDULER, Boolean.class);
+    }
+
+    public static boolean isOptimizeCommonSubExpressions(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_COMMON_SUB_EXPRESSIONS, Boolean.class);
     }
 }
