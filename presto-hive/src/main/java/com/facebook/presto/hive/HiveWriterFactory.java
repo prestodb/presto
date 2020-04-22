@@ -136,7 +136,7 @@ public class HiveWriterFactory
 
     private final HiveWriterStats hiveWriterStats;
 
-    private final boolean partitionCommitRequired;
+    private final boolean writeToTempFile;
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
@@ -289,7 +289,9 @@ public class HiveWriterFactory
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
 
-        this.partitionCommitRequired = partitionCommitRequired;
+        // In Hive connector, bucket commit is fulfilled by writing to temporary file in TableWriterOperator, and rename in TableFinishOpeartor
+        // (note Presto partition here loosely maps to Hive bucket)
+        this.writeToTempFile = partitionCommitRequired;
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -326,7 +328,7 @@ public class HiveWriterFactory
         }
 
         String writeFileName;
-        if (partitionCommitRequired) {
+        if (writeToTempFile) {
             writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
         }
         else {
