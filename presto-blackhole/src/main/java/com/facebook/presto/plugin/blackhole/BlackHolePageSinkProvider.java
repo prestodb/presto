@@ -38,7 +38,7 @@ public class BlackHolePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Black hole connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleOutputTableHandle handle = (BlackHoleOutputTableHandle) outputTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }
@@ -46,7 +46,7 @@ public class BlackHolePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Black hole connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }

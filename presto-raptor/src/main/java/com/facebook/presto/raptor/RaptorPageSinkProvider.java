@@ -55,7 +55,7 @@ public class RaptorPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Raptor connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Raptor connector does not support page sink commit");
 
         RaptorOutputTableHandle handle = (RaptorOutputTableHandle) tableHandle;
         return new RaptorPageSink(
@@ -78,7 +78,7 @@ public class RaptorPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Raptor connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Raptor connector does not support page sink commit");
 
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) tableHandle;
         return new RaptorPageSink(

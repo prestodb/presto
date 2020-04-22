@@ -40,7 +40,7 @@ public class KuduPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Kudu connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Kudu connector does not support page sink commit");
         requireNonNull(outputTableHandle, "outputTableHandle is null");
         checkArgument(outputTableHandle instanceof KuduOutputTableHandle, "outputTableHandle is not an instance of KuduOutputTableHandle");
         KuduOutputTableHandle handle = (KuduOutputTableHandle) outputTableHandle;
@@ -51,7 +51,7 @@ public class KuduPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Kudu connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Kudu connector does not support page sink commit");
         requireNonNull(insertTableHandle, "insertTableHandle is null");
         checkArgument(insertTableHandle instanceof KuduInsertTableHandle, "insertTableHandle is not an instance of KuduInsertTableHandle");
         KuduInsertTableHandle handle = (KuduInsertTableHandle) insertTableHandle;

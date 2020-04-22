@@ -40,7 +40,7 @@ public class CassandraPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Cassandra connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Cassandra connector does not support page sink commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
@@ -57,7 +57,7 @@ public class CassandraPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
-        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Cassandra connector does not support partition commit");
+        checkArgument(!pageSinkProperties.isCommitRequired(), "Cassandra connector does not support page sink commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraInsertTableHandle, "tableHandle is not an instance of ConnectorInsertTableHandle");
         CassandraInsertTableHandle handle = (CassandraInsertTableHandle) tableHandle;
