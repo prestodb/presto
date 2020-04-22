@@ -71,7 +71,7 @@ public class TableFinishOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final TableFinisher tableFinisher;
-        private final LifespanCommitter lifespanCommitter;
+        private final PageSinkCommitter pageSinkCommitter;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final StatisticAggregationsDescriptor<Integer> descriptor;
         private final Session session;
@@ -83,7 +83,7 @@ public class TableFinishOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 TableFinisher tableFinisher,
-                LifespanCommitter lifespanCommitter,
+                PageSinkCommitter pageSinkCommitter,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 StatisticAggregationsDescriptor<Integer> descriptor,
                 Session session,
@@ -92,7 +92,7 @@ public class TableFinishOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.tableFinisher = requireNonNull(tableFinisher, "tableFinisher is null");
-            this.lifespanCommitter = requireNonNull(lifespanCommitter, "lifespanCommitter is null");
+            this.pageSinkCommitter = requireNonNull(pageSinkCommitter, "pageSinkCommitter is null");
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.session = requireNonNull(session, "session is null");
@@ -106,7 +106,7 @@ public class TableFinishOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableFinishOperator(context, tableFinisher, lifespanCommitter, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, tableCommitContextCodec);
+            return new TableFinishOperator(context, tableFinisher, pageSinkCommitter, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, tableCommitContextCodec);
         }
 
         @Override
@@ -118,7 +118,7 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, lifespanCommitter, statisticsAggregationOperatorFactory, descriptor, session, tableCommitContextCodec);
+            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, pageSinkCommitter, statisticsAggregationOperatorFactory, descriptor, session, tableCommitContextCodec);
         }
     }
 
@@ -145,7 +145,7 @@ public class TableFinishOperator
     public TableFinishOperator(
             OperatorContext operatorContext,
             TableFinisher tableFinisher,
-            LifespanCommitter lifespanCommitter,
+            PageSinkCommitter pageSinkCommitter,
             Operator statisticsAggregationOperator,
             StatisticAggregationsDescriptor<Integer> descriptor,
             boolean statisticsCpuTimerEnabled,
@@ -157,7 +157,7 @@ public class TableFinishOperator
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
-        this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(lifespanCommitter);
+        this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter);
 
         operatorContext.setInfoSupplier(this::getInfo);
     }
@@ -299,9 +299,9 @@ public class TableFinishOperator
         Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
     }
 
-    public interface LifespanCommitter
+    public interface PageSinkCommitter
     {
-        ListenableFuture<Void> commitLifespan(Collection<Slice> fragments);
+        ListenableFuture<Void> commitAsync(Collection<Slice> fragments);
     }
 
     // A lifespan in a stage defines the unit for commit and recovery in recoverable grouped execution
@@ -314,12 +314,12 @@ public class TableFinishOperator
         private final Map<LifespanAndStage, Map<TaskId, LifespanAndStageState>> uncommittedRecoverableLifespanAndStageStates = new HashMap<>();
         private final Map<LifespanAndStage, LifespanAndStageState> committedRecoverableLifespanAndStages = new HashMap<>();
 
-        private final LifespanCommitter lifespanCommitter;
+        private final PageSinkCommitter pageSinkCommitter;
         private final List<ListenableFuture<Void>> commitFutures = new ArrayList<>();
 
-        LifespanAndStageStateTracker(LifespanCommitter lifespanCommitter)
+        LifespanAndStageStateTracker(PageSinkCommitter pageSinkCommitter)
         {
-            this.lifespanCommitter = requireNonNull(lifespanCommitter, "lifespanCommitter is null");
+            this.pageSinkCommitter = requireNonNull(pageSinkCommitter, "pageSinkCommitter is null");
         }
 
         public void waitForAllLifespanCommitted()
@@ -373,7 +373,7 @@ public class TableFinishOperator
                 LifespanAndStageState lifespanAndStageState = lifespanStageStatesPerTask.get(tableCommitContext.getTaskId());
                 committedRecoverableLifespanAndStages.put(lifespanAndStage, lifespanAndStageState);
                 uncommittedRecoverableLifespanAndStageStates.remove(lifespanAndStage);
-                commitFutures.add(lifespanCommitter.commitLifespan(lifespanAndStageState.getFragments()));
+                commitFutures.add(pageSinkCommitter.commitAsync(lifespanAndStageState.getFragments()));
             }
         }
 

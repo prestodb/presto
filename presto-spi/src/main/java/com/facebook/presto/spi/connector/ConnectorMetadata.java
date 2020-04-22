@@ -677,24 +677,24 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Commits partition for table creation.
-     * To enable recoverable grouped execution, it is required that output connector supports partition commit.
+     * Commits page sink for table creation.
+     * To enable recoverable grouped execution, it is required that output connector supports page sink commit.
      * This method is unstable and subject to change in the future.
      */
     @Experimental
-    default CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
     }
 
     /**
-     * Commits partition for table insertion.
-     * To enable recoverable grouped execution, it is required that output connector supports partition commit.
+     * Commits page sink for table insertion.
+     * To enable recoverable grouped execution, it is required that output connector supports page sink commit.
      * This method is unstable and subject to change in the future.
      */
     @Experimental
-    default CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
     }
 }

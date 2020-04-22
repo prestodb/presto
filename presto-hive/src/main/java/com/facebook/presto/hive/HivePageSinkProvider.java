@@ -123,7 +123,7 @@ public class HivePageSinkProvider
         return createPageSink(handle, false, session, pageSinkProperties.isCommitRequired());
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean partitionCommitRequired)
+    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean commitRequired)
     {
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy;
@@ -165,7 +165,7 @@ public class HivePageSinkProvider
                 hiveSessionProperties,
                 hiveWriterStats,
                 orcFileWriterFactory,
-                partitionCommitRequired);
+                commitRequired);
 
         return new HivePageSink(
                 writerFactory,

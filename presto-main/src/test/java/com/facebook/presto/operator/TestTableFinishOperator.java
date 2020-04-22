@@ -18,7 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
+import com.facebook.presto.operator.TableFinishOperator.PageSinkCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import com.facebook.presto.operator.TableFinishOperator.TableFinisher;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -97,7 +97,7 @@ public class TestTableFinishOperator
             throws Exception
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
-        TestingLifespanCommitter lifespanCommitter = new TestingLifespanCommitter();
+        TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
@@ -110,7 +110,7 @@ public class TestTableFinishOperator
                 0,
                 new PlanNodeId("node"),
                 tableFinisher,
-                lifespanCommitter,
+                pageSinkCommitter,
                 new AggregationOperator.AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
@@ -166,18 +166,18 @@ public class TestTableFinishOperator
         assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
         assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
 
-        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+        assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     @Test
-    public void testLifespanCommit()
+    public void testTableWriteCommit()
             throws Exception
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
-        TestingLifespanCommitter lifespanCommitter = new TestingLifespanCommitter();
+        TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
@@ -190,7 +190,7 @@ public class TestTableFinishOperator
                 0,
                 new PlanNodeId("node"),
                 tableFinisher,
-                lifespanCommitter,
+                pageSinkCommitter,
                 new AggregationOperator.AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
@@ -211,24 +211,24 @@ public class TestTableFinishOperator
         // expect lifespan committer not to be called and stats
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, false), 1).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(3, new byte[] {2}, getTableCommitContextBytes(Lifespan.taskWide(), 0, 0, false, true), null).build().get(0));
-        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+        assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for unrecoverable grouped execution
         // expect lifespan committer not to be called
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, false), 4).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(6, new byte[] {5}, getTableCommitContextBytes(Lifespan.driverGroup(1), 1, 1, false, true), null).build().get(0));
-        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+        assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for failed recoverable grouped execution
         // expect lifespan committer not to be called and page ignored
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 2, true, false), 100).build().get(0));
-        assertTrue(lifespanCommitter.getCommittedFragments().isEmpty());
+        assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
         // pages for successful recoverable grouped execution
         // expect lifespan committer to be called and pages published
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, false), 9).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(11, new byte[] {10}, getTableCommitContextBytes(Lifespan.driverGroup(2), 2, 3, true, true), null).build().get(0));
-        assertEquals(getOnlyElement(lifespanCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
+        assertEquals(getOnlyElement(pageSinkCommitter.getCommittedFragments()), ImmutableList.of(Slices.wrappedBuffer(new byte[] {10})));
 
         assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
         assertEquals(driverContext.getMemoryUsage(), 0);
@@ -300,13 +300,13 @@ public class TestTableFinishOperator
         }
     }
 
-    private static class TestingLifespanCommitter
-            implements LifespanCommitter
+    private static class TestingPageSinkCommitter
+            implements PageSinkCommitter
     {
         private List<Collection<Slice>> fragmentsList = new ArrayList<>();
 
         @Override
-        public ListenableFuture<Void> commitLifespan(Collection<Slice> fragments)
+        public ListenableFuture<Void> commitAsync(Collection<Slice> fragments)
         {
             fragmentsList.add(fragments);
             return immediateFuture(null);
