@@ -33,10 +33,19 @@ public class TestPrestoSparkQueryRunner
                 "FROM orders",
                 15000);
 
+        assertUpdate(
+                "INSERT INTO hive.hive_test.hive_orders " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders",
+                15000);
+
         assertQuery(
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM hive.hive_test.hive_orders",
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders " +
+                        "UNION ALL " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM orders");
     }
 

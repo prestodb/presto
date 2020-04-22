@@ -17,12 +17,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.SplitManager;
@@ -35,16 +40,20 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +76,33 @@ public class PrestoSparkSplitEnumerator
         StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
         checkState(streamingPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
         StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
-        return new PrestoSparkPlan(resolveTaskSources(session, plan), createTableWriteInfo(streamingSubPlan, metadata, session));
+        TableWriteInfo writeInfo = createTableWriteInfo(streamingSubPlan, metadata, session);
+        if (writeInfo.getWriterTarget().isPresent()) {
+            checkPageSinkCommitIsSupported(session, writeInfo.getWriterTarget().get());
+        }
+        return new PrestoSparkPlan(resolveTaskSources(session, plan), writeInfo);
+    }
+
+    private void checkPageSinkCommitIsSupported(Session session, ExecutionWriterTarget writerTarget)
+    {
+        ConnectorId connectorId;
+        if (writerTarget instanceof ExecutionWriterTarget.DeleteHandle) {
+            throw new PrestoException(NOT_SUPPORTED, "delete queries are not supported by presto on spark");
+        }
+        else if (writerTarget instanceof ExecutionWriterTarget.CreateHandle) {
+            connectorId = ((ExecutionWriterTarget.CreateHandle) writerTarget).getHandle().getConnectorId();
+        }
+        else if (writerTarget instanceof ExecutionWriterTarget.InsertHandle) {
+            connectorId = ((ExecutionWriterTarget.InsertHandle) writerTarget).getHandle().getConnectorId();
+        }
+        else {
+            throw new IllegalArgumentException("unexpected writer target type: " + writerTarget.getClass());
+        }
+        verify(connectorId != null, "connectorId is null");
+        Set<ConnectorCapabilities> connectorCapabilities = metadata.getConnectorCapabilities(session, connectorId);
+        if (!connectorCapabilities.contains(SUPPORTS_PAGE_SINK_COMMIT)) {
+            throw new PrestoException(NOT_SUPPORTED, "catalog does not support page sink commit: " + connectorId);
+        }
     }
 
     private PrestoSparkSubPlan resolveTaskSources(Session session, SubPlan plan)
