@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
@@ -189,8 +190,10 @@ public class InlineProjections
                 .flatMap(expression -> extractTryArguments(expression, types).stream())
                 .collect(toSet());
 
+        boolean optimizeCommonSubExpression = isOptimizeCommonSubExpressions(context.getSession());
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()
-                .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
+                // if optimize_common_sub_expression is not enabled, or reference appears just once across all expressions in parent project node
+                .filter(entry -> optimizeCommonSubExpression || entry.getValue() == 1)
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
                 .filter(entry -> !isIdentity(child.getAssignments(), entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .map(Map.Entry::getKey)
