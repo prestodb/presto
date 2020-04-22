@@ -25,19 +25,19 @@ public class TableCommitContext
 {
     private final Lifespan lifespan;
     private final TaskId taskId;
-    private final boolean lifespanCommitRequired;
+    private final PageSinkCommitStrategy pageSinkCommitStrategy;
     private final boolean lastPage;
 
     @JsonCreator
     public TableCommitContext(
             @JsonProperty("lifespan") Lifespan lifespan,
             @JsonProperty("taskId") TaskId taskId,
-            @JsonProperty("lifespanCommitRequired") boolean lifespanCommitRequired,
+            @JsonProperty("pageSinkCommitStrategy") PageSinkCommitStrategy pageSinkCommitStrategy,
             @JsonProperty("lastPage") boolean lastPage)
     {
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.lifespanCommitRequired = lifespanCommitRequired;
+        this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
         this.lastPage = lastPage;
     }
 
@@ -54,9 +54,9 @@ public class TableCommitContext
     }
 
     @JsonProperty
-    public boolean isLifespanCommitRequired()
+    public PageSinkCommitStrategy getPageSinkCommitStrategy()
     {
-        return lifespanCommitRequired;
+        return pageSinkCommitStrategy;
     }
 
     @JsonProperty
@@ -71,7 +71,7 @@ public class TableCommitContext
         return toStringHelper(this)
                 .add("lifespan", lifespan)
                 .add("taskId", taskId)
-                .add("lifespanCommitRequired", lifespanCommitRequired)
+                .add("pageSinkCommitStrategy", pageSinkCommitStrategy)
                 .add("lastPage", lastPage)
                 .toString();
     }

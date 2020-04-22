@@ -75,7 +75,7 @@ public class TableWriterOperator
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final List<Type> types;
-        private final boolean partitionCommitRequired;
+        private final PageSinkCommitStrategy pageSinkCommitStrategy;
         private boolean closed;
         private final JsonCodec<TableCommitContext> tableCommitContextCodec;
 
@@ -89,7 +89,7 @@ public class TableWriterOperator
                 OperatorFactory statisticsAggregationOperatorFactory,
                 List<Type> types,
                 JsonCodec<TableCommitContext> tableCommitContextCodec,
-                boolean partitionCommitRequired)
+                PageSinkCommitStrategy pageSinkCommitStrategy)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -101,7 +101,7 @@ public class TableWriterOperator
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
-            this.partitionCommitRequired = partitionCommitRequired;
+            this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
         }
 
         @Override
@@ -119,16 +119,19 @@ public class TableWriterOperator
                     types,
                     statisticsCpuTimerEnabled,
                     tableCommitContextCodec,
-                    partitionCommitRequired);
+                    pageSinkCommitStrategy);
         }
 
         private ConnectorPageSink createPageSink()
         {
+            PageSinkProperties pageSinkProperties = PageSinkProperties.builder()
+                    .setCommitRequired(pageSinkCommitStrategy.isCommitRequired())
+                    .build();
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.builder().setCommitRequired(partitionCommitRequired).build());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkProperties);
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.builder().setCommitRequired(partitionCommitRequired).build());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkProperties);
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
@@ -142,7 +145,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, partitionCommitRequired);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, pageSinkCommitStrategy);
         }
     }
 
@@ -171,7 +174,7 @@ public class TableWriterOperator
     private final boolean statisticsCpuTimerEnabled;
 
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
-    private final boolean partitionCommitRequired;
+    private final PageSinkCommitStrategy pageSinkCommitStrategy;
 
     public TableWriterOperator(
             OperatorContext operatorContext,
@@ -181,7 +184,7 @@ public class TableWriterOperator
             List<Type> types,
             boolean statisticsCpuTimerEnabled,
             JsonCodec<TableCommitContext> tableCommitContextCodec,
-            boolean partitionCommitRequired)
+            PageSinkCommitStrategy pageSinkCommitStrategy)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
@@ -192,7 +195,7 @@ public class TableWriterOperator
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
-        this.partitionCommitRequired = partitionCommitRequired;
+        this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
     }
 
     @Override
@@ -344,7 +347,7 @@ public class TableWriterOperator
                 new TableCommitContext(
                         operatorContext.getDriverContext().getLifespan(),
                         taskId,
-                        partitionCommitRequired,
+                        pageSinkCommitStrategy,
                         lastPage)));
     }
 
