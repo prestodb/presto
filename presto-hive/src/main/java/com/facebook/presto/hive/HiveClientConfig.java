@@ -40,6 +40,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -153,7 +154,7 @@ public class HiveClientConfig
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
 
     private String temporaryTableSchema = "default";
-    private HiveStorageFormat temporaryTableStorageFormat = ORC;
+    private HiveStorageFormat temporaryTableStorageFormat = PAGEFILE;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
     private boolean pushdownFilterEnabled;
