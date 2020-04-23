@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.geospatial.serde;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,9 +33,9 @@ import org.locationtech.jts.geom.TopologyException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.Page;
+
 public interface BucketFunction
 {
     /**

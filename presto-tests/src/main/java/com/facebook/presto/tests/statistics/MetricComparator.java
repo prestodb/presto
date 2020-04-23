@@ -14,9 +14,9 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.testing.MaterializedRow;

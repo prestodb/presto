@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 import javax.annotation.Nullable;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 
 // This methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")

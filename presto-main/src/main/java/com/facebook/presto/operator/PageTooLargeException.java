@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
+import static com.facebook.presto.common.StandardErrorCode.PAGE_TOO_LARGE;
 
 public class PageTooLargeException
         extends PrestoException

@@ -15,8 +15,8 @@ package com.facebook.presto.server.remotetask;
 
 import com.facebook.airlift.event.client.ServiceUnavailableException;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
@@ -37,9 +37,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.spi.HostAddress.fromUri;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

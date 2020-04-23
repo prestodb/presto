@@ -14,6 +14,8 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.atop.AtopTable.AtopColumn;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnNotFoundException;
@@ -27,8 +29,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -43,7 +43,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.atop.AtopTable.AtopColumn.END_TIME;
 import static com.facebook.presto.atop.AtopTable.AtopColumn.START_TIME;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopMetadata

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.OperatorType.CAST;
 
 public final class QuantileDigestOperators
 {

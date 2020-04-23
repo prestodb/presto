@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsFirst;
 import static java.util.stream.Collectors.toList;

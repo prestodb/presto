@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
+
 public class PrestoTransportException
         extends PrestoException
 {

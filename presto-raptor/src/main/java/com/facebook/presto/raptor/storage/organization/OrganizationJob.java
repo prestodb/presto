@@ -30,7 +30,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;

@@ -17,8 +17,8 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.type.Type;
 import com.google.common.base.Preconditions;
 
 import java.util.List;

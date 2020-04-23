@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.PrimitiveIterator;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHeap

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.ErrorType;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPql;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -20,11 +24,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.Iterables;
@@ -38,11 +38,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.pinot.PinotSplit.createBrokerSplit;
 import static com.facebook.presto.pinot.PinotSplit.createSegmentSplit;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.TABLE_NAME_SUFFIX_TEMPLATE;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.TIME_BOUNDARY_FILTER_TEMPLATE;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 

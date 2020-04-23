@@ -98,11 +98,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 
 public class NoOpVariableResolver
         implements VariableResolver

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestUnnestStatsRule

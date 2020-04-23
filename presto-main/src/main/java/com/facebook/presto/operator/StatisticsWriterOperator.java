@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.collect.ImmutableList;
 
@@ -27,8 +27,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

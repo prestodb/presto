@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor.util;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.storage.StoragePageSink;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;

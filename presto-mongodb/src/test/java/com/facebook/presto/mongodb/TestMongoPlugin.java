@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import de.bwaldvogel.mongo.MongoServer;

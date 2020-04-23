@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SplitContext;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;

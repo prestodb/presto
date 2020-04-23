@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
 import com.facebook.presto.operator.PartitionedConsumption.Partition;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpiller;
 import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;

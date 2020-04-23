@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlParameter;
@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.common.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class SqlInvokedFunctionTestUtils
 {

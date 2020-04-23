@@ -13,11 +13,11 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,7 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

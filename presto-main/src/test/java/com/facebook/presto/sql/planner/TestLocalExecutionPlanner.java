@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Joiner;
 import org.intellij.lang.annotations.Language;
@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.COMPILER_ERROR;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

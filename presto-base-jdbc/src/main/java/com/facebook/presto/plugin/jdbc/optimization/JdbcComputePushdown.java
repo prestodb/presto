@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.common.relation.RowExpression;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;

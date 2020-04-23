@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 

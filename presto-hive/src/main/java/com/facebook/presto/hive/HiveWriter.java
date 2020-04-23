@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;

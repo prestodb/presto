@@ -14,10 +14,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;

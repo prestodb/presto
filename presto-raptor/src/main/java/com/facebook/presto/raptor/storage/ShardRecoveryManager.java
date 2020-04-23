@@ -14,12 +14,12 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

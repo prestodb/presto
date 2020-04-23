@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlParameter;
-import com.facebook.presto.spi.type.TypeSignature;
 import org.jdbi.v3.sqlobject.config.RegisterArgumentFactories;
 import org.jdbi.v3.sqlobject.config.RegisterArgumentFactory;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;

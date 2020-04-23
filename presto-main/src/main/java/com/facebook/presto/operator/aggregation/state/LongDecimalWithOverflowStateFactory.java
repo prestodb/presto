@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalWithOverflowStateFactory

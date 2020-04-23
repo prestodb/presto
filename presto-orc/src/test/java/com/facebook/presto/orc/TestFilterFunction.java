@@ -13,20 +13,18 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.relation.Predicate;
-import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.relation.Predicate;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.TestStructBatchStreamReader.PROPERTIES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -37,8 +35,7 @@ public class TestFilterFunction
     @Test
     public void testFilter()
     {
-        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
-        FilterFunction filter = new FilterFunction(session.getSqlFunctionProperties(), true, new IsOddPredicate());
+        FilterFunction filter = new FilterFunction(PROPERTIES, true, new IsOddPredicate());
 
         Block numbers = makeNumbers(0, 1000);
         int[] allPositions = makePositions(0, 1000, 1);

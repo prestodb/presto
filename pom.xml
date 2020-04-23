@@ -158,6 +158,7 @@
         <module>presto-spark-launcher</module>
         <module>presto-spark-testing</module>
         <module>presto-druid</module>
+        <module>presto-common</module>
     </modules>
 
     <dependencyManagement>

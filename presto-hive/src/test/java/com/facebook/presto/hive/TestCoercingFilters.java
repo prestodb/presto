@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.hive.HiveCoercer.IntegerNumberToVarcharCoercer;
 import com.facebook.presto.hive.HiveCoercer.VarcharToIntegerNumberCoercer;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
-import com.facebook.presto.spi.Subfield;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

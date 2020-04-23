@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.spi.security;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static com.facebook.presto.common.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
 
 public class AccessDeniedException

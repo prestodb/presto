@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Ordering;
@@ -24,9 +27,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TopNNode;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;

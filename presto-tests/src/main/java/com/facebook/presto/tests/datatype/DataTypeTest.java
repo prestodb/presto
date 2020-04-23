@@ -14,7 +14,7 @@
 package com.facebook.presto.tests.datatype;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.sql.TestTable;

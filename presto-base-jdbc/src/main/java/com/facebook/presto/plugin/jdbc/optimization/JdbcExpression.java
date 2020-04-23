@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
-import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

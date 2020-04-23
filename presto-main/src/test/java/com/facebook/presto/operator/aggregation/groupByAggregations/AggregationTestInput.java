@@ -14,11 +14,11 @@
 
 package com.facebook.presto.operator.aggregation.groupByAggregations;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.AggregationTestUtils;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
 import com.google.common.base.Suppliers;
 import org.testng.internal.collections.Ints;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;

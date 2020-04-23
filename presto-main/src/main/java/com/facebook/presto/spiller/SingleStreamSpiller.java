@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;

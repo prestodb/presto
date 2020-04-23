@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.block.RunLengthBlockEncoding;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlockBuilder;
+import com.facebook.presto.common.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.block.LongArrayBlockBuilder;
+import com.facebook.presto.common.block.RunLengthBlockEncoding;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.ShortArrayBlockBuilder;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 

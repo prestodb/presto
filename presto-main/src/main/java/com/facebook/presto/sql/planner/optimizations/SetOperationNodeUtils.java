@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.plan.UnionNode;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;

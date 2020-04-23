@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorSession;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,10 +43,10 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -173,7 +173,7 @@ public class TestJdbcConnection
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
+                statement.execute("SET PROPERTIES join_distribution_type = 'BROADCAST'");
             }
 
             assertThat(listSession(connection))
@@ -181,7 +181,7 @@ public class TestJdbcConnection
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION exchange_compression = true");
+                statement.execute("SET PROPERTIES exchange_compression = true");
             }
 
             assertThat(listSession(connection))
@@ -257,7 +257,7 @@ public class TestJdbcConnection
     {
         ImmutableSet.Builder<String> set = ImmutableSet.builder();
         try (Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SHOW SESSION")) {
+                ResultSet rs = statement.executeQuery("SHOW PROPERTIES")) {
             while (rs.next()) {
                 set.add(Joiner.on('|').join(
                         rs.getString(1),

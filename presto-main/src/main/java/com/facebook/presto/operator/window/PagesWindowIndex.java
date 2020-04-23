@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import io.airlift.slice.Slice;
 

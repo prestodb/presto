@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
@@ -20,10 +24,6 @@ import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.operator.WorkProcessor.TransformationState;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.Comparator;
 import java.util.List;

@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 

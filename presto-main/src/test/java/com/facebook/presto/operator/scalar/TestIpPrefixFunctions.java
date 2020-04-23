@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.common.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 

@@ -135,10 +135,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
+            <artifactId>presto-common</artifactId>
+            <version>0.235-SNAPSHOT</version>
         </dependency>
 
         <dependency>

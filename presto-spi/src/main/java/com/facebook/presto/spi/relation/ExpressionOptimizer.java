@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.ConnectorSession;
 
 import java.util.function.Function;

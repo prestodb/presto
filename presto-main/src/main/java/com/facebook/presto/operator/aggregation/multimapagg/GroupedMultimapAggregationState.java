@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.multimapagg;
 
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.AbstractGroupCollectionAggregationState;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 public final class GroupedMultimapAggregationState

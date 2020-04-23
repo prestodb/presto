@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.expressions;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.InputReferenceExpression;
+import com.facebook.presto.common.relation.LambdaDefinitionExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpressionVisitor;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.relation.SpecialFormExpression.Form;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -41,15 +41,15 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;

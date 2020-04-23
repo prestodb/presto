@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -13,27 +13,27 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.annotations.VisibleForTesting;
 
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form;
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

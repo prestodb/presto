@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -31,7 +31,7 @@ import io.airlift.slice.Slice;
 import java.util.Comparator;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @ScalarFunction("array_sort")

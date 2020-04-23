@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
@@ -21,12 +27,6 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;

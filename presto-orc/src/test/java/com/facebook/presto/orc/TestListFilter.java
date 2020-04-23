@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
-import com.facebook.presto.spi.Subfield;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

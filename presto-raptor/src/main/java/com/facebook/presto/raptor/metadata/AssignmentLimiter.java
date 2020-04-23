@@ -14,9 +14,9 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
 

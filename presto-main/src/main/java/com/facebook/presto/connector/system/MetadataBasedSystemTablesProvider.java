@@ -15,10 +15,10 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 

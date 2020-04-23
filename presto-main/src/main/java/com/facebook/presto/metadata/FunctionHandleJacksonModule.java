@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionHandle;
 
 import javax.inject.Inject;
 

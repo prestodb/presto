@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTime;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
 import static org.apache.parquet.io.api.Binary.fromConstantByteBuffer;
 import static org.testng.Assert.assertEquals;

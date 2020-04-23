@@ -14,10 +14,10 @@
 package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
@@ -37,10 +37,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;

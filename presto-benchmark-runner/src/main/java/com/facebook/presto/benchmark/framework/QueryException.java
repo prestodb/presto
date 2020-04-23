@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark.framework;
 
+import com.facebook.presto.common.ErrorCodeSupplier;
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.ErrorCodeSupplier;
 
 import java.util.Optional;
 

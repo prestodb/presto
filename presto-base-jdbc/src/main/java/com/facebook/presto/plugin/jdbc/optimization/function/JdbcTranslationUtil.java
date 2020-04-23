@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization.function;
 
+import com.facebook.presto.common.relation.ConstantExpression;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
 
 import java.util.Arrays;
 import java.util.List;

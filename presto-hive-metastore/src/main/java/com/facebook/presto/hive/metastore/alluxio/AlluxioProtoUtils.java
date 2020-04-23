@@ -27,6 +27,7 @@ import alluxio.grpc.table.LongColumnStatsData;
 import alluxio.grpc.table.StringColumnStatsData;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import alluxio.shaded.client.com.google.protobuf.InvalidProtocolBufferException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -37,7 +38,6 @@ import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;

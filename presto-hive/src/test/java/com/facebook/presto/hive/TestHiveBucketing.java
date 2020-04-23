@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -45,8 +45,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;

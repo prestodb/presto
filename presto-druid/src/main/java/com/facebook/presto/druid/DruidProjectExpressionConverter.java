@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.InputReferenceExpression;
+import com.facebook.presto.common.relation.LambdaDefinitionExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpressionVisitor;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Selection;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;

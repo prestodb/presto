@@ -36,11 +36,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
+import static com.facebook.presto.common.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

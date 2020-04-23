@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.relation.RowExpression;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 

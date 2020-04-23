@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace;
 
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionHandle;
 
 import static java.lang.String.format;
 

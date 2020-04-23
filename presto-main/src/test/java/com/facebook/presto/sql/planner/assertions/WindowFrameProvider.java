@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
@@ -21,7 +21,7 @@ import com.facebook.presto.sql.tree.Expression;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

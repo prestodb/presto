@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import com.facebook.presto.common.PrestoException;
+
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
 
 public abstract class NotFoundException
         extends PrestoException

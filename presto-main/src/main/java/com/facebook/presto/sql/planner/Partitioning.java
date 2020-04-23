@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -38,7 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.common.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.arePartitionHandlesCompatibleForCoalesce;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;

@@ -14,9 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Use;
@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;

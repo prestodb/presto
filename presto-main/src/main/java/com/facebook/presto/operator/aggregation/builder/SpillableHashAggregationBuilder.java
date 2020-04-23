@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
@@ -20,9 +22,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;

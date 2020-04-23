@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
-import com.facebook.presto.spi.block.ColumnarMap;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;

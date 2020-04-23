@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.type.AbstractLongType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.XxHash64;
 
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 
 public final class BingTileOperators
 {

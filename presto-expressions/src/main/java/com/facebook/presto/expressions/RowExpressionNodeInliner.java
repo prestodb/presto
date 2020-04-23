@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.expressions;
 
-import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpression;
 
 import java.util.Map;
 

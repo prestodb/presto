@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.ErrorType;
+import com.facebook.presto.common.StandardErrorCode;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 
 public enum PinotErrorCode
         implements ErrorCodeSupplier
@@ -40,7 +41,7 @@ public enum PinotErrorCode
      * Connectors can use error codes starting at the range 0x0100_0000
      * See https://github.com/prestodb/presto/wiki/Error-Codes
      *
-     * @see com.facebook.presto.spi.StandardErrorCode
+     * @see StandardErrorCode
      */
 
     private final ErrorCode errorCode;

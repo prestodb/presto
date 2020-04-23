@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 
 public class TestLongDecimalStream
         extends AbstractTestValueStream<Slice, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>

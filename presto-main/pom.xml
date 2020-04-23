@@ -43,6 +43,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <version>0.235-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-array</artifactId>
         </dependency>
 
@@ -388,6 +394,14 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <version>0.235-SNAPSHOT</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

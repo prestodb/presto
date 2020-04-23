@@ -18,10 +18,10 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
@@ -50,6 +50,9 @@ import static com.facebook.airlift.http.client.Request.Builder.preparePut;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.common.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.common.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -58,9 +61,6 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
-import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -87,7 +87,8 @@ public class TestQueues
         queryRunner = createQueryRunner();
         client = new JettyHttpClient();
         objectMapper = new ObjectMapperProvider().get();
-        objectMapper.registerModule(new SimpleModule() {
+        objectMapper.registerModule(new SimpleModule()
+        {
             {
                 addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(new TypeRegistry()));
             }

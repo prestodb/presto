@@ -14,9 +14,9 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -36,14 +36,14 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_MAX_HITS_EXCEEDED;
 import static com.facebook.presto.elasticsearch.ElasticsearchUtils.serializeObject;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;

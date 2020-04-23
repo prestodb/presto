@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.relation.RowExpression;
+
 public interface DeterminismEvaluator
 {
     boolean isDeterministic(RowExpression expression);

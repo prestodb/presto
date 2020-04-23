@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TokenRange;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 

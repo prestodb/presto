@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
 

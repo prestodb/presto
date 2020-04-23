@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.google.common.collect.ImmutableList;

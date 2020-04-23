@@ -15,11 +15,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -27,7 +27,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
+import static com.facebook.presto.common.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

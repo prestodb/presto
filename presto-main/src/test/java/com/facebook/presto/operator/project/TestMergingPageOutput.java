@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -23,11 +23,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;

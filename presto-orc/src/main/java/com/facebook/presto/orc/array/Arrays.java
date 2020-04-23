@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.array;
 
-import com.facebook.presto.spi.block.ArrayAllocator;
+import com.facebook.presto.common.block.ArrayAllocator;
 
 import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.orc.array.Arrays.ExpansionOption.INITIALIZE;

@@ -14,14 +14,14 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.DeltaInfoPair;
 import com.facebook.presto.raptor.metadata.ShardDeleteDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -40,8 +40,8 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;

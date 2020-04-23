@@ -27,14 +27,14 @@ import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Marker.Bound;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,12 +71,12 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -902,14 +902,14 @@ public class AccumuloClient
         }
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
-        for (com.facebook.presto.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
+        for (com.facebook.presto.common.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
             rangeBuilder.add(getRangeFromPrestoRange(range, serializer));
         }
 
         return rangeBuilder.build();
     }
 
-    private static Range getRangeFromPrestoRange(com.facebook.presto.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
+    private static Range getRangeFromPrestoRange(com.facebook.presto.common.predicate.Range prestoRange, AccumuloRowSerializer serializer)
             throws TableNotFoundException
     {
         Range accumuloRange;

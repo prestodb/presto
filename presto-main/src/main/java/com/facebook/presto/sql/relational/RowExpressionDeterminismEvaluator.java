@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.InputReferenceExpression;
+import com.facebook.presto.common.relation.LambdaDefinitionExpression;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpressionVisitor;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static java.util.Objects.requireNonNull;
 
 public class RowExpressionDeterminismEvaluator

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.Page;
 import io.airlift.slice.XxHash64;
 
 import static com.google.common.base.Preconditions.checkArgument;

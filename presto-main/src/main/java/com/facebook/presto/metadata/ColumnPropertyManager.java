@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 
 public class ColumnPropertyManager
         extends AbstractPropertyManager

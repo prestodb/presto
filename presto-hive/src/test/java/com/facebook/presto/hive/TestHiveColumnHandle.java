@@ -14,14 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.common.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveColumnHandle

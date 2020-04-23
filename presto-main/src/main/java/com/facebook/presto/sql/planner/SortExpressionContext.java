@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

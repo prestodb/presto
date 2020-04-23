@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -22,7 +22,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class Reflection
 {

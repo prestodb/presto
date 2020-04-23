@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.page.PagesSerde;
 import io.airlift.slice.InputStreamSliceInput;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readPages;
 import static java.util.Objects.requireNonNull;
 

@@ -16,8 +16,8 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 
 public class TestCharOperators
         extends AbstractTestFunctions

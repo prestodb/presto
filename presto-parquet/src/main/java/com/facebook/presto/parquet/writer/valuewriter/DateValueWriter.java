@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.parquet.writer.valuewriter;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static java.util.Objects.requireNonNull;
 
 public class DateValueWriter

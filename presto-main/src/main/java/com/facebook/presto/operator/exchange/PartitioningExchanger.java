@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;

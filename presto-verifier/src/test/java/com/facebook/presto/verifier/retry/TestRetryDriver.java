@@ -28,7 +28,7 @@ import java.net.SocketTimeoutException;
 import java.util.Optional;
 
 import static com.facebook.airlift.log.Level.DEBUG;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

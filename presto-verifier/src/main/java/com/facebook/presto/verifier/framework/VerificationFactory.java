@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;

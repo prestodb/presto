@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.relation.RowExpression;
 import com.facebook.presto.spi.ConnectorSession;
 
 /**

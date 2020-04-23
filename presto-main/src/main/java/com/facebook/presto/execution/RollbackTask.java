@@ -14,9 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionId;
@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
+import static com.facebook.presto.common.StandardErrorCode.NOT_IN_TRANSACTION;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RollbackTask

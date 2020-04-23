@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.ByteArrayBlockBuilder;
+import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.AbstractType;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

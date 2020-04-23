@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -43,9 +43,9 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;

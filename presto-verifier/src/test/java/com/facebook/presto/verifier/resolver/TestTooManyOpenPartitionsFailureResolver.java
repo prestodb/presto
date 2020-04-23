@@ -35,8 +35,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;

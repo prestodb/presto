@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.relation.VariableReferenceExpression;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.LookupSourceProvider;
 import com.facebook.presto.operator.OuterPositionIterator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StaticLookupSourceProvider;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

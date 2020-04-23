@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.LocationFactory;
@@ -25,7 +26,6 @@ import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Statement;
@@ -38,7 +38,7 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 

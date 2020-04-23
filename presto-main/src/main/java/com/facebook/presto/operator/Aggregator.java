@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

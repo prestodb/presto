@@ -27,10 +27,10 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
-import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static com.facebook.presto.common.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
+import static com.facebook.presto.common.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.math.BigInteger.ONE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
 
 public enum RaptorErrorCode
         implements ErrorCodeSupplier

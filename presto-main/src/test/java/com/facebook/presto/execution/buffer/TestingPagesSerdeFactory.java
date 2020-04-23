@@ -14,14 +14,14 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
-import com.facebook.presto.spi.type.TestingTypeManager;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;

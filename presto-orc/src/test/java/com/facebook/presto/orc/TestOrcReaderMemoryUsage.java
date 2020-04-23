@@ -14,13 +14,13 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
@@ -39,6 +39,10 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -46,10 +50,6 @@ import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage

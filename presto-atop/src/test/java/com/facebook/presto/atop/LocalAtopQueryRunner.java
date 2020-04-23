@@ -14,7 +14,7 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
 

@@ -14,12 +14,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
 
@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.Session.SessionBuilder;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 

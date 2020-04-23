@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -20,10 +23,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

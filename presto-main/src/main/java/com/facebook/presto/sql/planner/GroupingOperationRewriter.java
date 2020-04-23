@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FieldId;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;

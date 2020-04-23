@@ -14,6 +14,17 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.predicate.DiscreteValues;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.EquatableValueSet;
+import com.facebook.presto.common.predicate.Marker;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.Ranges;
+import com.facebook.presto.common.predicate.SortedRangeSet;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.kudu.properties.ColumnDesign;
 import com.facebook.presto.kudu.properties.HashPartitionDefinition;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
@@ -24,20 +35,9 @@ import com.facebook.presto.kudu.schema.SchemaEmulation;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.DiscreteValues;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.EquatableValueSet;
-import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.Ranges;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.DecimalType;
 import com.google.common.collect.ImmutableList;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
@@ -64,9 +64,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.kudu.KuduUtil.reTryKerberos;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class KuduClientSession
@@ -533,7 +533,7 @@ public class KuduClientSession
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
     {
-        com.facebook.presto.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        com.facebook.presto.common.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         List<Object> javaValues = discreteValues.getValues().stream().map(value -> TypeHelper.getJavaValue(type, value)).collect(toImmutableList());
         return KuduPredicate.newInListPredicate(columnSchema, javaValues);
     }
@@ -547,7 +547,7 @@ public class KuduClientSession
             KuduPredicate.ComparisonOp op,
             Object value)
     {
-        com.facebook.presto.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        com.facebook.presto.common.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);

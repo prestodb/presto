@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 
 import static java.util.Objects.requireNonNull;
 

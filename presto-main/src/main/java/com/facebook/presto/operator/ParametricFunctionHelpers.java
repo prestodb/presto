@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

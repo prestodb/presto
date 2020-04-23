@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.PrestoException;
+
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
 
 public interface NodeManager
 {

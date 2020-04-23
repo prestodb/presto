@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 
 public interface PageFilter
 {

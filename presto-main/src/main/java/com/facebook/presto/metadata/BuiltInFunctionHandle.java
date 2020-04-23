@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.spi.function.Signature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

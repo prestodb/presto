@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;

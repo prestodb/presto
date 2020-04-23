@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 

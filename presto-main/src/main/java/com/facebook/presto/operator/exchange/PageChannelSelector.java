@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 
 import java.util.function.Function;
 import java.util.stream.IntStream;

@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InternalNode;
@@ -23,9 +25,7 @@ import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +36,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;

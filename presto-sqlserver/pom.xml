@@ -70,6 +70,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <version>0.235-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>

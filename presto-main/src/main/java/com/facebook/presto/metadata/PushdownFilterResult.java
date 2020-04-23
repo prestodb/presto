@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.common.relation.RowExpression;
 
 import static java.util.Objects.requireNonNull;
 

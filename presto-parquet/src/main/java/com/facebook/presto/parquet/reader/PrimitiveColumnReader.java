@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
@@ -22,10 +26,6 @@ import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.ParquetTypeUtils;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.dictionary.Dictionary;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -40,11 +40,11 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ValuesType.DEFINITION_LEVEL;
 import static com.facebook.presto.parquet.ValuesType.REPETITION_LEVEL;
 import static com.facebook.presto.parquet.ValuesType.VALUES;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;

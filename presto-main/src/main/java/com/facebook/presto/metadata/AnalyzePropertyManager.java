@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 
 public class AnalyzePropertyManager
         extends AbstractPropertyManager

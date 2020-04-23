@@ -15,10 +15,10 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;

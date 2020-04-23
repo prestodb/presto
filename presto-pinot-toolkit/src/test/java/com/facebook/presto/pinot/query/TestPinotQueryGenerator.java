@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,7 +37,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

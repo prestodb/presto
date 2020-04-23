@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.LambdaDefinitionExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionVariableInliner

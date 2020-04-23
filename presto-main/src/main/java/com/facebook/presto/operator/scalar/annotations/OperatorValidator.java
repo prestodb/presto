@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Joiner;
 

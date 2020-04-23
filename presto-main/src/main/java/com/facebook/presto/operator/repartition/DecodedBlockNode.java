@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;

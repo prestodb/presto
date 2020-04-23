@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

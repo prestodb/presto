@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
+import com.facebook.presto.common.type.Type;
 
 public interface VariableAllocator
 {

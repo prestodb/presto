@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ZipFunction.MAX_ARITY;
 import static com.facebook.presto.operator.scalar.ZipFunction.MIN_ARITY;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.lang.String.join;

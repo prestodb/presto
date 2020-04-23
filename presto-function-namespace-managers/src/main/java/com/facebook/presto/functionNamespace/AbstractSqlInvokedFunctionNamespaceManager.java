@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.functionNamespace;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;

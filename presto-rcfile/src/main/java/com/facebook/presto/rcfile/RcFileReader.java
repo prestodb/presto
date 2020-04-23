@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.rcfile;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
 import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;

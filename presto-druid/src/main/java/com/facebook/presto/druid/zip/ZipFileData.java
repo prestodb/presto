@@ -26,8 +26,8 @@
 // limitations under the License.
 package com.facebook.presto.druid.zip;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.druid.DataInputSource;
-import com.facebook.presto.spi.PrestoException;
 
 import javax.annotation.Nullable;
 

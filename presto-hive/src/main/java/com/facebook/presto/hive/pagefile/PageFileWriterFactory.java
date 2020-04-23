@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveFileWriterFactory;
@@ -20,8 +22,6 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PagesSerde;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

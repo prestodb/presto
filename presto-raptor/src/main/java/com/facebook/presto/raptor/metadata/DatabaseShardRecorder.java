@@ -14,8 +14,8 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.spi.PrestoException;
 
 import javax.inject.Inject;
 

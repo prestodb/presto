@@ -15,10 +15,10 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.SqlTime;
+import com.facebook.presto.common.type.SqlTimeWithTimeZone;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -26,10 +26,10 @@ import org.testng.annotations.Test;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Verify.verify;

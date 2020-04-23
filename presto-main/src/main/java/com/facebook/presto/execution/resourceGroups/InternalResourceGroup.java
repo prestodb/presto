@@ -14,12 +14,12 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
@@ -47,9 +47,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;

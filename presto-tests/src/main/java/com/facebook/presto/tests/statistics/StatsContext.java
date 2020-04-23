@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.statistics;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

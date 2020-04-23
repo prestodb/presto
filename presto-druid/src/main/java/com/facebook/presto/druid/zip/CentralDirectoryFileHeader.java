@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.druid.zip;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.druid.DataInputSource;
-import com.facebook.presto.spi.PrestoException;
 
 import java.io.IOException;
 import java.nio.charset.Charset;

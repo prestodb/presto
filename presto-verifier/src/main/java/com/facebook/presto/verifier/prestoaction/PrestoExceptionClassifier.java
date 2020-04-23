@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
@@ -37,6 +37,16 @@ import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.StandardErrorCode.ABANDONED_TASK;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.common.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -50,16 +60,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;

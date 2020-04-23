@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.expressions.translator;
 
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.ConstantExpression;
+import com.facebook.presto.common.relation.LambdaDefinitionExpression;
+import com.facebook.presto.common.relation.SpecialFormExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
 

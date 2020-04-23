@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.AfterClass;
@@ -27,12 +27,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

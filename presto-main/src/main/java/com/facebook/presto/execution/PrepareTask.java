@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Execute;
@@ -30,7 +30,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;

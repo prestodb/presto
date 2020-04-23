@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.function.FunctionHandle;
+
 public interface FunctionHandleResolver
 {
     Class<? extends FunctionHandle> getFunctionHandleClass();

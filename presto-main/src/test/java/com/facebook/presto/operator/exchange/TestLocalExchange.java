@@ -15,6 +15,8 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PageAssertions;
@@ -22,8 +24,6 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,9 +38,9 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;

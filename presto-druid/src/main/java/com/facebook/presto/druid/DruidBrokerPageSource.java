@@ -14,18 +14,18 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.druid.DruidQueryGenerator.GeneratedDql;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;

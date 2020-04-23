@@ -14,12 +14,12 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.google.common.collect.ImmutableMap;
 

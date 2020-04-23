@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.FunctionType;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.ParameterKind;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.FunctionType.NAME;
+import static com.facebook.presto.common.type.FunctionType.NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toList;
 

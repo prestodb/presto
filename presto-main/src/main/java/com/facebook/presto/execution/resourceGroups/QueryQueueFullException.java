@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_QUEUE_FULL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

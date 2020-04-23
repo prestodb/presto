@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import org.testng.annotations.Test;
 
 import java.util.function.Function;

@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 
 public class TestHyperLogLogFunctions
         extends AbstractTestFunctions

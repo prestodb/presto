@@ -17,7 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -61,7 +61,7 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO
 import static com.facebook.presto.accumulo.index.Indexer.CARDINALITY_CQ_AS_TEXT;
 import static com.facebook.presto.accumulo.index.Indexer.getIndexColumnFamily;
 import static com.facebook.presto.accumulo.index.Indexer.getMetricsTableName;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.Long.parseLong;

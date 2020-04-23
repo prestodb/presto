@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

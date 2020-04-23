@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.OrcBatchRecordReader;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.BitSet;
@@ -24,7 +24,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

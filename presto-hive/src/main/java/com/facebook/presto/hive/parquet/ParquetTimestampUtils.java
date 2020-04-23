@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import parquet.io.api.Binary;

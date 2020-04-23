@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.Footer;
@@ -21,9 +24,6 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -44,7 +45,6 @@ import static com.facebook.presto.orc.StripeReader.isIndexStream;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;

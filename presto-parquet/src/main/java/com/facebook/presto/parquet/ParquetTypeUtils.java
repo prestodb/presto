@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet;
 
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.Subfield.PathElement;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.Subfield.PathElement;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
@@ -37,7 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.Subfield.NestedField;
+import static com.facebook.presto.common.Subfield.NestedField;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;

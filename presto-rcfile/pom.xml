@@ -45,7 +45,8 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
+            <artifactId>presto-common</artifactId>
+            <version>0.235-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -94,6 +95,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
             <scope>test</scope>
         </dependency>
 

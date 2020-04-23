@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;

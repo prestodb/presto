@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
@@ -22,7 +23,6 @@ import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
 import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -59,8 +59,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.String.format;

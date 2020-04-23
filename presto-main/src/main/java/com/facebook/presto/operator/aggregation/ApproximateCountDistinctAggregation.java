@@ -14,10 +14,11 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.state.BooleanDistinctState;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.BlockIndex;
@@ -28,13 +29,12 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Failures.internalError;
 
 @AggregationFunction("approx_distinct")

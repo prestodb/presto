@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;

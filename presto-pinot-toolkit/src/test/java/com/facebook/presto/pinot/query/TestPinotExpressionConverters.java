@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.relation.RowExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.pinot.PinotException;
 import com.facebook.presto.pinot.TestPinotQueryBase;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.Test;
 
 import java.util.function.Function;

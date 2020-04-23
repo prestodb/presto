@@ -27,19 +27,19 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.Int128ArrayBlock;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.ShortArrayBlock;
-import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.Int128ArrayBlock;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.ShortArrayBlock;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 

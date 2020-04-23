@@ -19,7 +19,7 @@ import com.facebook.presto.verifier.framework.QueryException;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 

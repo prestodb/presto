@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Identifier;
@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.stream.Collectors.toList;

@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;

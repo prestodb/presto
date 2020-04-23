@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.benchmark.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_TASK_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

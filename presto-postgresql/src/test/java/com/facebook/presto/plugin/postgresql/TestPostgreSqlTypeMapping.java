@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -35,9 +35,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
 import static com.facebook.presto.tests.datatype.DataType.dateDataType;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.relation.ConstantExpression;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

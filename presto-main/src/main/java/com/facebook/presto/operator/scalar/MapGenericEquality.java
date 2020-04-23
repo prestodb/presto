@@ -13,11 +13,11 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.type.Type;
 
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
 
 public final class MapGenericEquality

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;

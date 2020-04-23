@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spi.spiller.SpillCipher;
 
 import javax.crypto.Cipher;
@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 

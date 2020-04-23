@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 
 import java.util.Optional;

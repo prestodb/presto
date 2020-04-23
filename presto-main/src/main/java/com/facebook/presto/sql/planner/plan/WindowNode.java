@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.relation.CallExpression;
+import com.facebook.presto.common.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

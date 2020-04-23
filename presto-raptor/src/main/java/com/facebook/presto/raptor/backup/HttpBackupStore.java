@@ -20,7 +20,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import io.airlift.slice.XxHash64;

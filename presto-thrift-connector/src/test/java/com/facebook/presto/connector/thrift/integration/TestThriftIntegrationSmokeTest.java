@@ -18,8 +18,8 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
