@@ -67,6 +67,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -708,12 +709,14 @@ public final class BlockAssertions
 
     public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount, boolean isView)
     {
+        checkArgument(dictionary.getPositionCount() > 0, format("dictionary's positionCount %d is less than or equal to 0", dictionary.getPositionCount()));
+
         int idsOffset = 0;
         if (isView) {
             idsOffset = min(ThreadLocalRandom.current().nextInt(dictionary.getPositionCount()), 1);
         }
 
-        int[] ids = IntStream.range(0, positionCount + idsOffset).map(i -> ThreadLocalRandom.current().nextInt(dictionary.getPositionCount() / 10)).toArray();
+        int[] ids = IntStream.range(0, positionCount + idsOffset).map(i -> ThreadLocalRandom.current().nextInt(max(dictionary.getPositionCount() / 10, 1))).toArray();
         return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
     }
 
