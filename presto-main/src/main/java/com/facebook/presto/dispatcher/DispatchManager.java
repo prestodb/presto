@@ -285,6 +285,11 @@ public class DispatchManager
                 });
     }
 
+    public boolean isQueryPresent(QueryId queryId)
+    {
+        return queryTracker.tryGetQuery(queryId).isPresent();
+    }
+
     public void failQuery(QueryId queryId, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
