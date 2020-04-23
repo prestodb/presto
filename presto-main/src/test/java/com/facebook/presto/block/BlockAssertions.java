@@ -265,6 +265,7 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomBooleansBlock(int positionCount, float nullRate)
     {
         ValuesWithNullsGenerator<Boolean> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextBoolean());
@@ -299,6 +300,7 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomShortDecimalsBlock(int positionCount, float nullRate)
     {
         ValuesWithNullsGenerator<String> generator = new ValuesWithNullsGenerator(nullRate, () -> Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()));
@@ -333,10 +335,9 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomLongDecimalsBlock(int positionCount, float nullRate)
     {
-        checkArgument(positionCount >= 10, "positionCount is less than 10");
-
         ValuesWithNullsGenerator<String> generator = new ValuesWithNullsGenerator(nullRate, () -> Double.toString(ThreadLocalRandom.current().nextDouble() * ThreadLocalRandom.current().nextInt()));
 
         return createLongDecimalsBlock(
@@ -414,6 +415,7 @@ public final class BlockAssertions
         return rowBlockBuilder.build();
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomIntsBlock(int positionCount, float nullRate)
     {
         ValuesWithNullsGenerator<Integer> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextInt());
@@ -453,6 +455,7 @@ public final class BlockAssertions
         return createTypedLongsBlock(BIGINT, values);
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomLongsBlock(int positionCount, float nullRate)
     {
         ValuesWithNullsGenerator<Long> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextLong());
@@ -479,6 +482,7 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    // Note: Make sure positionCount is sufficiently large if nullRate is greater than 0
     public static Block createRandomSmallintsBlock(int positionCount, float nullRate)
     {
         ValuesWithNullsGenerator<Long> generator = new ValuesWithNullsGenerator(nullRate, () -> ThreadLocalRandom.current().nextLong() % Short.MIN_VALUE);
@@ -720,6 +724,7 @@ public final class BlockAssertions
         return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
     }
 
+    // Note: Make sure positionCount is sufficiently large if nestedNullRate or primitiveNullRate is greater than 0
     public static Block createRandomBlockForType(
             Type type,
             int positionCount,
