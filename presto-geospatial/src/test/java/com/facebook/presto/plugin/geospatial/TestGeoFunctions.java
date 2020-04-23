@@ -1190,6 +1190,27 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testFlattenGeometryCollections()
+    {
+        assertFlattenGeometryCollections("POINT (0 0)", "POINT (0 0)");
+        assertFlattenGeometryCollections("MULTIPOINT ((0 0), (1 1))", "MULTIPOINT ((0 0), (1 1))");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (POINT EMPTY)", "POINT EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (MULTIPOLYGON EMPTY)", "MULTIPOLYGON EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (POINT (0 0))", "POINT (0 0)");
+        assertFlattenGeometryCollections(
+                "GEOMETRYCOLLECTION (POINT (0 0), GEOMETRYCOLLECTION (POINT (1 1)))",
+                "POINT (1 1)", "POINT (0 0)");
+    }
+
+    private void assertFlattenGeometryCollections(String wkt, String... expected)
+    {
+        assertFunction(
+                String.format("transform(flatten_geometry_collections(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt),
+                new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
+    }
+
+    @Test
     public void testSTGeometryFromText()
     {
         assertInvalidFunction("ST_GeometryFromText('xyz')", "Invalid WKT: Unknown geometry type: XYZ (line 1)");
