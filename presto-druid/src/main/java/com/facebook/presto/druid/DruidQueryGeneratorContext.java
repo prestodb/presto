@@ -39,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class DruidQueryGeneratorContext
 {
     private final Map<VariableReferenceExpression, Selection> selections;
+    private final Map<VariableReferenceExpression, Selection> allSelections;
     private final Set<VariableReferenceExpression> groupByColumns;
     private final Set<VariableReferenceExpression> hiddenColumnSet;
     private final Set<VariableReferenceExpression> variablesInAggregation;
@@ -52,6 +53,7 @@ public class DruidQueryGeneratorContext
     {
         return toStringHelper(this)
                 .add("selections", selections)
+                .add("allSelections", allSelections)
                 .add("groupByColumns", groupByColumns)
                 .add("hiddenColumnSet", hiddenColumnSet)
                 .add("variablesInAggregation", variablesInAggregation)
@@ -79,7 +81,8 @@ public class DruidQueryGeneratorContext
                 0,
                 new HashSet<>(),
                 new HashSet<>(),
-                new HashSet<>());
+                new HashSet<>(),
+                new LinkedHashMap<>());
     }
 
     private DruidQueryGeneratorContext(
@@ -90,7 +93,8 @@ public class DruidQueryGeneratorContext
             int aggregations,
             Set<VariableReferenceExpression> groupByColumns,
             Set<VariableReferenceExpression> variablesInAggregation,
-            Set<VariableReferenceExpression> hiddenColumnSet)
+            Set<VariableReferenceExpression> hiddenColumnSet,
+            Map<VariableReferenceExpression, Selection> allSelections)
     {
         this.selections = new LinkedHashMap<>(requireNonNull(selections, "selections can't be null"));
         this.from = requireNonNull(from, "source can't be null");
@@ -100,6 +104,7 @@ public class DruidQueryGeneratorContext
         this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
         this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
+        this.allSelections = new LinkedHashMap<>(requireNonNull(allSelections, "selections can't be null"));
     }
 
     public DruidQueryGeneratorContext withFilter(String filter)
@@ -113,10 +118,12 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                allSelections);
     }
 
-    public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
+    public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections,
+                                                  Map<VariableReferenceExpression, Selection> newAllSelections)
     {
         return new DruidQueryGeneratorContext(
                 newSelections,
@@ -126,7 +133,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                newAllSelections);
     }
 
     public DruidQueryGeneratorContext withLimit(long limit)
@@ -143,7 +151,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                allSelections);
     }
 
     public DruidQueryGeneratorContext withAggregation(
@@ -191,7 +200,8 @@ public class DruidQueryGeneratorContext
                 newAggregations,
                 newGroupByColumns,
                 variablesInAggregation,
-                newHiddenColumnSet);
+                newHiddenColumnSet,
+                allSelections);
     }
 
     public DruidQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
@@ -204,7 +214,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 newVariablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                allSelections);
     }
 
     private boolean hasLimit()
@@ -262,7 +273,7 @@ public class DruidQueryGeneratorContext
 
         if (!groupByColumns.isEmpty()) {
             String groupByExpression = groupByColumns.stream()
-                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getDefinition() : expression.getName())
+                    .map(expression -> allSelections.containsKey(expression) ? allSelections.get(expression).getDefinition() :expression.getName())
                     .collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpression;
             pushdown = true;
@@ -305,7 +316,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                allSelections);
     }
 
     public enum Origin

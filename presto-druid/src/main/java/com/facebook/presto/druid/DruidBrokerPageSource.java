@@ -117,7 +117,7 @@ public class DruidBrokerPageSource
             JsonNode rootNode;
             try {
                 rootNode = OBJECT_MAPPER.readTree(data);
-                checkArgument(rootNode.isArray(), "broker Druid query should return Json Array");
+                checkArgument(rootNode.isArray(), "broker Druid query should return Json Array. detail error: "+data);
                 ArrayNode arrayNode = (ArrayNode) rootNode;
                 Iterator<JsonNode> iterator = arrayNode.elements();
                 while (iterator.hasNext()) {
@@ -140,7 +140,7 @@ public class DruidBrokerPageSource
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof RealType) {
-                            type.writeDouble(blockBuilder, value.doubleValue());
+                            type.writeLong(blockBuilder, value.longValue());
                         }
                         else if (type instanceof TimestampType) {
                             DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()

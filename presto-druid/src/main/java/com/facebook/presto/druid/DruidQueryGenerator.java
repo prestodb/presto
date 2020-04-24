@@ -236,7 +236,12 @@ public class DruidQueryGenerator
                         variable,
                         new Selection(druidExpression.getDefinition(), druidExpression.getOrigin()));
             });
-            return context.withProject(newSelections);
+
+            Map<VariableReferenceExpression, Selection> allSelections = context.getSelections().entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+
+            return context.withProject(newSelections, allSelections);
         }
 
         @Override
