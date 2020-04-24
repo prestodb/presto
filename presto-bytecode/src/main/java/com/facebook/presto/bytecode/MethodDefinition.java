@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.bytecode;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -27,10 +28,12 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Stack;
 
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
@@ -39,6 +42,7 @@ import static org.objectweb.asm.Opcodes.RETURN;
 @NotThreadSafe
 public class MethodDefinition
 {
+    private static final int MAX_ALLOWED_ESTIMATED_SIZE = 128 * 1024;
     private final Scope scope;
     private final ClassDefinition declaringClass;
     private final EnumSet<Access> access;
@@ -49,6 +53,7 @@ public class MethodDefinition
     private final List<ParameterizedType> parameterTypes;
     private final List<List<AnnotationDefinition>> parameterAnnotations;
     private final List<ParameterizedType> exceptions = new ArrayList<>();
+    private boolean failOnLargeEstimatedSize;
 
     private final BytecodeBlock body;
     private String comment;
@@ -211,6 +216,25 @@ public class MethodDefinition
         visit(visitor, false);
     }
 
+    private int estimateCodeSize(BytecodeNode node)
+    {
+        int estimatedSize = 0;
+        Stack<BytecodeNode> children = new Stack<BytecodeNode>();
+        children.push(node);
+
+        do {
+            BytecodeNode child = children.pop();
+
+            if (child.getChildNodes().isEmpty()) {
+                estimatedSize += 1;
+            }
+
+            children.addAll(child.getChildNodes());
+        } while (!children.empty());
+
+        return estimatedSize;
+    }
+
     public void visit(ClassVisitor visitor, boolean addReturn)
     {
         String[] exceptions = new String[this.exceptions.size()];
@@ -247,6 +271,12 @@ public class MethodDefinition
             // visit instructions
             MethodGenerationContext generationContext = new MethodGenerationContext(methodVisitor);
             generationContext.enterScope(scope);
+
+            // To be safe, we estimate the code size here.
+            if (this.isFailOnLargeEstimatedSize() && estimateCodeSize(body) > MAX_ALLOWED_ESTIMATED_SIZE) {
+                throw new PrestoException(GENERATED_BYTECODE_TOO_LARGE, "Query results in large bytecode exceeding the limits imposed by JVM");
+            }
+
             body.accept(methodVisitor, generationContext);
             if (addReturn) {
                 new InsnNode(RETURN).accept(methodVisitor);
@@ -322,5 +352,15 @@ public class MethodDefinition
         sb.append(")");
         sb.append(returnType);
         return sb.toString();
+    }
+
+    public boolean isFailOnLargeEstimatedSize()
+    {
+        return failOnLargeEstimatedSize;
+    }
+
+    public void setFailOnLargeEstimatedSize(boolean failOnLargeEstimatedSize)
+    {
+        this.failOnLargeEstimatedSize = failOnLargeEstimatedSize;
     }
 }

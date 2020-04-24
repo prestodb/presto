@@ -149,6 +149,7 @@ public final class SystemSessionProperties
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
     public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
     public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
+    public static final String ERROR_ON_LARGE_BYTECODE_GENERATION = "disallow_large_bytecode_generation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -757,6 +758,12 @@ public final class SystemSessionProperties
                         USE_LEGACY_SCHEDULER,
                         "Use version of scheduler before refactorings for section retries",
                         featuresConfig.isUseLegacyScheduler(),
+                        false),
+
+                booleanProperty(
+                        ERROR_ON_LARGE_BYTECODE_GENERATION,
+                        "Prevents the bytecode generation for methods whose estimated size is too large",
+                        featuresConfig.isErrorOnLargeBytecodeGeneration(),
                         false));
     }
 
@@ -1282,5 +1289,10 @@ public final class SystemSessionProperties
     public static boolean isUseLegacyScheduler(Session session)
     {
         return session.getSystemProperty(USE_LEGACY_SCHEDULER, Boolean.class);
+    }
+
+    public static boolean isErrorOnLargeBytecodeGeneration(Session session)
+    {
+        return session.getSystemProperty(ERROR_ON_LARGE_BYTECODE_GENERATION, Boolean.class);
     }
 }

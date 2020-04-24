@@ -49,6 +49,7 @@ import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -119,7 +120,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty(), false)));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -131,7 +132,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty(), cacheKey.isErrorOnLargeBytecodeGeneration)));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -156,15 +157,21 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
+    @VisibleForTesting
     public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
-        if (projectionCache == null) {
-            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix);
-        }
-        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection));
+        return compileProjection(sqlFunctionProperties, projection, classNameSuffix, false);
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
+    {
+        if (projectionCache == null) {
+            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix, isErrorOnLargeByteCodeGeneration);
+        }
+        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection, isErrorOnLargeByteCodeGeneration));
+    }
+
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
     {
         requireNonNull(projection, "projection is null");
 
@@ -185,11 +192,14 @@ public class PageFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, result.getRewrittenExpression(), callSiteBinder, classNameSuffix, isErrorOnLargeByteCodeGeneration);
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
             pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (Exception e) {
             throw new PrestoException(COMPILER_ERROR, e);
@@ -207,7 +217,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -233,7 +243,7 @@ public class PageFunctionCompiler
 
         // evaluate
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, metadata, sqlFunctionProperties);
-        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
+        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField, isErrorOnLargeByteCodeGeneration);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -317,7 +327,8 @@ public class PageFunctionCompiler
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression projection,
-            FieldDefinition blockBuilder)
+            FieldDefinition blockBuilder,
+            boolean isErrorOnLargeByteCodeGeneration)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -333,6 +344,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
+        method.setFailOnLargeEstimatedSize(isErrorOnLargeByteCodeGeneration);
         method.comment("Projection: %s", projection.toString());
 
         Scope scope = method.getScope();
@@ -358,26 +370,29 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression expression, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
     {
         if (filterCache == null) {
-            return compileFilterInternal(sqlFunctionProperties, filter, classNameSuffix);
+            return compileFilterInternal(sqlFunctionProperties, expression, classNameSuffix, isErrorOnLargeByteCodeGeneration);
         }
-        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, filter));
+        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, expression, isErrorOnLargeByteCodeGeneration));
     }
 
-    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
+    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
     {
         requireNonNull(filter, "filter is null");
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineFilterClass(sqlFunctionProperties, result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
+        ClassDefinition classDefinition = defineFilterClass(sqlFunctionProperties, result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix, isErrorOnLargeByteCodeGeneration);
 
         Class<? extends PageFilter> functionClass;
         try {
             functionClass = defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (Exception e) {
             throw new PrestoException(COMPILER_ERROR, filter.toString(), e.getCause());
@@ -398,7 +413,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix, boolean isErrorOnLargeByteCodeGeneration)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -409,7 +424,7 @@ public class PageFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, isErrorOnLargeByteCodeGeneration);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -495,7 +510,8 @@ public class PageFunctionCompiler
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter)
+            RowExpression filter,
+            boolean isErrorOnLargeByteCodeGeneration)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -511,6 +527,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
+        method.setFailOnLargeEstimatedSize(isErrorOnLargeByteCodeGeneration);
         method.comment("Filter: %s", filter.toString());
 
         Scope scope = method.getScope();
@@ -601,11 +618,13 @@ public class PageFunctionCompiler
     {
         private final SqlFunctionProperties sqlFunctionProperties;
         private final RowExpression rowExpression;
+        private final boolean isErrorOnLargeBytecodeGeneration;
 
-        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression)
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression, boolean isErrorOnLargeBytecodeGeneration)
         {
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
+            this.isErrorOnLargeBytecodeGeneration = isErrorOnLargeBytecodeGeneration;
         }
 
         @Override

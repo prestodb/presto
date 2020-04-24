@@ -91,9 +91,9 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isErrorOnLargeByteCodeGeneration, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, classNameSuffix, isErrorOnLargeByteCodeGeneration, OptionalInt.empty());
     }
 
     private Supplier<PageProcessor> compilePageProcessor(
@@ -101,11 +101,12 @@ public class ExpressionCompiler
             Optional<RowExpression> filter,
             List<? extends RowExpression> projections,
             Optional<String> classNameSuffix,
+            boolean isErrorOnLargeByteCodeGeneration,
             OptionalInt initialBatchSize)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix));
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix, isErrorOnLargeByteCodeGeneration));
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(projection -> pageFunctionCompiler.compileProjection(sqlFunctionProperties, projection, classNameSuffix))
+                .map(projection -> pageFunctionCompiler.compileProjection(sqlFunctionProperties, projection, classNameSuffix, isErrorOnLargeByteCodeGeneration))
                 .collect(toImmutableList());
 
         return () -> {
@@ -117,15 +118,16 @@ public class ExpressionCompiler
         };
     }
 
+    @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, false, Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, Optional.empty(), false, OptionalInt.of(initialBatchSize));
     }
 
     private <T> Class<? extends T> compile(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)

@@ -229,6 +229,7 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isErrorOnLargeBytecodeGeneration;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -1281,7 +1282,7 @@ public class LocalExecutionPlanner
             try {
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isErrorOnLargeBytecodeGeneration(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1299,7 +1300,7 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isErrorOnLargeBytecodeGeneration(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),

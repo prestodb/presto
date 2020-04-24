@@ -150,6 +150,7 @@ public class FeaturesConfig
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
     private boolean useLegacyScheduler = true;
+    private Boolean errorOnLargeBytecodeGeneration = false;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1127,6 +1128,11 @@ public class FeaturesConfig
     public boolean isTableWriterMergeOperatorEnabled()
     {
         return tableWriterMergeOperatorEnabled;
+    }
+
+    public Boolean isErrorOnLargeBytecodeGeneration()
+    {
+        return errorOnLargeBytecodeGeneration;
     }
 
     @Config("experimental.table-writer-merge-operator-enabled")

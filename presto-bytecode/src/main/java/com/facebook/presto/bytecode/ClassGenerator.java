@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.bytecode;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.Reflection;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassTooLargeException;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodTooLargeException;
 import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
@@ -37,6 +40,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
+import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.CharStreams.nullWriter;
 import static java.nio.file.Files.createDirectories;
@@ -138,6 +142,9 @@ public class ClassGenerator
             byte[] bytecode;
             try {
                 bytecode = writer.toByteArray();
+            }
+            catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
+                throw new PrestoException(GENERATED_BYTECODE_TOO_LARGE, "Query results in large bytecode exceeding the limits imposed by JVM");
             }
             catch (RuntimeException e) {
                 throw new CompilationException("Error compiling class: " + classDefinition.getName(), e);
