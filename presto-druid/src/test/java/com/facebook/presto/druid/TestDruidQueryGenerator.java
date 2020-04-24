@@ -54,7 +54,9 @@ public class TestDruidQueryGenerator
             String expressions = planNode.getOutputVariables().stream().map(v -> outputVariables.get(v.getName())).filter(v -> v != null).collect(Collectors.joining(", "));
             expectedDQL = expectedDQL.replace("__expressions__", expressions);
         }
-        assertEquals(druidQueryGeneratorResult.getGeneratedDql().getDql(), expectedDQL);
+        String generateDQL = druidQueryGeneratorResult.getGeneratedDql().getDql();
+        generateDQL = generateDQL.replaceAll("\\\\\"","");
+        assertEquals(generateDQL, expectedDQL);
     }
 
     private void testDQL(Function<PlanBuilder, PlanNode> planBuilderConsumer, String expectedDQL, SessionHolder sessionHolder, Map<String, String> outputVariables)
