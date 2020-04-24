@@ -31,6 +31,7 @@ import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public final class ConfigurationUtils
 {
+    public static final String PAGE_FILE_COMPRESSION = "pagefile.output.compression";
     private static final Configuration INITIAL_CONFIGURATION;
 
     static {
@@ -116,5 +117,7 @@ public final class ConfigurationUtils
         compression.getParquetCompressionCodec().ifPresent(codec -> config.set(ParquetOutputFormat.COMPRESSION, codec.name()));
         // For SequenceFile
         config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());
+        // For PageFile
+        config.set(PAGE_FILE_COMPRESSION, compression.name());
     }
 }
