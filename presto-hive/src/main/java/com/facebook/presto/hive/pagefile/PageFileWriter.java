@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.spi.Page;
@@ -35,12 +36,13 @@ public class PageFileWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageFileWriter.class).instanceSize();
 
     private final PageWriter pageWriter;
-    private final Callable<Void> rollbackAction;
     private final PagesSerde pagesSerde;
+    private final Callable<Void> rollbackAction;
 
     public PageFileWriter(
             DataSink dataSink,
             PagesSerde pagesSerde,
+            HiveCompressionCodec compression,
             DataSize pageFileStripeMaxSize,
             Callable<Void> rollbackAction)
     {
