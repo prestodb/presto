@@ -140,7 +140,7 @@ public class DruidBrokerPageSource
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof RealType) {
-                            type.writeLong(blockBuilder, value.longValue());
+                            type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof TimestampType) {
                             DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
