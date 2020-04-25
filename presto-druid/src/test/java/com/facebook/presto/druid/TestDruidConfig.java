@@ -30,7 +30,8 @@ public class TestDruidConfig
         assertRecordedDefaults(recordDefaults(DruidConfig.class)
                     .setDruidBrokerUrl(null)
                     .setDruidCoordinatorUrl(null)
-                    .setDruidSchema("druid"));
+                    .setDruidSchema("druid")
+                    .setComputePushdownEnabled(false));
     }
 
     @Test
@@ -40,12 +41,14 @@ public class TestDruidConfig
                 .put("druid.broker-url", "http://druid.broker:1234")
                 .put("druid.coordinator-url", "http://druid.coordinator:4321")
                 .put("druid.schema-name", "test")
+                .put("druid.compute-pushdown-enabled", "true")
                 .build();
 
         DruidConfig expected = new DruidConfig()
                 .setDruidBrokerUrl("http://druid.broker:1234")
                 .setDruidCoordinatorUrl("http://druid.coordinator:4321")
-                .setDruidSchema("test");
+                .setDruidSchema("test")
+                .setComputePushdownEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
