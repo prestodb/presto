@@ -25,19 +25,21 @@ replacing the properties as appropriate:
     druid.coordinator-url=hostname:port
     druid.broker-url=hostname:port
     druid.schema-name=schema
+    druid.compute-pushdown-enabled=true
 
 Configuration Properties
 ------------------------
 
 The following configuration properties are available:
 
-========================== =======================
-Property Name               Description
-========================== =======================
-``druid.coordinator-url``   Druid coordinator url.
-``druid.broker-url``        Druid broker url.
-``druid.schema-name``       Druid schema name.
-========================== =======================
+================================== ===================================================
+Property Name                       Description
+================================== ===================================================
+``druid.coordinator-url``           Druid coordinator url.
+``druid.broker-url``                Druid broker url.
+``druid.schema-name``               Druid schema name.
+``druid.compute-pushdown-enabled``  Whether to pushdown all query processing to Druid.
+================================== ===================================================
 
 ``druid.coordinator-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,6 +57,13 @@ Druid broker url, e.g. localhost:8082.
 Druid schema name.
 
 This property is optional; the default is ``druid``.
+
+``druid.compute-pushdown-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Whether to pushdown all query processing to Druid.
+
+the default is ``false``.
 
 Data Types
 ----------
