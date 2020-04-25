@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
+import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -34,7 +36,11 @@ import java.util.function.Supplier;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -63,6 +69,20 @@ public class TestPageFunctionCompiler
             BIGINT,
             field(0, BIGINT),
             field(1, BIGINT));
+
+    private static final CallExpression ADD_X_Y_GREATER_THAN_2 = call(
+            GREATER_THAN.name(),
+            FUNCTION_MANAGER.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+            BOOLEAN,
+            ADD_X_Y,
+            constant(2L, BIGINT));
+
+    private static final CallExpression ADD_X_Y_LESS_THAN_10 = call(
+            LESS_THAN.name(),
+            FUNCTION_MANAGER.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
+            BOOLEAN,
+            ADD_X_Y,
+            constant(10L, BIGINT));
 
     private static final CallExpression ADD_X_Y_Z = call(
             ADD.name(),
@@ -153,7 +173,7 @@ public class TestPageFunctionCompiler
     }
 
     @Test
-    public void testCommonSubExpression()
+    public void testCommonSubExpressionInProjection()
     {
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
 
@@ -173,6 +193,19 @@ public class TestPageFunctionCompiler
         checkBlockEqual(cseResult.get(1), noCseResult2.get(0));
     }
 
+    @Test
+    public void testCommonSubExpressionInFilter()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+
+        Supplier<PageFilter> pageFilter = functionCompiler.compileFilter(SESSION.getSqlFunctionProperties(), new SpecialFormExpression(AND, BIGINT, ADD_X_Y_GREATER_THAN_2, ADD_X_Y_LESS_THAN_10), true, Optional.empty());
+
+        Page input = createLongBlockPage(2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        SelectedPositions positions = filter(pageFilter.get(), input);
+        assertEquals(positions.size(), 3);
+        assertEquals(positions.getPositions(), new int[]{2, 3, 4});
+    }
+
     private void checkBlockEqual(Block a, Block b)
     {
         assertEquals(a.getPositionCount(), b.getPositionCount());
@@ -186,6 +219,11 @@ public class TestPageFunctionCompiler
         Work<List<Block>> work = projection.project(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), page, selectedPositions);
         assertTrue(work.process());
         return work.getResult();
+    }
+
+    private SelectedPositions filter(PageFilter filter, Page page)
+    {
+        return filter.filter(SESSION.getSqlFunctionProperties(), filter.getInputChannels().getInputChannels(page));
     }
 
     private static Page createLongBlockPage(int blockCount, long... values)
