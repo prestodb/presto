@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.mapred.JobConf;
@@ -39,6 +38,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
+import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createEmptyPageFile;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -107,8 +107,7 @@ public class HiveZeroRowFileCreator
                     outputFormatName.equals(HiveStorageFormat.JSON.getOutputFormat()) ? compressionCodec : NONE);
 
             if (outputFormatName.equals(HiveStorageFormat.PAGEFILE.getOutputFormat())) {
-                FSDataOutputStream outputStream = target.getFileSystem(conf).create(target);
-                outputStream.close();
+                createEmptyPageFile(target.getFileSystem(conf), target);
                 return readAllBytes(tmpFilePath);
             }
 

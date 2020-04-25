@@ -49,4 +49,9 @@ public class PageFileFooterOutput
         }
         sliceOutput.writeInt(toIntExact(size()));
     }
+
+    public static PageFileFooterOutput createEmptyPageFileFooterOutput()
+    {
+        return new PageFileFooterOutput(ImmutableList.of());
+    }
 }
