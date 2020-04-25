@@ -90,6 +90,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -120,8 +121,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isInValuesComparisonExpression;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -535,48 +534,6 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
-            // Rewrite situations where it's CASE WHEN x = v1 THEN r1, WHEN x = v2 THEN r2 ... END to:
-            // CASE x WHEN v1 THEN r1 WHEN v2 THEN r2 ...
-            // So that better code is generated especially for tableau queries
-            RowExpression caseOperand = null;
-            for (WhenClause whenClause : node.getWhenClauses()) {
-                Expression predicate = whenClause.getOperand();
-                if (isEqualComparisonExpression(predicate) ||
-                        isInValuesComparisonExpression(predicate)) {
-                    RowExpression operand = process(predicate.getChildren().get(0), context);
-                    if (caseOperand != null && !operand.equals(caseOperand)) {
-                        caseOperand = null;
-                        break;
-                    }
-                    caseOperand = operand;
-                }
-                else {
-                    caseOperand = null;
-                    break;
-                }
-            }
-
-            if (caseOperand != null) {
-                // We found the pattern. So rebuild the When list to just include the rhs of the equals.
-                ImmutableList.Builder<WhenClause> newWhenClauses = ImmutableList.builder();
-                for (WhenClause whenClause : node.getWhenClauses()) {
-                    if (isInValuesComparisonExpression(whenClause.getOperand())) {
-                        // case when x in (v1, v2, .. ) then r become when x = v1 then r when x = v2 then r ...
-                        for (Expression value : ((InListExpression) ((InPredicate) whenClause.getOperand()).getValueList()).getValues()) {
-                            newWhenClauses.add(new WhenClause(value, whenClause.getResult()));
-                        }
-                    }
-                    else {
-                        newWhenClauses.add(
-                                new WhenClause(
-                                        (Expression) whenClause.getOperand().getChildren().get(1),
-                                        whenClause.getResult()));
-                    }
-                }
-
-                return buildSwitch(caseOperand, newWhenClauses.build(), node.getDefaultValue(), getType(node), context);
-            }
-
             // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
             return buildSwitch(new ConstantExpression(true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
@@ -653,14 +610,30 @@ public final class SqlToRowExpressionTranslator
             throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
         }
 
+        private RowExpression buildEquals(RowExpression lhs, RowExpression rhs)
+        {
+            return call(
+                    EQUAL.getOperator(),
+                    functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, lhs.getType(), rhs.getType()),
+                    BOOLEAN,
+                    lhs,
+                    rhs);
+        }
+
         @Override
         protected RowExpression visitInPredicate(InPredicate node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-            arguments.add(process(node.getValue(), context));
+            RowExpression value = process(node.getValue(), context);
             InListExpression values = (InListExpression) node.getValueList();
-            for (Expression value : values.getValues()) {
-                arguments.add(process(value, context));
+
+            if (values.getValues().size() == 1) {
+                return buildEquals(value, process(values.getValues().get(0), context));
+            }
+
+            arguments.add(value);
+            for (Expression inValue : values.getValues()) {
+                arguments.add(process(inValue, context));
             }
 
             return specialForm(IN, BOOLEAN, arguments.build());
