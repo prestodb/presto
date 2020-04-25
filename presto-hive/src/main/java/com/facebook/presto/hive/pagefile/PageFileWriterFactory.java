@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -38,6 +39,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getPageFileStripeMaxSize;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.pagefile.PageFileFooterOutput.createEmptyPageFileFooterOutput;
 import static java.util.Objects.requireNonNull;
 
 public class PageFileWriterFactory
@@ -88,7 +90,21 @@ public class PageFileWriterFactory
         }
     }
 
-    protected DataSink createPageDataSink(FileSystem fileSystem, Path path)
+    public static void createEmptyPageFile(
+            FileSystem fileSystem,
+            Path path)
+    {
+        try {
+            DataSink dataSink = createPageDataSink(fileSystem, path);
+            dataSink.write(ImmutableList.of(createEmptyPageFileFooterOutput()));
+            dataSink.close();
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating empty pagefile", e);
+        }
+    }
+
+    private static DataSink createPageDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
         return new OutputStreamDataSink(fileSystem.create(path));
