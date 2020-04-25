@@ -26,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.druid.DruidSessionProperties.isComputePushdownEnabled;
 import static com.facebook.presto.druid.DruidSplit.createBrokerSplit;
 import static com.facebook.presto.druid.DruidSplit.createSegmentSplit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,7 +52,7 @@ public class DruidSplitManager
     {
         DruidTableLayoutHandle layoutHandle = (DruidTableLayoutHandle) layout;
         DruidTableHandle table = layoutHandle.getTable();
-        if (table.getDql().isPresent() && table.getDql().get().getPushdown()) {
+        if (isComputePushdownEnabled(session) || (table.getDql().isPresent() && table.getDql().get().getPushdown())) {
             return new FixedSplitSource(ImmutableList.of(createBrokerSplit(table.getDql().get())));
         }
         List<String> segmentIds = druidClient.getDataSegmentId(table.getTableName());
