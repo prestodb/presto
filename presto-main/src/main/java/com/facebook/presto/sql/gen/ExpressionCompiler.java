@@ -104,7 +104,7 @@ public class ExpressionCompiler
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, classNameSuffix));
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(sqlFunctionProperties, expression, isOptimizeCommonSubExpression, classNameSuffix));
         List<Supplier<PageProjectionWithOutputs>> pageProjectionSuppliers = pageFunctionCompiler.compileProjections(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, classNameSuffix);
 
         return () -> {
