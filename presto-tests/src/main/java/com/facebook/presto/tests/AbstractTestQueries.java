@@ -8348,6 +8348,55 @@ public abstract class AbstractTestQueries
         assertQuery(stringBuilder.toString(), "values -1");
     }
 
+    @Test
+    public void testSwitchOptimization()
+    {
+        assertQuery("select 1", "select 1");
+        assertQuery(
+                "SELECT CASE WHEN x = 1 THEN 1 WHEN x = 5 THEN 5 WHEN x = IF(RANDOM() >= 0, 3, 5) THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)",
+                "SELECT CASE x WHEN 1 THEN 1 WHEN 5 THEN 5 WHEN 3 THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)");
+
+        assertQuery(
+                "SELECT CASE x WHEN 1 THEN 1 WHEN 5 THEN 5 WHEN 3 THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)",
+                "SELECT CASE x WHEN 1 THEN 1 WHEN 5 THEN 5 WHEN 3 THEN 10 ELSE -1 END FROM (SELECT ORDERKEY x FROM orders where orderkey <= 10)");
+    }
+
+    @Test
+    public void testSwitchReturnsNull()
+    {
+        assertQuery(
+                "SELECT CASE true WHEN random() < 0 THEN true END",
+                "SELECT CAST(NULL AS BOOLEAN)");
+
+        assertQuery(
+                "SELECT TRUE AND CAST(NULL AS BOOLEAN) AND RANDOM() >= 0",
+                "SELECT CAST(NULL AS BOOLEAN)");
+
+        assertQuery(
+                "SELECT TRUE AND CAST(NULL AS BOOLEAN) AND RANDOM() < 0",
+                "SELECT FALSE");
+
+        assertQuery(
+                "SELECT TRUE AND CAST(NULL AS BOOLEAN) IS NULL AND RANDOM() >= 0",
+                "SELECT TRUE");
+
+        assertQuery(
+                "SELECT 1 = ALL (SELECT CAST(NULL AS INTEGER))",
+                "SELECT CAST(NULL AS BOOLEAN)");
+    }
+
+    @Test
+    public void testAndInFilter()
+    {
+        assertQuery(
+                "SELECT count() from (select * from orders where orderkey < random(10)) where ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200))",
+                "values 0");
+
+        assertQuery(
+                "SELECT ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200)) from (select * from orders where orderkey < random(10) limit 1)",
+                "values false");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
