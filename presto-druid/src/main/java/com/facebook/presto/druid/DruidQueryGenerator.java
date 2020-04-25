@@ -257,7 +257,7 @@ public class DruidQueryGenerator
             node.getOutputVariables().forEach(outputColumn -> {
                 DruidColumnHandle druidColumn = (DruidColumnHandle) (node.getAssignments().get(outputColumn));
                 checkArgument(druidColumn.getType().equals(DruidColumnHandle.DruidColumnType.REGULAR), "Unexpected druid column handle that is not regular: " + druidColumn);
-                selections.put(outputColumn, new Selection(druidColumn.getColumnName(), TABLE_COLUMN));
+                selections.put(outputColumn, new Selection("\\\"" + druidColumn.getColumnName() + "\\\"", TABLE_COLUMN));
             });
             return new DruidQueryGeneratorContext(selections, tableHandle.getTableName());
         }
