@@ -252,10 +252,13 @@ public abstract class AbstractBlockEncodingBuffer
         return decodedBlockNode;
     }
 
+    protected void ensurePositionsCapacity(int capacity)
+    {
+        positions = ensureCapacity(positions, capacity, SMALL, NONE, bufferAllocator);
+    }
+
     protected void appendPositionRange(int offset, int length)
     {
-        positions = ensureCapacity(positions, positionCount + length, LARGE, PRESERVE, bufferAllocator);
-
         for (int i = 0; i < length; i++) {
             positions[positionCount++] = offset + i;
         }
