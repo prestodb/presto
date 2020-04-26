@@ -259,17 +259,13 @@ public class ArrayBlockEncodingBuffer
         int[] positions = getPositions();
 
         for (int i = 0; i < positionCount; i++) {
-            int position = positions[i];
-            int beginOffset = columnarArray.getOffset(position);
-            int endOffset = columnarArray.getOffset(position + 1);
-            int length = endOffset - beginOffset;
+            offsets[i + 1] = offsets[i] + columnarArray.getLength(positions[i]);
+        }
 
-            offsets[i + 1] = offsets[i] + length;
+        valuesBuffers.ensurePositionsCapacity(offsets[positionCount]);
 
-            if (length > 0) {
-                // beginOffset is the absolute position in the nested block. We need to subtract the base offset from it to get the logical position.
-                valuesBuffers.appendPositionRange(beginOffset, length);
-            }
+        for (int i = 0; i < positionCount; i++) {
+            valuesBuffers.appendPositionRange(columnarArray.getOffset(positions[i]), offsets[i + 1] - offsets[i]);
         }
     }
 
