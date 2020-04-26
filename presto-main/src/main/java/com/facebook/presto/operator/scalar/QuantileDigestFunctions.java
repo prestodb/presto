@@ -59,6 +59,7 @@ public final class QuantileDigestFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long valueAtQuantileBigint(@SqlType("qdigest(bigint)") Slice input, @SqlType(StandardTypes.DOUBLE) double quantile)
     {
+        checkCondition(quantile >= 0 && quantile <= 1, INVALID_FUNCTION_ARGUMENT, "Quantile should be within bounds [0, 1], was: " + quantile);
         return new QuantileDigest(input).getQuantile(quantile);
     }
 

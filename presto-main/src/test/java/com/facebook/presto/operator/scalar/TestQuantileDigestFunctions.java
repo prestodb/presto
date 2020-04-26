@@ -36,6 +36,41 @@ public class TestQuantileDigestFunctions
     private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
     private static final Type QDIGEST_BIGINT = QDIGEST.createType(TYPE_REGISTRY, ImmutableList.of(TypeParameter.of(BIGINT)));
 
+    @Test
+    public void testNullQuantileDigestGetValueAtQuantile()
+    {
+        functionAssertions.assertFunction("value_at_quantile(CAST(NULL AS qdigest(bigint)), 0.3)", BIGINT, null);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Quantile should be within bounds \\[0, 1\\], was: \\d+\\.\\d+")
+    public void testGetValueAtQuantileOverOne()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS qdigest(bigint)), 1.5)", toHexString(qdigest)),
+                BIGINT,
+                null);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Quantile should be within bounds \\[0, 1\\], was: -\\d+\\.\\d+")
+    public void testGetValueAtQuantileBelowZero()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS qdigest(bigint)), -0.2)", toHexString(qdigest)),
+                BIGINT,
+                null);
+    }
+
+    @Test
+    public void testValueAtQuantileBigint()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        addAll(qdigest, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+
+        functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS qdigest(bigint)), 0.5)", toHexString(qdigest)),
+                BIGINT,
+                5L);
+    }
+
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Scale factor should be positive\\.")
     public void testScaleNegative()
     {
