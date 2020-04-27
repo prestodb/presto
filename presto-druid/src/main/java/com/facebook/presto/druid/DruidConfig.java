@@ -23,6 +23,7 @@ public class DruidConfig
     private String coordinatorUrl;
     private String brokerUrl;
     private String schema = "druid";
+    private boolean pushdown;
 
     @NotNull
     public String getDruidCoordinatorUrl()
@@ -63,6 +64,19 @@ public class DruidConfig
     public DruidConfig setDruidSchema(String schema)
     {
         this.schema = schema;
+        return this;
+    }
+
+    public boolean isComputePushdownEnabled()
+    {
+        return pushdown;
+    }
+
+    @Config("druid.compute-pushdown-enabled")
+    @ConfigDescription("pushdown query processing to druid")
+    public DruidConfig setComputePushdownEnabled(boolean pushdown)
+    {
+        this.pushdown = pushdown;
         return this;
     }
 }
