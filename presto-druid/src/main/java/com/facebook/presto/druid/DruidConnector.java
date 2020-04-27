@@ -22,9 +22,13 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.facebook.presto.druid.DruidTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +42,7 @@ public class DruidConnector
     private final DruidMetadata metadata;
     private final DruidSplitManager splitManager;
     private final DruidPageSourceProvider pageSourceProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
     private final ConnectorPlanOptimizer planOptimizer;
 
     @Inject
@@ -46,12 +51,14 @@ public class DruidConnector
             DruidMetadata metadata,
             DruidSplitManager splitManager,
             DruidPageSourceProvider pageSourceProvider,
+            DruidSessionProperties druidSessionProperties,
             DruidPlanOptimizer planOptimizer)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.sessionProperties = ImmutableList.copyOf(requireNonNull(druidSessionProperties, "sessionProperties is null").getSessionProperties());
         this.planOptimizer = requireNonNull(planOptimizer, "plan optimizer is null");
     }
 
@@ -77,6 +84,12 @@ public class DruidConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override
