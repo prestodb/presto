@@ -41,6 +41,7 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -167,15 +168,15 @@ public class PinotBrokerPageSource
             List<Type> types,
             int numGroupByClause,
             JsonNode group,
-            String[] values)
+            String[] values,
+            List<Integer> columnPositionsInGroupByResults)
     {
-        for (int i = 0; i < group.size(); i++) {
-            setValue(types.get(i), blockBuilders.get(i), group.get(i).asText());
-        }
-        for (int i = 0; i < values.length; i++) {
-            int metricColumnIndex = i + numGroupByClause;
-            if (metricColumnIndex < blockBuilders.size()) {
-                setValue(types.get(metricColumnIndex), blockBuilders.get(metricColumnIndex), values[i]);
+        for (int i = 0; i < blockBuilders.size(); i++) {
+            if (columnPositionsInGroupByResults.get(i) < numGroupByClause) {
+                setValue(types.get(i), blockBuilders.get(i), group.get(columnPositionsInGroupByResults.get(i)).asText());
+            }
+            else {
+                setValue(types.get(i), blockBuilders.get(i), values[columnPositionsInGroupByResults.get(i) - numGroupByClause]);
             }
         }
     }
@@ -216,11 +217,36 @@ public class PinotBrokerPageSource
             List<Type> expectedTypes = columnHandles.stream()
                     .map(PinotColumnHandle::getDataType)
                     .collect(Collectors.toList());
+            List<Integer> columnPositionsInGroupByResults = new ArrayList<>(columnHandles.size());
             PageBuilder pageBuilder = new PageBuilder(expectedTypes);
             ImmutableList.Builder<BlockBuilder> columnBlockBuilders = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+            int metricIdx = 0;
+            for (int i = 0; i < columnHandles.size(); i++) {
+                int idx = -1;
+                if (columnHandles.get(i).getType() == PinotColumnHandle.PinotColumnType.DERIVED) {
+                    idx = brokerPql.getGroupByClauses().size() + metricIdx;
+                    metricIdx++;
+                }
+                else {
+                    String columnName = columnHandles.get(i).getColumnName();
+                    for (int j = 0; j < brokerPql.getGroupByClauses().size(); j++) {
+                        if (brokerPql.getGroupByClauses().get(j).equalsIgnoreCase(columnName)) {
+                            idx = j;
+                            break;
+                        }
+                    }
+                    if (idx == -1) {
+                        throw new PinotException(
+                                PINOT_UNEXPECTED_RESPONSE,
+                                Optional.of(brokerPql.getPql()),
+                                String.format("Cannot find column: %s in PQL group by clause", columnName));
+                    }
+                }
+                columnPositionsInGroupByResults.add(idx);
+            }
             for (int i : brokerPql.getExpectedColumnIndices()) {
-                if (i == -1) {
+                if (i == -1 || i >= columnHandles.size()) {
                     continue;
                 }
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
@@ -233,7 +259,8 @@ public class PinotBrokerPageSource
                     brokerPql.getPql(),
                     brokerPql.getGroupByClauses(),
                     columnBlockBuilders.build(),
-                    columnTypes.build());
+                    columnTypes.build(),
+                    columnPositionsInGroupByResults);
             pageBuilder.declarePositions(counter);
             Page page = pageBuilder.build();
 
@@ -250,9 +277,10 @@ public class PinotBrokerPageSource
     private int issuePqlAndPopulate(
             String table,
             String pql,
-            int numGroupByClause,
+            List<String> groupByClause,
             List<BlockBuilder> blockBuilders,
-            List<Type> types)
+            List<Type> types,
+            List<Integer> columnPositionsInGroupByResults)
     {
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), (retryNumber) -> {
             String queryHost;
@@ -270,18 +298,20 @@ public class PinotBrokerPageSource
                     .setUri(URI.create(String.format(QUERY_URL_TEMPLATE, queryHost)));
             String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(String.format(REQUEST_PAYLOAD_TEMPLATE, pql)), rpcService);
 
-            return populateFromPqlResults(pql, numGroupByClause, blockBuilders, types, body);
+            return populateFromPqlResults(pql, groupByClause, blockBuilders, types, body, columnPositionsInGroupByResults);
         });
     }
 
     @VisibleForTesting
     public int populateFromPqlResults(
             String pql,
-            int numGroupByClause,
+            List<String> groupByClause,
             List<BlockBuilder> blockBuilders,
             List<Type> types,
-            String body)
+            String body,
+            List<Integer> columnPositionsInGroupByResults)
     {
+        int numGroupByClause = groupByClause.size();
         JsonNode jsonBody;
 
         try {
@@ -351,7 +381,7 @@ public class PinotBrokerPageSource
                         }
                         if (groupToValue == null) {
                             singleAggregation[0] = row.get("value").asText();
-                            setValuesForGroupby(blockBuilders, types, numGroupByClause, group, singleAggregation);
+                            setValuesForGroupby(blockBuilders, types, numGroupByClause, group, singleAggregation, columnPositionsInGroupByResults);
                             rowCount++;
                         }
                         else {
@@ -372,7 +402,7 @@ public class PinotBrokerPageSource
 
             if (groupToValue != null) {
                 checkState(rowCount == 0, "Row count shouldn't have changed from zero");
-                groupToValue.forEach((group, values) -> setValuesForGroupby(blockBuilders, types, numGroupByClause, group, values));
+                groupToValue.forEach((group, values) -> setValuesForGroupby(blockBuilders, types, numGroupByClause, group, values, columnPositionsInGroupByResults));
                 rowCount = groupToValue.size();
             }
         }

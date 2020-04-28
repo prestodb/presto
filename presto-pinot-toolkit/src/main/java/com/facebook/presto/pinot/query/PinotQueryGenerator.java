@@ -151,7 +151,7 @@ public class PinotQueryGenerator
         final String table;
         final String pql;
         final List<Integer> expectedColumnIndices;
-        final int groupByClauses;
+        final List<String> groupByClauses;
         final boolean haveFilter;
         final boolean isQueryShort;
 
@@ -160,7 +160,7 @@ public class PinotQueryGenerator
                 @JsonProperty("table") String table,
                 @JsonProperty("pql") String pql,
                 @JsonProperty("expectedColumnIndices") List<Integer> expectedColumnIndices,
-                @JsonProperty("groupByClauses") int groupByClauses,
+                @JsonProperty("groupByClauses") List<String> groupByClauses,
                 @JsonProperty("haveFilter") boolean haveFilter,
                 @JsonProperty("isQueryShort") boolean isQueryShort)
         {
@@ -185,7 +185,7 @@ public class PinotQueryGenerator
         }
 
         @JsonProperty("groupByClauses")
-        public int getGroupByClauses()
+        public List<String> getGroupByClauses()
         {
             return groupByClauses;
         }

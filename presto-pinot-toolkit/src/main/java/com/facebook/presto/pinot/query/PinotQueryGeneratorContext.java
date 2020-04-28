@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -359,7 +360,16 @@ public class PinotQueryGeneratorContext
         }
 
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, getAssignments());
-        return new PinotQueryGenerator.GeneratedPql(tableName, query, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+        return new PinotQueryGenerator.GeneratedPql(tableName, query, indices, extractGroupBy(groupByColumns), filter.isPresent(), isQueryShort);
+    }
+
+    private List<String> extractGroupBy(Set<VariableReferenceExpression> groupByExprs)
+    {
+        List<String> groupBys = new ArrayList<>();
+        for (VariableReferenceExpression expr : groupByExprs) {
+            groupBys.add(expr.getName());
+        }
+        return groupBys;
     }
 
     private List<Integer> getIndicesMappingFromPinotSchemaToPrestoSchema(String query, Map<VariableReferenceExpression, PinotColumnHandle> assignments)

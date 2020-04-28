@@ -29,7 +29,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,25 +50,27 @@ public class TestPinotBrokerPageSource
 
     private static class PqlParsedInfo
     {
+        final List<String> groupByClauses;
         final int groupByColumns;
         final int columns;
         final int rows;
 
-        private PqlParsedInfo(int groupByColumns, int columns, int rows)
+        private PqlParsedInfo(List<String> groupByClauses, int columns, int rows)
         {
-            this.groupByColumns = groupByColumns;
+            this.groupByClauses = groupByClauses;
+            this.groupByColumns = groupByClauses.size();
             this.columns = columns;
             this.rows = rows;
         }
 
         public static PqlParsedInfo forSelection(int columns, int rows)
         {
-            return new PqlParsedInfo(0, columns, rows);
+            return new PqlParsedInfo(ImmutableList.of(), columns, rows);
         }
 
-        public static PqlParsedInfo forAggregation(int groups, int aggregates, int rows)
+        public static PqlParsedInfo forAggregation(List<String> groupByClauses, int aggregates, int rows)
         {
-            return new PqlParsedInfo(groups, groups + aggregates, rows);
+            return new PqlParsedInfo(groupByClauses, groupByClauses.size() + aggregates, rows);
         }
     }
 
@@ -102,9 +106,17 @@ public class TestPinotBrokerPageSource
         }
         assertTrue(pureAggregates == 0 || pureAggregates == aggregates, String.format("In pql response %s, got mixed aggregates %d of %d", pqlResponse, pureAggregates, aggregates));
         if (pureAggregates == 0) {
-            return PqlParsedInfo.forAggregation(groupByColumns, aggregates, groups.size());
+            List<String> groupByClause = new ArrayList<>();
+            JsonNode groupByColumnsRes = aggregationResults.get(0).get("groupByColumns");
+            if (groupByColumnsRes != null) {
+                Iterator<JsonNode> iterator = groupByColumnsRes.iterator();
+                while (iterator.hasNext()) {
+                    groupByClause.add(iterator.next().asText());
+                }
+            }
+            return PqlParsedInfo.forAggregation(groupByClause, aggregates, groups.size());
         }
-        return PqlParsedInfo.forAggregation(0, pureAggregates, 1);
+        return PqlParsedInfo.forAggregation(ImmutableList.of(), pureAggregates, 1);
     }
 
     @DataProvider(name = "pqlResponses")
@@ -113,22 +125,39 @@ public class TestPinotBrokerPageSource
         return new Object[][] {
                 {"SELECT count(*), sum(regionId) FROM eats_job_state GROUP BY jobState TOP 1000000",
                         "{\"aggregationResults\":[{\"groupByResult\":[{\"value\":\"10646777\",\"group\":[\"CREATED\"]},{\"value\":\"9441201\",\"group\":[\"ASSIGNED\"]},{\"value\":\"5329962\",\"group\":[\"SUBMITTED_TO_BILLING\"]},{\"value\":\"5281666\",\"group\":[\"PICKUP_COMPLETED\"]},{\"value\":\"5225839\",\"group\":[\"OFFERED\"]},{\"value\":\"5088568\",\"group\":[\"READY\"]},{\"value\":\"5027369\",\"group\":[\"COMPLETED\"]},{\"value\":\"3677267\",\"group\":[\"SUBMITTED_TO_MANIFEST\"]},{\"value\":\"1559953\",\"group\":[\"SCHEDULED\"]},{\"value\":\"1532913\",\"group\":[\"ACCEPTED\"]},{\"value\":\"1532891\",\"group\":[\"RELEASED\"]},{\"value\":\"531719\",\"group\":[\"UNASSIGNED\"]},{\"value\":\"252977\",\"group\":[\"PREP_TIME_UPDATED\"]},{\"value\":\"243463\",\"group\":[\"CANCELED\"]},{\"value\":\"211553\",\"group\":[\"PAYMENT_PENDING\"]},{\"value\":\"148548\",\"group\":[\"PAYMENT_CONFIRMED\"]},{\"value\":\"108057\",\"group\":[\"UNFULFILLED_WARNED\"]},{\"value\":\"47043\",\"group\":[\"DELIVERY_FAILED\"]},{\"value\":\"30832\",\"group\":[\"UNFULFILLED\"]},{\"value\":\"18009\",\"group\":[\"SCHEDULE_ORDER_CREATED\"]},{\"value\":\"16459\",\"group\":[\"SCHEDULE_ORDER_ACCEPTED\"]},{\"value\":\"11086\",\"group\":[\"FAILED\"]},{\"value\":\"9976\",\"group\":[\"SCHEDULE_ORDER_OFFERED\"]},{\"value\":\"3094\",\"group\":[\"PAYMENT_FAILED\"]}],\"function\":\"count_star\",\"groupByColumns\":[\"jobState\"]},{\"groupByResult\":[{\"value\":\"3274799599.00000\",\"group\":[\"CREATED\"]},{\"value\":\"2926585674.00000\",\"group\":[\"ASSIGNED\"]},{\"value\":\"1645707788.00000\",\"group\":[\"SUBMITTED_TO_BILLING\"]},{\"value\":\"1614715326.00000\",\"group\":[\"OFFERED\"]},{\"value\":\"1608041994.00000\",\"group\":[\"PICKUP_COMPLETED\"]},{\"value\":\"1568036720.00000\",\"group\":[\"READY\"]},{\"value\":\"1541977381.00000\",\"group\":[\"COMPLETED\"]},{\"value\":\"1190457213.00000\",\"group\":[\"SUBMITTED_TO_MANIFEST\"]},{\"value\":\"430246171.00000\",\"group\":[\"SCHEDULED\"]},{\"value\":\"422020881.00000\",\"group\":[\"RELEASED\"]},{\"value\":\"421937782.00000\",\"group\":[\"ACCEPTED\"]},{\"value\":\"147557783.00000\",\"group\":[\"UNASSIGNED\"]},{\"value\":\"94882088.00000\",\"group\":[\"PREP_TIME_UPDATED\"]},{\"value\":\"86447788.00000\",\"group\":[\"CANCELED\"]},{\"value\":\"77505566.00000\",\"group\":[\"PAYMENT_PENDING\"]},{\"value\":\"53955037.00000\",\"group\":[\"PAYMENT_CONFIRMED\"]},{\"value\":\"36026660.00000\",\"group\":[\"UNFULFILLED_WARNED\"]},{\"value\":\"15306755.00000\",\"group\":[\"DELIVERY_FAILED\"]},{\"value\":\"8811788.00000\",\"group\":[\"UNFULFILLED\"]},{\"value\":\"5301567.00000\",\"group\":[\"SCHEDULE_ORDER_CREATED\"]},{\"value\":\"4855342.00000\",\"group\":[\"SCHEDULE_ORDER_ACCEPTED\"]},{\"value\":\"3113490.00000\",\"group\":[\"FAILED\"]},{\"value\":\"2811789.00000\",\"group\":[\"SCHEDULE_ORDER_OFFERED\"]},{\"value\":\"1053944.00000\",\"group\":[\"PAYMENT_FAILED\"]}],\"function\":\"sum_regionId\",\"groupByColumns\":[\"jobState\"]}],\"exceptions\":[],\"numServersQueried\":7,\"numServersResponded\":7,\"numDocsScanned\":55977222,\"numEntriesScannedInFilter\":0,\"numEntriesScannedPostFilter\":111954444,\"totalDocs\":55977222,\"numGroupsLimitReached\":false,\"timeUsedMs\":775,\"segmentStatistics\":[],\"traceInfo\":{}}",
-                        ImmutableList.of(VARCHAR, BIGINT, BIGINT), Optional.empty()},
+                        ImmutableList.of(BIGINT, BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of(1, 2)},
                 {"SELECT count(*) FROM eats_job_state GROUP BY jobState TOP 1000000",
                         "{\"traceInfo\":{},\"numEntriesScannedPostFilter\":55979949,\"numDocsScanned\":55979949,\"numServersResponded\":7,\"numGroupsLimitReached\":false,\"aggregationResults\":[{\"groupByResult\":[{\"value\":\"10647363\",\"group\":[\"CREATED\"]},{\"value\":\"9441638\",\"group\":[\"ASSIGNED\"]},{\"value\":\"5330203\",\"group\":[\"SUBMITTED_TO_BILLING\"]},{\"value\":\"5281905\",\"group\":[\"PICKUP_COMPLETED\"]},{\"value\":\"5226090\",\"group\":[\"OFFERED\"]},{\"value\":\"5088813\",\"group\":[\"READY\"]},{\"value\":\"5027589\",\"group\":[\"COMPLETED\"]},{\"value\":\"3677424\",\"group\":[\"SUBMITTED_TO_MANIFEST\"]},{\"value\":\"1560029\",\"group\":[\"SCHEDULED\"]},{\"value\":\"1533006\",\"group\":[\"ACCEPTED\"]},{\"value\":\"1532980\",\"group\":[\"RELEASED\"]},{\"value\":\"531745\",\"group\":[\"UNASSIGNED\"]},{\"value\":\"252989\",\"group\":[\"PREP_TIME_UPDATED\"]},{\"value\":\"243477\",\"group\":[\"CANCELED\"]},{\"value\":\"211571\",\"group\":[\"PAYMENT_PENDING\"]},{\"value\":\"148557\",\"group\":[\"PAYMENT_CONFIRMED\"]},{\"value\":\"108062\",\"group\":[\"UNFULFILLED_WARNED\"]},{\"value\":\"47048\",\"group\":[\"DELIVERY_FAILED\"]},{\"value\":\"30832\",\"group\":[\"UNFULFILLED\"]},{\"value\":\"18009\",\"group\":[\"SCHEDULE_ORDER_CREATED\"]},{\"value\":\"16461\",\"group\":[\"SCHEDULE_ORDER_ACCEPTED\"]},{\"value\":\"11086\",\"group\":[\"FAILED\"]},{\"value\":\"9978\",\"group\":[\"SCHEDULE_ORDER_OFFERED\"]},{\"value\":\"3094\",\"group\":[\"PAYMENT_FAILED\"]}],\"function\":\"count_star\",\"groupByColumns\":[\"jobState\"]}],\"exceptions\":[],\"numEntriesScannedInFilter\":0,\"timeUsedMs\":402,\"segmentStatistics\":[],\"numServersQueried\":7,\"totalDocs\":55979949}",
-                        ImmutableList.of(VARCHAR, BIGINT), Optional.empty()},
+                        ImmutableList.of(BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of(1)},
+                {"SELECT count(*), jobState FROM eats_job_state GROUP BY jobState TOP 1000000",
+                        "{\"traceInfo\":{},\"numEntriesScannedPostFilter\":55979949,\"numDocsScanned\":55979949,\"numServersResponded\":7,\"numGroupsLimitReached\":false,\"aggregationResults\":[{\"groupByResult\":[{\"value\":\"10647363\",\"group\":[\"CREATED\"]},{\"value\":\"9441638\",\"group\":[\"ASSIGNED\"]},{\"value\":\"5330203\",\"group\":[\"SUBMITTED_TO_BILLING\"]},{\"value\":\"5281905\",\"group\":[\"PICKUP_COMPLETED\"]},{\"value\":\"5226090\",\"group\":[\"OFFERED\"]},{\"value\":\"5088813\",\"group\":[\"READY\"]},{\"value\":\"5027589\",\"group\":[\"COMPLETED\"]},{\"value\":\"3677424\",\"group\":[\"SUBMITTED_TO_MANIFEST\"]},{\"value\":\"1560029\",\"group\":[\"SCHEDULED\"]},{\"value\":\"1533006\",\"group\":[\"ACCEPTED\"]},{\"value\":\"1532980\",\"group\":[\"RELEASED\"]},{\"value\":\"531745\",\"group\":[\"UNASSIGNED\"]},{\"value\":\"252989\",\"group\":[\"PREP_TIME_UPDATED\"]},{\"value\":\"243477\",\"group\":[\"CANCELED\"]},{\"value\":\"211571\",\"group\":[\"PAYMENT_PENDING\"]},{\"value\":\"148557\",\"group\":[\"PAYMENT_CONFIRMED\"]},{\"value\":\"108062\",\"group\":[\"UNFULFILLED_WARNED\"]},{\"value\":\"47048\",\"group\":[\"DELIVERY_FAILED\"]},{\"value\":\"30832\",\"group\":[\"UNFULFILLED\"]},{\"value\":\"18009\",\"group\":[\"SCHEDULE_ORDER_CREATED\"]},{\"value\":\"16461\",\"group\":[\"SCHEDULE_ORDER_ACCEPTED\"]},{\"value\":\"11086\",\"group\":[\"FAILED\"]},{\"value\":\"9978\",\"group\":[\"SCHEDULE_ORDER_OFFERED\"]},{\"value\":\"3094\",\"group\":[\"PAYMENT_FAILED\"]}],\"function\":\"count_star\",\"groupByColumns\":[\"jobState\"]}],\"exceptions\":[],\"numEntriesScannedInFilter\":0,\"timeUsedMs\":402,\"segmentStatistics\":[],\"numServersQueried\":7,\"totalDocs\":55979949}",
+                        ImmutableList.of(BIGINT, VARCHAR),
+                        Optional.empty(),
+                        ImmutableList.of(1, 0)},
                 {"SELECT count(*) FROM eats_job_state",
                         "{\"traceInfo\":{},\"numEntriesScannedPostFilter\":0,\"numDocsScanned\":55981101,\"numServersResponded\":7,\"numGroupsLimitReached\":false,\"aggregationResults\":[{\"function\":\"count_star\",\"value\":\"55981101\"}],\"exceptions\":[],\"numEntriesScannedInFilter\":0,\"timeUsedMs\":7,\"segmentStatistics\":[],\"numServersQueried\":7,\"totalDocs\":55981101}",
-                        ImmutableList.of(BIGINT), Optional.empty()},
+                        ImmutableList.of(BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of()},
                 {"SELECT sum(regionId), count(*) FROM eats_job_state",
                         "{\"traceInfo\":{},\"numEntriesScannedPostFilter\":55981641,\"numDocsScanned\":55981641,\"numServersResponded\":7,\"numGroupsLimitReached\":false,\"aggregationResults\":[{\"function\":\"sum_regionId\",\"value\":\"17183585871.00000\"},{\"function\":\"count_star\",\"value\":\"55981641\"}],\"exceptions\":[],\"numEntriesScannedInFilter\":0,\"timeUsedMs\":549,\"segmentStatistics\":[],\"numServersQueried\":7,\"totalDocs\":55981641}",
-                        ImmutableList.of(BIGINT, BIGINT), Optional.empty()},
+                        ImmutableList.of(BIGINT, BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of()},
                 {"SELECT jobState, regionId FROM eats_job_state LIMIT 10",
                         "{\"selectionResults\":{\"columns\":[\"jobState\",\"regionId\"],\"results\":[[\"CREATED\",\"197\"],[\"SUBMITTED_TO_BILLING\",\"227\"],[\"ASSIGNED\",\"188\"],[\"SCHEDULED\",\"1479\"],[\"CANCELED\",\"1708\"],[\"CREATED\",\"134\"],[\"CREATED\",\"12\"],[\"OFFERED\",\"30\"],[\"COMPLETED\",\"215\"],[\"CREATED\",\"7\"]]},\"exceptions\":[],\"numServersQueried\":7,\"numServersResponded\":7,\"numDocsScanned\":380,\"numEntriesScannedInFilter\":0,\"numEntriesScannedPostFilter\":760,\"totalDocs\":55988817,\"numGroupsLimitReached\":false,\"timeUsedMs\":2,\"segmentStatistics\":[],\"traceInfo\":{}}",
-                        ImmutableList.of(VARCHAR, BIGINT), Optional.empty()},
+                        ImmutableList.of(VARCHAR, BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of()},
                 {"SELECT shoppingCartUUID, $validUntil, $validFrom, jobState, tenancy, accountUUID, vehicleViewId, $partition, clientUUID, orderJobUUID, productTypeUUID, demandJobUUID, regionId, workflowUUID, jobType, kafkaOffset, productUUID, timestamp, flowType, ts FROM eats_job_state LIMIT 10",
                         "{\"selectionResults\":{\"columns\":[\"shoppingCartUUID\",\"$validUntil\",\"$validFrom\",\"jobState\",\"tenancy\",\"accountUUID\",\"vehicleViewId\",\"$partition\",\"clientUUID\",\"orderJobUUID\",\"productTypeUUID\",\"demandJobUUID\",\"regionId\",\"workflowUUID\",\"jobType\",\"kafkaOffset\",\"productUUID\",\"timestamp\",\"flowType\",\"ts\"],\"results\":[]},\"traceInfo\":{},\"numEntriesScannedPostFilter\":0,\"numDocsScanned\":0,\"numServersResponded\":7,\"numGroupsLimitReached\":false,\"exceptions\":[{\"errorCode\":200,\"message\":\"QueryExecutionError:\\njava.lang.NullPointerException\\n\\tat java.lang.Class.forName0(Native Method\\n\\tat\"}],\"numEntriesScannedInFilter\":0,\"timeUsedMs\":3,\"segmentStatistics\":[],\"numServersQueried\":7,\"totalDocs\":0}",
-                        ImmutableList.of(), Optional.of(PinotException.class)},
+                        ImmutableList.of(),
+                        Optional.of(PinotException.class),
+                        ImmutableList.of()},
                 {"SELECT * from eats_utilization_summarized",
                         "{\n" +
                                 "    \"selectionResults\": {\n" +
@@ -161,12 +190,14 @@ public class TestPinotBrokerPageSource
                                 "    \"segmentStatistics\": [],\n" +
                                 "    \"traceInfo\": {}\n" +
                                 "}",
-                        ImmutableList.of(BIGINT, BIGINT, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT), Optional.empty()}
+                        ImmutableList.of(BIGINT, BIGINT, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
+                        Optional.empty(),
+                        ImmutableList.of()}
         };
     }
 
     @Test(dataProvider = "pqlResponses")
-    public void testPopulateFromPql(String pql, String pqlResponse, List<Type> types, Optional<Class<? extends PrestoException>> expectedError)
+    public void testPopulateFromPql(String pql, String pqlResponse, List<Type> types, Optional<Class<? extends PrestoException>> expectedError, List<Integer> columnPositionList)
             throws IOException
     {
         PqlParsedInfo pqlParsedInfo = getBasicInfoFromPql(pqlResponse);
@@ -176,11 +207,10 @@ public class TestPinotBrokerPageSource
         for (int i = 0; i < types.size(); i++) {
             blockBuilders.add(pageBuilder.getBlockBuilder(i));
         }
-
         Optional<? extends PrestoException> thrown = Optional.empty();
         int rows = -1;
         try {
-            rows = pageSource.populateFromPqlResults(pql, pqlParsedInfo.groupByColumns, blockBuilders.build(), types, pqlResponse);
+            rows = pageSource.populateFromPqlResults(pql, pqlParsedInfo.groupByClauses, blockBuilders.build(), types, pqlResponse, columnPositionList);
         }
         catch (PrestoException e) {
             thrown = Optional.of(e);
@@ -190,7 +220,7 @@ public class TestPinotBrokerPageSource
         Optional<String> errorString = thrown.map(e -> Throwables.getStackTraceAsString(e));
         assertEquals(thrownType, expectedError, String.format("Expected error %s, but got error of type %s: %s", expectedError, thrownType, errorString));
         if (!expectedError.isPresent()) {
-            assertEquals(types.size(), pqlParsedInfo.columns);
+            assertTrue(types.size() <= pqlParsedInfo.columns);
             assertEquals(rows, pqlParsedInfo.rows);
         }
     }
@@ -199,7 +229,7 @@ public class TestPinotBrokerPageSource
     {
         List<PinotColumnHandle> pinotColumnHandles = ImmutableList.of(regionId, fare, city, fare, secondsSinceEpoch);
         PinotConfig pinotConfig = new PinotConfig();
-        PinotQueryGenerator.GeneratedPql generatedPql = new PinotQueryGenerator.GeneratedPql(pinotTable.getTableName(), String.format("SELECT %s, %s FROM %s LIMIT %d", city.getColumnName(), regionId.getColumnName(), pinotTable.getTableName(), pinotConfig.getLimitLargeForSegment()), ImmutableList.of(0, 1), 0, false, true);
+        PinotQueryGenerator.GeneratedPql generatedPql = new PinotQueryGenerator.GeneratedPql(pinotTable.getTableName(), String.format("SELECT %s, %s FROM %s LIMIT %d", city.getColumnName(), regionId.getColumnName(), pinotTable.getTableName(), pinotConfig.getLimitLargeForSegment()), ImmutableList.of(0, 1), ImmutableList.of(), false, true);
         return new PinotBrokerPageSource(pinotConfig, new TestingConnectorSession(ImmutableList.of()), generatedPql, pinotColumnHandles, new MockPinotClusterInfoFetcher(pinotConfig), objectMapper);
     }
 }
