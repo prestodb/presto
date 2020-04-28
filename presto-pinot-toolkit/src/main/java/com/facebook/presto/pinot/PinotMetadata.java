@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +70,7 @@ public class PinotMetadata
                 return pinotTableName;
             }
         }
-        throw new PinotException(PinotErrorCode.PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Unable to find the presto table " + prestoTableName + " in " + allTables);
+        throw new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Unable to find the presto table " + prestoTableName + " in " + allTables);
     }
 
     @Override

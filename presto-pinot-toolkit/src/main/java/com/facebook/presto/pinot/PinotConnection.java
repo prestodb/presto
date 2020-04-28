@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +81,7 @@ public class PinotConnection
             return cache.get(key);
         }
         catch (ExecutionException e) {
-            throw new PinotException(PinotErrorCode.PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Cannot fetch from cache " + key, e.getCause());
+            throw new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Cannot fetch from cache " + key, e.getCause());
         }
     }
 
