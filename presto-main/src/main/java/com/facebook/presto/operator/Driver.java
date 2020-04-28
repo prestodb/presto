@@ -47,6 +47,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.util.MoreUninterruptibles.tryLockUninterruptibly;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -660,13 +661,7 @@ public class Driver
     {
         checkLockNotHeld("Lock can not be reacquired");
 
-        boolean acquired = false;
-        try {
-            acquired = exclusiveLock.tryLock(timeout, unit);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        boolean acquired = exclusiveLock.tryLock(timeout, unit);
 
         if (!acquired) {
             return Optional.empty();
@@ -739,10 +734,9 @@ public class Driver
         }
 
         public boolean tryLock(long timeout, TimeUnit unit)
-                throws InterruptedException
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
-            boolean acquired = lock.tryLock(timeout, unit);
+            boolean acquired = tryLockUninterruptibly(lock, timeout, unit);
             if (acquired) {
                 setOwner();
             }
