@@ -4737,7 +4737,7 @@ public class TestHiveIntegrationSmokeTest
                 .build();
         assertUpdate(
                 smallStripeSession,
-                "CREATE TABLE test_pagefile_orders\n" +
+                "CREATE TABLE test_pagefile_small_stripe\n" +
                 "WITH (\n" +
                 "format = 'PAGEFILE'\n" +
                 ") AS\n" +
@@ -4746,11 +4746,11 @@ public class TestHiveIntegrationSmokeTest
                 "FROM tpch.orders",
                 "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT count(*) FROM test_pagefile_orders", "SELECT count(*) FROM orders");
+        assertQuery("SELECT count(*) FROM test_pagefile_small_stripe", "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT sum(custkey) FROM test_pagefile_orders", "SELECT sum(custkey) FROM orders");
+        assertQuery("SELECT sum(custkey) FROM test_pagefile_small_stripe", "SELECT sum(custkey) FROM orders");
 
-        assertUpdate("DROP TABLE test_pagefile_orders");
+        assertUpdate("DROP TABLE test_pagefile_small_stripe");
     }
 
     @Test
@@ -4764,7 +4764,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 testSession,
-                "CREATE TABLE test_pagefile_orders\n" +
+                "CREATE TABLE test_pagefile_small_split\n" +
                         "WITH (\n" +
                         "format = 'PAGEFILE'\n" +
                         ") AS\n" +
@@ -4773,11 +4773,11 @@ public class TestHiveIntegrationSmokeTest
                         "FROM tpch.orders",
                 "SELECT count(*) FROM orders");
 
-        assertQuery(testSession, "SELECT count(*) FROM test_pagefile_orders", "SELECT count(*) FROM orders");
+        assertQuery(testSession, "SELECT count(*) FROM test_pagefile_small_split", "SELECT count(*) FROM orders");
 
-        assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_orders", "SELECT sum(custkey) FROM orders");
+        assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_small_split", "SELECT sum(custkey) FROM orders");
 
-        assertUpdate("DROP TABLE test_pagefile_orders");
+        assertUpdate("DROP TABLE test_pagefile_small_split");
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
