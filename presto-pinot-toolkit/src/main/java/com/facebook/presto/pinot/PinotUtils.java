@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.pinot;
 
-import com.google.common.base.Preconditions;
-
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.net.HttpURLConnection.HTTP_MULT_CHOICE;
 import static java.net.HttpURLConnection.HTTP_OK;
 
@@ -34,7 +33,7 @@ public class PinotUtils
     public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
     {
         PinotException firstError = null;
-        Preconditions.checkState(retries > 0, "Invalid num of retries %d", retries);
+        checkState(retries > 0, "Invalid num of retries %d", retries);
         for (int i = 0; i < retries; ++i) {
             try {
                 return caller.apply(i);

@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
@@ -160,7 +161,7 @@ public class PinotClusterInfoFetcher
         }
         else {
             throw new PinotException(
-                    PinotErrorCode.PINOT_HTTP_ERROR,
+                    PINOT_HTTP_ERROR,
                     Optional.empty(),
                     String.format(
                             "Unexpected response status: %d for request %s to url %s, with headers %s, full response %s",

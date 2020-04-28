@@ -119,7 +119,7 @@ public class PinotPushdownUtils
     public static void checkSupported(boolean condition, String errorMessage, Object... errorMessageArgs)
     {
         if (!condition) {
-            throw new PinotException(PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), String.format(errorMessage, errorMessageArgs));
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), String.format(errorMessage, errorMessageArgs));
         }
     }
 
