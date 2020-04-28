@@ -41,6 +41,8 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +77,7 @@ public class PinotBrokerPageSource
     private final GeneratedPql brokerPql;
     private final PinotConfig pinotConfig;
     private final List<PinotColumnHandle> columnHandles;
+    private final List<PinotColumnHandle> expectedHandles;
     private final PinotClusterInfoFetcher clusterInfoFetcher;
     private final ConnectorSession session;
     private final ObjectMapper objectMapper;
@@ -88,11 +91,13 @@ public class PinotBrokerPageSource
             ConnectorSession session,
             GeneratedPql brokerPql,
             List<PinotColumnHandle> columnHandles,
+            List<PinotColumnHandle> expectedHandles,
             PinotClusterInfoFetcher clusterInfoFetcher,
             ObjectMapper objectMapper)
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinot config is null");
         this.brokerPql = requireNonNull(brokerPql, "broker is null");
+        this.expectedHandles = requireNonNull(expectedHandles, "expected handles is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
         this.session = requireNonNull(session, "session is null");
@@ -118,6 +123,9 @@ public class PinotBrokerPageSource
 
     private void setValue(Type type, BlockBuilder blockBuilder, String value)
     {
+        if (type == null || blockBuilder == null) {
+            return;
+        }
         if (value == null) {
             blockBuilder.appendNull();
             return;
@@ -169,14 +177,21 @@ public class PinotBrokerPageSource
             JsonNode group,
             String[] values)
     {
+        requireNonNull(group, "Expected valid group");
+        requireNonNull(values, "Expected valid values in group by");
+        checkState(
+                blockBuilders.size() == values.length + group.size(),
+                String.format(
+                        "Expected pinot to return total of %d values for group by, but got only %d group-by-keys and %d values",
+                        blockBuilders.size(),
+                        group.size(),
+                        values.length));
         for (int i = 0; i < group.size(); i++) {
-            setValue(types.get(i), blockBuilders.get(i), group.get(i).asText());
+            setValue(types.get(i), blockBuilders.get(i), asText(group.get(i)));
         }
         for (int i = 0; i < values.length; i++) {
             int metricColumnIndex = i + numGroupByClause;
-            if (metricColumnIndex < blockBuilders.size()) {
-                setValue(types.get(metricColumnIndex), blockBuilders.get(metricColumnIndex), values[i]);
-            }
+            setValue(types.get(metricColumnIndex), blockBuilders.get(metricColumnIndex), values[i]);
         }
     }
 
@@ -213,27 +228,16 @@ public class PinotBrokerPageSource
 
         long start = System.nanoTime();
         try {
-            List<Type> expectedTypes = columnHandles.stream()
-                    .map(PinotColumnHandle::getDataType)
-                    .collect(Collectors.toList());
-            PageBuilder pageBuilder = new PageBuilder(expectedTypes);
-            ImmutableList.Builder<BlockBuilder> columnBlockBuilders = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            for (int i : brokerPql.getExpectedColumnIndices()) {
-                if (i == -1) {
-                    continue;
-                }
-                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                columnBlockBuilders.add(blockBuilder);
-                columnTypes.add(expectedTypes.get(i));
-            }
+            BlockAndTypeBuilder blockAndTypeBuilder = new BlockAndTypeBuilder(columnHandles, brokerPql, expectedHandles);
 
             int counter = issuePqlAndPopulate(
                     brokerPql.getTable(),
                     brokerPql.getPql(),
                     brokerPql.getGroupByClauses(),
-                    columnBlockBuilders.build(),
-                    columnTypes.build());
+                    Collections.unmodifiableList(blockAndTypeBuilder.getColumnBlockBuilders()),
+                    Collections.unmodifiableList(blockAndTypeBuilder.getColumnTypes()));
+
+            PageBuilder pageBuilder = blockAndTypeBuilder.getPageBuilder();
             pageBuilder.declarePositions(counter);
             Page page = pageBuilder.build();
 
@@ -272,6 +276,12 @@ public class PinotBrokerPageSource
 
             return populateFromPqlResults(pql, numGroupByClause, blockBuilders, types, body);
         });
+    }
+
+    private static String asText(JsonNode node)
+    {
+        checkState(node.isValueNode());
+        return node.isNull() ? null : node.asText();
     }
 
     @VisibleForTesting
@@ -350,12 +360,12 @@ public class PinotBrokerPageSource
                                     String.format("Expected %d group by columns but got only a group of size %d (%s)", numGroupByClause, group.size(), group));
                         }
                         if (groupToValue == null) {
-                            singleAggregation[0] = row.get("value").asText();
+                            singleAggregation[0] = asText(row.get("value"));
                             setValuesForGroupby(blockBuilders, types, numGroupByClause, group, singleAggregation);
                             rowCount++;
                         }
                         else {
-                            groupToValue.computeIfAbsent(group, (ignored) -> new String[aggregationResults.size()])[aggregationIndex] = row.get("value").asText();
+                            groupToValue.computeIfAbsent(group, (ignored) -> new String[aggregationResults.size()])[aggregationIndex] = asText(row.get("value"));
                         }
                     }
                 }
@@ -365,7 +375,7 @@ public class PinotBrokerPageSource
                     // simple aggregation
                     // TODO: Validate that this is expected semantically
                     checkState(numGroupByClause == 0, "Expected no group by columns in pinot");
-                    setValue(types.get(aggregationIndex), blockBuilders.get(aggregationIndex), result.get("value").asText());
+                    setValue(types.get(aggregationIndex), blockBuilders.get(aggregationIndex), asText(result.get("value")));
                     rowCount = 1;
                 }
             }
@@ -394,7 +404,7 @@ public class PinotBrokerPageSource
                             String.format("Expected row of %d columns", blockBuilders.size()));
                 }
                 for (int columnNumber = 0; columnNumber < blockBuilders.size(); columnNumber++) {
-                    setValue(types.get(columnNumber), blockBuilders.get(columnNumber), result.get(columnNumber).asText());
+                    setValue(types.get(columnNumber), blockBuilders.get(columnNumber), asText(result.get(columnNumber)));
                 }
             }
             rowCount = results.size();
@@ -420,5 +430,70 @@ public class PinotBrokerPageSource
     public void close()
     {
         finished = true;
+    }
+
+    @VisibleForTesting
+    static class BlockAndTypeBuilder
+    {
+        private final PageBuilder pageBuilder;
+        private final List<BlockBuilder> columnBlockBuilders;
+        private final List<Type> columnTypes;
+
+        public PageBuilder getPageBuilder()
+        {
+            return pageBuilder;
+        }
+
+        public List<BlockBuilder> getColumnBlockBuilders()
+        {
+            return columnBlockBuilders;
+        }
+
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        @VisibleForTesting
+        public BlockAndTypeBuilder(List<PinotColumnHandle> columnHandles, GeneratedPql brokerPql, List<PinotColumnHandle> expectedColumnHandles)
+        {
+            // When we created the PQL, we came up with some column handles
+            // however other optimizers post-pushdown can come in and prune/re-order the required column handles
+            // so we need to map from the column handles the PQL corresponds to, to the actual column handles
+            // needed in the scan.
+
+            List<Type> expectedTypes = columnHandles.stream()
+                    .map(PinotColumnHandle::getDataType)
+                    .collect(Collectors.toList());
+            this.pageBuilder = new PageBuilder(expectedTypes);
+            checkState(brokerPql.getExpectedColumnIndices().size() == expectedColumnHandles.size());
+            checkState(expectedColumnHandles.size() >= columnHandles.size());
+
+            // The expectedColumnHandles are the handles corresponding to the generated PQL
+            // However, the engine could end up requesting only a permutation/subset of those handles
+            // during the actual scan
+
+            // Map the handles from planning time to the handles asked in the scan
+            // so that we know which columns to discard.
+            int[] handleMapping = new int[expectedColumnHandles.size()];
+            for (int i = 0; i < handleMapping.length; ++i) {
+                handleMapping[i] = columnHandles.indexOf(expectedColumnHandles.get(i));
+            }
+
+            this.columnBlockBuilders = new ArrayList<>();
+            this.columnTypes = new ArrayList<>();
+
+            for (int expectedColumnIndex : brokerPql.getExpectedColumnIndices()) {
+                // columnIndex is the index of this column in the current scan
+                // It is obtained from the mapping and can be -ve, which means that the
+                // expectedColumnIndex'th column returned by Pinot can be discarded.
+                int columnIndex = -1;
+                if (expectedColumnIndex >= 0) {
+                    columnIndex = handleMapping[expectedColumnIndex];
+                }
+                this.columnBlockBuilders.add(columnIndex >= 0 ? pageBuilder.getBlockBuilder(columnIndex) : null);
+                this.columnTypes.add(columnIndex >= 0 ? expectedTypes.get(columnIndex) : null);
+            }
+        }
     }
 }

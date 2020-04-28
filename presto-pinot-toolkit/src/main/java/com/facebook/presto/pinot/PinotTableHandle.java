@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,13 +34,14 @@ public final class PinotTableHandle
     private final String tableName;
     private final Optional<Boolean> isQueryShort;
     private final Optional<PinotQueryGenerator.GeneratedPql> pql;
+    private final Optional<List<PinotColumnHandle>> expectedColumnHandles;
 
     public PinotTableHandle(
             String connectorId,
             String schemaName,
             String tableName)
     {
-        this(connectorId, schemaName, tableName, Optional.empty(), Optional.empty());
+        this(connectorId, schemaName, tableName, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @JsonCreator
@@ -48,6 +50,7 @@ public final class PinotTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("isQueryShort") Optional<Boolean> isQueryShort,
+            @JsonProperty("expectedColumnHandles") Optional<List<PinotColumnHandle>> expectedColumnHandles,
             @JsonProperty("pql") Optional<PinotQueryGenerator.GeneratedPql> pql)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -55,6 +58,7 @@ public final class PinotTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.isQueryShort = requireNonNull(isQueryShort, "safe to execute is null");
         this.pql = requireNonNull(pql, "broker pql is null");
+        this.expectedColumnHandles = requireNonNull(expectedColumnHandles, "expected column handles is null");
     }
 
     @JsonProperty
@@ -87,6 +91,12 @@ public final class PinotTableHandle
         return isQueryShort;
     }
 
+    @JsonProperty
+    public Optional<List<PinotColumnHandle>> getExpectedColumnHandles()
+    {
+        return expectedColumnHandles;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -106,13 +116,14 @@ public final class PinotTableHandle
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(isQueryShort, that.isQueryShort) &&
+                Objects.equals(expectedColumnHandles, that.expectedColumnHandles) &&
                 Objects.equals(pql, that.pql);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, isQueryShort, pql);
+        return Objects.hash(connectorId, schemaName, tableName, isQueryShort, expectedColumnHandles, pql);
     }
 
     @Override
@@ -123,6 +134,7 @@ public final class PinotTableHandle
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .add("isQueryShort", isQueryShort)
+                .add("expectedColumnHandles", expectedColumnHandles)
                 .add("pql", pql)
                 .toString();
     }

@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.pinot.PinotSplit.createBrokerSplit;
 import static com.facebook.presto.pinot.PinotSplit.createSegmentSplit;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.TABLE_NAME_SUFFIX_TEMPLATE;
@@ -59,14 +60,15 @@ public class PinotSplitManager
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
     }
 
-    protected ConnectorSplitSource generateSplitForBrokerBasedScan(GeneratedPql brokerPql)
+    protected ConnectorSplitSource generateSplitForBrokerBasedScan(GeneratedPql brokerPql, List<PinotColumnHandle> expectedColumnHandles)
     {
-        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, brokerPql)));
+        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPql)));
     }
 
     protected ConnectorSplitSource generateSplitsForSegmentBasedScan(
             PinotTableLayoutHandle pinotLayoutHandle,
-            ConnectorSession session)
+            ConnectorSession session,
+            List<PinotColumnHandle> expectedColumnHandles)
     {
         PinotTableHandle tableHandle = pinotLayoutHandle.getTable();
         String tableName = tableHandle.getTableName();
@@ -76,12 +78,12 @@ public class PinotSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
-            GeneratedPql segmentPql = tableHandle.getPql().orElseThrow(() -> new PinotException(PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
+            GeneratedPql segmentPql = tableHandle.getPql().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
             PinotClusterInfoFetcher.TimeBoundary timeBoundary = pinotPrestoConnection.getTimeBoundary(tableName);
             String realtime = getSegmentPql(segmentPql, "_REALTIME", timeBoundary.getOnlineTimePredicate());
             String offline = getSegmentPql(segmentPql, "_OFFLINE", timeBoundary.getOfflineTimePredicate());
-            generateSegmentSplits(splits, routingTable, tableName, "_REALTIME", session, realtime);
-            generateSegmentSplits(splits, routingTable, tableName, "_OFFLINE", session, offline);
+            generateSegmentSplits(splits, expectedColumnHandles, routingTable, tableName, "_REALTIME", session, realtime);
+            generateSegmentSplits(splits, expectedColumnHandles, routingTable, tableName, "_OFFLINE", session, offline);
         }
 
         Collections.shuffle(splits);
@@ -103,6 +105,7 @@ public class PinotSplitManager
 
     protected void generateSegmentSplits(
             List<ConnectorSplit> splits,
+            List<PinotColumnHandle> expectedColumnHandles,
             Map<String, Map<String, List<String>>> routingTable,
             String tableName,
             String tableNameSuffix,
@@ -122,7 +125,7 @@ public class PinotSplitManager
                 // segments is already shuffled
                 Iterables.partition(segments, numSegmentsInThisSplit).forEach(
                         segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(connectorId, pql, segmentsForThisSplit, host)));
+                                createSegmentSplit(connectorId, pql, expectedColumnHandles, segmentsForThisSplit, host)));
             });
         }
     }
@@ -183,10 +186,10 @@ public class PinotSplitManager
             if (PinotSessionProperties.isForbidSegmentQueries(session)) {
                 throw errorSupplier.get();
             }
-            return generateSplitsForSegmentBasedScan(pinotLayoutHandle, session);
+            return generateSplitsForSegmentBasedScan(pinotLayoutHandle, session, pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
         else {
-            return generateSplitForBrokerBasedScan(pinotTableHandle.getPql().orElseThrow(errorSupplier));
+            return generateSplitForBrokerBasedScan(pinotTableHandle.getPql().orElseThrow(errorSupplier), pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
     }
 }

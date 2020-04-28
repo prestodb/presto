@@ -358,7 +358,8 @@ public class PinotQueryGeneratorContext
             query += " " + limitKeyWord + " " + queryLimit;
         }
 
-        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, getAssignments());
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
+        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPql(tableName, query, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
     }
 
