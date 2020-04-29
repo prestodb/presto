@@ -63,7 +63,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
-import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -121,10 +120,6 @@ public class TestHivePageSink
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
                     if (codec == NONE || !codec.isSupportedStorageFormat(format)) {
-                        continue;
-                    }
-                    // No compression support needed for PAGEFILE
-                    if (format == PAGEFILE) {
                         continue;
                     }
                     config.setCompressionCodec(codec);

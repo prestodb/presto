@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -32,12 +31,14 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +46,7 @@ public class PageFilePageSourceFactory
         implements HiveBatchPageSourceFactory
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final PagesSerde pagesSerde;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     @Inject
     public PageFilePageSourceFactory(
@@ -53,11 +54,7 @@ public class PageFilePageSourceFactory
             BlockEncodingSerde blockEncodingSerde)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        pagesSerde = new PagesSerde(
-                requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @Override
@@ -80,10 +77,8 @@ public class PageFilePageSourceFactory
         }
 
         FSDataInputStream inputStream;
-        PageFilePageSource pageFilePageSource;
         try {
             inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
-            pageFilePageSource = new PageFilePageSource(inputStream, start, length, fileSize, pagesSerde, columns);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -93,7 +88,19 @@ public class PageFilePageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        return Optional.of(pageFilePageSource);
+        try {
+            PageFilePageSource pageFilePageSource = new PageFilePageSource(inputStream, start, length, fileSize, blockEncodingSerde, columns);
+            return Optional.of(pageFilePageSource);
+        }
+        catch (Throwable e) {
+            try {
+                inputStream.close();
+            }
+            catch (IOException ignored) {
+            }
+            propagateIfPossible(e, PrestoException.class);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+        }
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)

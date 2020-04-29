@@ -18,13 +18,14 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +48,7 @@ public class PageFilePageSource
             long start,
             long splitLength,
             long fileSize,
-            PagesSerde pagesSerde,
+            BlockEncodingSerde blockEncodingSerde,
             List<HiveColumnHandle> columns)
             throws IOException
     {
@@ -64,7 +65,9 @@ public class PageFilePageSource
                 readStartAndLength.getOffset(),
                 readStartAndLength.getLength(),
                 inputStream,
-                pagesSerde);
+                createPagesSerdeForPageFile(
+                        blockEncodingSerde,
+                        pageFileFooterReader.getCompression()));
 
         int size = requireNonNull(columns, "columns is null").size();
         this.hiveColumnIndexes = new int[size];
