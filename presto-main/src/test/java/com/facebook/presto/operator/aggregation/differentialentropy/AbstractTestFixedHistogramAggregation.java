@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 
 abstract class AbstractTestFixedHistogramAggregation
         extends AbstractTestAggregationFunction

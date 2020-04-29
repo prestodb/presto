@@ -46,8 +46,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNRowNumber;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;

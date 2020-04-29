@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.Predicate;
 
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;

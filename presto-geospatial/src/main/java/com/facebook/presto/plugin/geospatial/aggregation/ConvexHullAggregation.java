@@ -14,10 +14,10 @@
 package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;

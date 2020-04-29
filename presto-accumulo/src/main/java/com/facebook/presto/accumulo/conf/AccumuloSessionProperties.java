@@ -22,11 +22,11 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 /**
  * Class contains all session-based properties for the Accumulo connector.

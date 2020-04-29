@@ -14,8 +14,8 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;

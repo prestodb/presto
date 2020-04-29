@@ -37,8 +37,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest

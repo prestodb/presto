@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.ArrayBlockBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.ArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -33,8 +33,8 @@ import static com.facebook.presto.block.ColumnarTestUtils.createTestDictionaryBl
 import static com.facebook.presto.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleBlock;
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleExpectedValues;
-import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestColumnarArray

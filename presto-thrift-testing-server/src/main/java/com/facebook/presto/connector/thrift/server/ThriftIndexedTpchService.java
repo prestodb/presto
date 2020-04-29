@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
@@ -24,7 +25,6 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;

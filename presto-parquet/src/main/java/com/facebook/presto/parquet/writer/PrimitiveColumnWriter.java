@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.BytesInput;

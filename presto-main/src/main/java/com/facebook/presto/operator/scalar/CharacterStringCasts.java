@@ -26,9 +26,9 @@ import io.airlift.slice.Slices;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
+import static com.facebook.presto.common.type.Chars.padSpaces;
+import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
+import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;

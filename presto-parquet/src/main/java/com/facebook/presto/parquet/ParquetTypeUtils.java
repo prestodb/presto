@@ -15,8 +15,8 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.PathElement;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;

@@ -14,27 +14,27 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.DEFAULT_ACCURACY;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.DEFAULT_WEIGHT;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.checkAccuracy;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.checkWeight;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")

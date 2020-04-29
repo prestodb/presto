@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.procedure;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

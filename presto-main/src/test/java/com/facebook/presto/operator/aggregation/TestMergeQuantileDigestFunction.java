@@ -14,18 +14,18 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 

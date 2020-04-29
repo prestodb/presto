@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
 import com.facebook.presto.functionNamespace.ServingCatalog;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlParameter;
-import com.facebook.presto.spi.type.TypeSignature;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;

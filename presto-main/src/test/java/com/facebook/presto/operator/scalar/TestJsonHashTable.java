@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.util.JsonUtil.HashTable;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

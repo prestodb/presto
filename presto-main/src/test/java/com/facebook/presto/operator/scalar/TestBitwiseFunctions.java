@@ -15,8 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 
 public class TestBitwiseFunctions

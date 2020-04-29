@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 class EquiJoinClauseProvider

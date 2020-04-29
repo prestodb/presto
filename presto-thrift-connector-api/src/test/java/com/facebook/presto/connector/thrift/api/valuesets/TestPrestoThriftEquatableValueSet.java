@@ -18,9 +18,9 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.jsonData;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static com.facebook.presto.spi.type.JsonType.JSON;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;

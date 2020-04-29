@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.array;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

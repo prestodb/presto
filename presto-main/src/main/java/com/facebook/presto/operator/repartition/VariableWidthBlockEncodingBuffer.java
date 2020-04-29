@@ -27,10 +27,10 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.AbstractVariableWidthBlock;
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.common.block.AbstractVariableWidthBlock;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;

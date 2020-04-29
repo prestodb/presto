@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.TimeZone;
 import java.util.TreeSet;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.isUtcZoneId;
+import static com.facebook.presto.common.type.TimeZoneKey.isUtcZoneId;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Sets.filter;
 import static com.google.common.collect.Sets.intersection;

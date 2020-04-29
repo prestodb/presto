@@ -18,8 +18,8 @@ import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 
 import java.math.BigInteger;
 
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
-import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.common.type.Decimals.rescale;
 
 public final class DecimalUtils
 {

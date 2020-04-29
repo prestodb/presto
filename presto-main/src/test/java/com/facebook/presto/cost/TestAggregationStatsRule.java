@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestAggregationStatsRule

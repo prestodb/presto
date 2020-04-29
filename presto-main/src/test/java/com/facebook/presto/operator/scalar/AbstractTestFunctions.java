@@ -14,7 +14,12 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -23,10 +28,6 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.type.DecimalParseResult;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
@@ -41,10 +42,10 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -166,9 +167,11 @@ public abstract class AbstractTestFunctions
             functionAssertions.executeProjectionWithFullEngine(projection);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (PrestoException | NotSupportedException e) {
             try {
-                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+                if (e instanceof PrestoException) {
+                    assertEquals(((PrestoException) e).getErrorCode(), NOT_SUPPORTED.toErrorCode());
+                }
                 assertEquals(e.getMessage(), message);
             }
             catch (Throwable failure) {

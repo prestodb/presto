@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.parquet.writer.valuewriter;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

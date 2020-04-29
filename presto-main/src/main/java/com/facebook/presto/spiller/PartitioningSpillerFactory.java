@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 

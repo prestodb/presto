@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.operator.aggregation.StatisticalDigestFactory.createStatisticalTDigest;
 import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createTDigestFactory;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
-import static com.facebook.presto.spi.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Reflection.methodHandle;
 

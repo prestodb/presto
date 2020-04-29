@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.unnest;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlockBuilder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -42,8 +42,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createRandomBlockForType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

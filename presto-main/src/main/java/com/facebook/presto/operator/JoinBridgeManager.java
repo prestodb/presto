@@ -14,8 +14,8 @@
 
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;

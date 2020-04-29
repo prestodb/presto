@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
