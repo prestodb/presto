@@ -27,6 +27,8 @@ import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableList;
+import io.airlift.compress.lz4.Lz4Compressor;
+import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import org.apache.hadoop.fs.FileSystem;
@@ -131,6 +133,10 @@ public class PageFileWriterFactory
             case SNAPPY:
                 pageCompressor = new AirliftCompressorAdapter(new SnappyCompressor());
                 pageDecompressor = new AirliftDecompressorAdapter(new SnappyDecompressor());
+                break;
+            case LZ4:
+                pageCompressor = new AirliftCompressorAdapter(new Lz4Compressor());
+                pageDecompressor = new AirliftDecompressorAdapter(new Lz4Decompressor());
                 break;
             default:
                 throw new PrestoException(
