@@ -75,11 +75,14 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -214,7 +217,7 @@ public enum FileFormat
             HiveBatchPageSourceFactory pageSourceFactory = new PageFilePageSourceFactory(
                     hdfsEnvironment,
                     new BlockEncodingManager(TYPE_MANAGER));
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PAGEFILE);
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, PAGEFILE);
         }
 
         @Override
@@ -226,7 +229,10 @@ public enum FileFormat
                 HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            return new PrestoPageFormatWriter(targetFile);
+            if (!compressionCodec.isSupportedStorageFormat(PAGEFILE)) {
+                compressionCodec = NONE;
+            }
+            return new PrestoPageFormatWriter(targetFile, compressionCodec);
         }
 
         @Override
@@ -662,19 +668,16 @@ public enum FileFormat
             implements FormatWriter
     {
         private final PageWriter writer;
-        private final PagesSerde pagesSerde = new PagesSerde(
-                new BlockEncodingManager(TYPE_MANAGER),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        private final PagesSerde pagesSerde;
 
-        public PrestoPageFormatWriter(File targetFile)
+        public PrestoPageFormatWriter(File targetFile, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
             writer = new PageWriter(
                     new OutputStreamDataSink(new FileOutputStream(targetFile)),
-                    HiveCompressionCodec.NONE,
+                    compressionCodec,
                     new DataSize(10, DataSize.Unit.MEGABYTE));
+            pagesSerde = createPagesSerdeForPageFile(new BlockEncodingManager(TYPE_MANAGER), Optional.of(compressionCodec));
         }
 
         @Override
