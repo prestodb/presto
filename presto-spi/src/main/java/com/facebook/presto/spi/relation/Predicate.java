@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 public interface Predicate
 {

@@ -16,20 +16,20 @@ package com.facebook.presto.localfile;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 
 final class MetadataUtil

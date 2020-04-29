@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
@@ -32,6 +32,11 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
@@ -40,11 +45,6 @@ import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MAX_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;

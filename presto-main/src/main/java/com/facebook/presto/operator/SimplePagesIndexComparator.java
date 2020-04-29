@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

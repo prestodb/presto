@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

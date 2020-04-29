@@ -14,9 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.google.common.collect.ImmutableListMultimap;
@@ -41,7 +41,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
 
@@ -116,7 +116,7 @@ public class TestQuerySessionSupplier
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TimeZoneNotSupportedException.class)
     public void testInvalidTimeZone()
     {
         HttpServletRequest request = new MockHttpServletRequest(

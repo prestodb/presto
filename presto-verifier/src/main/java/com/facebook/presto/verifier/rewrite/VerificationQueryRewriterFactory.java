@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;

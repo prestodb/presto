@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 public interface BlockComparator
 {

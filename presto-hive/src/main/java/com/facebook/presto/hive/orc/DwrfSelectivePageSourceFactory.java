@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;

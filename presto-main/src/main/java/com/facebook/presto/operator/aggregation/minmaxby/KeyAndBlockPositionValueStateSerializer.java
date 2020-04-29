@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.AbstractRowBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.common.block.AbstractRowBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

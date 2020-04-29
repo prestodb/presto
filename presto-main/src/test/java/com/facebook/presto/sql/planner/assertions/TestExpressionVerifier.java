@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

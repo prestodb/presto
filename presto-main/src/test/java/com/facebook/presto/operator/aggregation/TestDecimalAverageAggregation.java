@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.average;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

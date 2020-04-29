@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -21,11 +26,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.ByteInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -34,12 +34,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.minNonNullValueSize;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;

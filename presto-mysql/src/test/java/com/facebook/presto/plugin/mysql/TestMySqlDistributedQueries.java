@@ -26,8 +26,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.TimeUnit.SECONDS;

@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.decoder.json;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;

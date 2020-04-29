@@ -15,10 +15,10 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCPoint;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,11 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.SphericalGeoFunctions.toSphericalGeography;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;

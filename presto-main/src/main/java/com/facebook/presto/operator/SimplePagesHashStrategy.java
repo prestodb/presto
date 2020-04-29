@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Preconditions.checkArgument;

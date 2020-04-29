@@ -48,11 +48,11 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.collect.ImmutableList.toImmutableList;

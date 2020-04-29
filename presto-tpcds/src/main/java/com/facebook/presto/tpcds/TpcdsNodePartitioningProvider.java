@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Set;

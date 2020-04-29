@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
@@ -70,8 +71,8 @@ public final class ArraySortFunction
                         //TODO: This could be quite slow, it should use parametric equals
                         return type.compareTo(block, p1, block, p2);
                     }
-                    catch (PrestoException e) {
-                        if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                    catch (PrestoException | NotSupportedException e) {
+                        if (e instanceof NotSupportedException || ((PrestoException) e).getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
                             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array contains elements not supported for comparison", e);
                         }
                         throw e;
@@ -89,8 +90,8 @@ public final class ArraySortFunction
                         //TODO: This could be quite slow, it should use parametric equals
                         return type.compareTo(block, p1, block, p2);
                     }
-                    catch (PrestoException e) {
-                        if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                    catch (PrestoException | NotSupportedException e) {
+                        if (e instanceof NotSupportedException || ((PrestoException) e).getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
                             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array contains elements not supported for comparison", e);
                         }
                         throw e;

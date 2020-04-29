@@ -14,6 +14,8 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.atop.AtopTable.AtopColumn;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -21,8 +23,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

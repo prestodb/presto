@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.decoder;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.type.Type;
 
 // Connectors that have rows that can be decoded into
 // columns using com.facebook.presto.decoder

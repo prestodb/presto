@@ -21,8 +21,8 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.fail;
 

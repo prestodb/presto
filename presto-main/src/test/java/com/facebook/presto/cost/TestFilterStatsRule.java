@@ -19,7 +19,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 

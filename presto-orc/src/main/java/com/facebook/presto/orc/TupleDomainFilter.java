@@ -20,9 +20,9 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
 import static com.facebook.presto.orc.ByteArrayUtils.hash;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;

@@ -16,9 +16,9 @@ package com.facebook.presto.connector.thrift.api.datatypes;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 

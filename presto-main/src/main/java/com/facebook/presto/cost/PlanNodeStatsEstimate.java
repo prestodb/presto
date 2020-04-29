@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VariableWidthType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;

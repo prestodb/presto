@@ -29,7 +29,7 @@ import java.sql.ResultSetMetaData;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;

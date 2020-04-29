@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
@@ -20,9 +22,7 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
@@ -51,10 +51,10 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.field;

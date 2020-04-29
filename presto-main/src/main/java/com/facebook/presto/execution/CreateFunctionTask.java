@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlParameter;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -35,9 +35,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;

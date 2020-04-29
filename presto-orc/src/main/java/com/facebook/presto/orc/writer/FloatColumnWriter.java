@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -26,8 +28,6 @@ import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
 import com.facebook.presto.orc.stream.FloatOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.AbstractIntType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -23,8 +25,6 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.AbstractIntType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -50,8 +50,8 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;

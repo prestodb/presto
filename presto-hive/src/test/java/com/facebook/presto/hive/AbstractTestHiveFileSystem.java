@@ -84,6 +84,7 @@ import java.util.function.BiFunction;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
@@ -101,7 +102,6 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFact
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;

@@ -14,30 +14,30 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.common.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 
 @AggregationFunction(value = NAME, decomposable = false, visibility = HIDDEN)

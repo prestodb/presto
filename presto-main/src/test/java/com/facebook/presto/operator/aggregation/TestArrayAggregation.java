@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
@@ -39,11 +39,11 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertTrue;
 

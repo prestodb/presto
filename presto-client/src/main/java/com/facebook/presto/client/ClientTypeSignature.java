@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.ParameterKind;
+import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

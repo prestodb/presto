@@ -13,24 +13,24 @@
  */
 package com.facebook.presto.rcfile.binary;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.ColumnData;
 import com.facebook.presto.rcfile.EncodeOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.type.Decimals.isShortDecimal;
+import static com.facebook.presto.common.type.Decimals.rescale;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 

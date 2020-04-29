@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

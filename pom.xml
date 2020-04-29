@@ -190,6 +190,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-common</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-resource-group-managers</artifactId>
                 <version>${project.version}</version>
             </dependency>

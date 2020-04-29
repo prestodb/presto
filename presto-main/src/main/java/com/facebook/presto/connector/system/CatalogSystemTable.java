@@ -31,11 +31,11 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogSystemTable

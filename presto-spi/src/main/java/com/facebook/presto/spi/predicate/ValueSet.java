@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.predicate;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 

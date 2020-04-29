@@ -14,8 +14,8 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;

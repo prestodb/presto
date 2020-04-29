@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
@@ -21,7 +22,6 @@ import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableStatsSystemTable;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;

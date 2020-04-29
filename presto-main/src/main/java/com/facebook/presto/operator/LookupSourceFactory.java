@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;

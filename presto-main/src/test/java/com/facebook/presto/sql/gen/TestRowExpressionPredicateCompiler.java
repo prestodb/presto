@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -31,9 +31,9 @@ import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_E
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;

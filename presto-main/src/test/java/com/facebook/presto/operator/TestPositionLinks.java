@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 

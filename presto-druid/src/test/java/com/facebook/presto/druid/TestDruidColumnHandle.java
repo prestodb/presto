@@ -16,11 +16,11 @@ package com.facebook.presto.druid;
 import com.facebook.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.DERIVED;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
 import static com.facebook.presto.druid.TestingMetadataUtil.COLUMN_CODEC;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestDruidColumnHandle

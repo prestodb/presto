@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.array.IntBigArray;
@@ -32,9 +35,6 @@ import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;

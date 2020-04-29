@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.ArrayBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.parquet.Field;
@@ -21,13 +28,6 @@ import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.ArrayBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RowBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
@@ -46,11 +46,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

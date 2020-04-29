@@ -14,6 +14,9 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
@@ -21,9 +24,6 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 

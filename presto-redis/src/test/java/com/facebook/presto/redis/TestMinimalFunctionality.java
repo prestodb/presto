@@ -14,13 +14,13 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.redis.util.JsonEncoder;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableMap;

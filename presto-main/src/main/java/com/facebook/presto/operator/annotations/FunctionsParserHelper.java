@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -35,7 +36,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -60,6 +60,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
@@ -72,9 +75,6 @@ import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWith
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Ticker.systemTicker;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
@@ -24,7 +25,6 @@ import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -44,16 +44,16 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;

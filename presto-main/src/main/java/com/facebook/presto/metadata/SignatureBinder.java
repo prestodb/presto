@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.ParameterKind;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.type.FunctionType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;

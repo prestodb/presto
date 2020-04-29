@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -26,8 +26,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

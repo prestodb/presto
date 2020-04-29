@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.druid.column;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import org.apache.druid.segment.ColumnValueSelector;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_UNSUPPORTED_TYPE_ERROR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public interface ColumnReader

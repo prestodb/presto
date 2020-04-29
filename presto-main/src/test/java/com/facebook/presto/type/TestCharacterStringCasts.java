@@ -16,10 +16,10 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 

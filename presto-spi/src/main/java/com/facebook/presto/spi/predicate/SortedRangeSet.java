@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.predicate;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 /**

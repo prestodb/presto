@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -37,8 +37,8 @@ import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 

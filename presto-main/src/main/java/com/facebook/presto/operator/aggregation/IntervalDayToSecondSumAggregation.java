@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
@@ -22,7 +22,7 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
 
-import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static com.facebook.presto.common.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 @AggregationFunction("sum")

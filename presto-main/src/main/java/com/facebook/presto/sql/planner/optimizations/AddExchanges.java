@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.parser.SqlParser;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
@@ -23,8 +25,6 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -36,9 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

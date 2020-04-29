@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public class SqlInvokedFunctionRowMapper
         implements RowMapper<SqlInvokedFunction>

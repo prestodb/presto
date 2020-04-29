@@ -14,11 +14,11 @@
 package com.facebook.presto.accumulo.serializers;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeUtils;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeUtils;
+import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.accumulo.core.data.Key;
@@ -410,7 +410,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link com.facebook.presto.spi.type.Type}
+     * @param type The presto {@link com.facebook.presto.common.type.Type}
      * @param value The Java object per the table in the method description
      * @return Encoded bytes
      */
@@ -482,7 +482,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link com.facebook.presto.spi.type.Type}
+     * @param type The presto {@link com.facebook.presto.common.type.Type}
      * @param value Encoded bytes to decode
      * @param <T> The Java type of the object that has been encoded to the given byte array
      * @return The Java object per the table in the method description

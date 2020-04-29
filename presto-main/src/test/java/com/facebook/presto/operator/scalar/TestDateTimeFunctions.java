@@ -15,14 +15,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 
 public class TestDateTimeFunctions
         extends TestDateTimeFunctionsBase

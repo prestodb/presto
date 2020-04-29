@@ -34,9 +34,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.predicate.NullableValue.asNull;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.reader.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Strings;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
@@ -54,12 +54,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;

@@ -14,15 +14,15 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 
 public class TestMergeHyperLogLogAggregation
         extends AbstractTestAggregationFunction

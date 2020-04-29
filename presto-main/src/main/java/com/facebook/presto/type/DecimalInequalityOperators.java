@@ -14,15 +14,15 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder;
 import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
@@ -37,15 +37,15 @@ import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.constant;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;

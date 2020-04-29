@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;

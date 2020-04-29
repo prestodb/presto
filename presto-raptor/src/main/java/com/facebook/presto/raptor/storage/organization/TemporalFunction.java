@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;

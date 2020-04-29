@@ -14,6 +14,13 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -21,18 +28,12 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -41,7 +42,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 

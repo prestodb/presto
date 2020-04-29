@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.DateTimeOperators;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffDate;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 

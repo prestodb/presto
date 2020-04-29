@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.parquet.writer.levels;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable.DefinitionLevelIterator;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;

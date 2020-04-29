@@ -14,15 +14,15 @@
 
 package com.facebook.presto.block;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.MapBlock;
+import com.facebook.presto.common.block.MapBlockBuilder;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.MapBlock;
-import com.facebook.presto.spi.block.MapBlockBuilder;
-import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
@@ -36,9 +36,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;

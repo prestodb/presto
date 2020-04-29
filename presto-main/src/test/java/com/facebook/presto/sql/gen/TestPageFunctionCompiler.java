@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
@@ -22,8 +24,6 @@ import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.collect.ImmutableList;
@@ -36,11 +36,11 @@ import java.util.function.Supplier;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;

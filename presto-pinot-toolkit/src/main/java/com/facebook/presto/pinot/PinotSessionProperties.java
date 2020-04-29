@@ -24,10 +24,10 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PinotSessionProperties

@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.aggregation.arrayagg;
 
 import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Verify.verify;

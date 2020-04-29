@@ -27,14 +27,14 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;

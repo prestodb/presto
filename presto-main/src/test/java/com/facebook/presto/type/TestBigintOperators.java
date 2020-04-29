@@ -17,11 +17,11 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class TestBigintOperators

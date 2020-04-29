@@ -14,15 +14,15 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.spi.type.TestingTypeDeserializer;
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

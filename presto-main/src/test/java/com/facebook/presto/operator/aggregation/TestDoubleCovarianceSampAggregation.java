@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.correlation.Covariance;
 

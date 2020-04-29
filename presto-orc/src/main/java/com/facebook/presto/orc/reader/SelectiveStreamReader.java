@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockLease;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockLease;
 
 import java.io.IOException;
 

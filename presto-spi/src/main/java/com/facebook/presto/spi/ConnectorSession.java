@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Locale;

@@ -14,6 +14,9 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -45,7 +48,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -57,8 +59,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;

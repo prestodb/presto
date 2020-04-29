@@ -14,11 +14,11 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

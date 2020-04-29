@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

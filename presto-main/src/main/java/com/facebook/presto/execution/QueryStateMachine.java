@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
