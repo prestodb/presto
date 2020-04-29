@@ -14,13 +14,13 @@
 package com.facebook.presto.connector.thrift.api;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;

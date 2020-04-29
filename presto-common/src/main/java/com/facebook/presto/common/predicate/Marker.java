@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.predicate.Utils;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -129,12 +128,12 @@ public final class Marker
         return Utils.blockToNativeValue(type, valueBlock.get());
     }
 
-    public Object getPrintableValue(ConnectorSession session)
+    public Object getPrintableValue(SqlFunctionProperties properties)
     {
         if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No value to get");
         }
-        return type.getObjectValue(session.getSqlFunctionProperties(), valueBlock.get(), 0);
+        return type.getObjectValue(properties, valueBlock.get(), 0);
     }
 
     @JsonProperty
@@ -282,7 +281,7 @@ public final class Marker
                 && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
     }
 
-    public String toString(ConnectorSession session)
+    public String toString(SqlFunctionProperties properties)
     {
         StringBuilder buffer = new StringBuilder("{");
         buffer.append("type=").append(type);
@@ -294,7 +293,7 @@ public final class Marker
             buffer.append("<max>");
         }
         else {
-            buffer.append(getPrintableValue(session));
+            buffer.append(getPrintableValue(properties));
         }
         buffer.append(", bound=").append(bound);
         buffer.append("}");

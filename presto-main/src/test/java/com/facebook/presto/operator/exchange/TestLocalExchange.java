@@ -15,6 +15,7 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.InterpretedHashGenerator;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

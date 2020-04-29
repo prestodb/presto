@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.unnest;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ColumnarArray;
@@ -22,8 +24,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 
 import java.util.ArrayList;
 import java.util.List;

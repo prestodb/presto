@@ -16,10 +16,10 @@ package com.facebook.presto.connector.thrift.api.valuesets;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
-import com.facebook.presto.spi.predicate.EquatableValueSet;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.common.predicate.AllOrNoneValueSet;
+import com.facebook.presto.common.predicate.EquatableValueSet;
+import com.facebook.presto.common.predicate.SortedRangeSet;
+import com.facebook.presto.common.predicate.ValueSet;
 
 import javax.annotation.Nullable;
 

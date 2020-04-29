@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import static java.util.Objects.requireNonNull;
 

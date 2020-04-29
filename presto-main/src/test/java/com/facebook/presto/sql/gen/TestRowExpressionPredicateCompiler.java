@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.relational.FunctionResolution;

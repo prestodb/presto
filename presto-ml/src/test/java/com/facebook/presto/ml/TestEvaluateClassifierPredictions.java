@@ -14,13 +14,13 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

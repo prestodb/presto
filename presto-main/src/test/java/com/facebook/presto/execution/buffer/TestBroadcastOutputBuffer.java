@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

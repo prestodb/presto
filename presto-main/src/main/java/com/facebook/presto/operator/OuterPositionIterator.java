@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.common.PageBuilder;
 
 public interface OuterPositionIterator
 {

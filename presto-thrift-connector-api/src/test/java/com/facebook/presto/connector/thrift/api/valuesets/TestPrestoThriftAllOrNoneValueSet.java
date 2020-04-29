@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.api.valuesets;
 
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.common.predicate.ValueSet;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;

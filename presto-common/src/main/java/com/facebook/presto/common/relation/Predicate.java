@@ -11,12 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.relation;
 
-public interface AllOrNone
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+
+public interface Predicate
 {
-    /**
-     * @return true if all values are permitted, false if no values are permitted
-     */
-    boolean isAll();
+    int[] getInputChannels();
+
+    boolean evaluate(SqlFunctionProperties properties, Page page, int position);
 }

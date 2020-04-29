@@ -14,9 +14,9 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

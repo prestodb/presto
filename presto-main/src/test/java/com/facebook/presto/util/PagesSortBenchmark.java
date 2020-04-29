@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;

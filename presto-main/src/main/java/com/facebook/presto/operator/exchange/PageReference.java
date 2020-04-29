@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.exchange;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 
