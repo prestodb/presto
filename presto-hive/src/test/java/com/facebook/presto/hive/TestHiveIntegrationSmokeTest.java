@@ -93,6 +93,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WR
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -4778,6 +4779,44 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_small_split", "SELECT sum(custkey) FROM orders");
 
         assertUpdate("DROP TABLE test_pagefile_small_split");
+    }
+
+    @Test
+    public void testPageFileCompression()
+    {
+        for (HiveCompressionCodec compression : HiveCompressionCodec.values()) {
+            if (!compression.isSupportedStorageFormat(PAGEFILE)) {
+                continue;
+            }
+            testPageFileCompression(compression.name());
+        }
+    }
+
+    private void testPageFileCompression(String compression)
+    {
+        Session testSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(catalog, "compression_codec", compression)
+                .setCatalogSessionProperty(catalog, "pagefile_writer_max_stripe_size", "100B")
+                .setCatalogSessionProperty(catalog, "max_split_size", "1kB")
+                .setCatalogSessionProperty(catalog, "max_initial_split_size", "1kB")
+                .build();
+
+        assertUpdate(
+                testSession,
+                "CREATE TABLE test_pagefile_compression\n" +
+                        "WITH (\n" +
+                        "format = 'PAGEFILE'\n" +
+                        ") AS\n" +
+                        "SELECT\n" +
+                        "*\n" +
+                        "FROM tpch.orders",
+                "SELECT count(*) FROM orders");
+
+        assertQuery(testSession, "SELECT count(*) FROM test_pagefile_compression", "SELECT count(*) FROM orders");
+
+        assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_compression", "SELECT sum(custkey) FROM orders");
+
+        assertUpdate("DROP TABLE test_pagefile_compression");
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
