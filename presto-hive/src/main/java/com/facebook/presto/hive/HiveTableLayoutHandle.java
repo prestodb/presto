@@ -14,12 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;

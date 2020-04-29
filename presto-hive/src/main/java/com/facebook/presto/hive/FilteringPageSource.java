@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
@@ -24,9 +27,6 @@ import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;

@@ -14,7 +14,9 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
@@ -56,9 +58,7 @@ import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

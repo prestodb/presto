@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionManager;
@@ -21,7 +22,6 @@ import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.google.common.base.CaseFormat;
 

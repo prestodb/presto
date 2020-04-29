@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ConnectorId;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;

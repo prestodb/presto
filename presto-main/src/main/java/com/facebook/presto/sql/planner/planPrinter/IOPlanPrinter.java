@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Marker;
+import com.facebook.presto.common.predicate.Marker.Bound;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.IntegerType;
@@ -31,10 +35,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.Marker.Bound;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -52,8 +52,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;

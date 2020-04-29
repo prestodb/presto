@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -26,7 +27,6 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandl
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.PageSinkManager;

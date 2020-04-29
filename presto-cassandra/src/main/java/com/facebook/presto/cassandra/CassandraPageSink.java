@@ -15,10 +15,10 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.querybuilder.Insert;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

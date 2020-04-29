@@ -14,6 +14,8 @@
 package com.facebook.presto.connector.thrift.server;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.connector.thrift.api.PrestoThriftColumnMetadata;
@@ -31,9 +33,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;

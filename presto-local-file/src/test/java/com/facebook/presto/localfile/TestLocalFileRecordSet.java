@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;

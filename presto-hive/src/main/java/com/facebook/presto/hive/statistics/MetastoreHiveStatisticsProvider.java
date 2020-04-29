@@ -15,6 +15,7 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
@@ -32,7 +33,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;

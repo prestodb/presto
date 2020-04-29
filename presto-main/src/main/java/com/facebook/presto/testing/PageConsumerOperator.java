@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.DriverContext;
@@ -20,7 +21,6 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 

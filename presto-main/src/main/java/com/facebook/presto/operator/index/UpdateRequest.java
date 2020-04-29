@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.airlift.concurrent.MoreFutures;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;

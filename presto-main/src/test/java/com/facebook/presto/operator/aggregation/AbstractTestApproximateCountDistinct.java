@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

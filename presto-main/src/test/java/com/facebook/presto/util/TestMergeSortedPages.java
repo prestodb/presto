@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -20,7 +21,6 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.SimplePageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

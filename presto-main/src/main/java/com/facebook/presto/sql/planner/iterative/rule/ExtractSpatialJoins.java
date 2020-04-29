@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
@@ -33,7 +34,6 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;

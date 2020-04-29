@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
@@ -53,7 +54,6 @@ import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;

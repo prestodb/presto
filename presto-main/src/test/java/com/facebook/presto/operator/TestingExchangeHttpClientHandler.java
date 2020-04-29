@@ -18,7 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.google.common.base.Splitter;

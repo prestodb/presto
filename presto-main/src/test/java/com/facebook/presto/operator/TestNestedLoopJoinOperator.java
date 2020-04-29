@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopPageBuilder;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;

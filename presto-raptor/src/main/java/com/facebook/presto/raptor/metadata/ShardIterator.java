@@ -14,9 +14,9 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import org.skife.jdbi.v2.IDBI;

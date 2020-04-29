@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionManager;
@@ -22,7 +23,6 @@ import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;

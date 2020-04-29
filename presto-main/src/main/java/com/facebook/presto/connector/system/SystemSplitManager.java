@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.SystemTable.Distribution;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 

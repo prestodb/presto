@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc.optimization;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -37,7 +38,6 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;

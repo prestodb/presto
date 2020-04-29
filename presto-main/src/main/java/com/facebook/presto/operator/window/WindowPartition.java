@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.google.common.collect.ImmutableList;

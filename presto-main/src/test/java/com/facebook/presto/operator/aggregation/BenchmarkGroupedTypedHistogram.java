@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;

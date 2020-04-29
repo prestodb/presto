@@ -18,11 +18,11 @@ import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.predicate.Marker;
+import com.facebook.presto.common.predicate.Marker.Bound;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.Marker.Bound;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
 
 import javax.annotation.Nullable;
 

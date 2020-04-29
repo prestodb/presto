@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
 import com.google.common.primitives.Ints;
 import org.apache.commons.math3.util.Precision;
 

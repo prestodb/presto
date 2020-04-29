@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import java.util.Optional;
 

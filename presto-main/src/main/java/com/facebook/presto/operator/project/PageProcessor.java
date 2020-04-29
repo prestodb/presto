@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
@@ -24,7 +25,6 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;

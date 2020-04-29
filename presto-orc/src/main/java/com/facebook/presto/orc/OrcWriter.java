@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -33,7 +34,6 @@ import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

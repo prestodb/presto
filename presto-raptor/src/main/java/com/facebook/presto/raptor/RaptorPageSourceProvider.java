@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 

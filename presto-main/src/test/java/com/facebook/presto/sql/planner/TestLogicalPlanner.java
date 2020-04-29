@@ -51,13 +51,13 @@ import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTP
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;

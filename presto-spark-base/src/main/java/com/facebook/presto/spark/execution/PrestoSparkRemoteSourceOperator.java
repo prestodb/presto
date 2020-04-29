@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Split;
@@ -21,8 +23,6 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;

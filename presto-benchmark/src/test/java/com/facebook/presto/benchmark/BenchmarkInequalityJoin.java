@@ -14,7 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 

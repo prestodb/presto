@@ -14,6 +14,8 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
@@ -23,8 +25,6 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;

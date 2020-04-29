@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.FunctionManager;
@@ -25,7 +26,6 @@ import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;

@@ -15,13 +15,13 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.TestingSession;

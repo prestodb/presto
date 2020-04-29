@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.Domain;
 
 import java.util.Map;
 import java.util.Optional;

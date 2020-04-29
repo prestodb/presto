@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -43,7 +44,6 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

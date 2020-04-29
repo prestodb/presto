@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.predicate.DictionaryDescriptor;
 import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -37,6 +37,11 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.predicate.Domain.create;
+import static com.facebook.presto.common.predicate.Domain.notNull;
+import static com.facebook.presto.common.predicate.Domain.singleValue;
+import static com.facebook.presto.common.predicate.Range.range;
+import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -49,11 +54,6 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getDomain;
-import static com.facebook.presto.spi.predicate.Domain.create;
-import static com.facebook.presto.spi.predicate.Domain.notNull;
-import static com.facebook.presto.spi.predicate.Domain.singleValue;
-import static com.facebook.presto.spi.predicate.Range.range;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;

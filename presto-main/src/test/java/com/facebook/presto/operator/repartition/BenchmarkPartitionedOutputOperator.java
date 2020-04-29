@@ -15,6 +15,7 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
@@ -33,7 +34,6 @@ import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.operator.repartition.PartitionedOutputOperator.PartitionedOutputFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;

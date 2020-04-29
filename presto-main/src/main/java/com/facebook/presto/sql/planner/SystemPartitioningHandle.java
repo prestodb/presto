@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -24,7 +25,6 @@ import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

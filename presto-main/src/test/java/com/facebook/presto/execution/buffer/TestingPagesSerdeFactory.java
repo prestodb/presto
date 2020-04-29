@@ -14,9 +14,9 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TestingTypeManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;

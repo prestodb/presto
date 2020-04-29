@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.QualifiedFunctionName;
@@ -28,7 +29,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;

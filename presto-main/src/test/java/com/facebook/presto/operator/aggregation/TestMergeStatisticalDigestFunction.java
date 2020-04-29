@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import org.testng.annotations.Test;
 
 import java.util.List;

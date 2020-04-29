@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -199,17 +199,17 @@ public final class Range
                 Objects.equals(this.high, other.high);
     }
 
-    public String toString(ConnectorSession session)
+    public String toString(SqlFunctionProperties properties)
     {
         StringBuilder buffer = new StringBuilder();
         if (isSingleValue()) {
-            buffer.append('[').append(low.getPrintableValue(session)).append(']');
+            buffer.append('[').append(low.getPrintableValue(properties)).append(']');
         }
         else {
             buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
+            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(properties));
             buffer.append(", ");
-            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
+            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(properties));
             buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         }
         return buffer.toString();

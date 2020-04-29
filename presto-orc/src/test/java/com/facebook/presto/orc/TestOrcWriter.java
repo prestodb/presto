@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -23,7 +24,6 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;

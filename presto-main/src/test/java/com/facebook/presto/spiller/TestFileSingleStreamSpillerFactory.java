@@ -14,10 +14,10 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;

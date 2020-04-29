@@ -14,11 +14,11 @@
 package com.facebook.presto;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.Page;
 
 import java.util.List;
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

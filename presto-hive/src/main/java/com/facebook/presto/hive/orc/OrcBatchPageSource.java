@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -26,7 +27,6 @@ import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 

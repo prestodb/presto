@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;

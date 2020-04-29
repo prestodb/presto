@@ -14,7 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -35,13 +37,11 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;

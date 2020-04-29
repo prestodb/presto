@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.page;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.spi.Page;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;

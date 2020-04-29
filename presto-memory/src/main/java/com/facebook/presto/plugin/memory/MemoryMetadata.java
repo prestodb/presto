@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

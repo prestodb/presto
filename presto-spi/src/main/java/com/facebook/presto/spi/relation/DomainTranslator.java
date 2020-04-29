@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 

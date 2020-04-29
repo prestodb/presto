@@ -14,9 +14,11 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
@@ -28,8 +30,6 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.relation.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tpch.util;
 
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.collect.ImmutableMap;
 

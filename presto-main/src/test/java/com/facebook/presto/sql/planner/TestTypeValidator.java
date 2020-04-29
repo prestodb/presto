@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;

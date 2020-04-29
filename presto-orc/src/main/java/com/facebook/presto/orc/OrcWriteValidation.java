@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.block.ColumnarRow;
@@ -40,7 +41,6 @@ import com.facebook.presto.orc.metadata.statistics.StatisticsHasher;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;

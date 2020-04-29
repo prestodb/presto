@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;

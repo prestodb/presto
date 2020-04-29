@@ -14,10 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;

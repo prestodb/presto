@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
