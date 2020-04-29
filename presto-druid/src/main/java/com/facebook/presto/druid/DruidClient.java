@@ -16,15 +16,19 @@ package com.facebook.presto.druid;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.druid.metadata.DruidTableInfo;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 
@@ -33,11 +37,12 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
+import static com.facebook.presto.druid.DruidResultFormat.ARRAY_LINES;
+import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
@@ -47,7 +52,7 @@ public class DruidClient
 {
     private static final String METADATA_PATH = "/druid/coordinator/v1/metadata";
     private static final String SQL_ENDPOINT = "/druid/v2/sql";
-
+    private static final String APPLICATION_JSON = "application/json";
     private static final String LIST_TABLE_QUERY = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'druid'";
     private static final String GET_COLUMN_TEMPLATE = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = '%s'";
     private static final String GET_SEGMENTS_ID_TEMPLATE = "SELECT segment_id FROM sys.segments WHERE datasource = '%s' AND is_published = 1";
@@ -89,19 +94,19 @@ public class DruidClient
 
     public List<String> getTables()
     {
-        return httpClient.execute(prepareQuery(LIST_TABLE_QUERY), createJsonResponseHandler(LIST_TABLE_NAME_CODEC)).stream()
+        return httpClient.execute(prepareMetadataQuery(LIST_TABLE_QUERY), createJsonResponseHandler(LIST_TABLE_NAME_CODEC)).stream()
                 .map(DruidTableInfo::getTableName)
                 .collect(toImmutableList());
     }
 
     public List<DruidColumnInfo> getColumnDataType(String tableName)
     {
-        return httpClient.execute(prepareQuery(format(GET_COLUMN_TEMPLATE, tableName)), createJsonResponseHandler(LIST_COLUMN_INFO_CODEC));
+        return httpClient.execute(prepareMetadataQuery(format(GET_COLUMN_TEMPLATE, tableName)), createJsonResponseHandler(LIST_COLUMN_INFO_CODEC));
     }
 
     public List<String> getDataSegmentId(String tableName)
     {
-        return httpClient.execute(prepareQuery(format(GET_SEGMENTS_ID_TEMPLATE, tableName)), createJsonResponseHandler(LIST_SEGMENT_ID_CODEC)).stream()
+        return httpClient.execute(prepareMetadataQuery(format(GET_SEGMENTS_ID_TEMPLATE, tableName)), createJsonResponseHandler(LIST_SEGMENT_ID_CODEC)).stream()
                 .map(wrapper -> wrapper.getSegmentId())
                 .collect(toImmutableList());
     }
@@ -119,30 +124,63 @@ public class DruidClient
         return httpClient.execute(request, createJsonResponseHandler(SEGMENT_INFO_CODEC));
     }
 
-    public String getData(String dql)
+    public InputStream getData(String dql)
     {
-        return httpClient.execute(prepareQuery(dql), createStringResponseHandler()).getBody();
+        return httpClient.execute(prepareDataQuery(dql), new StreamingJsonResponseHandler());
     }
 
     private static Request.Builder setContentTypeHeaders(Request.Builder requestBuilder)
     {
         return requestBuilder
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(ACCEPT, JSON_UTF_8.toString());
+                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString());
     }
 
-    private static byte[] createRequestBody(String query)
+    private static byte[] createRequestBody(String query, DruidResultFormat resultFormat, boolean queryHeader)
     {
-        return format("{\"query\":\"%s\"}\n", query).getBytes();
+        return format("{\"query\":\"%s\",\"resultFormat\":\"%s\",\"header\": %b }\n", query, resultFormat.getResultFormat(), queryHeader).getBytes();
     }
 
-    private Request prepareQuery(String query)
+    private Request prepareMetadataQuery(String query)
     {
         HttpUriBuilder uriBuilder = uriBuilderFrom(druidBroker).replacePath(SQL_ENDPOINT);
 
         return setContentTypeHeaders(preparePost())
                 .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query)))
+                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, OBJECT, false)))
                 .build();
+    }
+
+    private Request prepareDataQuery(String query)
+    {
+        HttpUriBuilder uriBuilder = uriBuilderFrom(druidBroker).replacePath(SQL_ENDPOINT);
+
+        return setContentTypeHeaders(preparePost())
+                .setUri(uriBuilder.build())
+                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, ARRAY_LINES, false)))
+                .build();
+    }
+
+    private static class StreamingJsonResponseHandler
+            implements ResponseHandler<InputStream, RuntimeException>
+    {
+        @Override
+        public InputStream handleException(Request request, Exception exception)
+        {
+            throw new PrestoException(DRUID_BROKER_RESULT_ERROR, "Request to worker failed", exception);
+        }
+
+        @Override
+        public InputStream handle(Request request, com.facebook.airlift.http.client.Response response)
+        {
+            try {
+                if (APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
+                    return response.getInputStream();
+                }
+                throw new PrestoException(DRUID_BROKER_RESULT_ERROR, "Response received was not of type " + APPLICATION_JSON);
+            }
+            catch (IOException e) {
+                throw new PrestoException(DRUID_BROKER_RESULT_ERROR, "Unable to read response from worker", e);
+            }
+        }
     }
 }
