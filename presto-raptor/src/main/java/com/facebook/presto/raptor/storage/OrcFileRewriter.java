@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -30,7 +31,6 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.util.Closer;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

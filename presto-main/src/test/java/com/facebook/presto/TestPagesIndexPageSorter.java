@@ -13,11 +13,11 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;

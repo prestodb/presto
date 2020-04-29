@@ -14,6 +14,8 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.http.client.Request;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -30,8 +32,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPql;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;

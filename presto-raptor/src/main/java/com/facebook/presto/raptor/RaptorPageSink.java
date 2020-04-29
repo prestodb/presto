@@ -14,6 +14,8 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.SortOrder;
@@ -25,8 +27,6 @@ import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;

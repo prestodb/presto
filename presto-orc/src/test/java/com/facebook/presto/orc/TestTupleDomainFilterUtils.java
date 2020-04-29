@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.Type;
@@ -34,7 +35,6 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;

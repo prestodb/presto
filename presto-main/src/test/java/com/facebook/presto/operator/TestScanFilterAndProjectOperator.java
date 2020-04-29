@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

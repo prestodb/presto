@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.VariableWidthBlock;
@@ -25,7 +26,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;

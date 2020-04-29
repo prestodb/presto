@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;

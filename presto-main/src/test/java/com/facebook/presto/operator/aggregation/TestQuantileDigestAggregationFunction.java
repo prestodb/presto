@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import org.testng.annotations.Test;

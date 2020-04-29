@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.tpcds.statistics.TpcdsTableStatisticsFactory;
 import com.google.common.collect.ImmutableList;

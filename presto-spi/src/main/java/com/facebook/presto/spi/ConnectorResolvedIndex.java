@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 

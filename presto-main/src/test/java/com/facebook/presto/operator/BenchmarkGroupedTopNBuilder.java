@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;

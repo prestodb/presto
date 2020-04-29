@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
@@ -24,7 +25,6 @@ import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.operator.repartition.PartitionedOutputOperator;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
@@ -38,7 +39,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SimpleArrayAllocator;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;

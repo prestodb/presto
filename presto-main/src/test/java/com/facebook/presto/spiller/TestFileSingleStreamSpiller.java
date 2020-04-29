@@ -14,11 +14,11 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageAssertions;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.tdigest.TDigest;
 
 import java.util.ArrayList;

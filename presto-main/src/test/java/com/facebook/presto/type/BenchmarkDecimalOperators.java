@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;

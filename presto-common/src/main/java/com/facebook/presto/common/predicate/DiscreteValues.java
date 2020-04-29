@@ -11,14 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.relation;
+package com.facebook.presto.common.predicate;
 
-import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.spi.Page;
+import java.util.Collection;
 
-public interface Predicate
+public interface DiscreteValues
 {
-    int[] getInputChannels();
+    /**
+     * @return true if the values are to be included, false if the values are to be excluded
+     */
+    boolean isWhiteList();
 
-    boolean evaluate(SqlFunctionProperties properties, Page page, int position);
+    Collection<Object> getValues();
 }

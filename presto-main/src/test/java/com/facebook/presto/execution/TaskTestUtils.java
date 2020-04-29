@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
@@ -39,7 +40,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;

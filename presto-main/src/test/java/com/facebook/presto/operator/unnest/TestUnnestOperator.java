@@ -15,6 +15,7 @@ package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockAssertions.Encoding;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageAssertions;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;

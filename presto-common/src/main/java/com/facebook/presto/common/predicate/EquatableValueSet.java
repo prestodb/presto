@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.predicate.Utils;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -239,10 +238,10 @@ public class EquatableValueSet
     }
 
     @Override
-    public String toString(ConnectorSession session)
+    public String toString(SqlFunctionProperties properties)
     {
         return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()
-                .map(entry -> type.getObjectValue(session.getSqlFunctionProperties(), entry.getBlock(), 0).toString())
+                .map(entry -> type.getObjectValue(properties, entry.getBlock(), 0).toString())
                 .collect(Collectors.joining(", ")) + " ]";
     }
 

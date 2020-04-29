@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.sql.gen.JoinCompiler;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.thrift.api.valuesets;
 
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftJson;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

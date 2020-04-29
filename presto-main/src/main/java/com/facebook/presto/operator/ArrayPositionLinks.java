@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;

@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -102,22 +101,6 @@ public final class TupleDomain<T>
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
                 .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
-    }
-
-    /**
-     * Extract all column constraints that require exactly one value or only null in their respective Domains.
-     * Returns an empty Optional if the Domain is none.
-     */
-    public static <T> Optional<Map<T, ConstantExpression>> extractFixedValuesToConstantExpressions(TupleDomain<T> tupleDomain)
-    {
-        if (!tupleDomain.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(tupleDomain.getDomains().get()
-                .entrySet().stream()
-                .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> new ConstantExpression(entry.getValue().getNullableSingleValue(), entry.getValue().getType()))));
     }
 
     /**
@@ -405,7 +388,7 @@ public final class TupleDomain<T>
         return "TupleDomain{...}";
     }
 
-    public String toString(ConnectorSession session)
+    public String toString(SqlFunctionProperties properties)
     {
         StringBuilder buffer = new StringBuilder();
         if (isAll()) {
@@ -416,7 +399,7 @@ public final class TupleDomain<T>
         }
         else {
             buffer.append(domains.get().entrySet().stream()
-                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
+                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(properties))));
         }
         return buffer.toString();
     }
@@ -477,7 +460,7 @@ public final class TupleDomain<T>
         return TupleDomain.withColumnDomains(unmodifiableMap(compactedDomains));
     }
 
-    private static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
+    public static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
     {
         return toMap(
                 keyMapper,

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.PinotScatterGatherQueryClient.ErrorCode;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;

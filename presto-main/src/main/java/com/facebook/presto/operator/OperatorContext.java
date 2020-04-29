@@ -15,12 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;

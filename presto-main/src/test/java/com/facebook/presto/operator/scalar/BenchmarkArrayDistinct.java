@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -22,7 +23,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;

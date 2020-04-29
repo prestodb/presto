@@ -11,21 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
-import java.util.List;
-
-public interface Ranges
+public interface AllOrNone
 {
-    int getRangeCount();
-
     /**
-     * @return Allowed non-overlapping predicate ranges sorted in increasing order
+     * @return true if all values are permitted, false if no values are permitted
      */
-    List<Range> getOrderedRanges();
-
-    /**
-     * @return Single range encompassing all of allowed the ranges
-     */
-    Range getSpan();
+    boolean isAll();
 }

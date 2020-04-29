@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
@@ -21,8 +23,6 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;

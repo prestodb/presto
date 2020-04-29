@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
@@ -25,7 +26,6 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

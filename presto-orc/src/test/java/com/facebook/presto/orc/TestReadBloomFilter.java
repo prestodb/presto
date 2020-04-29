@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -41,7 +42,6 @@ import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;

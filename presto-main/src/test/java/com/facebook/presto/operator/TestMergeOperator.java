@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.gen.OrderingCompiler;

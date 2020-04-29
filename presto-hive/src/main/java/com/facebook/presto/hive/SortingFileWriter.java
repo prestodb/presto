@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
@@ -24,7 +25,6 @@ import com.facebook.presto.hive.util.TempFileWriter;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;

@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -276,8 +276,8 @@ public final class Domain
         return Domain.create(simplifiedValueSet, nullAllowed);
     }
 
-    public String toString(ConnectorSession session)
+    public String toString(SqlFunctionProperties properties)
     {
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(properties) + " ]";
     }
 }

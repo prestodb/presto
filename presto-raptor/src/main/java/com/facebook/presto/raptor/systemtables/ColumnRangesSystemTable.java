@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.systemtables;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.metadata.MetadataDao;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.VerifyException;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.DBIException;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 

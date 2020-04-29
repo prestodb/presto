@@ -14,6 +14,7 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -34,7 +35,6 @@ import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.AbstractIterator;

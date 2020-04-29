@@ -15,9 +15,9 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.NullableValue;
 import io.airlift.slice.Slice;
 
 import java.util.List;

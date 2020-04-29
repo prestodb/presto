@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -42,8 +44,6 @@ import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.testing.TestingConnectorSession;

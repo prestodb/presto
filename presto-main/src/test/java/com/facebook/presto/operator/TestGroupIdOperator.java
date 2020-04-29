@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.GroupIdOperator.GroupIdOperatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;

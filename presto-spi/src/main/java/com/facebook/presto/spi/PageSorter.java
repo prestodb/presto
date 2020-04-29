@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 

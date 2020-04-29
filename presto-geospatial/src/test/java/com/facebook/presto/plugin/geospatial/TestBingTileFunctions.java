@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;

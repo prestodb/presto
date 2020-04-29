@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.predicate;
+package com.facebook.presto.common.predicate;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
