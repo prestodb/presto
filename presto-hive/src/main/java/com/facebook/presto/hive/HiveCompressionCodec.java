@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static java.util.Objects.requireNonNull;
 
 public enum HiveCompressionCodec
@@ -31,6 +32,7 @@ public enum HiveCompressionCodec
     NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED, f -> true),
     SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, f -> true),
     GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, f -> true),
+    LZ4(null, CompressionKind.NONE, null, f -> f == PAGEFILE),
     ZSTD(null, CompressionKind.ZSTD, null, f -> f == ORC || f == DWRF);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
