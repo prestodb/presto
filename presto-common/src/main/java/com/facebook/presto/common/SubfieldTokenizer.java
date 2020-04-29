@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.common;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -257,9 +256,9 @@ class SubfieldTokenizer
         return path.charAt(index);
     }
 
-    private PrestoException invalidSubfieldPath()
+    private InvalidFunctionArgumentException invalidSubfieldPath()
     {
-        return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid subfield path: '%s'", this));
+        return new InvalidFunctionArgumentException(format("Invalid subfield path: '%s'", this));
     }
 
     @Override

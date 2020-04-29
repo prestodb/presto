@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.common;
 
-import com.facebook.presto.spi.Subfield.NestedField;
-import com.facebook.presto.spi.Subfield.PathElement;
+import com.facebook.presto.common.Subfield.NestedField;
+import com.facebook.presto.common.Subfield.PathElement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
@@ -95,7 +95,7 @@ public class TestSubfieldTokenizer
             Streams.stream(tokenizer).collect(toImmutableList());
             fail("Expected failure");
         }
-        catch (PrestoException e) {
+        catch (InvalidFunctionArgumentException e) {
             // this is expected
             assertTrue(e.getMessage().startsWith("Invalid subfield path: "));
         }

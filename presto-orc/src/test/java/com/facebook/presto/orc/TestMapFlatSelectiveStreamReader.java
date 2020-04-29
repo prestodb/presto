@@ -14,8 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.Predicate;

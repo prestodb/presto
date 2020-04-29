@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.hive.HiveBucketHandle;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.connector.ConnectorMetadata;

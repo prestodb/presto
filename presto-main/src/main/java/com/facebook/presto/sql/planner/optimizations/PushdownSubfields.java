@@ -14,14 +14,14 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.Subfield.NestedField;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.Subfield.NestedField;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -76,8 +76,8 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
+import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;

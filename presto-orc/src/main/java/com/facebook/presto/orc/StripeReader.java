@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -35,7 +36,6 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.ValueInputStream;
 import com.facebook.presto.orc.stream.ValueInputStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
-import com.facebook.presto.spi.Subfield;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

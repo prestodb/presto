@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
