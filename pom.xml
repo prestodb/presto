@@ -158,6 +158,7 @@
         <module>presto-spark-launcher</module>
         <module>presto-spark-testing</module>
         <module>presto-druid</module>
+        <module>presto-common</module>
     </modules>
 
     <dependencyManagement>
@@ -179,6 +180,12 @@
                 <artifactId>presto-spi</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-common</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
