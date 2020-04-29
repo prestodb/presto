@@ -37,12 +37,12 @@ import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Iterator;
+import java.io.InputStreamReader;
 import java.util.List;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -51,23 +51,32 @@ public class DruidBrokerPageSource
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private final GeneratedDql brokerDql;
     private final List<ColumnHandle> columnHandles;
-    private final DruidClient druidClient;
 
     private boolean finished;
     private long readTimeNanos;
     private long completedBytes;
     private long completedPositions;
+    private BufferedReader responseStream;
+    private final PageBuilder pageBuilder;
+    private List<Type> columnTypes;
 
     public DruidBrokerPageSource(
             GeneratedDql brokerDql,
             List<ColumnHandle> columnHandles,
             DruidClient druidClient)
     {
-        this.brokerDql = requireNonNull(brokerDql, "broker is null");
+        requireNonNull(brokerDql, "broker is null");
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
-        this.druidClient = requireNonNull(druidClient, "druid client is null");
+        requireNonNull(druidClient, "druid client is null");
+        this.responseStream = new BufferedReader(new InputStreamReader(druidClient.getData(brokerDql.getDql())));
+        List<DruidColumnHandle> handles = columnHandles.stream()
+                .map(column -> (DruidColumnHandle) column)
+                .collect(toImmutableList());
+        this.columnTypes = handles.stream()
+                .map(DruidColumnHandle::getColumnType)
+                .collect(toImmutableList());
+        this.pageBuilder = new PageBuilder(this.columnTypes);
     }
 
     @Override
@@ -103,32 +112,20 @@ public class DruidBrokerPageSource
 
         long start = System.nanoTime();
         try {
-            List<DruidColumnHandle> handles = columnHandles.stream()
-                    .map(column -> (DruidColumnHandle) column)
-                    .collect(toImmutableList());
-
-            List<Type> columnTypes = handles.stream()
-                    .map(DruidColumnHandle::getColumnType)
-                    .collect(toImmutableList());
-
-            PageBuilder pageBuilder = new PageBuilder(columnTypes);
-
-            String data = druidClient.getData(brokerDql.getDql());
-            JsonNode rootNode;
-            try {
-                rootNode = OBJECT_MAPPER.readTree(data);
-                checkArgument(rootNode.isArray(), "broker Druid query should return Json Array: " + data);
-                ArrayNode arrayNode = (ArrayNode) rootNode;
-                Iterator<JsonNode> iterator = arrayNode.elements();
-                while (iterator.hasNext()) {
-                    JsonNode node = iterator.next();
-                    Iterator<String> fieldNamesIterator = node.fieldNames();
+            String readLine;
+            while ((readLine = responseStream.readLine()) != null) {
+                // if read a blank line,it means read finish
+                if (readLine.isEmpty()) {
+                    finished = true;
+                    break;
+                }
+                else {
+                    JsonNode rootNode = OBJECT_MAPPER.readTree(readLine);
+                    ArrayNode arrayNode = (ArrayNode) rootNode;
                     for (int i = 0; i < columnHandles.size(); i++) {
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-
-                        String fieldName = fieldNamesIterator.next();
-                        JsonNode value = node.get(fieldName);
+                        JsonNode value = arrayNode.get(i);
                         if (value == null) {
                             blockBuilder.appendNull();
                             continue;
@@ -151,20 +148,35 @@ public class DruidBrokerPageSource
                         }
                         else {
                             Slice slice = Slices.utf8Slice(value.textValue());
-                            blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
-                            completedBytes += slice.length();
+                            type.writeSlice(blockBuilder, slice);
                         }
                     }
                 }
+                pageBuilder.declarePosition();
+                if (pageBuilder.isFull()) {
+                    break;
+                }
             }
-            catch (IOException e) {
-                throw new PrestoException(DRUID_BROKER_RESULT_ERROR, e);
+            // if responseStream.readLine() is null, it means read finish
+            if (readLine == null) {
+                finished = true;
+                return null;
             }
-            pageBuilder.declarePositions(rootNode.size());
+
+            // only return a page if the buffer is full or we are finishing
+            if (pageBuilder.isEmpty() || (!finished && !pageBuilder.isFull())) {
+                return null;
+            }
+
             Page page = pageBuilder.build();
             completedPositions += page.getPositionCount();
-            finished = true;
+            completedBytes += page.getSizeInBytes();
+            pageBuilder.reset();
             return page;
+        }
+        catch (IOException e) {
+            finished = true;
+            throw new PrestoException(DRUID_BROKER_RESULT_ERROR, "Parse druid client response error", e);
         }
         finally {
             readTimeNanos += System.nanoTime() - start;
