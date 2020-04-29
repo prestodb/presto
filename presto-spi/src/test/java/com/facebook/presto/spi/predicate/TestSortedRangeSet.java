@@ -14,22 +14,22 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
-import com.facebook.presto.spi.block.TestingBlockJsonSerde;
-import com.facebook.presto.spi.type.TestingTypeDeserializer;
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

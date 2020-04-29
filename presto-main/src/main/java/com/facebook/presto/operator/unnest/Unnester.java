@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.unnest;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 /**
  * Unnester is a layer of abstraction between {@link UnnestOperator} and {@link UnnestBlockBuilder} to enable

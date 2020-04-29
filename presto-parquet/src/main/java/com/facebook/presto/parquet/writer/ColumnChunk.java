@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

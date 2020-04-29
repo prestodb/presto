@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 

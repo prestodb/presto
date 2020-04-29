@@ -16,17 +16,17 @@ package com.facebook.presto.client;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientTypeSignature

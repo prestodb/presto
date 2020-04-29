@@ -20,8 +20,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
 import static com.facebook.presto.sql.planner.plan.Patterns.delete;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;

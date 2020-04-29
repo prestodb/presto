@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.KeyValuePairs;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
 
 public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>

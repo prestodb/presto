@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 
 import java.util.List;
 

@@ -14,6 +14,8 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
@@ -21,8 +23,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

@@ -38,10 +38,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;

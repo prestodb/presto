@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 
 import java.sql.JDBCType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 
 public class ColumnIndexStatsUtils
 {

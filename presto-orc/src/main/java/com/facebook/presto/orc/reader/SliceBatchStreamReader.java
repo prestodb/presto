@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
@@ -32,17 +32,17 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 
+import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.VarbinaryType.isVarbinaryType;
+import static com.facebook.presto.common.type.Varchars.byteCount;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.VarbinaryType.isVarbinaryType;
-import static com.facebook.presto.spi.type.Varchars.byteCount;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

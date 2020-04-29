@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -22,19 +24,17 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;

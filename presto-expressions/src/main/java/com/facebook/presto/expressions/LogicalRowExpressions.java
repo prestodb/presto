@@ -47,9 +47,9 @@ import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_E
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;

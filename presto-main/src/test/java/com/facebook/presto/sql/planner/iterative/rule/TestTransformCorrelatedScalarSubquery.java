@@ -14,9 +14,9 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.tree.Cast;
@@ -35,7 +35,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.benchmark;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.GenericHiveRecordCursorProvider;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -57,7 +58,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.units.DataSize;

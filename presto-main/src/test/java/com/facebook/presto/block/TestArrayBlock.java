@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.ArrayBlockBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.common.block.ArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

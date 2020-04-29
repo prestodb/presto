@@ -13,6 +13,21 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeWithTimeZoneType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.expressions.translator.FunctionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
@@ -26,21 +41,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 

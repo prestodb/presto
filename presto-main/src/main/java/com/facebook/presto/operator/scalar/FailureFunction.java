@@ -15,12 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;

@@ -14,10 +14,10 @@
 package com.facebook.presto.verifier.checksum;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -38,12 +38,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;

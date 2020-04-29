@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;

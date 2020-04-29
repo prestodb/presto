@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.common.type.DecimalType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

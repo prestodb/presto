@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.decoder;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 /**

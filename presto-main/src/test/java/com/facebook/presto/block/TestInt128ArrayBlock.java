@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.Int128ArrayBlock;
-import com.facebook.presto.spi.block.Int128ArrayBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.Int128ArrayBlock;
+import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.type.DecimalInequalityOperators.distinctBlockPositionLongLong;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

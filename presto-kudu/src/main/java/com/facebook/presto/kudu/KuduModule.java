@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.kudu.procedures.RangePartitionProcedures;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
 import com.facebook.presto.kudu.schema.NoSchemaEmulation;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;

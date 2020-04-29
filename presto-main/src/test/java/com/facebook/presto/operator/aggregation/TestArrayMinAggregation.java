@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestArrayMinAggregation

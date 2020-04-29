@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -22,9 +25,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.VariableWidthBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;

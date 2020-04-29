@@ -14,16 +14,16 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;

@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.connector.thrift.api.datatypes;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintData;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigint.fromBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.unmodifiableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

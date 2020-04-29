@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -23,12 +23,12 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -31,8 +31,8 @@ import org.testng.annotations.Test;
 
 import java.util.Collection;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.RowType.field;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 

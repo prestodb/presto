@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;

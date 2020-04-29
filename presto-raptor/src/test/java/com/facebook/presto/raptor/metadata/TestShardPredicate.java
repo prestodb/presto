@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.raptor.RaptorColumnHandle.bucketNumberColumnHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
@@ -30,8 +32,6 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.equal;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.sql.JDBCType.VARBINARY;
 import static java.util.UUID.randomUUID;

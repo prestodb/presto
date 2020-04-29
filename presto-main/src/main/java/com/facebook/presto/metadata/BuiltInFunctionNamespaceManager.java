@@ -14,8 +14,15 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -160,9 +167,6 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.BlockSerdeUtil;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -173,9 +177,6 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
@@ -233,6 +234,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -318,7 +320,6 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -782,6 +783,7 @@ public class BuiltInFunctionNamespaceManager
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), InvalidFunctionArgumentException.class);
             throw e;
         }
         BuiltInFunction function = functionKey.getFunction();

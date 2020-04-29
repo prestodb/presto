@@ -44,7 +44,7 @@ import java.util.Map;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;

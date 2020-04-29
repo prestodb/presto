@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.tree.Cast;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;

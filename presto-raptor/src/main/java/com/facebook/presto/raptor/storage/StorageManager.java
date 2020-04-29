@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

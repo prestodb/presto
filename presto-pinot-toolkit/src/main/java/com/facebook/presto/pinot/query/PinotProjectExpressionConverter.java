@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotException;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Selection;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -25,9 +28,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;

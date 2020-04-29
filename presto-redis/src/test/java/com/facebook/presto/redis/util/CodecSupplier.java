@@ -16,15 +16,15 @@ package com.facebook.presto.redis.util;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public final class CodecSupplier<T>
         implements Supplier<JsonCodec<T>>

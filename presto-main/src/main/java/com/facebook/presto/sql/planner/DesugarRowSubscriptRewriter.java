@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
@@ -20,7 +21,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -68,6 +68,9 @@ import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -76,9 +79,6 @@ import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.RowExpressionEqualityInference.Builder.nonInferrableConjuncts;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;

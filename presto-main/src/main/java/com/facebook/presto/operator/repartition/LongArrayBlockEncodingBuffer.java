@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.Block;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;

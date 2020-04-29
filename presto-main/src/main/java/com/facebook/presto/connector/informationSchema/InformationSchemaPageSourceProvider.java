@@ -15,6 +15,7 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;

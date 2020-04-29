@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.event.client.EventClient;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.hive.LocationService.WriteInfo;
@@ -30,10 +33,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;

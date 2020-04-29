@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -24,12 +25,21 @@ import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static com.facebook.presto.spi.predicate.Domain.create;
@@ -39,16 +49,6 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.range;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;

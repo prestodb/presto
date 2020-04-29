@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.connector.thrift.api.datatypes;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.VariableWidthBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 

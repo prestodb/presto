@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.spi.type.FunctionType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

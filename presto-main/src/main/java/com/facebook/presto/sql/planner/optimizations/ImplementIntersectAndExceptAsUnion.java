@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -53,10 +53,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.plan.AggregationNode.Step;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;

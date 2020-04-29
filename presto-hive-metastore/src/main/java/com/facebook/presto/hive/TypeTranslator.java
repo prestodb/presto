@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 public interface TypeTranslator

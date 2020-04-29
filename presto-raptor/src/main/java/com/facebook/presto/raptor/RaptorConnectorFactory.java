@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.filesystem.FileSystemModule;
 import com.facebook.presto.raptor.security.RaptorSecurityModule;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;

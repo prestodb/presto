@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;

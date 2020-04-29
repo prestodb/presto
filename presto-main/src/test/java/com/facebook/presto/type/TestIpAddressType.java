@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

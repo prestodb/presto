@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -22,7 +24,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -46,7 +47,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -97,10 +97,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;

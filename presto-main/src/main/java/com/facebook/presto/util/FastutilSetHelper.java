@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;

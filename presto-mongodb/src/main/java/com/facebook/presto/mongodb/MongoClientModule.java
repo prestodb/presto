@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.common.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;

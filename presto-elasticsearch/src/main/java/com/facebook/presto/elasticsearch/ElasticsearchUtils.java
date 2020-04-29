@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

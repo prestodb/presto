@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;

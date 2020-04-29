@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.raptor.NodeSupplier;
@@ -35,7 +36,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -57,13 +57,13 @@ import java.util.UUID;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;

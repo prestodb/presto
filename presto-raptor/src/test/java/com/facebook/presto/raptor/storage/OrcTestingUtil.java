@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import io.airlift.units.DataSize;

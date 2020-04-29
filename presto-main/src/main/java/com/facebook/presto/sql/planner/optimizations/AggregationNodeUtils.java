@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;

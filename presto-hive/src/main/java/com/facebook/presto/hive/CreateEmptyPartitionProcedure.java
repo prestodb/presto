@@ -36,10 +36,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 

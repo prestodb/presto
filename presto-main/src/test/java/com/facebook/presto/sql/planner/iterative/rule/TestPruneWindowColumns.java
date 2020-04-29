@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -38,8 +38,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;

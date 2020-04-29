@@ -20,6 +20,10 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>

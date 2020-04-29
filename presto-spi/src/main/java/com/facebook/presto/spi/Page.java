@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.DictionaryId;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
 import static java.lang.String.format;

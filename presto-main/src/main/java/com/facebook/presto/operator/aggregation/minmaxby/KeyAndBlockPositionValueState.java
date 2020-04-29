@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 /**
  * Used for MinMaxBy aggregation states where value's native container type is Block or Slice.

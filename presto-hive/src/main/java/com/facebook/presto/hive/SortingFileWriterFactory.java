@@ -14,11 +14,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileSystem;

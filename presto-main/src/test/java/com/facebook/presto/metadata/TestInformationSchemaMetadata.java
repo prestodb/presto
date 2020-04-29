@@ -47,9 +47,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;

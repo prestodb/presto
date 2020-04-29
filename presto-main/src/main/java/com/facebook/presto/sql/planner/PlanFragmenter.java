@@ -94,14 +94,14 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;

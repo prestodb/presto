@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.Types;

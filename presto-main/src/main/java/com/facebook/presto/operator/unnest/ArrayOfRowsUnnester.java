@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.unnest;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
-import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 

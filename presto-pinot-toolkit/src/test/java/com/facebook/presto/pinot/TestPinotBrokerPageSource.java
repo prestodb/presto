@@ -14,10 +14,10 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

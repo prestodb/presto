@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.type.DecimalType;
 
 public final class DecimalColumnReaderFactory
 {

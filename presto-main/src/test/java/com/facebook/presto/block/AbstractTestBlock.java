@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -41,9 +41,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;

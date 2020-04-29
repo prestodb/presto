@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 

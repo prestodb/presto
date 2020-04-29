@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
@@ -30,27 +33,24 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;

@@ -14,8 +14,8 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 

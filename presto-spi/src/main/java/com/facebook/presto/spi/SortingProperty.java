@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

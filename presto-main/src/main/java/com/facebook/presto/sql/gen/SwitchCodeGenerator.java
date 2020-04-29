@@ -20,10 +20,10 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.bytecode.instruction.VariableInstruction;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 

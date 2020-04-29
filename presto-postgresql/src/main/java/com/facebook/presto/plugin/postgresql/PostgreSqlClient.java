@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.Type;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -34,9 +34,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 
 public class PostgreSqlClient

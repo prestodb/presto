@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 public interface BlockBooleanState
         extends TwoNullableValueState

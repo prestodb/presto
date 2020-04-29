@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -26,9 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

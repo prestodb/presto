@@ -31,10 +31,10 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.pinot.PinotSplit.SplitType.BROKER;
 import static com.facebook.presto.pinot.PinotSplit.SplitType.SEGMENT;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;

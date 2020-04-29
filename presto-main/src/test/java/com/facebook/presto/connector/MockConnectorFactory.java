@@ -49,7 +49,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;

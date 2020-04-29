@@ -18,10 +18,10 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
