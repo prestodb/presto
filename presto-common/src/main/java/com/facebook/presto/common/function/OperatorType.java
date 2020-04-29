@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
+package com.facebook.presto.common.function;
 
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -24,6 +24,8 @@ import static java.util.stream.Collectors.toMap;
 
 public enum OperatorType
 {
+    // TODO: Move out this class. Ideally this class should not be in presto-common module.
+
     ADD("+", false),
     SUBTRACT("-", false),
     MULTIPLY("*", false),

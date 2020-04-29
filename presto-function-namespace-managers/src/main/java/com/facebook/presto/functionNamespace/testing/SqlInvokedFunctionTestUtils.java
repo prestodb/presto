@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlParameter;

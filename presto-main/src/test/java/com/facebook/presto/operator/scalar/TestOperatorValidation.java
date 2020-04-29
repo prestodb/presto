@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.ADD;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestOperatorValidation

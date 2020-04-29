@@ -14,8 +14,8 @@
 package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;

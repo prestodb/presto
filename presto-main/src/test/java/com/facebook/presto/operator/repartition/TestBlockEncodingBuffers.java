@@ -29,11 +29,11 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.block.BlockAssertions.Encoding;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.SimpleArrayAllocator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockFlattener;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;

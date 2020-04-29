@@ -63,7 +63,6 @@ public class FunctionInvokerProvider
         for (int i = 0; i < definitionArgumentProperties.size(); i++) {
             InvocationArgumentConvention invocationArgumentConvention = invocationConvention.get().getArgumentConvention(i);
             NullConvention nullConvention = definitionArgumentProperties.get(i).getNullConvention();
-
             // return false because function types do not have a null convention
             if (definitionArgumentProperties.get(i).getArgumentType() == FUNCTION_TYPE) {
                 if (invocationArgumentConvention != InvocationArgumentConvention.FUNCTION) {
