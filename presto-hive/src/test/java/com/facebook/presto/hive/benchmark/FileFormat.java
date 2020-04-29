@@ -673,6 +673,7 @@ public enum FileFormat
         {
             writer = new PageWriter(
                     new OutputStreamDataSink(new FileOutputStream(targetFile)),
+                    HiveCompressionCodec.NONE,
                     new DataSize(10, DataSize.Unit.MEGABYTE));
         }
 
