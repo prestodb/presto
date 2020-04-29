@@ -25,9 +25,9 @@ import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.Decimals.overflows;

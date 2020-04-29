@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.ArrayList;

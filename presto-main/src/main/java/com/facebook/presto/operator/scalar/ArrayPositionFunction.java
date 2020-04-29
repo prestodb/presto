@@ -26,8 +26,8 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Verify.verify;
 

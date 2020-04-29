@@ -49,8 +49,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidAggregationColumnNode.AggregationFunctionColumnNode;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.AGGREGATE;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.GROUP_BY;
 import static com.facebook.presto.druid.DruidAggregationColumnNode.GroupByColumnNode;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidPushdownUtils.computeAggregationNodes;

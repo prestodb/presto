@@ -23,9 +23,9 @@ import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;

@@ -37,8 +37,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.hive.HiveSessionProperties.isRangeFiltersOnSubscriptsEnabled;
-import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;

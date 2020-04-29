@@ -14,7 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;

@@ -24,8 +24,8 @@ import io.airlift.slice.Slice;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;

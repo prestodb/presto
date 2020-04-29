@@ -29,9 +29,9 @@ import java.util.AbstractList;
 import java.util.Comparator;
 import java.util.List;
 
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")

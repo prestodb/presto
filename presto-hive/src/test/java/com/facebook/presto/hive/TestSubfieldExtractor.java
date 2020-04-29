@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;

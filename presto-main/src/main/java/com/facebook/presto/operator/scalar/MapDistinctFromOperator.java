@@ -28,9 +28,9 @@ import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarOperator(IS_DISTINCT_FROM)
 public final class MapDistinctFromOperator

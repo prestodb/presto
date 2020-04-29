@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.function.WindowFunction;

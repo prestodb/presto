@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.function.OperatorType;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 

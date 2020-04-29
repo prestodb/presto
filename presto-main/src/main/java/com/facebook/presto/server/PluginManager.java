@@ -80,6 +80,7 @@ public class PluginManager
             .add("io.airlift.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")
+            .add("com.facebook.presto.common")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);

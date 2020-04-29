@@ -213,6 +213,10 @@
                                     <shadedPattern>${shadeBase}.spi</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.facebook.presto.common</pattern>
+                                    <shadedPattern>${shadeBase}.common</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>

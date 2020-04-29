@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 

@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
+package com.facebook.presto.common.function;
 
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -22,6 +22,8 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogSchemaPrefix
 {
+    // TODO: Move out this class. Ideally this class should not be in presto-common module.
+
     private final String catalogName;
     private final Optional<String> schemaName;
 

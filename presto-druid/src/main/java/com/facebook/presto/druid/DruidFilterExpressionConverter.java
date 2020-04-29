@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Origin;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Selection;
 import com.facebook.presto.spi.ConnectorSession;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;

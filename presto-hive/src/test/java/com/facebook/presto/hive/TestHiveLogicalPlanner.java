@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
@@ -64,7 +65,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STAT
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.predicate.Domain.multipleValues;
 import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;

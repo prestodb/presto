@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -235,7 +235,7 @@ public abstract class AbstractTestFunctions
     protected static SqlDecimal maxPrecisionDecimal(long value)
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
-        return decimal(String.format(maxPrecisionFormat, value));
+        return decimal(format(maxPrecisionFormat, value));
     }
 
     // this help function should only be used when the map contains null value
