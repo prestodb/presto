@@ -46,7 +46,7 @@ public class PageFileWriter
             DataSize pageFileStripeMaxSize,
             Callable<Void> rollbackAction)
     {
-        pageWriter = new PageWriter(dataSink, pageFileStripeMaxSize);
+        pageWriter = new PageWriter(dataSink, compression, pageFileStripeMaxSize);
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
     }

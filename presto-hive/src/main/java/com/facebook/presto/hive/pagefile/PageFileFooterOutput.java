@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -28,30 +31,47 @@ public class PageFileFooterOutput
         implements DataOutput
 {
     public static final int FOOTER_LENGTH_IN_BYTES = SIZE_OF_INT;
-    private final List<Long> stripeOffsets;
 
-    public PageFileFooterOutput(List<Long> stripeOffsets)
+    private final List<Long> stripeOffsets;
+    private final Slice compressionSlice;
+
+    public PageFileFooterOutput(List<Long> stripeOffsets, HiveCompressionCodec compressionCodec)
     {
         this.stripeOffsets = ImmutableList.copyOf(requireNonNull(stripeOffsets, "stripeOffsets is null"));
+        compressionSlice = utf8Slice(requireNonNull(compressionCodec, "compressionCodec is null").name());
     }
 
     @Override
     public long size()
     {
-        return SIZE_OF_LONG * stripeOffsets.size() + FOOTER_LENGTH_IN_BYTES;
+        long size = FOOTER_LENGTH_IN_BYTES;
+        if (!stripeOffsets.isEmpty()) {
+            size += SIZE_OF_INT + compressionSlice.length() +
+                    SIZE_OF_INT + SIZE_OF_LONG * stripeOffsets.size();
+        }
+        return size;
     }
 
     @Override
     public void writeData(SliceOutput sliceOutput)
     {
-        for (long offset : stripeOffsets) {
-            sliceOutput.writeLong(offset);
+        if (!stripeOffsets.isEmpty()) {
+            // write compression information
+            sliceOutput.writeInt(compressionSlice.length());
+            sliceOutput.writeBytes(compressionSlice);
+
+            // write stripe count and offsets
+            sliceOutput.writeInt(stripeOffsets.size());
+            for (long offset : stripeOffsets) {
+                sliceOutput.writeLong(offset);
+            }
         }
+        // write footer length
         sliceOutput.writeInt(toIntExact(size()));
     }
 
     public static PageFileFooterOutput createEmptyPageFileFooterOutput()
     {
-        return new PageFileFooterOutput(ImmutableList.of());
+        return new PageFileFooterOutput(ImmutableList.of(), HiveCompressionCodec.NONE);
     }
 }

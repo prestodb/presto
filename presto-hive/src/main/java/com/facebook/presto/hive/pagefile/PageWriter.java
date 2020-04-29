@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -33,6 +34,7 @@ public class PageWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageWriter.class).instanceSize();
 
     private final DataSink dataSink;
+    private final HiveCompressionCodec compressionCodec;
     private long bufferedBytes;
     private long retainedBytes;
     private long maxBufferedBytes;
@@ -41,9 +43,13 @@ public class PageWriter
     private List<Long> stripeOffsets;
     private long stripeOffset;
 
-    public PageWriter(DataSink dataSink, DataSize pageFileStripeMaxSize)
+    public PageWriter(
+            DataSink dataSink,
+            HiveCompressionCodec compressionCodec,
+            DataSize pageFileStripeMaxSize)
     {
         this.dataSink = requireNonNull(dataSink, "pageDataSink is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.maxBufferedBytes = requireNonNull(pageFileStripeMaxSize, "pageFileStripeMaxSize is null").toBytes();
         bufferedPages = new ArrayList<>();
         stripeOffsets = new ArrayList<>();
@@ -81,7 +87,7 @@ public class PageWriter
         if (!bufferedPages.isEmpty()) {
             flushStripe();
         }
-        dataSink.write(ImmutableList.of(new PageFileFooterOutput(stripeOffsets)));
+        dataSink.write(ImmutableList.of(new PageFileFooterOutput(stripeOffsets, compressionCodec)));
         dataSink.close();
     }
 
