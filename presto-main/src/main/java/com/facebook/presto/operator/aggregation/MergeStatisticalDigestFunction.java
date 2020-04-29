@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -21,7 +22,6 @@ import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateSerializer;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.Type;

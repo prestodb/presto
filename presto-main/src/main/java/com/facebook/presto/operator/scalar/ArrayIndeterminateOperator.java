@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
 

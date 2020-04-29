@@ -14,8 +14,8 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSerde;

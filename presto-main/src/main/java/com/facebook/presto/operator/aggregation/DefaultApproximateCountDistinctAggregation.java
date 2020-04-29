@@ -32,7 +32,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 
 @AggregationFunction("approx_distinct")
 public final class DefaultApproximateCountDistinctAggregation

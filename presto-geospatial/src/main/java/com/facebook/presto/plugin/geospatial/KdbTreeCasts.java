@@ -21,8 +21,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.KdbTreeType;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
 
 public final class KdbTreeCasts
 {

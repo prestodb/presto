@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.OperatorType.CAST;
 
 public final class TDigestOperators
 {

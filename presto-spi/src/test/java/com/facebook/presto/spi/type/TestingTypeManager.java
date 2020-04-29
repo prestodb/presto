@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.common.function.OperatorType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;

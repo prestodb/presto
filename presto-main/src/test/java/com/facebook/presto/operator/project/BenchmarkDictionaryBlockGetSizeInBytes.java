@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;

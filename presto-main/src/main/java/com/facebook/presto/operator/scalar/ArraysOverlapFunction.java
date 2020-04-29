@@ -30,7 +30,7 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 
