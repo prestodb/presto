@@ -14,9 +14,11 @@
 package com.facebook.presto.util;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.bytecode.ByteCodeTooLargeException;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.spi.PrestoException;
 
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
+import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils
@@ -36,6 +39,8 @@ public final class CompilerUtils
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss");
+
+    public static final String ERROR_LARGE_BYTECODE = "Query results in large bytecode exceeding the limits imposed by JVM";
 
     private CompilerUtils() {}
 
@@ -60,6 +65,11 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         log.debug("Defining class: %s", classDefinition.getName());
-        return classGenerator(classLoader).defineClass(classDefinition, superType);
+        try {
+            return classGenerator(classLoader).defineClass(classDefinition, superType);
+        }
+        catch (ByteCodeTooLargeException byteCodeTooLargeException) {
+            throw new PrestoException(GENERATED_BYTECODE_TOO_LARGE, ERROR_LARGE_BYTECODE);
+        }
     }
 }

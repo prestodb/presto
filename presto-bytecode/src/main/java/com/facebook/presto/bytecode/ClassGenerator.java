@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.Reflection;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassTooLargeException;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodTooLargeException;
 import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
@@ -124,6 +126,21 @@ public class ClassGenerator
         Map<String, byte[]> bytecodes = new LinkedHashMap<>();
 
         for (ClassDefinition classDefinition : classDefinitions) {
+            // We call the simpler class writer first to get any errors out using simpler setting.
+            // This helps when we have large queries that can potentially cause COMPUTE_FRAMES
+            // (used by SmartClassWriter for doing more thorough analysis)
+            ClassWriter simpleClassWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            classDefinition.visit(simpleClassWriter);
+            try {
+                simpleClassWriter.toByteArray();
+            }
+            catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
+                throw new ByteCodeTooLargeException(largeCodeException);
+            }
+            catch (RuntimeException e) {
+                throw new CompilationException("Error compiling class: " + classDefinition.getName(), e);
+            }
+
             ClassWriter writer = new SmartClassWriter(classInfoLoader);
 
             try {
@@ -138,6 +155,9 @@ public class ClassGenerator
             byte[] bytecode;
             try {
                 bytecode = writer.toByteArray();
+            }
+            catch (ClassTooLargeException | MethodTooLargeException largeCodeException) {
+                throw new ByteCodeTooLargeException(largeCodeException);
             }
             catch (RuntimeException e) {
                 throw new CompilationException("Error compiling class: " + classDefinition.getName(), e);
