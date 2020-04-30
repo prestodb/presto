@@ -247,6 +247,9 @@ public class PageFunctionCompiler
         try {
             pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings(), getClass().getClassLoader());
         }
+        catch (PrestoException prestoException) {
+            throw prestoException;
+        }
         catch (Exception e) {
             throw new PrestoException(COMPILER_ERROR, e);
         }
@@ -539,6 +542,9 @@ public class PageFunctionCompiler
         Class<? extends PageFilter> functionClass;
         try {
             functionClass = defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        }
+        catch (PrestoException prestoException) {
+            throw prestoException;
         }
         catch (Exception e) {
             throw new PrestoException(COMPILER_ERROR, filter.toString(), e.getCause());
