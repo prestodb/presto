@@ -24,12 +24,15 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
@@ -82,16 +85,77 @@ public class CommonSubExpressionRewriter
         return collectCSEByLevel(ImmutableList.of(expression));
     }
 
-    public static List<RowExpression> getExpressionsWithCSE(List<? extends RowExpression> expressions)
+    public static Map<List<RowExpression>, Boolean> getExpressionsPartitionedByCSE(Collection<? extends RowExpression> expressions)
     {
         if (expressions.isEmpty()) {
-            return ImmutableList.of();
+            return ImmutableMap.of();
         }
+
         CommonSubExpressionCollector expressionCollector = new CommonSubExpressionCollector();
         expressions.forEach(expression -> expression.accept(expressionCollector, null));
         Set<RowExpression> cse = expressionCollector.cseByLevel.values().stream().flatMap(Set::stream).collect(toImmutableSet());
+
+        if (cse.isEmpty()) {
+            return expressions.stream().collect(toImmutableMap(ImmutableList::of, m -> false));
+        }
+
+        ImmutableMap.Builder<List<RowExpression>, Boolean> expressionsPartitionedByCse = ImmutableMap.builder();
         SubExpressionChecker subExpressionChecker = new SubExpressionChecker(cse);
-        return expressions.stream().filter(expression -> expression.accept(subExpressionChecker, null)).collect(toImmutableList());
+        Map<Boolean, List<RowExpression>> expressionsWithCseFlag = expressions.stream().collect(Collectors.partitioningBy(expression -> expression.accept(subExpressionChecker, null)));
+        expressionsWithCseFlag.get(false).forEach(expression -> expressionsPartitionedByCse.put(ImmutableList.of(expression), false));
+
+        List<RowExpression> expressionsWithCse = expressionsWithCseFlag.get(true);
+        if (expressionsWithCse.size() == 1) {
+            RowExpression expression = expressionsWithCse.get(0);
+            expressionsPartitionedByCse.put(ImmutableList.of(expression), true);
+            return expressionsPartitionedByCse.build();
+        }
+
+        List<Set<RowExpression>> cseDependency = expressionsWithCse.stream()
+                .map(expression -> subExpressions(expression).stream()
+                        .filter(cse::contains)
+                        .collect(toImmutableSet()))
+                .collect(toImmutableList());
+
+        boolean[] merged = new boolean[expressionsWithCse.size()];
+
+        int i = 0;
+        while (i < merged.length) {
+            while (i < merged.length && merged[i]) {
+                i++;
+            }
+            if (i >= merged.length) {
+                break;
+            }
+            merged[i] = true;
+            ImmutableList.Builder<RowExpression> newList = ImmutableList.builder();
+            newList.add(expressionsWithCse.get(i));
+            Set<RowExpression> dependencies = new HashSet<>();
+            Set<RowExpression> first = cseDependency.get(i);
+            dependencies.addAll(first);
+            int j = i + 1;
+            while (j < merged.length) {
+                while (j < merged.length && merged[j]) {
+                    j++;
+                }
+                if (j >= merged.length) {
+                    break;
+                }
+                Set<RowExpression> second = cseDependency.get(j);
+                if (!Sets.intersection(dependencies, second).isEmpty()) {
+                    RowExpression expression = expressionsWithCse.get(j);
+                    newList.add(expression);
+                    dependencies.addAll(second);
+                    merged[j] = true;
+                }
+                else {
+                    j++;
+                }
+            }
+            expressionsPartitionedByCse.put(newList.build(), true);
+        }
+
+        return expressionsPartitionedByCse.build();
     }
 
     public static RowExpression rewriteExpressionWithCSE(RowExpression expression, Map<RowExpression, VariableReferenceExpression> rewriteWith)
