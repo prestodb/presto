@@ -22,16 +22,16 @@ import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskInputs
 {
-    // planNodeId -> Iterator<[partitionId, page]>
-    private final Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap;
+    // fragmentId -> Iterator<[partitionId, page]>
+    private final Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputs;
 
-    public PrestoSparkTaskInputs(Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap)
+    public PrestoSparkTaskInputs(Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputs)
     {
-        this.inputsMap = requireNonNull(inputsMap, "inputs is null");
+        this.shuffleInputs = requireNonNull(shuffleInputs, "shuffleInputs is null");
     }
 
-    public Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> getInputsMap()
+    public Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> getShuffleInputs()
     {
-        return inputsMap;
+        return shuffleInputs;
     }
 }

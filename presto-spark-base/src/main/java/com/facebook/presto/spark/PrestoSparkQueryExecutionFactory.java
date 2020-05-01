@@ -53,7 +53,6 @@ import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
@@ -375,9 +374,7 @@ public class PrestoSparkQueryExecutionFactory
 
             if (rootFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
                 checkArgument(root.getChildren().size() == 1, "exactly one children fragment is expected");
-                checkArgument(rootFragment.getRemoteSourceNodes().size() == 1, "exactly one remote source is expected");
 
-                RemoteSourceNode remoteSource = getOnlyElement(rootFragment.getRemoteSourceNodes());
                 PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
                         session.toSessionRepresentation(),
                         session.getIdentity().getExtraCredentials(),
@@ -386,13 +383,14 @@ public class PrestoSparkQueryExecutionFactory
                         tableWriteInfo);
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
-                JavaPairRDD<Integer, PrestoSparkRow> rdd = createRdd(getOnlyElement(root.getChildren()));
+                SubPlan child = getOnlyElement(root.getChildren());
+                JavaPairRDD<Integer, PrestoSparkRow> rdd = createRdd(child);
                 List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collect();
                 return ImmutableList.copyOf(executorFactoryProvider.get().create(
                         0,
                         0,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(ImmutableMap.of(remoteSource.getId().toString(), sparkDriverInput.iterator())),
+                        new PrestoSparkTaskInputs(ImmutableMap.of(child.getFragment().getId().toString(), sparkDriverInput.iterator())),
                         taskStatsCollector));
             }
 

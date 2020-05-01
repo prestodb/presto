@@ -232,28 +232,29 @@ public class PrestoSparkRddFactory
 
         if (rddInputs.size() == 1) {
             RemoteSourceNode remoteSourceNode = getOnlyElement(fragment.getRemoteSourceNodes());
+            PlanFragmentId fragmentId = getOnlyElement(remoteSourceNode.getSourceFragmentIds());
             PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            remoteSourceNode.getId().toString(),
+                            fragmentId.toString(),
                             taskStatsCollector);
-            return getOnlyElement(rddInputs.values())
+            return requireNonNull(rddInputs.get(fragmentId), "input is missing for fragmentId " + fragmentId)
                     .mapPartitionsToPair(taskProcessor);
         }
         else if (rddInputs.size() == 2) {
             List<RemoteSourceNode> remoteSources = fragment.getRemoteSourceNodes();
             checkArgument(remoteSources.size() == 2, "two remote sources are expected, got: %s", remoteSources.size());
-            RemoteSourceNode firstRemoteSource = remoteSources.get(0);
-            RemoteSourceNode secondRemoteSource = remoteSources.get(1);
-            JavaPairRDD<Integer, PrestoSparkRow> firstRdd = rddInputs.get(firstRemoteSource.getSourceFragmentIds().get(0));
-            JavaPairRDD<Integer, PrestoSparkRow> secondRdd = rddInputs.get(secondRemoteSource.getSourceFragmentIds().get(0));
+            PlanFragmentId firstFragmentId = remoteSources.get(0).getSourceFragmentIds().get(0);
+            PlanFragmentId secondFragmentId = remoteSources.get(1).getSourceFragmentIds().get(0);
+            JavaPairRDD<Integer, PrestoSparkRow> firstRdd = rddInputs.get(firstFragmentId);
+            JavaPairRDD<Integer, PrestoSparkRow> secondRdd = rddInputs.get(secondFragmentId);
             FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            firstRemoteSource.getId().toString(),
-                            secondRemoteSource.getId().toString(),
+                            firstFragmentId.toString(),
+                            secondFragmentId.toString(),
                             taskStatsCollector);
             return JavaPairRDD.fromJavaRDD(
                     firstRdd.zipPartitions(

@@ -55,7 +55,7 @@ public class TaskProcessors
     public static PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
-            String planNodeId,
+            String fragmentId,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
         return new PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow>()
@@ -69,7 +69,7 @@ public class TaskProcessors
                         partitionId,
                         attemptNumber,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(singletonMap(planNodeId, input)),
+                        new PrestoSparkTaskInputs(singletonMap(fragmentId, input)),
                         taskStatsCollector);
             }
         };
@@ -78,8 +78,8 @@ public class TaskProcessors
     public static FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
-            String planNodeId1,
-            String planNodeId2,
+            String fragmentId1,
+            String fragmentId2,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
     {
         return new FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>>()
@@ -92,8 +92,8 @@ public class TaskProcessors
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
                 HashMap<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap = new HashMap<>();
-                inputsMap.put(planNodeId1, input1);
-                inputsMap.put(planNodeId2, input2);
+                inputsMap.put(fragmentId1, input1);
+                inputsMap.put(fragmentId2, input2);
                 return taskExecutorFactoryProvider.get().create(
                         partitionId,
                         attemptNumber,
