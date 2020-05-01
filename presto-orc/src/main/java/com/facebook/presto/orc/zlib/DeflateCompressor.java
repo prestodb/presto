@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.orc.zlib;
 
 import io.airlift.compress.Compressor;
 
@@ -48,7 +48,7 @@ public class DeflateCompressor
 
             int compressedDataLength = deflater.deflate(output, outputOffset, maxOutputLength, FULL_FLUSH);
             if (!deflater.finished()) {
-                throw new IllegalStateException("maxCompressedLength formula is incorrect, because deflate produced more data");
+                throw new IllegalArgumentException("maxCompressedLength formula is incorrect, because deflate produced more data");
             }
             return compressedDataLength;
         }
@@ -60,6 +60,13 @@ public class DeflateCompressor
     @Override
     public void compress(ByteBuffer input, ByteBuffer output)
     {
-        throw new UnsupportedOperationException("Compression of byte buffer not supported for deflate");
+        if (input.isDirect() || output.isDirect() || !input.hasArray() || !output.hasArray()) {
+            throw new IllegalArgumentException("Non-direct byte buffer backed by byte array required");
+        }
+        int inputOffset = input.arrayOffset() + input.position();
+        int outputOffset = output.arrayOffset() + output.position();
+
+        int written = compress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
+        output.position(output.position() + written);
     }
 }
