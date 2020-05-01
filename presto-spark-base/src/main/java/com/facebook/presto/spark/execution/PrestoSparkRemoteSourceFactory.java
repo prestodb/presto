@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
@@ -27,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spark.util.PrestoSparkUtils.transformRowsToPages;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,11 +45,12 @@ public class PrestoSparkRemoteSourceFactory
     @Override
     public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
+        Iterator<PrestoSparkRow> rowsIterator = requireNonNull(inputs.get(planNodeId), format("input is missing for plan node: %s", planNodeId));
+        Iterator<Page> pagesIterator = transformRowsToPages(rowsIterator, types);
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,
                 planNodeId,
-                requireNonNull(inputs.get(planNodeId), format("input is missing for plan node: %s", planNodeId)),
-                types);
+                pagesIterator);
     }
 
     @Override
