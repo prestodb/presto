@@ -85,7 +85,6 @@ import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
-import com.facebook.presto.spark.planner.PrestoSparkSplitEnumerator;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -362,7 +361,6 @@ public class PrestoSparkModule
         // spark specific
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
-        binder.bind(PrestoSparkSplitEnumerator.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryExecutionFactory.class).in(Scopes.SINGLETON);
