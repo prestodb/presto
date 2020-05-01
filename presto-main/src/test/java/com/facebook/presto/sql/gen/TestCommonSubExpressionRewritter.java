@@ -37,7 +37,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
-import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsWithCSE;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsPartitionedByCSE;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static org.testng.Assert.assertEquals;
 
@@ -57,9 +57,21 @@ public class TestCommonSubExpressionRewritter
     @Test
     void testGetExpressionsWithCSE()
     {
-        List<RowExpression> expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2"), rowExpression("x + 2"));
-        List<RowExpression> expressionsWithCSE = getExpressionsWithCSE(expressions);
-        assertEquals(expressionsWithCSE, ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2")));
+        List<RowExpression> expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2"), rowExpression("x + 2"), rowExpression("y * (x + 2)"), rowExpression("x * y"));
+        Map<List<RowExpression>, Boolean> expressionsWithCSE = getExpressionsPartitionedByCSE(expressions);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2")), true,
+                        ImmutableList.of(rowExpression("x + 2"), rowExpression("y * (x + 2)")), true,
+                        ImmutableList.of(rowExpression("x * y")), false));
+        expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2"), rowExpression("y * 2"), rowExpression("x * 2"), rowExpression("x + y * 2"));
+        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2"), rowExpression("x * 2")), true,
+                        ImmutableList.of(rowExpression("y * 2"), rowExpression("x + y * 2")), true));
     }
 
     @Test

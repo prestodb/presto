@@ -99,7 +99,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
-import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsWithCSE;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsPartitionedByCSE;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
@@ -108,6 +108,7 @@ import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -180,20 +181,30 @@ public class PageFunctionCompiler
     public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
         if (isOptimizeCommonSubExpression) {
-            List<RowExpression> projectionsWithCSE = getExpressionsWithCSE(projections);
             ImmutableList.Builder<Supplier<PageProjectionWithOutputs>> pageProjections = ImmutableList.builder();
-            ImmutableList.Builder<Integer> cseProjectionsOutputChannels = ImmutableList.builder();
+            ImmutableMap.Builder<RowExpression, Integer> expressionsWithPositionBuilder = ImmutableMap.builder();
             for (int i = 0; i < projections.size(); i++) {
                 RowExpression projection = projections.get(i);
-                if (projectionsWithCSE.contains(projection)) {
-                    cseProjectionsOutputChannels.add(i);
-                }
-                else {
+                if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression) {
                     pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {i}));
                 }
+                else {
+                    expressionsWithPositionBuilder.put(projections.get(i), i);
+                }
             }
-            if (projectionsWithCSE.size() > 0) {
-                pageProjections.add(toPageProjectionWithOutputs(compileProjectionCached(sqlFunctionProperties, projectionsWithCSE, true, classNameSuffix), toIntArray(cseProjectionsOutputChannels.build())));
+            Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
+
+            Map<List<RowExpression>, Boolean> projectionsPartitionedByCSE = getExpressionsPartitionedByCSE(expressionsWithPosition.keySet());
+
+            for (Map.Entry<List<RowExpression>, Boolean> entry : projectionsPartitionedByCSE.entrySet()) {
+                if (entry.getValue()) {
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjectionCached(sqlFunctionProperties, entry.getKey(), true, classNameSuffix), toIntArray(entry.getKey().stream().map(expressionsWithPosition::get).collect(toImmutableList()))));
+                }
+                else {
+                    verify(entry.getKey().size() == 1, "Expect non-cse expression list to only have one element");
+                    RowExpression projection = entry.getKey().get(0);
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {expressionsWithPosition.get(projection)}));
+                }
             }
             return pageProjections.build();
         }
