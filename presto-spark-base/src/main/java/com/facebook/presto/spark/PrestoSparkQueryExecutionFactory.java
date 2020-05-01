@@ -158,39 +158,62 @@ public class PrestoSparkQueryExecutionFactory
                 prestoSparkSession,
                 credentialsProviders,
                 authenticatorProviders);
-        TransactionId transactionId = transactionManager.beginTransaction(true);
-        Session session = sessionSupplier.createSession(queryId, sessionContext)
-                .beginTransactionId(transactionId, transactionManager, accessControl);
-
-        // TODO: implement query monitor
-        // queryMonitor.queryCreatedEvent();
 
         // TODO: implement warning collection
         WarningCollector warningCollector = WarningCollector.NOOP;
 
-        PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
-        PlanAndUpdateType planAndUpdateType = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
-        SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndUpdateType.getPlan(), warningCollector);
-        log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
-        TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
+        // TODO: implement query monitor
+        // queryMonitor.queryCreatedEvent();
 
-        JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
-        CollectionAccumulator<SerializedTaskStats> taskStatsCollector = new CollectionAccumulator<>();
-        taskStatsCollector.register(sparkContext, new Some<>("taskStatsCollector"), false);
+        TransactionId transactionId = transactionManager.beginTransaction(true);
+        Session session = sessionSupplier.createSession(queryId, sessionContext)
+                .beginTransactionId(transactionId, transactionManager, accessControl);
 
-        return new PrestoSparkQueryExecution(
-                javaSparkContext,
-                session,
-                queryMonitor,
-                taskStatsCollector,
-                executorFactoryProvider,
-                fragmentedPlan,
-                planAndUpdateType.getUpdateType(),
-                taskStatsJsonCodec,
-                sparkTaskDescriptorJsonCodec,
-                rddFactory,
-                tableWriteInfo,
-                transactionManager);
+        try {
+            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
+            PlanAndUpdateType planAndUpdateType = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
+            SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndUpdateType.getPlan(), warningCollector);
+            log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
+            TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
+
+            JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector = new CollectionAccumulator<>();
+            taskStatsCollector.register(sparkContext, new Some<>("taskStatsCollector"), false);
+
+            return new PrestoSparkQueryExecution(
+                    javaSparkContext,
+                    session,
+                    queryMonitor,
+                    taskStatsCollector,
+                    executorFactoryProvider,
+                    fragmentedPlan,
+                    planAndUpdateType.getUpdateType(),
+                    taskStatsJsonCodec,
+                    sparkTaskDescriptorJsonCodec,
+                    rddFactory,
+                    tableWriteInfo,
+                    transactionManager);
+        }
+        catch (RuntimeException executionFailure) {
+            try {
+                rollback(session, transactionManager);
+            }
+            catch (RuntimeException rollbackFailure) {
+                if (executionFailure != rollbackFailure) {
+                    executionFailure.addSuppressed(rollbackFailure);
+                }
+            }
+            try {
+                // TODO: implement query monitor
+                // queryMonitor.queryImmediateFailureEvent();
+            }
+            catch (RuntimeException eventFailure) {
+                if (executionFailure != eventFailure) {
+                    executionFailure.addSuppressed(eventFailure);
+                }
+            }
+            throw executionFailure;
+        }
     }
 
     private TableWriteInfo getTableWriteInfo(Session session, SubPlan plan)
@@ -224,6 +247,25 @@ public class PrestoSparkQueryExecutionFactory
         if (!connectorCapabilities.contains(SUPPORTS_PAGE_SINK_COMMIT)) {
             throw new PrestoException(NOT_SUPPORTED, "catalog does not support page sink commit: " + connectorId);
         }
+    }
+
+    private static void commit(Session session, TransactionManager transactionManager)
+    {
+        getFutureValue(transactionManager.asyncCommit(getTransactionInfo(session, transactionManager).getTransactionId()));
+    }
+
+    private static void rollback(Session session, TransactionManager transactionManager)
+    {
+        getFutureValue(transactionManager.asyncAbort(getTransactionInfo(session, transactionManager).getTransactionId()));
+    }
+
+    private static TransactionInfo getTransactionInfo(Session session, TransactionManager transactionManager)
+    {
+        Optional<TransactionInfo> transaction = session.getTransactionId()
+                .flatMap(transactionManager::getOptionalTransactionInfo);
+        checkState(transaction.isPresent(), "transaction is not present");
+        checkState(transaction.get().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
+        return transaction.get();
     }
 
     public static class PrestoSparkQueryExecution
@@ -275,18 +317,25 @@ public class PrestoSparkQueryExecutionFactory
             List<Tuple2<Integer, PrestoSparkRow>> rddResults;
             try {
                 rddResults = doExecute(plan);
-                commit();
+                commit(session, transactionManager);
             }
             catch (RuntimeException executionFailure) {
                 try {
-                    rollback();
+                    rollback(session, transactionManager);
                 }
                 catch (RuntimeException rollbackFailure) {
                     if (executionFailure != rollbackFailure) {
                         executionFailure.addSuppressed(rollbackFailure);
                     }
                 }
-                queryCompletedEvent(Optional.of(executionFailure));
+                try {
+                    queryCompletedEvent(Optional.of(executionFailure));
+                }
+                catch (RuntimeException eventFailure) {
+                    if (executionFailure != eventFailure) {
+                        executionFailure.addSuppressed(eventFailure);
+                    }
+                }
                 throw executionFailure;
             }
 
@@ -363,25 +412,6 @@ public class PrestoSparkQueryExecutionFactory
                     executorFactoryProvider,
                     taskStatsCollector,
                     tableWriteInfo);
-        }
-
-        private void commit()
-        {
-            getFutureValue(transactionManager.asyncCommit(getTransactionInfo().getTransactionId()));
-        }
-
-        private void rollback()
-        {
-            getFutureValue(transactionManager.asyncAbort(getTransactionInfo().getTransactionId()));
-        }
-
-        private TransactionInfo getTransactionInfo()
-        {
-            Optional<TransactionInfo> transaction = session.getTransactionId()
-                    .flatMap(transactionManager::getOptionalTransactionInfo);
-            checkState(transaction.isPresent(), "transaction is not present");
-            checkState(transaction.get().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
-            return transaction.get();
         }
 
         private void queryCompletedEvent(Optional<Throwable> failure)
