@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.io.InputStream;
@@ -35,6 +37,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLType;
 import java.sql.SQLXML;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -44,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBigDecimal;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBinary;
 import static com.facebook.presto.jdbc.ObjectCasts.castToBoolean;
@@ -463,7 +467,9 @@ public class PrestoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getMetaData");
+        try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE OUTPUT " + statementName)) {
+            return new PrestoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
+        }
     }
 
     @Override
@@ -848,5 +854,29 @@ public class PrestoPreparedStatement
     private static String typedNull(String prestoType)
     {
         return format("CAST(NULL AS %s)", prestoType);
+    }
+
+    private static List<ColumnInfo> getDescribeOutputColumnInfoList(ResultSet resultSet)
+            throws SQLException
+    {
+        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+        while (resultSet.next()) {
+            String columnName = resultSet.getString("Column Name");
+            String catalog = resultSet.getString("Catalog");
+            String schema = resultSet.getString("Schema");
+            String table = resultSet.getString("Table");
+            TypeSignature signature = TypeSignature.parseTypeSignature(resultSet.getString("Type"));
+            ColumnInfo.Builder builder = new ColumnInfo.Builder()
+                    .setColumnName(columnName)
+                    .setColumnLabel(columnName)
+                    .setCatalogName(catalog)
+                    .setSchemaName(schema)
+                    .setTableName(table)
+                    .setColumnTypeSignature(signature)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN);
+            setTypeInfo(builder, signature);
+            list.add(builder.build());
+        }
+        return list.build();
     }
 }
