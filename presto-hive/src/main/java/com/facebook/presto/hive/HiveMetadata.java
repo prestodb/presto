@@ -117,8 +117,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -2238,7 +2238,7 @@ public class HiveMetadata
         checkArgument(!partitions.isEmpty(), "partitions cannot be empty");
 
         boolean hasNull = false;
-        List<Object> nonNullValues = new ArrayList<>();
+        Set<Object> nonNullValues = new HashSet<>();
         Type type = null;
 
         for (HivePartition partition : partitions) {
@@ -2260,7 +2260,7 @@ public class HiveMetadata
         }
 
         if (!nonNullValues.isEmpty()) {
-            Domain domain = Domain.multipleValues(type, nonNullValues);
+            Domain domain = Domain.multipleValues(type, ImmutableList.copyOf(nonNullValues));
             if (hasNull) {
                 return domain.union(Domain.onlyNull(type));
             }
