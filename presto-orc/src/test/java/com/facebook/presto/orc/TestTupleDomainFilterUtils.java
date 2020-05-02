@@ -230,6 +230,8 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(not(greaterThanOrEqual(C_BIGINT, bigintLiteral(2L)))), BigintRange.of(Long.MIN_VALUE, 1L, false));
 
         assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100_000))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, false));
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(Long.MIN_VALUE, 10, 100_000))), BigintValuesUsingHashTable.of(Long.MIN_VALUE, 100_000, new long[] {Long.MIN_VALUE, 10, 100_000}, false));
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(Long.MIN_VALUE, Long.MAX_VALUE, 0))), BigintValuesUsingHashTable.of(Long.MIN_VALUE, Long.MAX_VALUE, new long[] {Long.MIN_VALUE, 0, Long.MAX_VALUE}, false));
         assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, false));
         assertEquals(toFilter(not(in(C_BIGINT, ImmutableList.of(1, 10, 100)))), BigintMultiRange.of(ImmutableList.of(
                 BigintRange.of(Long.MIN_VALUE, 0L, false),
