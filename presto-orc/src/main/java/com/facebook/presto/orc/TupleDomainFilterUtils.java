@@ -35,6 +35,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 
@@ -347,7 +348,10 @@ public class TupleDomainFilterUtils
         // slots in a hash table), e.g. up to 192 bits per value.
         // Filter based on a bitmap uses (max - min) / num-values bits per value.
         // Choose the filter that uses less bits per value.
-        if ((max - min + 1) > Integer.MAX_VALUE || ((max - min + 1) / values.length) > 192) {
+        BigInteger range = BigInteger.valueOf(max)
+                .subtract(BigInteger.valueOf(min))
+                .add(BigInteger.valueOf(1));
+        if (range.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1 || (range.intValueExact() / values.length) > 192) {
             return BigintValuesUsingHashTable.of(min, max, values, nullAllowed);
         }
 
