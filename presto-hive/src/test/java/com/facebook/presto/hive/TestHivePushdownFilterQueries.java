@@ -670,7 +670,7 @@ public class TestHivePushdownFilterQueries
     {
         List<String> types = ImmutableList.of(BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, DOUBLE, REAL, VARCHAR, DATE);
 
-        String query = String.format("SELECT orderkey, CAST(ROW(%s, 1) AS ROW(%s, a INTEGER)) as struct FROM orders",
+        String query = String.format("SELECT orderkey, CAST(ROW(%s, orderkey) AS ROW(%s, orderkey INTEGER)) as struct FROM orders",
                 types.stream()
                         .map(type -> "null")
                         .collect(joining(", ")),
@@ -684,9 +684,13 @@ public class TestHivePushdownFilterQueries
             for (String type : types) {
                 assertQuery(
                         format(
-                                "SELECT struct.a, struct.null_%s FROM test_all_nulls_in_struct WHERE struct IS NOT NULL AND orderkey %% 2 = 0",
+                                "SELECT struct.orderkey, struct.null_%s FROM test_all_nulls_in_struct WHERE struct IS NOT NULL AND orderkey %% 2 = 0",
                                 type.toLowerCase(getSession().getLocale())),
-                        "SELECT 1, null FROM orders WHERE orderkey % 2 = 0");
+                        "SELECT orderkey, null FROM orders WHERE orderkey % 2 = 0");
+
+                assertQuery(format("SELECT orderkey from test_all_nulls_in_struct WHERE struct.null_%s is NULL AND struct.orderkey > 3000 " +
+                                "AND length(CAST(struct.null_%s AS VARCHAR)) IS NULL", type.toLowerCase(getSession().getLocale()), type.toLowerCase(getSession().getLocale())),
+                        "SELECT orderkey FROM orders WHERE orderkey > 3000");
             }
         }
         finally {
