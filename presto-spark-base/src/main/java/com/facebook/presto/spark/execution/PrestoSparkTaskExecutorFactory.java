@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
@@ -39,11 +40,13 @@ import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spark.execution.PrestoSparkOutputOperator.PrestoSparkOutputFactory;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -59,6 +62,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
@@ -69,11 +73,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +88,7 @@ public class PrestoSparkTaskExecutorFactory
     private static final Logger log = Logger.get(PrestoSparkTaskExecutorFactory.class);
 
     private final SessionPropertyManager sessionPropertyManager;
+    private final BlockEncodingManager blockEncodingManager;
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskStats> taskStatsJsonCodec;
@@ -109,6 +114,7 @@ public class PrestoSparkTaskExecutorFactory
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
+            BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskStats> taskStatsJsonCodec,
             Executor notificationExecutor,
@@ -121,6 +127,7 @@ public class PrestoSparkTaskExecutorFactory
     {
         this(
                 sessionPropertyManager,
+                blockEncodingManager,
                 taskDescriptorJsonCodec,
                 taskStatsJsonCodec,
                 notificationExecutor,
@@ -139,6 +146,7 @@ public class PrestoSparkTaskExecutorFactory
 
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
+            BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskStats> taskStatsJsonCodec,
             Executor notificationExecutor,
@@ -155,6 +163,7 @@ public class PrestoSparkTaskExecutorFactory
             boolean allocationTrackingEnabled)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -228,14 +237,34 @@ public class PrestoSparkTaskExecutorFactory
         PrestoSparkRowBuffer rowBuffer = new PrestoSparkRowBuffer(memoryManager);
 
         ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkRow>> shuffleInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-            ImmutableList.Builder<Iterator<PrestoSparkRow>> remoteSourceInputs = ImmutableList.builder();
+            List<Iterator<PrestoSparkRow>> shuffleRemoteSourceInputs = new ArrayList<>();
+            List<Iterator<PrestoSparkSerializedPage>> broadcastRemoteSourceInputs = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<Integer, PrestoSparkRow>> input = inputs.getShuffleInputs().get(sourceFragmentId.toString());
-                checkArgument(input != null, "input is missing for fragmentId: %s", sourceFragmentId);
-                remoteSourceInputs.add(Iterators.transform(input, tuple -> tuple._2));
+                Iterator<Tuple2<Integer, PrestoSparkRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                if (shuffleInput != null) {
+                    shuffleRemoteSourceInputs.add(Iterators.transform(shuffleInput, tuple -> tuple._2));
+                    continue;
+                }
+                Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
+                if (broadcastInput != null) {
+                    // NullifyingIterator removes element from the list upon return
+                    // This allows GC to gradually reclaim memory
+                    // TODO: broadcast variable is shared for the entire JVM
+                    // TODO: run only a single instance of Presto per JVM
+                    //broadcastRemoteSourceInputs.add(getNullifyingIterator(broadcastInput.value()));
+                    broadcastRemoteSourceInputs.add(broadcastInput.value().iterator());
+                    continue;
+                }
+                throw new IllegalArgumentException("Input not found for sourceFragmentId: " + sourceFragmentId);
             }
-            shuffleInputs.put(remoteSource.getId(), Iterators.concat(remoteSourceInputs.build().iterator()));
+            if (!shuffleRemoteSourceInputs.isEmpty()) {
+                shuffleInputs.put(remoteSource.getId(), Iterators.concat(shuffleRemoteSourceInputs.iterator()));
+            }
+            if (!broadcastRemoteSourceInputs.isEmpty()) {
+                broadcastInputs.put(remoteSource.getId(), Iterators.concat(broadcastRemoteSourceInputs.iterator()));
+            }
         }
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
@@ -245,7 +274,10 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getStageExecutionDescriptor(),
                 fragment.getTableScanSchedulingOrder(),
                 new PrestoSparkOutputFactory(rowBuffer),
-                new PrestoSparkRemoteSourceFactory(shuffleInputs.build()),
+                new PrestoSparkRemoteSourceFactory(
+                        new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
+                        shuffleInputs.build(),
+                        broadcastInputs.build()),
                 taskDescriptor.getTableWriteInfo(),
                 true);
 

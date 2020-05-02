@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IntegerIdentityPartitioner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
@@ -45,6 +46,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
@@ -83,6 +85,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
@@ -109,6 +112,7 @@ public class PrestoSparkRddFactory
             Session session,
             PlanFragment fragment,
             Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs,
+            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
             TableWriteInfo tableWriteInfo)
@@ -172,7 +176,8 @@ public class PrestoSparkRddFactory
                     executorFactoryProvider,
                     taskStatsCollector,
                     tableWriteInfo,
-                    partitionedInputs);
+                    partitionedInputs,
+                    broadcastInputs);
         }
         else if (partitioning.equals(SOURCE_DISTRIBUTION)) {
             checkArgument(rddInputs.isEmpty(), "rddInputs is expected to be empty for SOURCE_DISTRIBUTION fragment: %s", fragment.getId());
@@ -182,7 +187,8 @@ public class PrestoSparkRddFactory
                     fragment,
                     executorFactoryProvider,
                     taskStatsCollector,
-                    tableWriteInfo);
+                    tableWriteInfo,
+                    broadcastInputs);
         }
         else {
             throw new IllegalArgumentException(format("Unexpected fragment partitioning %s, fragmentId: %s", partitioning, fragment.getId()));
@@ -209,7 +215,8 @@ public class PrestoSparkRddFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
             TableWriteInfo tableWriteInfo,
-            Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs)
+            Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs,
+            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         List<TableScanNode> tableScans = findTableScanNodes(fragment.getRoot());
         verify(tableScans.isEmpty(), "no table scans is expected");
@@ -219,13 +226,16 @@ public class PrestoSparkRddFactory
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
 
-        Set<PlanFragmentId> missingInputs = difference(expectedInputs, rddInputs.keySet());
-        Set<PlanFragmentId> extraInputs = difference(rddInputs.keySet(), expectedInputs);
+        Set<PlanFragmentId> actualInputs = union(rddInputs.keySet(), broadcastInputs.keySet());
+
+        Set<PlanFragmentId> missingInputs = difference(expectedInputs, actualInputs);
+        Set<PlanFragmentId> extraInputs = difference(actualInputs, expectedInputs);
         checkArgument(
                 missingInputs.isEmpty() && extraInputs.isEmpty(),
-                "rddInputs mismatch discovered. expected: %s, actual: %s",
+                "rddInputs mismatch discovered. expected inputs: %s, actual rdd inputs: %s, actual broadcast inputs: %s",
                 expectedInputs,
-                rddInputs.keySet());
+                rddInputs.keySet(),
+                broadcastInputs.keySet());
 
         PrestoSparkTaskDescriptor taskDescriptor = createIntermediateTaskDescriptor(session, tableWriteInfo, fragment);
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
@@ -238,7 +248,8 @@ public class PrestoSparkRddFactory
                             executorFactoryProvider,
                             serializedTaskDescriptor,
                             fragmentId.toString(),
-                            taskStatsCollector);
+                            taskStatsCollector,
+                            toTaskProcessorBroadcastInputs(broadcastInputs));
             return requireNonNull(rddInputs.get(fragmentId), "input is missing for fragmentId " + fragmentId)
                     .mapPartitionsToPair(taskProcessor);
         }
@@ -255,7 +266,8 @@ public class PrestoSparkRddFactory
                             serializedTaskDescriptor,
                             firstFragmentId.toString(),
                             secondFragmentId.toString(),
-                            taskStatsCollector);
+                            taskStatsCollector,
+                            toTaskProcessorBroadcastInputs(broadcastInputs));
             return JavaPairRDD.fromJavaRDD(
                     firstRdd.zipPartitions(
                             secondRdd,
@@ -271,11 +283,9 @@ public class PrestoSparkRddFactory
             PlanFragment fragment,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
-        // TODO: Possible in case of a broadcast join
-        checkArgument(fragment.getRemoteSourceNodes().isEmpty(), "source task with remote sources is not supported");
-
         List<TableScanNode> tableScans = findTableScanNodes(fragment.getRoot());
         checkArgument(
                 tableScans.size() == 1,
@@ -311,7 +321,10 @@ public class PrestoSparkRddFactory
         }
 
         return sparkContext.parallelize(serializedTaskDescriptors.build(), numTasks)
-                .mapPartitionsToPair(createTaskProcessor(executorFactoryProvider, taskStatsCollector));
+                .mapPartitionsToPair(createTaskProcessor(
+                        executorFactoryProvider,
+                        taskStatsCollector,
+                        toTaskProcessorBroadcastInputs(broadcastInputs)));
     }
 
     private List<ScheduledSplit> getSplits(Session session, TableScanNode tableScan)
@@ -378,5 +391,10 @@ public class PrestoSparkRddFactory
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
+    }
+
+    private static Map<String, Broadcast<List<PrestoSparkSerializedPage>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+    {
+        return broadcastInputs.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     }
 }

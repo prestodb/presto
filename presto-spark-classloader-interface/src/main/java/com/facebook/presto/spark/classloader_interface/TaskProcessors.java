@@ -16,11 +16,14 @@ package com.facebook.presto.spark.classloader_interface;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.function.FlatMapFunction2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
@@ -34,7 +37,8 @@ public class TaskProcessors
 
     public static PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, PrestoSparkRow> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         return new PairFlatMapFunction<Iterator<SerializedPrestoSparkTaskDescriptor>, Integer, PrestoSparkRow>()
         {
@@ -47,7 +51,12 @@ public class TaskProcessors
                 }
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
-                return taskExecutorFactoryProvider.get().create(partitionId, attemptNumber, serializedTaskDescriptor, new PrestoSparkTaskInputs(emptyMap()), taskStatsCollector);
+                return taskExecutorFactoryProvider.get().create(
+                        partitionId,
+                        attemptNumber,
+                        serializedTaskDescriptor,
+                        new PrestoSparkTaskInputs(emptyMap(), broadcastInputs),
+                        taskStatsCollector);
             }
         };
     }
@@ -56,7 +65,8 @@ public class TaskProcessors
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             String fragmentId,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         return new PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow>()
         {
@@ -69,7 +79,7 @@ public class TaskProcessors
                         partitionId,
                         attemptNumber,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(singletonMap(fragmentId, input)),
+                        new PrestoSparkTaskInputs(singletonMap(fragmentId, input), broadcastInputs),
                         taskStatsCollector);
             }
         };
@@ -80,7 +90,8 @@ public class TaskProcessors
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             String fragmentId1,
             String fragmentId2,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         return new FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>>()
         {
@@ -98,7 +109,7 @@ public class TaskProcessors
                         partitionId,
                         attemptNumber,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(unmodifiableMap(inputsMap)),
+                        new PrestoSparkTaskInputs(unmodifiableMap(inputsMap), broadcastInputs),
                         taskStatsCollector);
             }
         };
