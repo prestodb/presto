@@ -171,6 +171,7 @@ public class PrestoSparkRddFactory
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().partitionBy(inputPartitioner)));
 
             return createIntermediateRdd(
+                    sparkContext,
                     session,
                     fragment,
                     executorFactoryProvider,
@@ -210,6 +211,7 @@ public class PrestoSparkRddFactory
     }
 
     private JavaPairRDD<Integer, PrestoSparkRow> createIntermediateRdd(
+            JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
@@ -240,7 +242,15 @@ public class PrestoSparkRddFactory
         PrestoSparkTaskDescriptor taskDescriptor = createIntermediateTaskDescriptor(session, tableWriteInfo, fragment);
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
-        if (rddInputs.size() == 1) {
+        if (rddInputs.size() == 0) {
+            checkArgument(fragment.getPartitioning().equals(SINGLE_DISTRIBUTION), "SINGLE_DISTRIBUTION partitioning is expected: %s", fragment.getPartitioning());
+            return sparkContext.parallelize(ImmutableList.of(serializedTaskDescriptor), 1)
+                    .mapPartitionsToPair(createTaskProcessor(
+                            executorFactoryProvider,
+                            taskStatsCollector,
+                            toTaskProcessorBroadcastInputs(broadcastInputs)));
+        }
+        else if (rddInputs.size() == 1) {
             RemoteSourceNode remoteSourceNode = getOnlyElement(fragment.getRemoteSourceNodes());
             PlanFragmentId fragmentId = getOnlyElement(remoteSourceNode.getSourceFragmentIds());
             PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> taskProcessor =

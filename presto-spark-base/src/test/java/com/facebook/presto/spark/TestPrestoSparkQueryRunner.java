@@ -73,4 +73,11 @@ public class TestPrestoSparkQueryRunner
                 "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
                 "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
     }
+
+    @Test
+    public void testValues()
+    {
+        assertQuery("SELECT a, b " +
+                "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')) t1 (a, b) ");
+    }
 }
