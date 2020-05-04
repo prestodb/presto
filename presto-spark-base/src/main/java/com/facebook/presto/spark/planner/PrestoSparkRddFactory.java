@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -168,7 +169,7 @@ public class PrestoSparkRddFactory
                     hashPartitionCount);
 
             Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> partitionedInputs = rddInputs.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().partitionBy(inputPartitioner)));
+                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().partitionBy(inputPartitioner)));
 
             return createIntermediateRdd(
                     sparkContext,
@@ -250,37 +251,34 @@ public class PrestoSparkRddFactory
                             taskStatsCollector,
                             toTaskProcessorBroadcastInputs(broadcastInputs)));
         }
-        else if (rddInputs.size() == 1) {
-            RemoteSourceNode remoteSourceNode = getOnlyElement(fragment.getRemoteSourceNodes());
-            PlanFragmentId fragmentId = getOnlyElement(remoteSourceNode.getSourceFragmentIds());
+        if (rddInputs.size() == 1) {
+            Entry<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> input = getOnlyElement(rddInputs.entrySet());
             PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            fragmentId.toString(),
+                            input.getKey().toString(),
                             taskStatsCollector,
                             toTaskProcessorBroadcastInputs(broadcastInputs));
-            return requireNonNull(rddInputs.get(fragmentId), "input is missing for fragmentId " + fragmentId)
+            return input.getValue()
                     .mapPartitionsToPair(taskProcessor);
         }
-        else if (rddInputs.size() == 2) {
-            List<RemoteSourceNode> remoteSources = fragment.getRemoteSourceNodes();
-            checkArgument(remoteSources.size() == 2, "two remote sources are expected, got: %s", remoteSources.size());
-            PlanFragmentId firstFragmentId = remoteSources.get(0).getSourceFragmentIds().get(0);
-            PlanFragmentId secondFragmentId = remoteSources.get(1).getSourceFragmentIds().get(0);
-            JavaPairRDD<Integer, PrestoSparkRow> firstRdd = rddInputs.get(firstFragmentId);
-            JavaPairRDD<Integer, PrestoSparkRow> secondRdd = rddInputs.get(secondFragmentId);
+        if (rddInputs.size() == 2) {
+            List<PlanFragmentId> fragmentIds = ImmutableList.copyOf(rddInputs.keySet());
+            List<JavaPairRDD<Integer, PrestoSparkRow>> rdds = fragmentIds.stream()
+                    .map(rddInputs::get)
+                    .collect(toImmutableList());
             FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            firstFragmentId.toString(),
-                            secondFragmentId.toString(),
+                            fragmentIds.get(0).toString(),
+                            fragmentIds.get(1).toString(),
                             taskStatsCollector,
                             toTaskProcessorBroadcastInputs(broadcastInputs));
             return JavaPairRDD.fromJavaRDD(
-                    firstRdd.zipPartitions(
-                            secondRdd,
+                    rdds.get(0).zipPartitions(
+                            rdds.get(1),
                             taskProcessor));
         }
 
@@ -405,6 +403,6 @@ public class PrestoSparkRddFactory
 
     private static Map<String, Broadcast<List<PrestoSparkSerializedPage>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
-        return broadcastInputs.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
+        return broadcastInputs.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().toString(), Entry::getValue));
     }
 }
