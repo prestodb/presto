@@ -4,41 +4,30 @@ Release 0.234
 
 General Changes
 _______________
-* Fix query failure for cross-joining bucketed tables with ``COALESCE`` when the bucket counts are compatible but mismatched.
-* Fix an issue where ``IGNORE NULLS`` is not respected for window functions.
-* Fix scheduling regression by setting the default scheduler to legacy scheduler.
-* Improve coordinator reliability by adding support to cap the number of total tasks running in a coordinator by pausing scheduling.
-  This can be enabled by the configuration property ``experimental.max-total-running-task-count-to-not-execute-new-query``.
-* Improve the scale writer heuristics by considering overall producer buffer utilization. This can be enabled by the session property
-  ``optimized_scale_writer_producer_buffer`` and the configuration property ``optimized-scale-writer-producer-buffer``.
-* Improve end point ``v1/resourceGroupState`` to supporting filtering of resource groups that are dynamically generated.
-* Improve connection pooling to avoid running out of sockets.
-* Add :ref:`khyperloglog_type` type and related functions.
-* Add support for forcing streaming exchange for Mark Distinct even if materialized exchange is enabled.
-  This can be enabled by the session property ``use_stream_exchange_for_mark_distinct``
-  and the configuration property ``query.use-streaming-exchange-for-mark-distinct``. (:pr:`14216`).
-
-Geospatial Changes
-__________________
-* Improve storage efficiency for Bing tiles by storing Bing tiles as ``BIGINT``. This also reduces bucket skew in certain cases.
-* Add support for spatial joins for join condition ``ST_Distance(p1, p2) < r``.
-
-Hive Changes
-____________
-* Add ``ZSTD`` support for writing ``ORC`` and ``DWRF`` files. This can be enabled by setting session property ``hive.compression_codec`` to ``ZSTD``.
+* Enable spatial joins for `ST_Distance(p1, p2) < r` for spherical geography points `p1` and `p2`.
+* Fix query failures with incompatible partition handle when session property ``partial_merge_pushdown_strategy`` is set to ``PUSH_THROUGH_LOW_MEMORY_OPERATORS`` and ``optimize_full_outer_join_with_coalesce`` is set to ``true`` and query has mismatched partition and uses ``FULL OUTER JOIN`` with ``COALESCE``.
+* Change the default for configuration property ``use-legacy-scheduler`` to ``true`` in order to mitigate a regression in the new scheduler.
+* Optimize connection pooling to avoid running out of sockets in certain cases.
+* Add support for stopping new query execution when total number of tasks exceeds a set limit to help with reliability. The limit can be set by configuration property ``experimental.max-total-running-task-count-to-not-execute-new-query``.
+* Allow forcing streaming exchange for Mark Distinct using 'query.use-streaming-exchange-for-mark-distinct'.
+* Add `cast(tile AS bigint)` and `cast(bigint_value AS bingtile)` to encode/decode Bing tiles to/from bigints.  This is a more efficient storage format that also reduces bucket skew in some cases.
+* Add KHyperLogLog Type.
+* Add MAKE_KHYPERLOGLOG(K, V) -> KHYPERLOGLOG aggregate function.
+* Add KHyperLogLog related scalar functions.
+* Improve the scale writer heuristics by considering overall producer buffer utilization. This can be enabled by using the session property `optimized_scale_writer_producer_buffer` and the configuration property `optimized-scale-writer-producer-buffer`.
 
 Verifier Changes
 ________________
-* Add support for verifying ``SELECT`` queries that produce ``DATE`` or ``UNKNOWN`` (null) columns, or structured typed columns with ``DATE`` or ``UNKNOWN``.
-* Add support for auto-resolving control check query failures due to ``EXCEEDED_TIME_LIMIT``.
-* Add determinism analysis support for simple queries with top-level ``ORDER BY LIMIT`` clause. (:pr:`14181`).
+* Add support for verifying ``SELECT`` queries that produce structured types containing ``DATE`` or ``UNKNOWN`` (null).
+* Add support for verifying ``SELECT`` queries that produce ``DATE`` or ``UNKNOWN`` (null) columns.
+* Add support to auto-resolve control check query failures due to ``EXCEEDED_TIME_LIMIT``.
+* Support determinism analysis for simple queries with top-level ``ORDER BY LIMIT`` clause. (:pr:`14181`).
 
 SPI Changes
 ___________
-* Add parameter ``AccessControlContext`` to all methods in ``SystemAccessControl``.
-* Add ``firstDynamicSegmentPosition`` to SelectionContext.
+* All the methods in ``SystemAccessControl`` now take additional parameter ``AccessControlContext context``.
 
 Druid Changes
 _____________
-* Add support for aggregation pushdown.
-* Add support for ``LIMIT`` evaluation pushdown.
+* Aggregation Pushdown for Druid connector.
+* Add LIMIT evaluation pushdown to Druid connector.

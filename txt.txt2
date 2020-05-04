@@ -1,0 +1,15 @@
+Fragment 2 [SOURCE]
+    CPU: 5.53h, Scheduled: 8.16h, Input: 5184497000 rows (1017.07GB); per task: avg.: 28802761.11 std.dev.: 552668.32, Output: 5183976506 rows (1.04TB)
+    Output layout: [actor_id, event_time, text, pred_lang, ds, $hashvalue_82]
+    Output partitioning: HASH [actor_id][$hashvalue_82]
+    Stage Execution Strategy: UNGROUPED_EXECUTION
+    - ScanProject[table = TableHandle {connectorId='prism', connectorHandle='HiveTableHandle{schemaName=platform, tableName=dim_page_post:bi, analyzePartitionValues=Optional.empty}', layout='Optional[platform.dim_page_post:bi{}]'}, grouped = false] => [actor_id:bigint, event_time:varchar, text:varchar, pred_lang:varchar, ds:varchar, $hashvalue_82:bigint]
+            Estimates: {rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}
+            $hashvalue_82 := combine_hash(BIGINT 0, COALESCE($operator$hash_code(actor_id), BIGINT 0))
+            LAYOUT: platform.dim_page_post:bi{}
+            text := text:string:9:REGULAR
+            ds := ds:string:-13:PARTITION_KEY
+                :: [[2020-02-20]]
+            event_time := event_time:string:3:REGULAR
+            actor_id := actor_id:bigint:1:REGULAR
+            pred_lang := pred_lang:string:10:REGULAR
