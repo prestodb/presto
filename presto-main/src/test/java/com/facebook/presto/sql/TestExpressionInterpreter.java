@@ -889,9 +889,6 @@ public class TestExpressionInterpreter
                         "else 1 " +
                         "end");
 
-        assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
-                "case when cast(fail(8, 'ignored failure message') as boolean) then 1 end");
-
         assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail(8, 'ignored failure message') as integer)");
 
         assertOptimizedEquals("case " +

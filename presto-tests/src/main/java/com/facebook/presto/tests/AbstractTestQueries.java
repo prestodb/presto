@@ -8301,7 +8301,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLargeBytecode()
     {
-        StringBuilder stringBuilder = new StringBuilder("SELECT x FROM (SELECT orderkey x, custkey y from orders limit 10) WHERE CASE");
+        StringBuilder stringBuilder = new StringBuilder("SELECT x FROM (SELECT orderkey x, custkey y from orders limit 10) WHERE CASE true ");
         // Generate 100 cases.
         for (int i = 0; i < 100; i++) {
             stringBuilder.append(" when x in (");
@@ -8334,6 +8334,18 @@ public abstract class AbstractTestQueries
         query.append("ROW(32)) ");
         query.append("FROM (values(null)) as t (null_value)");
         assertQuery(query.toString(), "SELECT NULL");
+    }
+
+    @Test
+    public void testRowExpressionInterpreterStackOverflow()
+    {
+        StringBuilder stringBuilder = new StringBuilder("SELECT  CASE");
+        for (int i = 1; i <= 500; i++) {
+            stringBuilder.append(" when x = random(" + i + ") then " + i);
+        }
+
+        stringBuilder.append(" else x end from (select -1 x)");
+        assertQuery(stringBuilder.toString(), "values -1");
     }
 
     protected Session noJoinReordering()

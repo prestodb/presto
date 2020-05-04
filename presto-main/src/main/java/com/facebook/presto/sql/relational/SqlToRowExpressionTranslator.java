@@ -82,7 +82,6 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
 
 import java.util.List;
@@ -121,6 +120,8 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isInValuesComparisonExpression;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -528,64 +529,77 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
         {
-            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-
-            arguments.add(process(node.getOperand(), context));
-
-            for (WhenClause clause : node.getWhenClauses()) {
-                arguments.add(specialForm(
-                        WHEN,
-                        getType(clause),
-                        process(clause.getOperand(), context),
-                        process(clause.getResult(), context)));
-            }
-
-            Type returnType = getType(node);
-
-            arguments.add(node.getDefaultValue()
-                    .map((value) -> process(value, context))
-                    .orElse(constantNull(returnType)));
-
-            return specialForm(SWITCH, returnType, arguments.build());
+            return buildSwitch(process(node.getOperand(), context), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
         @Override
         protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
-            /*
-                Translates an expression like:
-
-                    case when cond1 then value1
-                         when cond2 then value2
-                         when cond3 then value3
-                         else value4
-                    end
-
-                To:
-
-                    IF(cond1,
-                        value1,
-                        IF(cond2,
-                            value2,
-                                If(cond3,
-                                    value3,
-                                    value4)))
-
-             */
-            RowExpression expression = node.getDefaultValue()
-                    .map((value) -> process(value, context))
-                    .orElse(constantNull(getType(node)));
-
-            for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
-                expression = specialForm(
-                        IF,
-                        getType(node),
-                        process(clause.getOperand(), context),
-                        process(clause.getResult(), context),
-                        expression);
+            // Rewrite situations where it's CASE WHEN x = v1 THEN r1, WHEN x = v2 THEN r2 ... END to:
+            // CASE x WHEN v1 THEN r1 WHEN v2 THEN r2 ...
+            // So that better code is generated especially for tableau queries
+            RowExpression caseOperand = null;
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Expression predicate = whenClause.getOperand();
+                if (isEqualComparisonExpression(predicate) ||
+                        isInValuesComparisonExpression(predicate)) {
+                    RowExpression operand = process(predicate.getChildren().get(0), context);
+                    if (caseOperand != null && !operand.equals(caseOperand)) {
+                        caseOperand = null;
+                        break;
+                    }
+                    caseOperand = operand;
+                }
+                else {
+                    caseOperand = null;
+                    break;
+                }
             }
 
-            return expression;
+            if (caseOperand != null) {
+                // We found the pattern. So rebuild the When list to just include the rhs of the equals.
+                ImmutableList.Builder<WhenClause> newWhenClauses = ImmutableList.builder();
+                for (WhenClause whenClause : node.getWhenClauses()) {
+                    if (isInValuesComparisonExpression(whenClause.getOperand())) {
+                        // case when x in (v1, v2, .. ) then r become when x = v1 then r when x = v2 then r ...
+                        for (Expression value : ((InListExpression) ((InPredicate) whenClause.getOperand()).getValueList()).getValues()) {
+                            newWhenClauses.add(new WhenClause(value, whenClause.getResult()));
+                        }
+                    }
+                    else {
+                        newWhenClauses.add(
+                                new WhenClause(
+                                        (Expression) whenClause.getOperand().getChildren().get(1),
+                                        whenClause.getResult()));
+                    }
+                }
+
+                return buildSwitch(caseOperand, newWhenClauses.build(), node.getDefaultValue(), getType(node), context);
+            }
+
+            // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
+            return buildSwitch(new ConstantExpression(true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
+        }
+
+        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Void context)
+        {
+            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+
+            arguments.add(operand);
+
+            for (WhenClause clause : whenClauses) {
+                arguments.add(specialForm(
+                        WHEN,
+                        getType(clause.getResult()),
+                        process(clause.getOperand(), context),
+                        process(clause.getResult(), context)));
+            }
+
+            arguments.add(defaultValue
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(returnType)));
+
+            return specialForm(SWITCH, returnType, arguments.build());
         }
 
         @Override

@@ -323,21 +323,20 @@ public class RowExpressionInterpreter
                 case IF: {
                     checkArgument(node.getArguments().size() == 3);
                     Object condition = processWithExceptionHandling(node.getArguments().get(0), context);
-                    Object trueValue = processWithExceptionHandling(node.getArguments().get(1), context);
-                    Object falseValue = processWithExceptionHandling(node.getArguments().get(2), context);
 
                     if (condition instanceof RowExpression) {
                         return new SpecialFormExpression(
                                 IF,
                                 node.getType(),
                                 toRowExpression(condition, node.getArguments().get(0)),
-                                toRowExpression(trueValue, node.getArguments().get(1)),
-                                toRowExpression(falseValue, node.getArguments().get(2)));
+                                toRowExpression(processWithExceptionHandling(node.getArguments().get(1), context), node.getArguments().get(1)),
+                                toRowExpression(processWithExceptionHandling(node.getArguments().get(2), context), node.getArguments().get(2)));
                     }
                     else if (Boolean.TRUE.equals(condition)) {
-                        return trueValue;
+                        return processWithExceptionHandling(node.getArguments().get(1), context);
                     }
-                    return falseValue;
+
+                    return processWithExceptionHandling(node.getArguments().get(2), context);
                 }
                 case NULL_IF: {
                     checkArgument(node.getArguments().size() == 2);
