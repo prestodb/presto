@@ -15,9 +15,12 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
@@ -95,5 +98,15 @@ public final class ExpressionTreeUtils
             }
         }.process(node, null);
         return nodes.build();
+    }
+
+    public static boolean isEqualComparisonExpression(Expression expression)
+    {
+        return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
+    }
+
+    public static boolean isInValuesComparisonExpression(Expression expression)
+    {
+        return expression instanceof InPredicate && ((InPredicate) expression).getValueList() instanceof InListExpression;
     }
 }
