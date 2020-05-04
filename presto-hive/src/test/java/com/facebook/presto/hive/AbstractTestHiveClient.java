@@ -925,7 +925,6 @@ public abstract class AbstractTestHiveClient
                 TYPE_MANAGER,
                 locationService,
                 FUNCTION_RESOLUTION,
-                METADATA.getFunctionManager(),
                 ROW_EXPRESSION_SERVICE,
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
