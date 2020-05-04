@@ -94,6 +94,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
@@ -551,11 +552,6 @@ class RelationPlanner
                 .addAll(rightPlan.getRoot().getOutputVariables())
                 .build();
         return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputVariables);
-    }
-
-    private static boolean isEqualComparisonExpression(Expression conjunct)
-    {
-        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
