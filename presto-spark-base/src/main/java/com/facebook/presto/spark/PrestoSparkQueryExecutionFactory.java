@@ -80,6 +80,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -92,11 +93,10 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_P
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.transform;
 import static java.util.Objects.requireNonNull;
 import static org.apache.spark.storage.StorageLevel.DISK_ONLY;
@@ -392,8 +392,6 @@ public class PrestoSparkQueryExecutionFactory
             PlanFragment rootFragment = root.getFragment();
 
             if (rootFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
-                checkArgument(root.getChildren().size() == 1, "exactly one children fragment is expected");
-
                 PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
                         session.toSessionRepresentation(),
                         session.getIdentity().getExtraCredentials(),
@@ -402,15 +400,18 @@ public class PrestoSparkQueryExecutionFactory
                         tableWriteInfo);
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
-                SubPlan child = getOnlyElement(root.getChildren());
-                JavaPairRDD<Integer, PrestoSparkRow> rdd = createRdd(child, broadcastsToDestroy);
-                List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collect();
+                Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> inputRdds = root.getChildren().stream()
+                        .collect(toImmutableMap(child -> child.getFragment().getId(), child -> createRdd(child, broadcastsToDestroy)));
+
+                Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputs = inputRdds.entrySet().stream()
+                        .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().collect().iterator()));
+
                 broadcastsToDestroy.forEach(Broadcast::destroy);
                 return ImmutableList.copyOf(executorFactoryProvider.get().create(
                         0,
                         0,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(ImmutableMap.of(child.getFragment().getId().toString(), sparkDriverInput.iterator()), ImmutableMap.of()),
+                        new PrestoSparkTaskInputs(inputs, ImmutableMap.of()),
                         taskStatsCollector));
             }
 

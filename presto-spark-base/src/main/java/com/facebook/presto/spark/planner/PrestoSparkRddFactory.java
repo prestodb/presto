@@ -26,6 +26,7 @@ import com.facebook.presto.spark.classloader_interface.IntegerIdentityPartitione
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkZipRdd;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spi.PrestoException;
@@ -44,11 +45,11 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.spark.Partitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction2;
-import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.rdd.RDD;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
+import scala.reflect.ClassTag;
 
 import javax.inject.Inject;
 
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -84,7 +86,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
@@ -251,38 +252,25 @@ public class PrestoSparkRddFactory
                             taskStatsCollector,
                             toTaskProcessorBroadcastInputs(broadcastInputs)));
         }
-        if (rddInputs.size() == 1) {
-            Entry<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> input = getOnlyElement(rddInputs.entrySet());
-            PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> taskProcessor =
-                    createTaskProcessor(
-                            executorFactoryProvider,
-                            serializedTaskDescriptor,
-                            input.getKey().toString(),
-                            taskStatsCollector,
-                            toTaskProcessorBroadcastInputs(broadcastInputs));
-            return input.getValue()
-                    .mapPartitionsToPair(taskProcessor);
-        }
-        if (rddInputs.size() == 2) {
-            List<PlanFragmentId> fragmentIds = ImmutableList.copyOf(rddInputs.keySet());
-            List<JavaPairRDD<Integer, PrestoSparkRow>> rdds = fragmentIds.stream()
-                    .map(rddInputs::get)
-                    .collect(toImmutableList());
-            FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> taskProcessor =
-                    createTaskProcessor(
-                            executorFactoryProvider,
-                            serializedTaskDescriptor,
-                            fragmentIds.get(0).toString(),
-                            fragmentIds.get(1).toString(),
-                            taskStatsCollector,
-                            toTaskProcessorBroadcastInputs(broadcastInputs));
-            return JavaPairRDD.fromJavaRDD(
-                    rdds.get(0).zipPartitions(
-                            rdds.get(1),
-                            taskProcessor));
+
+        ImmutableList.Builder<String> fragmentIds = ImmutableList.builder();
+        ImmutableList.Builder<RDD<Tuple2<Integer, PrestoSparkRow>>> rdds = ImmutableList.builder();
+        for (Entry<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> input : rddInputs.entrySet()) {
+            fragmentIds.add(input.getKey().toString());
+            rdds.add(input.getValue().rdd());
         }
 
-        throw new IllegalArgumentException(format("unsupported number of inputs: %s", rddInputs.size()));
+        Function<List<Iterator<Tuple2<Integer, PrestoSparkRow>>>, Iterator<Tuple2<Integer, PrestoSparkRow>>> taskProcessor = createTaskProcessor(
+                executorFactoryProvider,
+                serializedTaskDescriptor,
+                fragmentIds.build(),
+                taskStatsCollector,
+                toTaskProcessorBroadcastInputs(broadcastInputs));
+
+        return JavaPairRDD.fromRDD(
+                new PrestoSparkZipRdd(sparkContext.sc(), rdds.build(), taskProcessor),
+                classTag(Integer.class),
+                classTag(PrestoSparkRow.class));
     }
 
     private JavaPairRDD<Integer, PrestoSparkRow> createSourceRdd(
@@ -404,5 +392,10 @@ public class PrestoSparkRddFactory
     private static Map<String, Broadcast<List<PrestoSparkSerializedPage>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         return broadcastInputs.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().toString(), Entry::getValue));
+    }
+
+    private static <T> ClassTag<T> classTag(Class<T> clazz)
+    {
+        return scala.reflect.ClassTag$.MODULE$.apply(clazz);
     }
 }
