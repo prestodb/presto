@@ -15,8 +15,12 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
 import javax.validation.constraints.NotNull;
+
+import java.util.List;
 
 public class DruidConfig
 {
@@ -24,6 +28,7 @@ public class DruidConfig
     private String brokerUrl;
     private String schema = "druid";
     private boolean pushdown;
+    private List<String> hadoopResourceConfigFiles = ImmutableList.of();
 
     @NotNull
     public String getDruidCoordinatorUrl()
@@ -77,6 +82,25 @@ public class DruidConfig
     public DruidConfig setComputePushdownEnabled(boolean pushdown)
     {
         this.pushdown = pushdown;
+        return this;
+    }
+
+    @NotNull
+    public List<String> getHadoopResourceConfigFiles()
+    {
+        return hadoopResourceConfigFiles;
+    }
+
+    @Config("druid.hadoop.config.resources")
+    public DruidConfig setHadoopResourceConfigFiles(String files)
+    {
+        this.hadoopResourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        return this;
+    }
+
+    public DruidConfig setHadoopResourceConfigFiles(List<String> files)
+    {
+        this.hadoopResourceConfigFiles = ImmutableList.copyOf(files);
         return this;
     }
 }
