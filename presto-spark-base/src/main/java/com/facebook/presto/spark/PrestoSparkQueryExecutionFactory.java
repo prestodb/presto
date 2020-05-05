@@ -119,6 +119,7 @@ public class PrestoSparkQueryExecutionFactory
     private final AccessControl accessControl;
     private final Metadata metadata;
     private final BlockEncodingManager blockEncodingManager;
+    private final PrestoSparkSettingsRequirements settingsRequirements;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -138,6 +139,7 @@ public class PrestoSparkQueryExecutionFactory
             AccessControl accessControl,
             Metadata metadata,
             BlockEncodingManager blockEncodingManager,
+            PrestoSparkSettingsRequirements settingsRequirements,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -154,6 +156,7 @@ public class PrestoSparkQueryExecutionFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.settingsRequirements = requireNonNull(settingsRequirements, "settingsRequirements is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -177,9 +180,11 @@ public class PrestoSparkQueryExecutionFactory
         // TODO: implement query monitor
         // queryMonitor.queryCreatedEvent();
 
+        Session session = sessionSupplier.createSession(queryId, sessionContext);
+        settingsRequirements.verify(sparkContext, session);
+
         TransactionId transactionId = transactionManager.beginTransaction(true);
-        Session session = sessionSupplier.createSession(queryId, sessionContext)
-                .beginTransactionId(transactionId, transactionManager, accessControl);
+        session = session.beginTransactionId(transactionId, transactionManager, accessControl);
 
         try {
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
