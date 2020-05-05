@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.filemerge;
 
+import com.facebook.presto.cache.CacheManager;
+import com.facebook.presto.cache.FileReadRequest;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 
@@ -22,7 +24,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
-public final class CachingInputStream
+public final class FileMergeCachingInputStream
         extends FSDataInputStream
 {
     private final FSDataInputStream inputStream;
@@ -30,7 +32,7 @@ public final class CachingInputStream
     private final Path path;
     private final boolean cacheValidationEnabled;
 
-    public CachingInputStream(
+    public FileMergeCachingInputStream(
             FSDataInputStream inputStream,
             CacheManager cacheManager,
             Path path,
