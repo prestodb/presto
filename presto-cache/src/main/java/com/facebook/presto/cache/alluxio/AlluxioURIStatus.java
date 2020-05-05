@@ -11,13 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.cache.alluxio;
 
-import org.apache.hadoop.conf.Configuration;
+import alluxio.client.file.URIStatus;
+import alluxio.wire.FileInfo;
+import com.facebook.presto.hive.HiveFileContext;
 
-import java.net.URI;
-
-public interface HdfsConfiguration
+public class AlluxioURIStatus
+        extends URIStatus
 {
-    Configuration getConfiguration(HdfsContext context, URI uri);
+    private final HiveFileContext hiveFileContext;
+
+    public AlluxioURIStatus(FileInfo info, HiveFileContext hiveFileContext)
+    {
+        super(info);
+        this.hiveFileContext = hiveFileContext;
+    }
+
+    public HiveFileContext getHiveFileContext()
+    {
+        return hiveFileContext;
+    }
 }

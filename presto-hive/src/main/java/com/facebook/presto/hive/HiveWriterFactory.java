@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.event.client.EventClient;
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;

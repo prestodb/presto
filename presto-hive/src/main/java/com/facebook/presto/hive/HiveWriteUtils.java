@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;

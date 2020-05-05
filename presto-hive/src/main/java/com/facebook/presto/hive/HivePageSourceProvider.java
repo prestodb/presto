@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;

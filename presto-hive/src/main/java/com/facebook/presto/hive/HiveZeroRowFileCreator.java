@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;

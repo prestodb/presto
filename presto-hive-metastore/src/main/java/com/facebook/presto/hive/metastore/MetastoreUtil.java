@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
