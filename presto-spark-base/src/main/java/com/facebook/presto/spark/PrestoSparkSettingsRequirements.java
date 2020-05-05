@@ -27,6 +27,7 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabl
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
@@ -49,6 +50,7 @@ public class PrestoSparkSettingsRequirements
                 "grouped execution is not supported");
         verify(!isRedistributeWrites(session), "redistribute writes is not supported");
         verify(!isScaleWriters(session), "scale writes is not supported");
+        verify(!isPreferDistributedUnion(session), "prefer distributed union is expected to be disabled");
     }
 
     private static void verify(boolean condition, String message, Object... args)
@@ -68,6 +70,7 @@ public class PrestoSparkSettingsRequirements
         config.setColocatedJoinsEnabled(false);
         config.setRedistributeWrites(false);
         config.setScaleWriters(false);
+        config.setPreferDistributedUnion(false);
     }
 
     public static void setDefaults(QueryManagerConfig config)

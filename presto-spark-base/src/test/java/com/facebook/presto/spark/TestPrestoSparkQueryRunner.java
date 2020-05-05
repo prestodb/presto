@@ -78,6 +78,14 @@ public class TestPrestoSparkQueryRunner
                 "SELECT o.custkey, l.orderkey " +
                 "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
                 "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+        assertQuery("" +
+                "SELECT o.custkey, l.orderkey " +
+                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "CROSS JOIN (" +
+                "   SELECT * FROM orders WHERE orderkey = 5 " +
+                "   UNION ALL " +
+                "   SELECT * FROM orders WHERE orderkey = 5 " +
+                ") o");
     }
 
     @Test

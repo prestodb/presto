@@ -132,6 +132,16 @@ public class PrestoSparkRddFactory
             throw new PrestoException(NOT_SUPPORTED, "Automatic writers scaling is not supported by Presto on Spark");
         }
 
+        // Currently remote round robin exchange is only used in two cases
+        // - Redistribute writes:
+        //   Originally introduced to avoid skewed table writes. Makes sense with streaming exchanges
+        //   as those are very cheap. Since spark has to write the data to disk anyway the optimization
+        //   doesn't make much sense in Presto on Spark context, thus it is always disabled.
+        // - Some corner cases of UNION (e.g.: broadcasted UNION ALL)
+        //   Since round robin exchange is very costly on Spark (and potentially a correctness hazard)
+        //   such unions are always planned with Gather (SINGLE_DISTRIBUTION)
+        checkArgument(!partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION), "FIXED_ARBITRARY_DISTRIBUTION is not supported");
+
         checkArgument(!partitioning.equals(COORDINATOR_DISTRIBUTION), "COORDINATOR_DISTRIBUTION fragment must be run on the driver");
         checkArgument(!partitioning.equals(FIXED_BROADCAST_DISTRIBUTION), "FIXED_BROADCAST_DISTRIBUTION can only be set as an output partitioning scheme, and not as a fragment distribution");
         checkArgument(!partitioning.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "FIXED_PASSTHROUGH_DISTRIBUTION can only be set as local exchange partitioning");
@@ -148,7 +158,7 @@ public class PrestoSparkRddFactory
             fragment = fragment.withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
         }
 
-        if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+        if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             checkArgument(
                     fragment.getTableScanSchedulingOrder().isEmpty(),
                     "Fragment with is not expected to have table scans. fragmentId: %s, fragment partitioning %s",
@@ -205,9 +215,6 @@ public class PrestoSparkRddFactory
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             return new IntegerIdentityPartitioner(partitionCount);
-        }
-        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            throw new PrestoException(NOT_SUPPORTED, "FIXED_ARBITRARY_DISTRIBUTION partitioning is not yet supported");
         }
         throw new IllegalArgumentException(format("Unexpected fragment partitioning %s", partitioning));
     }

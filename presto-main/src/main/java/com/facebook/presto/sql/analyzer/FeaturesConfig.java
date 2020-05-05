@@ -151,6 +151,7 @@ public class FeaturesConfig
     private boolean experimentalFunctionsEnabled;
     private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
+    private boolean preferDistributedUnion = true;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1235,6 +1236,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeCommonSubExpressions(boolean optimizeCommonSubExpressions)
     {
         this.optimizeCommonSubExpressions = optimizeCommonSubExpressions;
+        return this;
+    }
+
+    public boolean isPreferDistributedUnion()
+    {
+        return preferDistributedUnion;
+    }
+
+    @Config("prefer-distributed-union")
+    public FeaturesConfig setPreferDistributedUnion(boolean preferDistributedUnion)
+    {
+        this.preferDistributedUnion = preferDistributedUnion;
         return this;
     }
 }

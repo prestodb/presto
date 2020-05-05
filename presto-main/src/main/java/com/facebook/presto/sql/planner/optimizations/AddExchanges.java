@@ -105,6 +105,7 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoin
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPreferred;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
@@ -175,6 +176,7 @@ public class AddExchanges
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
+        private final boolean preferDistributedUnion;
         private final PartialMergePushdownStrategy partialMergePushdownStrategy;
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
@@ -189,6 +191,7 @@ public class AddExchanges
             this.distributedIndexJoins = isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = isRedistributeWrites(session);
             this.scaleWriters = isScaleWriters(session);
+            this.preferDistributedUnion = isPreferDistributedUnion(session);
             this.partialMergePushdownStrategy = getPartialMergePushdownStrategy(session);
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
@@ -1202,7 +1205,27 @@ public class AddExchanges
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty singleNodeChildren
                 if (!parentPartitioningPreference.isPresent() || parentPartitioningPreference.get().isDistributed()) {
-                    return arbitraryDistributeUnion(node, distributedChildren, distributedOutputLayouts);
+                    // TODO: can we insert LOCAL exchange for one child SOURCE distributed and another HASH distributed?
+                    if (getNumberOfTableScans(distributedChildren) == 0 && isSameOrSystemCompatiblePartitions(extractRemoteExchangePartitioningHandles(distributedChildren))) {
+                        // No source distributed child, we can use insert LOCAL exchange
+                        // TODO: if all children have the same partitioning, pass this partitioning to the parent
+                        // instead of "arbitraryPartition".
+                        return new PlanWithProperties(node.replaceChildren(distributedChildren));
+                    }
+                    else if (preferDistributedUnion) {
+                        // Presto currently can not execute stage that has multiple table scans, so in that case
+                        // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+                        return new PlanWithProperties(
+                                new ExchangeNode(
+                                        idAllocator.getNextId(),
+                                        REPARTITION,
+                                        REMOTE_STREAMING,
+                                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                                        distributedChildren,
+                                        distributedOutputLayouts,
+                                        false,
+                                        Optional.empty()));
+                    }
                 }
 
                 // add a gathering exchange above partitioned inputs
@@ -1260,34 +1283,6 @@ public class AddExchanges
                     ActualProperties.builder()
                             .global(singleStreamPartition())
                             .build());
-        }
-
-        private PlanWithProperties arbitraryDistributeUnion(
-                UnionNode node,
-                List<PlanNode> distributedChildren,
-                List<List<VariableReferenceExpression>> distributedOutputLayouts)
-        {
-            // TODO: can we insert LOCAL exchange for one child SOURCE distributed and another HASH distributed?
-            if (getNumberOfTableScans(distributedChildren) == 0 && isSameOrSystemCompatiblePartitions(extractRemoteExchangePartitioningHandles(distributedChildren))) {
-                // No source distributed child, we can use insert LOCAL exchange
-                // TODO: if all children have the same partitioning, pass this partitioning to the parent
-                // instead of "arbitraryPartition".
-                return new PlanWithProperties(node.replaceChildren(distributedChildren));
-            }
-            else {
-                // Presto currently can not execute stage that has multiple table scans, so in that case
-                // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
-                return new PlanWithProperties(
-                        new ExchangeNode(
-                                idAllocator.getNextId(),
-                                REPARTITION,
-                                REMOTE_STREAMING,
-                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
-                                distributedChildren,
-                                distributedOutputLayouts,
-                                false,
-                                Optional.empty()));
-            }
         }
 
         @Override
