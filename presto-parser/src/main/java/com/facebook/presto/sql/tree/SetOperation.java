@@ -16,18 +16,20 @@ package com.facebook.presto.sql.tree;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public abstract class SetOperation
         extends QueryBody
 {
-    private final boolean distinct;
+    private final Optional<Boolean> distinct;
 
-    protected SetOperation(Optional<NodeLocation> location, boolean distinct)
+    protected SetOperation(Optional<NodeLocation> location, Optional<Boolean> distinct)
     {
         super(location);
-        this.distinct = distinct;
+        this.distinct = requireNonNull(distinct, "distinct is null");
     }
 
-    public boolean isDistinct()
+    public Optional<Boolean> isDistinct()
     {
         return distinct;
     }

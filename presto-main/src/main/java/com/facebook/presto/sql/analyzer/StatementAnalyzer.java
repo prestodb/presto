@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessDeniedException;
@@ -121,6 +122,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
@@ -156,6 +158,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -1221,9 +1224,23 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitUnion(Union node, Optional<Scope> scope)
+        {
+            if (!node.isDistinct().isPresent()) {
+                warningCollector.add(new PrestoWarning(PARSER_WARNING,
+                        "UNION specified without ALL or DISTINCT" +
+                        " keyword is equivalent to UNION DISTINCT, which is computationally expensive. " +
+                        "Consider using UNION ALL when possible, or specifically add keyword DISTINCT to stop " +
+                        "getting this warning"));
+            }
+
+            return visitSetOperation(node, scope);
+        }
+
+        @Override
         protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
         {
-            if (!node.isDistinct()) {
+            if (!node.isDistinct().orElse(true)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
             }
 
@@ -1233,7 +1250,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitExcept(Except node, Optional<Scope> scope)
         {
-            if (!node.isDistinct()) {
+            if (!node.isDistinct().orElse(true)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
             }
 

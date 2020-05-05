@@ -27,17 +27,17 @@ public class Intersect
 {
     private final List<Relation> relations;
 
-    public Intersect(List<Relation> relations, boolean distinct)
+    public Intersect(List<Relation> relations, Optional<Boolean> distinct)
     {
         this(Optional.empty(), relations, distinct);
     }
 
-    public Intersect(NodeLocation location, List<Relation> relations, boolean distinct)
+    public Intersect(NodeLocation location, List<Relation> relations, Optional<Boolean> distinct)
     {
         this(Optional.of(location), relations, distinct);
     }
 
-    private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    private Intersect(Optional<NodeLocation> location, List<Relation> relations, Optional<Boolean> distinct)
     {
         super(location, distinct);
         requireNonNull(relations, "relations is null");

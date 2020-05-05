@@ -64,7 +64,7 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode(), PARSER_WARNING.toWarningCode()));
         assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableSet.of());
     }
 
