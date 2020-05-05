@@ -133,7 +133,8 @@ public class OrcMetadataReader
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
-                toUserMetadata(footer.getMetadataList()));
+                toUserMetadata(footer.getMetadataList()),
+                Optional.empty());
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -150,7 +151,8 @@ public class OrcMetadataReader
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
-                stripeInformation.getFooterLength());
+                stripeInformation.getFooterLength(),
+                ImmutableList.of());
     }
 
     @Override
@@ -159,7 +161,7 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()));
+        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
     }
 
     private static Stream toStream(OrcProto.Stream stream)

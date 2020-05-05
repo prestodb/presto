@@ -53,6 +53,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -419,14 +420,14 @@ public class OrcWriter
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
         // add footer
-        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()));
+        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()), ImmutableList.of());
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
 
         // create final stripe statistics
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
-        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length());
+        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length(), ImmutableList.of());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
@@ -489,7 +490,8 @@ public class OrcWriter
                         .collect(toList()),
                 orcTypes,
                 fileStats,
-                userMetadata);
+                userMetadata,
+                Optional.empty());
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;

@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Maps.transformValues;
@@ -34,8 +35,9 @@ public class Footer
     private final List<OrcType> types;
     private final List<ColumnStatistics> fileStats;
     private final Map<String, Slice> userMetadata;
+    private final Optional<DwrfEncryption> encryption;
 
-    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, List<OrcType> types, List<ColumnStatistics> fileStats, Map<String, Slice> userMetadata)
+    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, List<OrcType> types, List<ColumnStatistics> fileStats, Map<String, Slice> userMetadata, Optional<DwrfEncryption> encryption)
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
@@ -44,6 +46,7 @@ public class Footer
         this.fileStats = ImmutableList.copyOf(requireNonNull(fileStats, "columnStatistics is null"));
         requireNonNull(userMetadata, "userMetadata is null");
         this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
+        this.encryption = requireNonNull(encryption, "encryption is null");
     }
 
     public long getNumberOfRows()
@@ -87,5 +90,10 @@ public class Footer
                 .add("columnStatistics", fileStats)
                 .add("userMetadata", userMetadata.keySet())
                 .toString();
+    }
+
+    public Optional<DwrfEncryption> getEncryption()
+    {
+        return encryption;
     }
 }

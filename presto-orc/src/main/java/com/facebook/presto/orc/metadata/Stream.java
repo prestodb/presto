@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -41,18 +43,21 @@ public class Stream
     private final boolean useVInts;
     private final int sequence;
 
+    private final Optional<Long> offset;
+
     public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
     {
-        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID);
+        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID, Optional.empty());
     }
 
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence)
+    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence, Optional<Long> offset)
     {
         this.column = column;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
         this.sequence = sequence;
+        this.offset = requireNonNull(offset, "offset is null");
     }
 
     public int getColumn()

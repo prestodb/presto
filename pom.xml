@@ -559,7 +559,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>7</version>
+                <version>9</version>
             </dependency>
 
             <dependency>
