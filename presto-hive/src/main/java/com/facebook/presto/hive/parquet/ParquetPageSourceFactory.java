@@ -377,7 +377,7 @@ public class ParquetPageSourceFactory
             case INT64:
                 return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP);
             case INT32:
-                return prestoType.equals(INTEGER) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) || prestoType.equals(TINYINT);
+                return prestoType.equals(INTEGER) || prestoType.equals(BIGINT) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) || prestoType.equals(TINYINT);
             case BOOLEAN:
                 return prestoType.equals(StandardTypes.BOOLEAN);
             case FLOAT:

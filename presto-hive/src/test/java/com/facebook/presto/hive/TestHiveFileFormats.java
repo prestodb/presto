@@ -561,6 +561,7 @@ public class TestHiveFileFormats
         TestColumn stringColumn = new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"));
         TestColumn intColumn = new TestColumn("column_name", javaIntObjectInspector, 3, 3);
         TestColumn longColumn = new TestColumn("column_name", javaLongObjectInspector, 4L, 4L);
+        TestColumn longStoredAsIntColumn = new TestColumn("column_name", javaIntObjectInspector, 4, 4);
         TestColumn timestampColumn = new TestColumn("column_name", javaTimestampObjectInspector, 4L, 4L);
         TestColumn mapLongColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
@@ -600,6 +601,13 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(longColumn))
                 .withReadColumns(ImmutableList.of(timestampColumn))
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+
+        // make sure INT64 (declared in Hive schema) stored as INT32 in file is still readable
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longStoredAsIntColumn))
+                .withReadColumns(ImmutableList.of(longColumn))
                 .withSession(parquetPageSourceSession)
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
