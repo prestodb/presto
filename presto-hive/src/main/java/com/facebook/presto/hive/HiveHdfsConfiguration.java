@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 

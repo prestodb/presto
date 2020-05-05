@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.filemerge;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.cache.CacheManager;
+import com.facebook.presto.cache.CacheStats;
+import com.facebook.presto.cache.FileReadRequest;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -28,6 +32,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -63,10 +68,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 // TODO: Make cache eviction based on cache size rather than file count; add evict count stats to CacheStats as well.
 // TODO: Make cache state persistent on disk so we do not need to wipe out cache every time we reboot a server.
 @SuppressWarnings("UnstableApiUsage")
-public class LocalRangeCacheManager
+public class FileMergeCacheManager
         implements CacheManager
 {
-    private static final Logger log = Logger.get(LocalRangeCacheManager.class);
+    private static final Logger log = Logger.get(FileMergeCacheManager.class);
 
     private static final String EXTENSION = ".cache";
 
@@ -89,21 +94,27 @@ public class LocalRangeCacheManager
     private final Path baseDirectory;
     private final long maxInflightBytes;
 
-    public LocalRangeCacheManager(CacheConfig cacheConfig, CacheStats stats, ExecutorService cacheFlushExecutor, ExecutorService cacheRemovalExecutor)
+    @Inject
+    public FileMergeCacheManager(
+            CacheConfig cacheConfig,
+            FileMergeCacheConfig fileMergeCacheConfig,
+            CacheStats stats,
+            ExecutorService cacheFlushExecutor,
+            ExecutorService cacheRemovalExecutor)
     {
         requireNonNull(cacheConfig, "directory is null");
         this.cacheFlushExecutor = cacheFlushExecutor;
         this.cacheRemovalExecutor = cacheRemovalExecutor;
         this.cache = CacheBuilder.newBuilder()
-                .maximumSize(cacheConfig.getMaxCachedEntries())
-                .expireAfterAccess(cacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
+                .maximumSize(fileMergeCacheConfig.getMaxCachedEntries())
+                .expireAfterAccess(fileMergeCacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
                 .removalListener(new CacheRemovalListener())
                 .recordStats()
                 .build();
         this.stats = requireNonNull(stats, "stats is null");
         this.baseDirectory = new Path(cacheConfig.getBaseDirectory());
-        checkArgument(cacheConfig.getMaxInMemoryCacheSize().toBytes() >= 0, "maxInflightBytes is negative");
-        this.maxInflightBytes = cacheConfig.getMaxInMemoryCacheSize().toBytes();
+        checkArgument(fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes() >= 0, "maxInflightBytes is negative");
+        this.maxInflightBytes = fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes();
 
         File target = new File(baseDirectory.toUri());
         if (!target.exists()) {
@@ -344,7 +355,7 @@ public class LocalRangeCacheManager
             cacheFilesToDelete = ImmutableSet.of(newFilePath);
         }
 
-        cacheFilesToDelete.forEach(LocalRangeCacheManager::tryDeleteFile);
+        cacheFilesToDelete.forEach(FileMergeCacheManager::tryDeleteFile);
         return true;
     }
 
