@@ -44,8 +44,8 @@ public class TaskManagerConfig
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
-    private boolean perOperatorAllocationTrackingEnabled = true;
-    private boolean taskAllocationTrackingEnabled = true;
+    private boolean perOperatorAllocationTrackingEnabled;
+    private boolean taskAllocationTrackingEnabled;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
