@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -113,6 +114,8 @@ import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
 {
+    private static Logger log = Logger.get(PageFunctionCompiler.class);
+
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
@@ -303,6 +306,11 @@ public class PageFunctionCompiler
                         .flatMap(m -> m.entrySet().stream())
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                 projections = projections.stream().map(projection -> rewriteExpressionWithCSE(projection, commonSubExpressions)).collect(toImmutableList());
+                if (log.isDebugEnabled()) {
+                    log.debug("Extracted %d common sub-expressions", commonSubExpressions.size());
+                    commonSubExpressions.entrySet().forEach(entry -> log.debug("\t%s = %s", entry.getValue(), entry.getKey()));
+                    log.debug("Rewrote %d projections: %s", projections.size(), Joiner.on(", ").join(projections));
+                }
             }
         }
 
@@ -588,6 +596,11 @@ public class PageFunctionCompiler
                         .flatMap(m -> m.entrySet().stream())
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                 filter = rewriteExpressionWithCSE(filter, commonSubExpressions);
+                if (log.isDebugEnabled()) {
+                    log.debug("Extracted %d common sub-expressions", commonSubExpressions.size());
+                    commonSubExpressions.entrySet().forEach(entry -> log.debug("\t%s = %s", entry.getValue(), entry.getKey()));
+                    log.debug("Rewrote filter: %s", filter);
+                }
             }
         }
 
