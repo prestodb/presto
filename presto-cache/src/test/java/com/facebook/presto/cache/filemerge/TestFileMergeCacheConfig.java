@@ -11,48 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.filemerge;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static com.facebook.presto.cache.CacheType.FILE_MERGE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestCacheConfig
+public class TestFileMergeCacheConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(CacheConfig.class)
-                .setCachingEnabled(false)
-                .setCacheType(null)
-                .setBaseDirectory(null)
-                .setValidationEnabled(false));
+        assertRecordedDefaults(recordDefaults(FileMergeCacheConfig.class)
+                .setMaxCachedEntries(1_000)
+                .setMaxInMemoryCacheSize(new DataSize(2, GIGABYTE))
+                .setCacheTtl(new Duration(2, DAYS)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
-            throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("cache.enabled", "true")
-                .put("cache.type", "FILE_MERGE")
-                .put("cache.base-directory", "tcp://abc")
-                .put("cache.validation-enabled", "true")
+                .put("cache.max-cached-entries", "5")
+                .put("cache.max-in-memory-cache-size", "42MB")
+                .put("cache.ttl", "10s")
                 .build();
 
-        CacheConfig expected = new CacheConfig()
-                .setCachingEnabled(true)
-                .setCacheType(FILE_MERGE)
-                .setBaseDirectory(new URI("tcp://abc"))
-                .setValidationEnabled(true);
-
+        FileMergeCacheConfig expected = new FileMergeCacheConfig()
+                .setMaxCachedEntries(5)
+                .setMaxInMemoryCacheSize(new DataSize(42, MEGABYTE))
+                .setCacheTtl(new Duration(10, SECONDS));
         assertFullMapping(properties, expected);
     }
 }

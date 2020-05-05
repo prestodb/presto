@@ -35,8 +35,8 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
@@ -307,10 +307,10 @@ public class MetastoreUtil
     /**
      * Recreates partition schema based on the table schema and the column
      * coercions map.
-     *
+     * <p>
      * partitionColumnCount is needed to handle cases when the partition
      * has less columns than the table.
-     *
+     * <p>
      * If the partition has more columns than the table does, the partitionSchemaDifference
      * map is expected to contain information for the missing columns.
      */

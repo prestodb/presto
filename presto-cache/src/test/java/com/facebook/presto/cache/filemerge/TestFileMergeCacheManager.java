@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.filemerge;
 
+import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.cache.CacheManager;
+import com.facebook.presto.cache.CacheStats;
+import com.facebook.presto.cache.FileReadRequest;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -26,20 +30,16 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.cache.TestingCacheUtils.stressTest;
+import static com.facebook.presto.cache.TestingCacheUtils.validateBuffer;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static java.lang.Integer.max;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -47,9 +47,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
-public class TestLocalRangeCacheManager
+public class TestFileMergeCacheManager
 {
     private static final int DATA_LENGTH = (int) new DataSize(20, KILOBYTE).toBytes();
     private final byte[] data = new byte[DATA_LENGTH];
@@ -100,7 +99,7 @@ public class TestLocalRangeCacheManager
             throws InterruptedException, ExecutionException, IOException
     {
         TestingCacheStats stats = new TestingCacheStats();
-        CacheManager cacheManager = localRangeCacheManager(stats);
+        CacheManager cacheManager = fileMergeCacheManager(stats);
         byte[] buffer = new byte[1024];
 
         // new read
@@ -109,14 +108,14 @@ public class TestLocalRangeCacheManager
         assertEquals(stats.getCacheHit(), 0);
         stats.trigger();
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(42, buffer, 0, 100);
+        validateBuffer(data, 42, buffer, 0, 100);
 
         // within the range of the cache
         assertTrue(readFully(cacheManager, 47, buffer, 0, 90));
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(47, buffer, 0, 90);
+        validateBuffer(data, 47, buffer, 0, 90);
 
         // partially within the range of the cache
         assertFalse(readFully(cacheManager, 52, buffer, 0, 100));
@@ -124,7 +123,7 @@ public class TestLocalRangeCacheManager
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(52, buffer, 0, 100);
+        validateBuffer(data, 52, buffer, 0, 100);
 
         // partially within the range of the cache
         assertFalse(readFully(cacheManager, 32, buffer, 10, 50));
@@ -132,7 +131,7 @@ public class TestLocalRangeCacheManager
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(32, buffer, 10, 50);
+        validateBuffer(data, 32, buffer, 10, 50);
 
         // create a hole within two caches
         assertFalse(readFully(cacheManager, 200, buffer, 40, 50));
@@ -140,7 +139,7 @@ public class TestLocalRangeCacheManager
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(200, buffer, 40, 50);
+        validateBuffer(data, 200, buffer, 40, 50);
 
         // use a range to cover the hole
         assertFalse(readFully(cacheManager, 40, buffer, 400, 200));
@@ -148,67 +147,31 @@ public class TestLocalRangeCacheManager
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
-        validateBuffer(40, buffer, 400, 200);
+        validateBuffer(data, 40, buffer, 400, 200);
     }
 
     @Test(invocationCount = 10)
     public void testStress()
             throws ExecutionException, InterruptedException
     {
-        CacheManager cacheManager = localRangeCacheManager(
-                new CacheConfig()
-                        .setBaseDirectory(cacheDirectory)
-                        .setCacheTtl(new Duration(10, MILLISECONDS)));
+        CacheConfig cacheConfig = new CacheConfig().setBaseDirectory(cacheDirectory);
+        FileMergeCacheConfig fileMergeCacheConfig = new FileMergeCacheConfig().setCacheTtl(new Duration(10, MILLISECONDS));
 
-        ExecutorService executor = newScheduledThreadPool(5);
-        List<Future<?>> futures = new ArrayList<>();
-        AtomicReference<String> exception = new AtomicReference<>();
+        CacheManager cacheManager = fileMergeCacheManager(cacheConfig, fileMergeCacheConfig);
 
-        for (int i = 0; i < 5; i++) {
-            byte[] buffer = new byte[DATA_LENGTH];
-            futures.add(executor.submit(() -> {
-                Random random = new Random();
-                for (int j = 0; j < 200; j++) {
-                    int position = random.nextInt(DATA_LENGTH - 1);
-                    int length = random.nextInt(max((DATA_LENGTH - position) / 3, 1));
-                    int offset = random.nextInt(DATA_LENGTH - length);
-
-                    try {
-                        readFully(cacheManager, position, buffer, offset, length);
-                    }
-                    catch (IOException e) {
-                        exception.compareAndSet(null, e.getMessage());
-                        return;
-                    }
-                    validateBuffer(position, buffer, offset, length);
-                }
-            }));
-        }
-
-        for (Future<?> future : futures) {
-            future.get();
-        }
-
-        if (exception.get() != null) {
-            fail(exception.get());
-        }
+        stressTest(data, (position, buffer, offset, length) -> readFully(cacheManager, position, buffer, offset, length));
     }
 
-    private CacheManager localRangeCacheManager(CacheConfig cacheConfig)
+    private CacheManager fileMergeCacheManager(CacheConfig cacheConfig, FileMergeCacheConfig fileMergeCacheConfig)
     {
-        return new LocalRangeCacheManager(cacheConfig, new CacheStats(), flushExecutor, removeExecutor);
+        return new FileMergeCacheManager(cacheConfig, fileMergeCacheConfig, new CacheStats(), flushExecutor, removeExecutor);
     }
 
-    private CacheManager localRangeCacheManager(CacheStats cacheStats)
+    private CacheManager fileMergeCacheManager(CacheStats cacheStats)
     {
-        return new LocalRangeCacheManager(new CacheConfig().setBaseDirectory(cacheDirectory), cacheStats, flushExecutor, removeExecutor);
-    }
-
-    private void validateBuffer(long position, byte[] buffer, int offset, int length)
-    {
-        for (int i = 0; i < length; i++) {
-            assertEquals(buffer[i + offset], data[i + (int) position], format("corrupted buffer at position %s offset %s", position, i));
-        }
+        CacheConfig cacheConfig = new CacheConfig();
+        FileMergeCacheConfig fileMergeCacheConfig = new FileMergeCacheConfig();
+        return new FileMergeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory), fileMergeCacheConfig, cacheStats, flushExecutor, removeExecutor);
     }
 
     private boolean readFully(CacheManager cacheManager, long position, byte[] buffer, int offset, int length)

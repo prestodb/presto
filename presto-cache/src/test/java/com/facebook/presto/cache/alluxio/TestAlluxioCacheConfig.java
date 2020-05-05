@@ -11,47 +11,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cache;
+package com.facebook.presto.cache.alluxio;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static com.facebook.presto.cache.CacheType.FILE_MERGE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
-public class TestCacheConfig
+public class TestAlluxioCacheConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(CacheConfig.class)
-                .setCachingEnabled(false)
-                .setCacheType(null)
-                .setBaseDirectory(null)
-                .setValidationEnabled(false));
+        assertRecordedDefaults(recordDefaults(AlluxioCacheConfig.class)
+                .setAsyncWriteEnabled(false)
+                .setMaxCacheSize(new DataSize(2, GIGABYTE))
+                .setMetricsCollectionEnabled(true)
+                .setMetricsDomain("com.facebook.alluxio")
+                .setJmxClass("alluxio.metrics.sink.JmxSink"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
-            throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("cache.enabled", "true")
-                .put("cache.type", "FILE_MERGE")
-                .put("cache.base-directory", "tcp://abc")
-                .put("cache.validation-enabled", "true")
+                .put("cache.alluxio.async-write.enabled", "true")
+                .put("cache.alluxio.max-cache-size", "42MB")
+                .put("cache.alluxio.metrics.enabled", "false")
+                .put("cache.alluxio.metrics.domain", "test.alluxio")
+                .put("cache.alluxio.jmx.class", "test.TestJmxSink")
                 .build();
 
-        CacheConfig expected = new CacheConfig()
-                .setCachingEnabled(true)
-                .setCacheType(FILE_MERGE)
-                .setBaseDirectory(new URI("tcp://abc"))
-                .setValidationEnabled(true);
+        AlluxioCacheConfig expected = new AlluxioCacheConfig()
+                .setAsyncWriteEnabled(true)
+                .setMaxCacheSize(new DataSize(42, MEGABYTE))
+                .setMetricsCollectionEnabled(false)
+                .setMetricsDomain("test.alluxio")
+                .setJmxClass("test.TestJmxSink");
 
         assertFullMapping(properties, expected);
     }
