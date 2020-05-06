@@ -27,6 +27,8 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -74,7 +76,11 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -184,6 +190,15 @@ public class PrestoSparkQueryRunner
 
         metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
 
+        // add bogus catalog for testing procedures and session properties
+        CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        catalogManager.registerCatalog(bogusTestingCatalog);
+
+        SessionPropertyManager sessionPropertyManager = metadata.getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
+
         // register the instance
         instanceId = randomUUID().toString();
         instances.put(instanceId, this);
@@ -286,6 +301,10 @@ public class PrestoSparkQueryRunner
 
     private static PrestoSparkSession createSessionInfo(Session session)
     {
+        ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
+        catalogSessionProperties.putAll(session.getConnectorProperties().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Map.Entry::getValue)));
+        catalogSessionProperties.putAll(session.getUnprocessedCatalogProperties());
         return new PrestoSparkSession(
                 session.getIdentity().getUser(),
                 session.getIdentity().getPrincipal(),
@@ -298,8 +317,7 @@ public class PrestoSparkQueryRunner
                 Optional.of(session.getTimeZoneKey().getId()),
                 Optional.empty(),
                 session.getSystemProperties(),
-                session.getConnectorProperties().entrySet().stream()
-                        .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Map.Entry::getValue)),
+                catalogSessionProperties.build(),
                 session.getTraceToken());
     }
 
