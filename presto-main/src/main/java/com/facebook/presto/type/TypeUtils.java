@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -99,7 +100,13 @@ public final class TypeUtils
         if (leftIsNull || rightIsNull) {
             return leftIsNull && rightIsNull;
         }
-        return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+
+        try {
+            return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
     }
 
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)

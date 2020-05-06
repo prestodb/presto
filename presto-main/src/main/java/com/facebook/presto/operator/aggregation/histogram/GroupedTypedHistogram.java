@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -27,6 +28,7 @@ import static com.facebook.presto.operator.aggregation.histogram.HashUtil.calcul
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextProbeLinear;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -500,7 +502,12 @@ public class GroupedTypedHistogram
         {
             long existingGroupId = groupIds.get(nodePointer);
 
-            return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
+            try {
+                return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
         }
 
         private ValueNode createValueNode(int nodePointer)
