@@ -447,7 +447,7 @@ public class PageFunctionCompiler
                     MethodDefinition method = classDefinition.declareMethod(
                             a(PRIVATE),
                             "get" + cseVariable.getName(),
-                            type(void.class),
+                            type(cseFields.resultType),
                             ImmutableList.<Parameter>builder()
                                     .add(properties)
                                     .add(page)
@@ -471,13 +471,19 @@ public class PageFunctionCompiler
                             metadata,
                             sqlFunctionProperties,
                             compiledLambdaMap);
+                    IfStatement ifStatement = new IfStatement()
+                            .condition(thisVariable.getField(cseFields.evaluatedField))
+                            .ifFalse(new BytecodeBlock()
+                                    .append(thisVariable)
+                                    .append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                    .append(boxPrimitiveIfNecessary(scope, type))
+                                    .putField(cseFields.resultField)
+                                    .append(thisVariable.setField(cseFields.evaluatedField, constantBoolean(true))));
 
-                    body.append(thisVariable)
-                            .append(cseCompiler.compile(cse, scope, Optional.empty()))
-                            .append(boxPrimitiveIfNecessary(scope, type))
-                            .putField(cseFields.resultField)
-                            .append(thisVariable.setField(cseFields.evaluatedField, constantBoolean(true)))
-                            .ret();
+                    body.append(ifStatement)
+                            .append(thisVariable)
+                            .getField(cseFields.resultField)
+                            .retObject();
 
                     methods.add(method);
                     cseMap.put(cseVariable, cseFields);
@@ -863,13 +869,8 @@ public class PageFunctionCompiler
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
         {
             CommonSubExpressionFields fields = variableMap.get(reference);
-            IfStatement ifStatement = new IfStatement()
-                    .condition(thisVariable.getField(fields.evaluatedField))
-                    .ifFalse(new BytecodeBlock()
-                            .append(thisVariable.invoke(fields.methodName, void.class, context.getVariable("properties"), context.getVariable("page"), context.getVariable("position"))));
             return new BytecodeBlock()
-                    .append(ifStatement)
-                    .append(thisVariable.getField(fields.resultField))
+                    .append(thisVariable.invoke(fields.methodName, fields.resultType, context.getVariable("properties"), context.getVariable("page"), context.getVariable("position")))
                     .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
         }
 
