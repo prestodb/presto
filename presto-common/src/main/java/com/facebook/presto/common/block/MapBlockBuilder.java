@@ -224,7 +224,7 @@ public class MapBlockBuilder
      * In other words, one can continue to use this BlockBuilder.
      */
     public BlockBuilder closeEntryStrict()
-            throws DuplicateMapKeyException
+            throws DuplicateMapKeyException, NotSupportedException
     {
         if (!currentEntryOpened) {
             throw new IllegalStateException("Expected entry to be opened but was closed");
@@ -511,7 +511,7 @@ public class MapBlockBuilder
             int[] outputHashTable,
             int hashTableOffset,
             int hashTableSize)
-            throws DuplicateMapKeyException
+            throws DuplicateMapKeyException, NotSupportedException
     {
         for (int i = 0; i < keyCount; i++) {
             int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
