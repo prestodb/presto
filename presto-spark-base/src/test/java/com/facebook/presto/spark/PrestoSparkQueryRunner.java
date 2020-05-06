@@ -14,6 +14,7 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -77,6 +78,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.airlift.log.Level.ERROR;
+import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -144,6 +147,8 @@ public class PrestoSparkQueryRunner
 
     public PrestoSparkQueryRunner(String defaultCatalog, int nodeCount)
     {
+        setupLogging();
+
         this.nodeCount = nodeCount;
 
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
@@ -225,6 +230,21 @@ public class PrestoSparkQueryRunner
         // register the instance
         instanceId = randomUUID().toString();
         instances.put(instanceId, this);
+    }
+
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.spark", WARN);
+        logging.setLevel("org.spark_project", WARN);
+        logging.setLevel("com.facebook.presto.spark", WARN);
+        logging.setLevel("com.facebook.presto.spark", WARN);
+        logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
+        logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
+        logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("parquet.hadoop", WARN);
     }
 
     @Override
