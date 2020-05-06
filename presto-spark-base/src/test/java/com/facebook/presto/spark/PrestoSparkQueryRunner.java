@@ -182,7 +182,8 @@ public class PrestoSparkQueryRunner
         SparkConf sparkConfiguration = new SparkConf()
                 .setMaster(format("local[%s]", nodeCount))
                 .setAppName("presto")
-                .set("spark.driver.host", "localhost");
+                .set("spark.driver.host", "localhost")
+                .set("spark.driver.allowMultipleContexts", "true");
         sparkContext = new SparkContext(sparkConfiguration);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
