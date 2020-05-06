@@ -17,10 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
@@ -275,7 +276,8 @@ public class KdbTree
     {
         checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
         requireNonNull(extent, "extent is null");
-        requireNonNull(items, "items is null");
+        // Copy the items here, so that sorting below doesn't affect caller
+        items = new ArrayList(requireNonNull(items, "items is null"));
         return new KdbTree(buildKdbTreeNode(maxItemsPerNode, 0, extent, items, new LeafIdAllocator()));
     }
 
@@ -333,21 +335,21 @@ public class KdbTree
         checkArgument(items.size() > 1, "Number of items to split must be > 1");
 
         // Sort envelopes by xMin or yMin
-        List<Rectangle> sortedItems = ImmutableList.sortedCopyOf(splitDimension.getComparator(), items);
+        Collections.sort(items, splitDimension.getComparator());
 
         // Find a mid-point
-        int middleIndex = (sortedItems.size() - 1) / 2;
-        Rectangle middleEnvelope = sortedItems.get(middleIndex);
+        int middleIndex = (items.size() - 1) / 2;
+        Rectangle middleEnvelope = items.get(middleIndex);
         double splitValue = splitDimension.getValue(middleEnvelope);
         int splitIndex = middleIndex;
 
         // skip over duplicate values
-        while (splitIndex < sortedItems.size() && splitDimension.getValue(sortedItems.get(splitIndex)) == splitValue) {
+        while (splitIndex < items.size() && splitDimension.getValue(items.get(splitIndex)) == splitValue) {
             splitIndex++;
         }
 
         // all values between left-of-middle and the end are the same, so can't split
-        if (splitIndex == sortedItems.size()) {
+        if (splitIndex == items.size()) {
             return Optional.empty();
         }
 
@@ -356,12 +358,12 @@ public class KdbTree
         // let's split in the middle; this way objects from the larger set with values
         // between splitValue and next value will get split somewhat evenly into left
         // and right partitions
-        splitValue = (splitValue + splitDimension.getValue(sortedItems.get(splitIndex))) / 2;
+        splitValue = (splitValue + splitDimension.getValue(items.get(splitIndex))) / 2;
 
         SplitResult<Rectangle> childExtents = splitDimension.split(extent, splitValue);
 
         return Optional.of(new SplitResult(
-                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getLeft(), sortedItems.subList(0, splitIndex), leafIdAllocator),
-                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getRight(), sortedItems.subList(splitIndex, sortedItems.size()), leafIdAllocator)));
+                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getLeft(), items.subList(0, splitIndex), leafIdAllocator),
+                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getRight(), items.subList(splitIndex, items.size()), leafIdAllocator)));
     }
 }
