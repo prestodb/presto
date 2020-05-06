@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.password;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
@@ -20,7 +21,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 import javax.net.ssl.HostnameVerifier;
