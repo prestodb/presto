@@ -97,6 +97,7 @@ public class PrestoSparkTaskExecutorFactory
     private final ScheduledExecutorService yieldExecutor;
 
     private final LocalExecutionPlanner localExecutionPlanner;
+    private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
@@ -120,6 +121,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
+            PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
@@ -133,6 +135,7 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor,
                 yieldExecutor,
                 localExecutionPlanner,
+                executionExceptionFactory,
                 authenticatorProviders,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
@@ -152,6 +155,7 @@ public class PrestoSparkTaskExecutorFactory
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
+            PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
@@ -169,6 +173,7 @@ public class PrestoSparkTaskExecutorFactory
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
+        this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
@@ -182,6 +187,21 @@ public class PrestoSparkTaskExecutorFactory
 
     @Override
     public IPrestoSparkTaskExecutor create(
+            int partitionId,
+            int attemptNumber,
+            SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
+            PrestoSparkTaskInputs inputs,
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+    {
+        try {
+            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, inputs, taskStatsCollector);
+        }
+        catch (RuntimeException e) {
+            throw executionExceptionFactory.translate(e);
+        }
+    }
+
+    public IPrestoSparkTaskExecutor doCreate(
             int partitionId,
             int attemptNumber,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
@@ -287,10 +307,10 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getTableScanSchedulingOrder(),
                 taskDescriptor.getSources());
 
-        return new PrestoSparkTaskExecutor(taskContext, drivers, rowBuffer, taskStatsJsonCodec, taskStatsCollector);
+        return new PrestoSparkTaskExecutor(taskContext, drivers, rowBuffer, taskStatsJsonCodec, taskStatsCollector, executionExceptionFactory);
     }
 
-    public List<Driver> createDrivers(
+    private List<Driver> createDrivers(
             LocalExecutionPlan localExecutionPlan,
             TaskContext taskContext,
             List<PlanNodeId> tableScanSchedulingOrder,
@@ -349,23 +369,41 @@ public class PrestoSparkTaskExecutorFactory
         private final PrestoSparkRowBuffer rowBuffer;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
+        private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
                 List<Driver> drivers,
                 PrestoSparkRowBuffer rowBuffer,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
-                CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+                CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+                PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
             this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
+            this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         }
 
         @Override
         protected Tuple2<Integer, PrestoSparkRow> computeNext()
+        {
+            try {
+                return doComputeNext();
+            }
+            catch (RuntimeException e) {
+                throw executionExceptionFactory.translate(e);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        private Tuple2<Integer, PrestoSparkRow> doComputeNext()
+                throws InterruptedException
         {
             boolean done = false;
             while (!done && !rowBuffer.hasRowsBuffered()) {
@@ -394,14 +432,8 @@ public class PrestoSparkTaskExecutorFactory
                 return endOfData();
             }
 
-            try {
-                PrestoSparkRow row = requireNonNull(rowBuffer.get(), "row is null");
-                return new Tuple2<>(row.getPartition(), row);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
+            PrestoSparkRow row = requireNonNull(rowBuffer.get(), "row is null");
+            return new Tuple2<>(row.getPartition(), row);
         }
     }
 }
