@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.234.3-SNAPSHOT</version>
+        <version>0.234.2</version>
     </parent>
 
     <artifactId>presto-spark-package</artifactId>
@@ -26,7 +26,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark</artifactId>
         </dependency>
-        
+
         <!-- plugins -->
 
         <dependency>
@@ -123,7 +123,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
