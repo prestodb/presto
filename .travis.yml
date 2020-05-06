@@ -36,7 +36,8 @@ env:
     - TEST_SPECIFIC_MODULES=presto-elasticsearch
     - TEST_SPECIFIC_MODULES=presto-orc
     - TEST_SPECIFIC_MODULES=presto-thrift-connector
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-redis,!presto-elasticsearch,!presto-orc,!presto-thrift-connector
+    - TEST_SPECIFIC_MODULES=presto-spark-base
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-spark-base,!presto-redis,!presto-elasticsearch,!presto-orc,!presto-thrift-connector
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2=true
