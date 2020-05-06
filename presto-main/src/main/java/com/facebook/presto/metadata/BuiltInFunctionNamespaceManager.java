@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
@@ -783,7 +782,6 @@ public class BuiltInFunctionNamespaceManager
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throwIfInstanceOf(e.getCause(), InvalidFunctionArgumentException.class);
             throw e;
         }
         BuiltInFunction function = functionKey.getFunction();

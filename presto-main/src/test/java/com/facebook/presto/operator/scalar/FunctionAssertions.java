@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -335,11 +334,9 @@ public final class FunctionAssertions
             evaluateInvalid(projection);
             fail("Expected to throw a PrestoException with message matching " + messagePattern);
         }
-        catch (PrestoException | InvalidFunctionArgumentException e) {
+        catch (PrestoException e) {
             try {
-                if (e instanceof PrestoException) {
-                    assertEquals(((PrestoException) e).getErrorCode(), errorCode.toErrorCode());
-                }
+                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
                 assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern), format("Error message [%s] doesn't match [%s]", e.getMessage(), messagePattern));
             }
             catch (Throwable failure) {
