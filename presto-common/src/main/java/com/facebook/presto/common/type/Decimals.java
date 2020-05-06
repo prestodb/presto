@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.OutOfRangeException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
@@ -31,7 +30,6 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unsca
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
-import static java.lang.String.format;
 import static java.math.BigInteger.TEN;
 import static java.math.RoundingMode.UNNECESSARY;
 
@@ -245,13 +243,6 @@ public final class Decimals
     public static boolean overflows(BigDecimal value, long precision)
     {
         return value.precision() > precision;
-    }
-
-    public static void checkOverflow(BigInteger value)
-    {
-        if (overflows(value)) {
-            throw new OutOfRangeException(format("Value is out of range: %s", value.toString()));
-        }
     }
 
     public static BigDecimal readBigDecimal(DecimalType type, Block block, int position)
