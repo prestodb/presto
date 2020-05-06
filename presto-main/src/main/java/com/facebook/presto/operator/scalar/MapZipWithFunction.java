@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -26,6 +27,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -42,6 +44,7 @@ import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAU
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -139,7 +142,14 @@ public final class MapZipWithFunction
             Object key = readNativeValue(keyType, leftMapBlock, leftKeyPosition);
             Object leftValue = readNativeValue(leftValueType, leftMapBlock, leftKeyPosition + 1);
 
-            int rightValuePosition = rightMapBlock.seekKey(key);
+            int rightValuePosition;
+            try {
+                rightValuePosition = rightMapBlock.seekKey(key);
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
+
             Object rightValue = null;
             if (rightValuePosition != -1) {
                 rightValue = readNativeValue(rightValueType, rightMapBlock, rightValuePosition);
