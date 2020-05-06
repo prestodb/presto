@@ -48,6 +48,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -180,6 +181,8 @@ public class PrestoSparkQueryRunner
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         connectorManager.createConnection("hive", "hive", ImmutableMap.of());
+
+        metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
 
         // register the instance
         instanceId = randomUUID().toString();
