@@ -30,6 +30,8 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
@@ -51,7 +53,10 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
@@ -64,6 +69,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -99,7 +106,11 @@ public class PrestoSparkQueryRunner
     private final SparkContext sparkContext;
     private final PrestoSparkService prestoSparkService;
 
+    private final TestingAccessControlManager testingAccessControlManager;
+
     private final String instanceId;
+
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public PrestoSparkQueryRunner(int nodeCount)
     {
@@ -111,7 +122,8 @@ public class PrestoSparkQueryRunner
                         "query.hash-partition-count", Integer.toString(nodeCount * 2),
                         "redistribute-writes", "false"),
                 ImmutableMap.of(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.of(new TestingAccessControlModule()));
 
         Injector injector = injectorFactory.create();
 
@@ -138,6 +150,7 @@ public class PrestoSparkQueryRunner
                 .set("spark.driver.host", "localhost");
         sparkContext = new SparkContext(sparkConfiguration);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
+        testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
@@ -230,7 +243,7 @@ public class PrestoSparkQueryRunner
     @Override
     public TestingAccessControlManager getAccessControl()
     {
-        throw new UnsupportedOperationException();
+        return testingAccessControlManager;
     }
 
     @Override
@@ -320,7 +333,7 @@ public class PrestoSparkQueryRunner
     @Override
     public Lock getExclusiveLock()
     {
-        throw new UnsupportedOperationException();
+        return lock.writeLock();
     }
 
     public PrestoSparkService getPrestoSparkService()
@@ -373,5 +386,17 @@ public class PrestoSparkQueryRunner
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
+    }
+
+    private static class TestingAccessControlModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+            binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+            binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+        }
     }
 }
