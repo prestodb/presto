@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -167,11 +166,9 @@ public abstract class AbstractTestFunctions
             functionAssertions.executeProjectionWithFullEngine(projection);
             fail("expected exception");
         }
-        catch (PrestoException | NotSupportedException e) {
+        catch (PrestoException e) {
             try {
-                if (e instanceof PrestoException) {
-                    assertEquals(((PrestoException) e).getErrorCode(), NOT_SUPPORTED.toErrorCode());
-                }
+                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
                 assertEquals(e.getMessage(), message);
             }
             catch (Throwable failure) {
