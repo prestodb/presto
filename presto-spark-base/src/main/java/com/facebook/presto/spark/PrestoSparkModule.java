@@ -28,6 +28,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
@@ -40,9 +41,11 @@ import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
@@ -82,6 +85,8 @@ import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
+import com.facebook.presto.spark.node.PrestoSparkQueryManager;
+import com.facebook.presto.spark.node.PrestoSparkTaskManager;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
@@ -328,8 +333,10 @@ public class PrestoSparkModule
                 new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
         // taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
 
-        // TODO: Support system connector
-        // binder.install(new SystemConnectorModule());
+        // TODO: Decouple node specific system tables
+        binder.bind(QueryManager.class).to(PrestoSparkQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(TaskManager.class).to(PrestoSparkTaskManager.class).in(Scopes.SINGLETON);
+        binder.install(new SystemConnectorModule());
 
         // TODO: support explain analyze for Spark
         binder.bind(new TypeLiteral<Optional<ExplainAnalyzeContext>>() {}).toInstance(Optional.of(new ExplainAnalyzeContext((queryId) -> {
