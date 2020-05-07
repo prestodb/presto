@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -60,6 +61,7 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
@@ -81,10 +83,13 @@ import static com.facebook.presto.testing.TestingSession.createBogusTestingCatal
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
@@ -115,11 +120,29 @@ public class PrestoSparkQueryRunner
 
     private final TestingAccessControlManager testingAccessControlManager;
 
+    private final FileHiveMetastore metastore;
+
     private final String instanceId;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public PrestoSparkQueryRunner(int nodeCount)
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(int nodeCount)
+    {
+        return createHivePrestoSparkQueryRunner(nodeCount, getTables());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(int nodeCount, Iterable<TpchTable<?>> tables)
+    {
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", nodeCount);
+        ExtendedHiveMetastore metastore = queryRunner.getMetastore();
+        if (!metastore.getDatabase("tpch").isPresent()) {
+            metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
+        }
+        return queryRunner;
+    }
+
+    public PrestoSparkQueryRunner(String defaultCatalog, int nodeCount)
     {
         this.nodeCount = nodeCount;
 
@@ -135,8 +158,8 @@ public class PrestoSparkQueryRunner
         Injector injector = injectorFactory.create();
 
         defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
-                .setCatalog("tpch")
-                .setSchema("tiny")
+                .setCatalog(defaultCatalog)
+                .setSchema("tpch")
                 .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -182,7 +205,7 @@ public class PrestoSparkQueryRunner
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
         metastore.createDatabase(createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
@@ -360,6 +383,11 @@ public class PrestoSparkQueryRunner
     public PrestoSparkService getPrestoSparkService()
     {
         return prestoSparkService;
+    }
+
+    public FileHiveMetastore getMetastore()
+    {
+        return metastore;
     }
 
     @Override
