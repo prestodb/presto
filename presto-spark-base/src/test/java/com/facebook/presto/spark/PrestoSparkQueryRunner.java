@@ -27,9 +27,13 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
@@ -46,12 +50,16 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
@@ -64,9 +72,15 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -99,7 +113,11 @@ public class PrestoSparkQueryRunner
     private final SparkContext sparkContext;
     private final PrestoSparkService prestoSparkService;
 
+    private final TestingAccessControlManager testingAccessControlManager;
+
     private final String instanceId;
+
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public PrestoSparkQueryRunner(int nodeCount)
     {
@@ -111,7 +129,8 @@ public class PrestoSparkQueryRunner
                         "query.hash-partition-count", Integer.toString(nodeCount * 2),
                         "redistribute-writes", "false"),
                 ImmutableMap.of(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.of(new TestingAccessControlModule()));
 
         Injector injector = injectorFactory.create();
 
@@ -138,6 +157,7 @@ public class PrestoSparkQueryRunner
                 .set("spark.driver.host", "localhost");
         sparkContext = new SparkContext(sparkConfiguration);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
+        testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
@@ -167,6 +187,17 @@ public class PrestoSparkQueryRunner
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         connectorManager.createConnection("hive", "hive", ImmutableMap.of());
+
+        metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+
+        // add bogus catalog for testing procedures and session properties
+        CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        catalogManager.registerCatalog(bogusTestingCatalog);
+
+        SessionPropertyManager sessionPropertyManager = metadata.getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
 
         // register the instance
         instanceId = randomUUID().toString();
@@ -230,7 +261,7 @@ public class PrestoSparkQueryRunner
     @Override
     public TestingAccessControlManager getAccessControl()
     {
-        throw new UnsupportedOperationException();
+        return testingAccessControlManager;
     }
 
     @Override
@@ -270,6 +301,10 @@ public class PrestoSparkQueryRunner
 
     private static PrestoSparkSession createSessionInfo(Session session)
     {
+        ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
+        catalogSessionProperties.putAll(session.getConnectorProperties().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Map.Entry::getValue)));
+        catalogSessionProperties.putAll(session.getUnprocessedCatalogProperties());
         return new PrestoSparkSession(
                 session.getIdentity().getUser(),
                 session.getIdentity().getPrincipal(),
@@ -282,8 +317,7 @@ public class PrestoSparkQueryRunner
                 Optional.of(session.getTimeZoneKey().getId()),
                 Optional.empty(),
                 session.getSystemProperties(),
-                session.getConnectorProperties().entrySet().stream()
-                        .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Map.Entry::getValue)),
+                catalogSessionProperties.build(),
                 session.getTraceToken());
     }
 
@@ -320,7 +354,7 @@ public class PrestoSparkQueryRunner
     @Override
     public Lock getExclusiveLock()
     {
-        throw new UnsupportedOperationException();
+        return lock.writeLock();
     }
 
     public PrestoSparkService getPrestoSparkService()
@@ -373,5 +407,17 @@ public class PrestoSparkQueryRunner
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
+    }
+
+    private static class TestingAccessControlModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+            binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+            binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+        }
     }
 }
