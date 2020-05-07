@@ -27,6 +27,7 @@ import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
@@ -175,7 +176,7 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
-                .add(new PageFileWriterFactory(testHdfsEnvironment, new BlockEncodingManager(TYPE_MANAGER)))
+                .add(new PageFileWriterFactory(testHdfsEnvironment, new OutputStreamDataSinkFactory(), new BlockEncodingManager(TYPE_MANAGER)))
                 .add(getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig))
                 .build();
     }
@@ -185,6 +186,7 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return new OrcFileWriterFactory(
                 testHdfsEnvironment,
+                new OutputStreamDataSinkFactory(),
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 hiveClientConfig,

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
@@ -24,7 +25,6 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -74,6 +74,7 @@ public class OrcFileWriterFactory
 {
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
+    private final DataSinkFactory dataSinkFactory;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
@@ -83,6 +84,7 @@ public class OrcFileWriterFactory
     @Inject
     public OrcFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
+            DataSinkFactory dataSinkFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             HiveClientConfig hiveClientConfig,
@@ -91,6 +93,7 @@ public class OrcFileWriterFactory
     {
         this(
                 hdfsEnvironment,
+                dataSinkFactory,
                 typeManager,
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
@@ -100,6 +103,7 @@ public class OrcFileWriterFactory
 
     public OrcFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
+            DataSinkFactory dataSinkFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
@@ -107,6 +111,7 @@ public class OrcFileWriterFactory
             OrcWriterOptions orcWriterOptions)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.dataSinkFactory = requireNonNull(dataSinkFactory, "dataSinkFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -215,13 +220,10 @@ public class OrcFileWriterFactory
         }
     }
 
-    /**
-     * Allow subclass to replace data sink implementation.
-     */
-    protected DataSink createDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
+    public DataSink createDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
             throws IOException
     {
-        return new OutputStreamDataSink(fileSystem.create(path));
+        return dataSinkFactory.createDataSink(session, fileSystem, path);
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
