@@ -791,26 +791,28 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testPartitionColumns()
     {
-        assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p', 'q']) AS\n" +
-                "SELECT * FROM (VALUES (1, 'abc', 'cba'), (2, 'abc', 'def')) as t(x, p, q)", 2);
+        assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p', 'q', 'ds']) AS\n" +
+                "SELECT * FROM (VALUES (1, 'abc', 'cba', '2020-01-01'), (2, 'abc', 'def', '2020-01-01')) as t(x, p, q, ds)", 2);
 
-        assertQuery("SELECT * FROM test_partition_columns", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
+        assertQuery("SELECT * FROM test_partition_columns", "SELECT 1, 'abc', 'cba', '2020-01-01' UNION ALL SELECT 2, 'abc', 'def', '2020-01-01'");
 
         assertQuery("SELECT x FROM test_partition_columns", "SELECT 1 UNION ALL SELECT 2");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE p = 'abc'", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE p = 'abc'", "SELECT 1, 'abc', 'cba', '2020-01-01' UNION ALL SELECT 2, 'abc', 'def', '2020-01-01'");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE p LIKE 'a%'", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE p LIKE 'a%'", "SELECT 1, 'abc', 'cba', '2020-01-01' UNION ALL SELECT 2, 'abc', 'def', '2020-01-01'");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a' and substr(q, 1, 1) = 'c'", "SELECT 1, 'abc', 'cba'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a' and substr(q, 1, 1) = 'c'", "SELECT 1, 'abc', 'cba', '2020-01-01'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'xxx'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'abc' and p='def'");
 
-        assertUpdate("INSERT into test_partition_columns values (3, 'abc', NULL)", 1);
+        assertUpdate("INSERT into test_partition_columns values (3, 'abc', NULL, '2020-01-01')", 1);
 
         assertQuerySucceeds(getSession(), "select * from test_partition_columns");
+
+        assertQueryFails("SELECT * FROM test_partition_columns WHERE DATE_DIFF( 'day', PARSE_DATETIME( '2020-01-08', 'YYYY-MM-dd' ), PARSE_DATETIME( ds, 'yyyy-MM-dd HH:mm:ss.SSS' ) ) = 7", "Invalid format: \"2020-01-01\" is too short");
 
         assertUpdate("DROP TABLE test_partition_columns");
     }
