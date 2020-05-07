@@ -16,14 +16,12 @@ package com.facebook.presto.spark;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
-
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
 {
     public TestPrestoSparkQueryRunner()
     {
-        super(() -> createHivePrestoSparkQueryRunner(4));
+        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
     }
 
     @Test

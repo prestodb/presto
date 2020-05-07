@@ -101,10 +101,12 @@ import static java.util.UUID.randomUUID;
 public class PrestoSparkQueryRunner
         implements QueryRunner
 {
+    private static final int NODE_COUNT = 4;
+
     private static final Map<String, PrestoSparkQueryRunner> instances = new ConcurrentHashMap<>();
+    private static final SparkContextHolder sparkContextHolder = new SparkContextHolder();
 
     private final Session defaultSession;
-    private final int nodeCount;
 
     private final TransactionManager transactionManager;
     private final Metadata metadata;
@@ -129,14 +131,14 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(int nodeCount)
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
-        return createHivePrestoSparkQueryRunner(nodeCount, getTables());
+        return createHivePrestoSparkQueryRunner(getTables());
     }
 
-    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(int nodeCount, Iterable<TpchTable<?>> tables)
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", nodeCount);
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive");
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase("tpch").isPresent()) {
             metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
@@ -145,16 +147,14 @@ public class PrestoSparkQueryRunner
         return queryRunner;
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog, int nodeCount)
+    public PrestoSparkQueryRunner(String defaultCatalog)
     {
         setupLogging();
-
-        this.nodeCount = nodeCount;
 
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 ImmutableMap.of(
                         "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(nodeCount * 2),
+                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
                         "redistribute-writes", "false"),
                 ImmutableMap.of(),
                 ImmutableList.of(),
@@ -179,11 +179,7 @@ public class PrestoSparkQueryRunner
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        SparkConf sparkConfiguration = new SparkConf()
-                .setMaster(format("local[%s]", nodeCount))
-                .setAppName("presto")
-                .set("spark.driver.host", "localhost");
-        sparkContext = new SparkContext(sparkConfiguration);
+        sparkContext = sparkContextHolder.get();
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
 
@@ -250,7 +246,7 @@ public class PrestoSparkQueryRunner
     @Override
     public int getNodeCount()
     {
-        return nodeCount;
+        return NODE_COUNT;
     }
 
     @Override
@@ -466,6 +462,25 @@ public class PrestoSparkQueryRunner
             binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
             binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
             binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+        }
+    }
+
+    private static class SparkContextHolder
+    {
+        private static SparkContext sparkContext;
+
+        public SparkContext get()
+        {
+            synchronized (SparkContextHolder.class) {
+                if (sparkContext == null) {
+                    SparkConf sparkConfiguration = new SparkConf()
+                            .setMaster(format("local[%s]", NODE_COUNT))
+                            .setAppName("presto")
+                            .set("spark.driver.host", "localhost");
+                    sparkContext = new SparkContext(sparkConfiguration);
+                }
+                return sparkContext;
+            }
         }
     }
 }
