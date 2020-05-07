@@ -244,14 +244,14 @@ public class DruidQueryGeneratorContext
         }
 
         String expressions = selections.entrySet().stream()
-                .map(s -> s.getValue().getDefinition())
+                .map(s -> s.getValue().getEscapedDefinition())
                 .collect(Collectors.joining(", "));
         if (expressions.isEmpty()) {
             throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Empty Druid query");
         }
 
         String tableName = from.orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Table name missing in Druid query"));
-        String query = "SELECT " + expressions + " FROM " + tableName;
+        String query = "SELECT " + expressions + " FROM \"" + tableName + "\"";
         boolean pushdown = false;
         if (filter.isPresent()) {
             // this is hack!!!. Ideally we want to clone the scan pipeline and create/update the filter in the scan pipeline to contain this filter and
@@ -262,7 +262,7 @@ public class DruidQueryGeneratorContext
 
         if (!groupByColumns.isEmpty()) {
             String groupByExpression = groupByColumns.stream()
-                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getDefinition() : expression.getName())
+                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getEscapedDefinition() : expression.getName())
                     .collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpression;
             pushdown = true;
@@ -329,6 +329,14 @@ public class DruidQueryGeneratorContext
 
         public String getDefinition()
         {
+            return definition;
+        }
+
+        public String getEscapedDefinition()
+        {
+            if (origin == Origin.TABLE_COLUMN) {
+                return "\"" + definition + "\"";
+            }
             return definition;
         }
 
