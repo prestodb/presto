@@ -457,6 +457,7 @@ public class HiveFilterPushdown
             }
             catch (PrestoException e) {
                 propagateIfUnhandled(e);
+                return true;
             }
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
