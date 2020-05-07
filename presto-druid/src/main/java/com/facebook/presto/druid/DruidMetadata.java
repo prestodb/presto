@@ -147,6 +147,7 @@ public class DruidMetadata
     {
         switch (type.toUpperCase()) {
             case "VARCHAR":
+            case "OTHER":
                 return VARCHAR;
             case "BIGINT":
                 return BIGINT;
