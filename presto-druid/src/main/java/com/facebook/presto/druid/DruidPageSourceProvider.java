@@ -91,7 +91,7 @@ public class DruidPageSourceProvider
                     new DruidSegmentReader(segmentIndexSource, columns));
         }
         catch (IOException e) {
-            throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, e);
+            throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Failed to create page source on " + segmentInfo.getDeepStoragePath(), e);
         }
     }
 
