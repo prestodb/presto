@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -44,13 +45,27 @@ public class PrestoSparkInjectorFactory
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
     private final List<Module> additionalModules;
+    private final Optional<Module> accessControlModuleOverride;
 
-    public PrestoSparkInjectorFactory(Map<String, String> configProperties, Map<String, Map<String, String>> catalogProperties, List<Module> additionalModules)
+    public PrestoSparkInjectorFactory(
+            Map<String, String> configProperties,
+            Map<String, Map<String, String>> catalogProperties,
+            List<Module> additionalModules)
+    {
+        this(configProperties, catalogProperties, additionalModules, Optional.empty());
+    }
+
+    public PrestoSparkInjectorFactory(
+            Map<String, String> configProperties,
+            Map<String, Map<String, String>> catalogProperties,
+            List<Module> additionalModules,
+            Optional<Module> accessControlModuleOverride)
     {
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
+        this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
     }
 
     public Injector create()
@@ -61,10 +76,18 @@ public class PrestoSparkInjectorFactory
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
-                new AccessControlModule(),
                 new JsonModule(),
                 new EventListenerModule(),
                 new PrestoSparkModule());
+
+        boolean initializeAccessControl = false;
+        if (accessControlModuleOverride.isPresent()) {
+            modules.add(accessControlModuleOverride.get());
+        }
+        else {
+            modules.add(new AccessControlModule());
+            initializeAccessControl = true;
+        }
 
         modules.addAll(additionalModules);
 
@@ -87,9 +110,12 @@ public class PrestoSparkInjectorFactory
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
-            injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+
+            if (initializeAccessControl) {
+                injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            }
         }
         catch (Exception e) {
             throw new RuntimeException(e);
