@@ -242,15 +242,16 @@ public class PrestoSparkOutputOperator
 
             boolean shouldReplicate = (replicateNullsAndAny && !hasAnyRowBeenReplicated) ||
                     nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
+            byte[] rowBytes = output.size() == 0 ? new byte[0] : output.getUnderlyingSlice().byteArray();
             if (shouldReplicate) {
                 for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                    rowBuffer.enqueue(new PrestoSparkRow(i, output.size(), output.getUnderlyingSlice().byteArray()));
+                    rowBuffer.enqueue(new PrestoSparkRow(i, output.size(), rowBytes));
                 }
                 hasAnyRowBeenReplicated = true;
             }
             else {
                 int partition = getPartition(partitionFunctionArguments, position);
-                rowBuffer.enqueue(new PrestoSparkRow(partition, output.size(), output.getUnderlyingSlice().byteArray()));
+                rowBuffer.enqueue(new PrestoSparkRow(partition, output.size(), rowBytes));
             }
         }
     }
