@@ -39,7 +39,7 @@ public class StringColumnReader
         checkArgument(type == VARCHAR);
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
-            String value = valueSelector.getObject();
+            String value = String.valueOf(valueSelector.getObject());
             if (value != null) {
                 type.writeSlice(builder, Slices.utf8Slice(value));
             }
