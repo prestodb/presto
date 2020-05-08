@@ -213,7 +213,7 @@ public class DruidFilterExpressionConverter
     public DruidExpression visitVariableReference(VariableReferenceExpression reference, Function<VariableReferenceExpression, Selection> context)
     {
         Selection input = requireNonNull(context.apply(reference), format("Input column %s does not exist in the input: %s", reference, context));
-        return new DruidExpression(input.getDefinition(), input.getOrigin());
+        return new DruidExpression(input.getEscapedDefinition(), input.getOrigin());
     }
 
     @Override
