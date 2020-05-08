@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
@@ -30,7 +31,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -53,7 +53,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -616,7 +615,7 @@ public class ListSelectiveStreamReader
             assert outputPositions[i] == nextPosition;
 
             if (indexOutOfBounds[i]) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+                throw new InvalidFunctionArgumentException("Array subscript out of bounds");
             }
 
             positionIndex++;
