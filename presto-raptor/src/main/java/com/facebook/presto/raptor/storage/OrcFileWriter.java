@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -39,6 +40,7 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_WRITER_DATA_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.DEFAULT_STORAGE_TIMEZONE;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -89,18 +91,23 @@ public class OrcFileWriter
             userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(columnTypesMap.build())));
         }
 
-        orcWriter = new OrcWriter(
-                target,
-                columnNames,
-                storageTypes,
-                ORC,
-                requireNonNull(compression, "compression is null"),
-                DEFAULT_OPTION,
-                userMetadata,
-                DEFAULT_STORAGE_TIMEZONE,
-                validate,
-                HASHED,
-                stats);
+        try {
+            orcWriter = new OrcWriter(
+                    target,
+                    columnNames,
+                    storageTypes,
+                    ORC,
+                    requireNonNull(compression, "compression is null"),
+                    DEFAULT_OPTION,
+                    userMetadata,
+                    DEFAULT_STORAGE_TIMEZONE,
+                    validate,
+                    HASHED,
+                    stats);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
     }
 
     @Override
