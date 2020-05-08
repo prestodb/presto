@@ -94,13 +94,17 @@ public class DruidConfig
     @Config("druid.hadoop.config.resources")
     public DruidConfig setHadoopResourceConfigFiles(String files)
     {
-        this.hadoopResourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        if (files != null) {
+            this.hadoopResourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        }
         return this;
     }
 
     public DruidConfig setHadoopResourceConfigFiles(List<String> files)
     {
-        this.hadoopResourceConfigFiles = ImmutableList.copyOf(files);
+        if (files != null) {
+            this.hadoopResourceConfigFiles = ImmutableList.copyOf(files);
+        }
         return this;
     }
 }
