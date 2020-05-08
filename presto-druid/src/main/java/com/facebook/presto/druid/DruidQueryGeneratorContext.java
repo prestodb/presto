@@ -168,7 +168,7 @@ public class DruidQueryGeneratorContext
                     String definition = entry.getValue().getDefinition();
                     int start = definition.indexOf("(");
                     int end = definition.indexOf(")");
-                    String countDistinctClause = "count ( distinct " + definition.substring(start + 1, end) + ")";
+                    String countDistinctClause = "count ( distinct \"" + definition.substring(start + 1, end) + "\")";
                     Selection countDistinctSelection = new Selection(countDistinctClause, entry.getValue().getOrigin());
                     builder.put(entry.getKey(), countDistinctSelection);
                 }
@@ -285,7 +285,9 @@ public class DruidQueryGeneratorContext
         selections.entrySet().stream().filter(e -> !hiddenColumnSet.contains(e.getKey())).forEach(entry -> {
             VariableReferenceExpression variable = entry.getKey();
             Selection selection = entry.getValue();
-            DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) : new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
+            DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ?
+                    new DruidColumnHandle(selection.getEscapedDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) :
+                    new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
             result.put(variable, handle);
         });
         return result;
