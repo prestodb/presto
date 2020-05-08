@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
@@ -27,6 +28,7 @@ import java.io.UncheckedIOException;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -86,6 +88,10 @@ public class OrcSelectivePageSource
                 close();
             }
             return page;
+        }
+        catch (InvalidFunctionArgumentException e) {
+            closeWithSuppression(e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);

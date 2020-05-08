@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
@@ -530,7 +530,7 @@ public class TestSelectiveOrcReader
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
-        catch (PrestoException e) {
+        catch (InvalidFunctionArgumentException e) {
             assertTrue(e.getMessage().contains("Array subscript out of bounds"));
         }
 
@@ -541,7 +541,7 @@ public class TestSelectiveOrcReader
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
-        catch (PrestoException e) {
+        catch (InvalidFunctionArgumentException e) {
             assertTrue(e.getMessage().contains("Array subscript out of bounds"));
         }
 
@@ -552,7 +552,7 @@ public class TestSelectiveOrcReader
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
-        catch (PrestoException e) {
+        catch (InvalidFunctionArgumentException e) {
             assertTrue(e.getMessage().contains("Array subscript out of bounds"));
         }
 
@@ -563,7 +563,7 @@ public class TestSelectiveOrcReader
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
-        catch (PrestoException e) {
+        catch (InvalidFunctionArgumentException e) {
             assertTrue(e.getMessage().contains("Array subscript out of bounds"));
         }
     }
