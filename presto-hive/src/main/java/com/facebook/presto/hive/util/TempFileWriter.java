@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DataSink;
@@ -20,6 +21,7 @@ import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
@@ -31,6 +33,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -74,20 +77,25 @@ public class TempFileWriter
                 .mapToObj(String::valueOf)
                 .collect(toImmutableList());
 
-        return new OrcWriter(
-                sink,
-                columnNames,
-                types,
-                ORC,
-                LZ4,
-                new OrcWriterOptions()
-                        .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
-                        .withStripeMinSize(new DataSize(64, MEGABYTE))
-                        .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
-                ImmutableMap.of(),
-                UTC,
-                false,
-                OrcWriteValidationMode.BOTH,
-                new OrcWriterStats());
+        try {
+            return new OrcWriter(
+                    sink,
+                    columnNames,
+                    types,
+                    ORC,
+                    LZ4,
+                    new OrcWriterOptions()
+                            .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
+                            .withStripeMinSize(new DataSize(64, MEGABYTE))
+                            .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
+                    ImmutableMap.of(),
+                    UTC,
+                    false,
+                    OrcWriteValidationMode.BOTH,
+                    new OrcWriterStats());
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
     }
 }

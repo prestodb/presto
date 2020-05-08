@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
@@ -41,7 +42,6 @@ import com.facebook.presto.orc.metadata.statistics.StatisticsHasher;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
@@ -83,7 +83,6 @@ import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -727,7 +726,7 @@ public class OrcWriteValidation
                         .collect(toImmutableList());
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+                throw new GenericInternalException(format("Unsupported Hive type: %s", type));
             }
         }
 

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -38,7 +38,6 @@ import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -234,7 +233,7 @@ public class OrcType
 
             return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes);
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        throw new NotSupportedException(format("Unsupported Hive type: %s", type));
     }
 
     private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)
