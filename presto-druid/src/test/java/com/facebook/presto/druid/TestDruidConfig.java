@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -28,10 +29,11 @@ public class TestDruidConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DruidConfig.class)
-                    .setDruidBrokerUrl(null)
-                    .setDruidCoordinatorUrl(null)
-                    .setDruidSchema("druid")
-                    .setComputePushdownEnabled(false));
+                .setDruidBrokerUrl(null)
+                .setDruidCoordinatorUrl(null)
+                .setDruidSchema("druid")
+                .setComputePushdownEnabled(false)
+                .setHadoopResourceConfigFiles((String) null));
     }
 
     @Test
@@ -42,13 +44,15 @@ public class TestDruidConfig
                 .put("druid.coordinator-url", "http://druid.coordinator:4321")
                 .put("druid.schema-name", "test")
                 .put("druid.compute-pushdown-enabled", "true")
+                .put("druid.hadoop.config.resources", "/etc/core-site.xml,/etc/hdfs-site.xml")
                 .build();
 
         DruidConfig expected = new DruidConfig()
                 .setDruidBrokerUrl("http://druid.broker:1234")
                 .setDruidCoordinatorUrl("http://druid.coordinator:4321")
                 .setDruidSchema("test")
-                .setComputePushdownEnabled(true);
+                .setComputePushdownEnabled(true)
+                .setHadoopResourceConfigFiles(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
