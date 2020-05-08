@@ -74,6 +74,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -429,7 +430,8 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
     {
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -455,7 +457,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, FAIL, pathFilter));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session))));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -523,7 +525,8 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, PathFilter pathFilter)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);

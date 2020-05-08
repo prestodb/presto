@@ -27,6 +27,6 @@ public interface DirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy,
-            PathFilter pathFilter);
+            PathFilter pathFilter,
+            HiveDirectoryContext hiveDirectoryContext);
 }
