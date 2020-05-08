@@ -204,12 +204,39 @@ public class TestBackgroundHiveSplitLoader
     public void testCachingDirectoryLister()
             throws Exception
     {
-        testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("test_dbname.test_table")));
-        testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("*")));
-        assertThrows(IllegalArgumentException.class, () -> testCachingDirectoryLister(new CachingDirectoryLister(new HadoopDirectoryLister(), new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("*", "test_dbname.test_table"))));
+        testCachingDirectoryLister(
+                new CachingDirectoryLister(
+                        new HadoopDirectoryLister(),
+                        new Duration(5, TimeUnit.MINUTES),
+                        1000,
+                        ImmutableList.of("test_dbname.test_table")),
+                "test_dbname.test_table");
+        testCachingDirectoryLister(
+                new CachingDirectoryLister(
+                        new HadoopDirectoryLister(),
+                        new Duration(5, TimeUnit.MINUTES),
+                        1000,
+                        ImmutableList.of("*")),
+                "*");
+        testCachingDirectoryLister(
+                new CachingDirectoryLister(
+                        new HadoopDirectoryLister(),
+                        new Duration(5, TimeUnit.MINUTES),
+                        1000,
+                        ImmutableList.of("*")),
+                "");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> testCachingDirectoryLister(
+                        new CachingDirectoryLister(
+                                new HadoopDirectoryLister(),
+                                new Duration(5, TimeUnit.MINUTES),
+                                1000,
+                                ImmutableList.of("*", "test_dbname.test_table")),
+                        "*,test_dbname.test_table"));
     }
 
-    private void testCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+    private void testCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister, String fileStatusCacheTables)
             throws Exception
     {
         assertEquals(cachingDirectoryLister.getRequestCount(), 0);
@@ -219,7 +246,10 @@ public class TestBackgroundHiveSplitLoader
         List<Future<List<HiveSplit>>> futures = new ArrayList<>();
 
         futures.add(EXECUTOR.submit(() -> {
-            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    TEST_FILES,
+                    cachingDirectoryLister,
+                    fileStatusCacheTables);
             HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
             backgroundHiveSplitLoader.start(hiveSplitSource);
             try {
@@ -233,7 +263,10 @@ public class TestBackgroundHiveSplitLoader
         for (int i = 0; i < totalCount - 1; i++) {
             futures.add(EXECUTOR.submit(() -> {
                 firstVisit.await();
-                BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
+                BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                        TEST_FILES,
+                        cachingDirectoryLister,
+                        fileStatusCacheTables);
                 HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
                 backgroundHiveSplitLoader.start(hiveSplitSource);
                 return drainSplits(hiveSplitSource);
@@ -243,9 +276,16 @@ public class TestBackgroundHiveSplitLoader
         for (Future<List<HiveSplit>> future : futures) {
             assertEquals(future.get().size(), TEST_FILES.size());
         }
+
         assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
-        assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
-        assertEquals(cachingDirectoryLister.getMissCount(), 1);
+        if (fileStatusCacheTables.length() == 0) {
+            assertEquals(cachingDirectoryLister.getHitCount(), 0);
+            assertEquals(cachingDirectoryLister.getMissCount(), totalCount);
+        }
+        else {
+            assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
+            assertEquals(cachingDirectoryLister.getMissCount(), 1);
+        }
     }
 
     private static List<String> drain(HiveSplitSource source)
@@ -313,7 +353,7 @@ public class TestBackgroundHiveSplitLoader
                 false);
     }
 
-    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
+    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister, String fileStatusCacheTables)
     {
         List<HivePartitionMetadata> hivePartitionMetadatas = ImmutableList.of(
                 new HivePartitionMetadata(
@@ -322,7 +362,12 @@ public class TestBackgroundHiveSplitLoader
                         ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(
+                        new HiveClientConfig()
+                                .setMaxSplitSize(new DataSize(1.0, GIGABYTE))
+                                .setFileStatusCacheTables(fileStatusCacheTables),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
