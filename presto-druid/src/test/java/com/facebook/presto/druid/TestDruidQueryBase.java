@@ -88,7 +88,7 @@ public class TestDruidQueryBase
     protected static ConnectorId druidConnectorId = new ConnectorId("id");
     protected static DruidTableHandle realtimeOnlyTable = new DruidTableHandle("schema", "realtimeOnly", Optional.empty());
     protected static DruidTableHandle hybridTable = new DruidTableHandle("schema", "hybrid", Optional.empty());
-    protected static DruidColumnHandle regionId = new DruidColumnHandle("regionId", BIGINT, REGULAR);
+    protected static DruidColumnHandle regionId = new DruidColumnHandle("region.Id", BIGINT, REGULAR);
     protected static DruidColumnHandle city = new DruidColumnHandle("city", VARCHAR, REGULAR);
     protected static final DruidColumnHandle fare = new DruidColumnHandle("fare", DOUBLE, REGULAR);
     protected static final DruidColumnHandle secondsSinceEpoch = new DruidColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
@@ -98,7 +98,7 @@ public class TestDruidQueryBase
     protected final DruidConfig druidConfig = new DruidConfig();
 
     protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput = ImmutableMap.of(
-            new VariableReferenceExpression("regionid", BIGINT), new DruidQueryGeneratorContext.Selection("regionId", TABLE_COLUMN),
+            new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN),
             new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN),
             new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN),
             new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED),
