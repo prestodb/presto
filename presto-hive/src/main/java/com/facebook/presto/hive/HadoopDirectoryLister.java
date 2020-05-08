@@ -37,10 +37,15 @@ public class HadoopDirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy,
-            PathFilter pathFilter)
+            PathFilter pathFilter,
+            HiveDirectoryContext hiveDirectoryContext)
     {
-        return new HiveFileIterator(path, p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)), namenodeStats, nestedDirectoryPolicy, pathFilter);
+        return new HiveFileIterator(
+                path,
+                p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)),
+                namenodeStats,
+                hiveDirectoryContext.getNestedDirectoryPolicy(),
+                pathFilter);
     }
 
     public static class HadoopFileInfoIterator
