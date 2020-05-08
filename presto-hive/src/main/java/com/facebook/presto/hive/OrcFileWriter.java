@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -44,6 +45,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -78,18 +80,24 @@ public class OrcFileWriter
     {
         requireNonNull(dataSink, "dataSink is null");
 
-        orcWriter = new OrcWriter(
-                dataSink,
-                columnNames,
-                fileColumnTypes,
-                orcEncoding,
-                compression,
-                options,
-                metadata,
-                hiveStorageTimeZone,
-                validationInputFactory.isPresent(),
-                validationMode,
-                stats);
+        try {
+            orcWriter = new OrcWriter(
+                    dataSink,
+                    columnNames,
+                    fileColumnTypes,
+                    orcEncoding,
+                    compression,
+                    options,
+                    metadata,
+                    hiveStorageTimeZone,
+                    validationInputFactory.isPresent(),
+                    validationMode,
+                    stats);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
