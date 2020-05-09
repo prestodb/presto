@@ -59,7 +59,7 @@ public class TestCommonSubExpressionRewritter
     void testGetExpressionsWithCSE()
     {
         List<RowExpression> expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2"), rowExpression("x + 2"), rowExpression("y * (x + 2)"), rowExpression("x * y"));
-        Map<List<RowExpression>, Boolean> expressionsWithCSE = getExpressionsPartitionedByCSE(expressions);
+        Map<List<RowExpression>, Boolean> expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 3);
         assertEquals(
                 expressionsWithCSE,
                 ImmutableMap.of(
@@ -67,12 +67,20 @@ public class TestCommonSubExpressionRewritter
                         ImmutableList.of(rowExpression("x + 2"), rowExpression("y * (x + 2)")), true,
                         ImmutableList.of(rowExpression("x * y")), false));
         expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("x * 2"), rowExpression("x + y + x * 2"), rowExpression("y * 2"), rowExpression("x + y * 2"));
-        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions);
+        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 3);
         assertEquals(
                 expressionsWithCSE,
                 ImmutableMap.of(
                         ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2"), rowExpression("x * 2")), true,
                         ImmutableList.of(rowExpression("y * 2"), rowExpression("x + y * 2")), true));
+
+        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 2);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2")), true,
+                        ImmutableList.of(rowExpression("y * 2"), rowExpression("x + y * 2")), true,
+                        ImmutableList.of(rowExpression("x * 2")), true));
     }
 
     @Test
