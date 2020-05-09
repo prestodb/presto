@@ -168,7 +168,7 @@ public class DruidQueryGeneratorContext
                     String definition = entry.getValue().getDefinition();
                     int start = definition.indexOf("(");
                     int end = definition.indexOf(")");
-                    String countDistinctClause = "count ( distinct \"" + definition.substring(start + 1, end) + "\")";
+                    String countDistinctClause = "count ( distinct " + escapeSqlIdentifier(definition.substring(start + 1, end)) + ")";
                     Selection countDistinctSelection = new Selection(countDistinctClause, entry.getValue().getOrigin());
                     builder.put(entry.getKey(), countDistinctSelection);
                 }
@@ -194,6 +194,10 @@ public class DruidQueryGeneratorContext
                 newHiddenColumnSet);
     }
 
+    private static String escapeSqlIdentifier(String identifier)
+    {
+        return "\"" + identifier + "\"";
+    }
     public DruidQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
     {
         return new DruidQueryGeneratorContext(
@@ -251,7 +255,7 @@ public class DruidQueryGeneratorContext
         }
 
         String tableName = from.orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Table name missing in Druid query"));
-        String query = "SELECT " + expressions + " FROM \"" + tableName + "\"";
+        String query = "SELECT " + expressions + " FROM " + escapeSqlIdentifier(tableName);
         boolean pushdown = false;
         if (filter.isPresent()) {
             // this is hack!!!. Ideally we want to clone the scan pipeline and create/update the filter in the scan pipeline to contain this filter and
@@ -337,7 +341,7 @@ public class DruidQueryGeneratorContext
         public String getEscapedDefinition()
         {
             if (origin == Origin.TABLE_COLUMN) {
-                return "\"" + definition + "\"";
+                return escapeSqlIdentifier(definition);
             }
             return definition;
         }
