@@ -318,6 +318,9 @@ public final class InternalResourceGroupManager<C>
     public void setTaskLimitExceeded(boolean exceeded)
     {
         taskLimitExceeded.set(exceeded);
+        for (RootInternalResourceGroup group : rootGroups) {
+            group.setTaskLimitExceeded(exceeded);
+        }
     }
 
     @SuppressWarnings("unchecked")
