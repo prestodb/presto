@@ -116,6 +116,10 @@ import static java.util.Objects.requireNonNull;
 public class PageFunctionCompiler
 {
     private static Logger log = Logger.get(PageFunctionCompiler.class);
+    // Benchmark and experiments showed that when we put too many projections into a single PageProjection, performance degrades. Flamechart shows that a lot of cpus are
+    // spent in evaluate. The root cause is not well understood. Maybe when the function is too large JIT has problem optimizing it. Empirical evidence shows that when there
+    // are less than 10 projections performance is generally better with common sub-expressions. So we set an upper limit on how many projections we would compile together here.
+    private static final int MAX_PROJECTION_GROUP_SIZE = 10;
 
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
@@ -194,7 +198,7 @@ public class PageFunctionCompiler
             }
             Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
 
-            Map<List<RowExpression>, Boolean> projectionsPartitionedByCSE = getExpressionsPartitionedByCSE(expressionsWithPosition.keySet());
+            Map<List<RowExpression>, Boolean> projectionsPartitionedByCSE = getExpressionsPartitionedByCSE(expressionsWithPosition.keySet(), MAX_PROJECTION_GROUP_SIZE);
 
             for (Map.Entry<List<RowExpression>, Boolean> entry : projectionsPartitionedByCSE.entrySet()) {
                 if (entry.getValue()) {
