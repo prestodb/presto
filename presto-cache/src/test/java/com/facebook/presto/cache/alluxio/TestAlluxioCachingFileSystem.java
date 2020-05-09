@@ -158,9 +158,9 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory);
-        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig()
+                .setBaseDirectory(cacheDirectory)
                 .setMaxCacheSize(new DataSize(10, KILOBYTE));
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
 
         AlluxioCachingFileSystem cachingFileSystem = cachingFileSystem(cacheConfig, alluxioCacheConfig);
         stressTest(data, (position, buffer, offset, length) -> {
@@ -209,7 +209,7 @@ public class TestAlluxioCachingFileSystem
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
             configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
-            configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
+            configuration.set("alluxio.user.client.cache.size", cacheConfig.getMaxCacheSize().toString());
             configuration.set("alluxio.user.client.cache.page.size", Integer.toString(PAGE_SIZE));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));

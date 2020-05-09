@@ -15,20 +15,17 @@ package com.facebook.presto.cache.filemerge;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class FileMergeCacheConfig
 {
     private int maxCachedEntries = 1_000;
     private Duration cacheTtl = new Duration(2, DAYS);
-    private DataSize maxInMemoryCacheSize = new DataSize(2, GIGABYTE);
 
     @Min(1)
     public int getMaxCachedEntries()
@@ -41,19 +38,6 @@ public class FileMergeCacheConfig
     public FileMergeCacheConfig setMaxCachedEntries(int maxCachedEntries)
     {
         this.maxCachedEntries = maxCachedEntries;
-        return this;
-    }
-
-    public DataSize getMaxInMemoryCacheSize()
-    {
-        return maxInMemoryCacheSize;
-    }
-
-    @Config("cache.max-in-memory-cache-size")
-    @ConfigDescription("The maximum cache size allowed in memory")
-    public FileMergeCacheConfig setMaxInMemoryCacheSize(DataSize maxInMemoryCacheSize)
-    {
-        this.maxInMemoryCacheSize = maxInMemoryCacheSize;
         return this;
     }
 

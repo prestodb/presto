@@ -14,7 +14,6 @@
 package com.facebook.presto.cache.alluxio;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,8 +21,6 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestAlluxioCacheConfig
 {
@@ -32,7 +29,6 @@ public class TestAlluxioCacheConfig
     {
         assertRecordedDefaults(recordDefaults(AlluxioCacheConfig.class)
                 .setAsyncWriteEnabled(false)
-                .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setMetricsCollectionEnabled(true)
                 .setMetricsDomain("com.facebook.alluxio")
                 .setJmxClass("alluxio.metrics.sink.JmxSink"));
@@ -43,7 +39,6 @@ public class TestAlluxioCacheConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cache.alluxio.async-write.enabled", "true")
-                .put("cache.alluxio.max-cache-size", "42MB")
                 .put("cache.alluxio.metrics.enabled", "false")
                 .put("cache.alluxio.metrics.domain", "test.alluxio")
                 .put("cache.alluxio.jmx.class", "test.TestJmxSink")
@@ -51,7 +46,6 @@ public class TestAlluxioCacheConfig
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
                 .setAsyncWriteEnabled(true)
-                .setMaxCacheSize(new DataSize(42, MEGABYTE))
                 .setMetricsCollectionEnabled(false)
                 .setMetricsDomain("test.alluxio")
                 .setJmxClass("test.TestJmxSink");

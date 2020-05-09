@@ -113,8 +113,8 @@ public class FileMergeCacheManager
                 .build();
         this.stats = requireNonNull(stats, "stats is null");
         this.baseDirectory = new Path(cacheConfig.getBaseDirectory());
-        checkArgument(fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes() >= 0, "maxInflightBytes is negative");
-        this.maxInflightBytes = fileMergeCacheConfig.getMaxInMemoryCacheSize().toBytes();
+        checkArgument(cacheConfig.getMaxCacheSize().toBytes() >= 0, "maxInflightBytes is negative");
+        this.maxInflightBytes = cacheConfig.getMaxCacheSize().toBytes();
 
         File target = new File(baseDirectory.toUri());
         if (!target.exists()) {

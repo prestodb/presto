@@ -14,7 +14,6 @@
 package com.facebook.presto.cache.filemerge;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -23,8 +22,6 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -35,7 +32,6 @@ public class TestFileMergeCacheConfig
     {
         assertRecordedDefaults(recordDefaults(FileMergeCacheConfig.class)
                 .setMaxCachedEntries(1_000)
-                .setMaxInMemoryCacheSize(new DataSize(2, GIGABYTE))
                 .setCacheTtl(new Duration(2, DAYS)));
     }
 
@@ -44,13 +40,11 @@ public class TestFileMergeCacheConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cache.max-cached-entries", "5")
-                .put("cache.max-in-memory-cache-size", "42MB")
                 .put("cache.ttl", "10s")
                 .build();
 
         FileMergeCacheConfig expected = new FileMergeCacheConfig()
                 .setMaxCachedEntries(5)
-                .setMaxInMemoryCacheSize(new DataSize(42, MEGABYTE))
                 .setCacheTtl(new Duration(10, SECONDS));
         assertFullMapping(properties, expected);
     }

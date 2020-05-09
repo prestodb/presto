@@ -15,8 +15,11 @@ package com.facebook.presto.cache;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
 
 import java.net.URI;
+
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class CacheConfig
 {
@@ -24,6 +27,7 @@ public class CacheConfig
     private CacheType cacheType;
     private URI baseDirectory;
     private boolean validationEnabled;
+    private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
 
     public URI getBaseDirectory()
     {
@@ -75,5 +79,18 @@ public class CacheConfig
     public CacheType getCacheType()
     {
         return cacheType;
+    }
+
+    public DataSize getMaxCacheSize()
+    {
+        return maxCacheSize;
+    }
+
+    @Config("cache.max-cache-size")
+    @ConfigDescription("The maximum cache size")
+    public CacheConfig setMaxCacheSize(DataSize maxCacheSize)
+    {
+        this.maxCacheSize = maxCacheSize;
+        return this;
     }
 }

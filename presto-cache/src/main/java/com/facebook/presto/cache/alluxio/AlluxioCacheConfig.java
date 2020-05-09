@@ -14,10 +14,6 @@
 package com.facebook.presto.cache.alluxio;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
-
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class AlluxioCacheConfig
 {
@@ -25,7 +21,6 @@ public class AlluxioCacheConfig
     private boolean asyncWriteEnabled;
     private String jmxClass = "alluxio.metrics.sink.JmxSink";
     private String metricsDomain = "com.facebook.alluxio";
-    private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -72,19 +67,6 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setAsyncWriteEnabled(boolean asyncWriteEnabled)
     {
         this.asyncWriteEnabled = asyncWriteEnabled;
-        return this;
-    }
-
-    public DataSize getMaxCacheSize()
-    {
-        return maxCacheSize;
-    }
-
-    @Config("cache.alluxio.max-cache-size")
-    @ConfigDescription("The maximum cache size")
-    public AlluxioCacheConfig setMaxCacheSize(DataSize maxCacheSize)
-    {
-        this.maxCacheSize = maxCacheSize;
         return this;
     }
 }

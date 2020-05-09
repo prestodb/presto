@@ -14,6 +14,7 @@
 package com.facebook.presto.cache;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -23,6 +24,8 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.cache.CacheType.FILE_MERGE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestCacheConfig
 {
@@ -32,6 +35,7 @@ public class TestCacheConfig
         assertRecordedDefaults(recordDefaults(CacheConfig.class)
                 .setCachingEnabled(false)
                 .setCacheType(null)
+                .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setBaseDirectory(null)
                 .setValidationEnabled(false));
     }
@@ -43,6 +47,7 @@ public class TestCacheConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cache.enabled", "true")
                 .put("cache.type", "FILE_MERGE")
+                .put("cache.max-cache-size", "42MB")
                 .put("cache.base-directory", "tcp://abc")
                 .put("cache.validation-enabled", "true")
                 .build();
@@ -50,6 +55,7 @@ public class TestCacheConfig
         CacheConfig expected = new CacheConfig()
                 .setCachingEnabled(true)
                 .setCacheType(FILE_MERGE)
+                .setMaxCacheSize(new DataSize(42, MEGABYTE))
                 .setBaseDirectory(new URI("tcp://abc"))
                 .setValidationEnabled(true);
 
