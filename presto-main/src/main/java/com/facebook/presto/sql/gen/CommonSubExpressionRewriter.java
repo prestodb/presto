@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -85,7 +86,7 @@ public class CommonSubExpressionRewriter
         return collectCSEByLevel(ImmutableList.of(expression));
     }
 
-    public static Map<List<RowExpression>, Boolean> getExpressionsPartitionedByCSE(Collection<? extends RowExpression> expressions)
+    public static Map<List<RowExpression>, Boolean> getExpressionsPartitionedByCSE(Collection<? extends RowExpression> expressions, int expressionGroupSize)
     {
         if (expressions.isEmpty()) {
             return ImmutableMap.of();
@@ -128,13 +129,13 @@ public class CommonSubExpressionRewriter
                 break;
             }
             merged[i] = true;
-            ImmutableList.Builder<RowExpression> newList = ImmutableList.builder();
+            List<RowExpression> newList = new ArrayList<>();
             newList.add(expressionsWithCse.get(i));
             Set<RowExpression> dependencies = new HashSet<>();
             Set<RowExpression> first = cseDependency.get(i);
             dependencies.addAll(first);
             int j = i + 1;
-            while (j < merged.length) {
+            while (j < merged.length && newList.size() < expressionGroupSize) {
                 while (j < merged.length && merged[j]) {
                     j++;
                 }
@@ -152,7 +153,7 @@ public class CommonSubExpressionRewriter
                     j++;
                 }
             }
-            expressionsPartitionedByCse.put(newList.build(), true);
+            expressionsPartitionedByCse.put(ImmutableList.copyOf(newList), true);
         }
 
         return expressionsPartitionedByCse.build();
