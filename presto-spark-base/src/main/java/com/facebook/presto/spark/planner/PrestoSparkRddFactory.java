@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -161,7 +162,7 @@ public class PrestoSparkRddFactory
             Partitioner inputPartitioner = createPartitioner(partitioning, hashPartitionCount);
 
             Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> partitionedInputs = rddInputs.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().partitionBy(inputPartitioner)));
+                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().partitionBy(inputPartitioner)));
 
             return createIntermediateRdd(
                     session,
@@ -228,33 +229,31 @@ public class PrestoSparkRddFactory
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
         if (rddInputs.size() == 1) {
-            RemoteSourceNode remoteSourceNode = getOnlyElement(fragment.getRemoteSourceNodes());
+            Entry<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> input = getOnlyElement(rddInputs.entrySet());
             PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            remoteSourceNode.getId().toString(),
+                            input.getKey().toString(),
                             taskStatsCollector);
-            return getOnlyElement(rddInputs.values())
+            return input.getValue()
                     .mapPartitionsToPair(taskProcessor);
         }
-        else if (rddInputs.size() == 2) {
-            List<RemoteSourceNode> remoteSources = fragment.getRemoteSourceNodes();
-            checkArgument(remoteSources.size() == 2, "two remote sources are expected, got: %s", remoteSources.size());
-            RemoteSourceNode firstRemoteSource = remoteSources.get(0);
-            RemoteSourceNode secondRemoteSource = remoteSources.get(1);
-            JavaPairRDD<Integer, PrestoSparkRow> firstRdd = rddInputs.get(firstRemoteSource.getSourceFragmentIds().get(0));
-            JavaPairRDD<Integer, PrestoSparkRow> secondRdd = rddInputs.get(secondRemoteSource.getSourceFragmentIds().get(0));
+        if (rddInputs.size() == 2) {
+            List<PlanFragmentId> fragmentIds = ImmutableList.copyOf(rddInputs.keySet());
+            List<JavaPairRDD<Integer, PrestoSparkRow>> rdds = fragmentIds.stream()
+                    .map(rddInputs::get)
+                    .collect(toImmutableList());
             FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> taskProcessor =
                     createTaskProcessor(
                             executorFactoryProvider,
                             serializedTaskDescriptor,
-                            firstRemoteSource.getId().toString(),
-                            secondRemoteSource.getId().toString(),
+                            fragmentIds.get(0).toString(),
+                            fragmentIds.get(1).toString(),
                             taskStatsCollector);
             return JavaPairRDD.fromJavaRDD(
-                    firstRdd.zipPartitions(
-                            secondRdd,
+                    rdds.get(0).zipPartitions(
+                            rdds.get(1),
                             taskProcessor));
         }
 
