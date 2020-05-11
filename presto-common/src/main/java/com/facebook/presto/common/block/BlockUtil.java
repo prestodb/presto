@@ -24,7 +24,7 @@ import static java.lang.Math.ceil;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-final class BlockUtil
+public final class BlockUtil
 {
     private static final double BLOCK_RESET_SKEW = 1.25;
 
@@ -151,7 +151,7 @@ final class BlockUtil
      * If the range matches the entire array, the input array will be returned.
      * Otherwise, a copy will be returned.
      */
-    static boolean[] compactArray(boolean[] array, int index, int length)
+    public static boolean[] compactArray(boolean[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;
@@ -159,7 +159,7 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static byte[] compactArray(byte[] array, int index, int length)
+    public static byte[] compactArray(byte[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;
@@ -167,7 +167,7 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static short[] compactArray(short[] array, int index, int length)
+    public static short[] compactArray(short[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;
@@ -175,7 +175,7 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static int[] compactArray(int[] array, int index, int length)
+    public static int[] compactArray(int[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;
@@ -183,7 +183,7 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static long[] compactArray(long[] array, int index, int length)
+    public static long[] compactArray(long[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;
