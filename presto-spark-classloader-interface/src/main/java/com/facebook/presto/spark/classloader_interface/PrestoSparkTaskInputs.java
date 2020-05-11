@@ -13,25 +13,38 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
+import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
 
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskInputs
 {
     // fragmentId -> Iterator<[partitionId, page]>
     private final Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputs;
+    private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
 
-    public PrestoSparkTaskInputs(Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputs)
+    public PrestoSparkTaskInputs(
+            Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputs,
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
-        this.shuffleInputs = requireNonNull(shuffleInputs, "shuffleInputs is null");
+        this.shuffleInputs = unmodifiableMap(new HashMap<>(requireNonNull(shuffleInputs, "shuffleInputs is null")));
+        this.broadcastInputs = unmodifiableMap(new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null")));
     }
 
     public Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> getShuffleInputs()
     {
         return shuffleInputs;
+    }
+
+    public Map<String, Broadcast<List<PrestoSparkSerializedPage>>> getBroadcastInputs()
+    {
+        return broadcastInputs;
     }
 }
