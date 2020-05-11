@@ -23,6 +23,10 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
+import com.facebook.presto.execution.scheduler.StreamingPlanSection;
+import com.facebook.presto.execution.scheduler.StreamingSubPlan;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.TaskStats;
@@ -37,16 +41,18 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
-import com.facebook.presto.spark.planner.PrestoSparkPlan;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndUpdateType;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
-import com.facebook.presto.spark.planner.PrestoSparkSplitEnumerator;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
@@ -67,13 +73,22 @@ import scala.Tuple2;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -87,7 +102,6 @@ public class PrestoSparkQueryExecutionFactory
     private final QueryPreparer queryPreparer;
     private final PrestoSparkQueryPlanner queryPlanner;
     private final PrestoSparkPlanFragmenter planFragmenter;
-    private final PrestoSparkSplitEnumerator splitEnumerator;
     private final PrestoSparkRddFactory rddFactory;
     private final QueryMonitor queryMonitor;
     private final JsonCodec<TaskStats> taskStatsJsonCodec;
@@ -106,7 +120,6 @@ public class PrestoSparkQueryExecutionFactory
             QueryPreparer queryPreparer,
             PrestoSparkQueryPlanner queryPlanner,
             PrestoSparkPlanFragmenter planFragmenter,
-            PrestoSparkSplitEnumerator splitEnumerator,
             PrestoSparkRddFactory rddFactory,
             QueryMonitor queryMonitor,
             JsonCodec<TaskStats> taskStatsJsonCodec,
@@ -122,7 +135,6 @@ public class PrestoSparkQueryExecutionFactory
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         this.queryPlanner = requireNonNull(queryPlanner, "queryPlanner is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
-        this.splitEnumerator = requireNonNull(splitEnumerator, "splitEnumerator is null");
         this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
@@ -160,92 +172,110 @@ public class PrestoSparkQueryExecutionFactory
         PlanAndUpdateType planAndUpdateType = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
         SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndUpdateType.getPlan(), warningCollector);
         log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
-        PrestoSparkPlan prestoSparkPlan = splitEnumerator.preparePlan(session, fragmentedPlan);
+        TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
         JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
         CollectionAccumulator<SerializedTaskStats> taskStatsCollector = new CollectionAccumulator<>();
         taskStatsCollector.register(sparkContext, new Some<>("taskStatsCollector"), false);
-        JavaPairRDD<Integer, PrestoSparkRow> rdd = rddFactory.createSparkRdd(
-                javaSparkContext,
-                session,
-                prestoSparkPlan,
-                executorFactoryProvider,
-                taskStatsCollector);
 
         return new PrestoSparkQueryExecution(
+                javaSparkContext,
                 session,
                 queryMonitor,
                 taskStatsCollector,
-                rdd,
                 executorFactoryProvider,
-                prestoSparkPlan,
+                fragmentedPlan,
                 planAndUpdateType.getUpdateType(),
                 taskStatsJsonCodec,
                 sparkTaskDescriptorJsonCodec,
+                rddFactory,
+                tableWriteInfo,
                 transactionManager);
+    }
+
+    private TableWriteInfo getTableWriteInfo(Session session, SubPlan plan)
+    {
+        StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
+        StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
+        TableWriteInfo tableWriteInfo = createTableWriteInfo(streamingSubPlan, metadata, session);
+        if (tableWriteInfo.getWriterTarget().isPresent()) {
+            checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().get());
+        }
+        return tableWriteInfo;
+    }
+
+    private void checkPageSinkCommitIsSupported(Session session, ExecutionWriterTarget writerTarget)
+    {
+        ConnectorId connectorId;
+        if (writerTarget instanceof ExecutionWriterTarget.DeleteHandle) {
+            throw new PrestoException(NOT_SUPPORTED, "delete queries are not supported by presto on spark");
+        }
+        else if (writerTarget instanceof ExecutionWriterTarget.CreateHandle) {
+            connectorId = ((ExecutionWriterTarget.CreateHandle) writerTarget).getHandle().getConnectorId();
+        }
+        else if (writerTarget instanceof ExecutionWriterTarget.InsertHandle) {
+            connectorId = ((ExecutionWriterTarget.InsertHandle) writerTarget).getHandle().getConnectorId();
+        }
+        else {
+            throw new IllegalArgumentException("unexpected writer target type: " + writerTarget.getClass());
+        }
+        verify(connectorId != null, "connectorId is null");
+        Set<ConnectorCapabilities> connectorCapabilities = metadata.getConnectorCapabilities(session, connectorId);
+        if (!connectorCapabilities.contains(SUPPORTS_PAGE_SINK_COMMIT)) {
+            throw new PrestoException(NOT_SUPPORTED, "catalog does not support page sink commit: " + connectorId);
+        }
     }
 
     public static class PrestoSparkQueryExecution
             implements IPrestoSparkQueryExecution
     {
+        private final JavaSparkContext sparkContext;
         private final Session session;
         private final QueryMonitor queryMonitor;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
-        private final JavaPairRDD<Integer, PrestoSparkRow> rdd;
-        private final PrestoSparkTaskExecutorFactoryProvider prestoSparkTaskExecutorFactoryProvider;
-        private final PrestoSparkPlan prestoSparkPlan;
+        private final PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider;
+        private final SubPlan plan;
         private final Optional<String> updateType;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
-
+        private final PrestoSparkRddFactory rddFactory;
+        private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
 
         private PrestoSparkQueryExecution(
+                JavaSparkContext sparkContext,
                 Session session,
                 QueryMonitor queryMonitor,
                 CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-                JavaPairRDD<Integer, PrestoSparkRow> rdd,
-                PrestoSparkTaskExecutorFactoryProvider prestoSparkTaskExecutorFactoryProvider,
-                PrestoSparkPlan prestoSparkPlan,
+                PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
+                SubPlan plan,
                 Optional<String> updateType,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
+                PrestoSparkRddFactory rddFactory,
+                TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager)
         {
+            this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
             this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
-            this.rdd = requireNonNull(rdd, "rdd is null");
-            this.prestoSparkTaskExecutorFactoryProvider = requireNonNull(prestoSparkTaskExecutorFactoryProvider, "prestoSparkExecutorFactoryProvider is null");
-            this.prestoSparkPlan = requireNonNull(prestoSparkPlan, "prestoSparkPlan is null");
+            this.executorFactoryProvider = requireNonNull(executorFactoryProvider, "executorFactoryProvider is null");
+            this.plan = requireNonNull(plan, "plan is null");
             this.updateType = updateType;
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
+            this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
+            this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 
         @Override
         public List<List<Object>> execute()
         {
-            PlanFragment rootFragment = prestoSparkPlan.getPlan().getFragment();
-            RemoteSourceNode remoteSource = getOnlyElement(rootFragment.getRemoteSourceNodes());
-            PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
-                    session.toSessionRepresentation(),
-                    session.getIdentity().getExtraCredentials(),
-                    rootFragment,
-                    ImmutableList.of(),
-                    prestoSparkPlan.getTableWriteInfo());
-            SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
-
-            List<Tuple2<Integer, PrestoSparkRow>> resultRdd;
+            List<Tuple2<Integer, PrestoSparkRow>> rddResults;
             try {
-                List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collect();
-                resultRdd = ImmutableList.copyOf(prestoSparkTaskExecutorFactoryProvider.get().create(
-                        0,
-                        0,
-                        serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(ImmutableMap.of(remoteSource.getId().toString(), sparkDriverInput.iterator())),
-                        taskStatsCollector));
+                rddResults = doExecute(plan);
                 commit();
             }
             catch (RuntimeException executionFailure) {
@@ -265,9 +295,9 @@ public class PrestoSparkQueryExecutionFactory
             queryCompletedEvent(Optional.empty());
 
             ConnectorSession connectorSession = session.toConnectorSession();
-            List<Type> types = rootFragment.getTypes();
+            List<Type> types = plan.getFragment().getTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
-            for (Tuple2<Integer, PrestoSparkRow> tuple : resultRdd) {
+            for (Tuple2<Integer, PrestoSparkRow> tuple : rddResults) {
                 PrestoSparkRow row = tuple._2;
                 SliceInput sliceInput = new BasicSliceInput(Slices.wrappedBuffer(row.getBytes(), 0, row.getLength()));
                 ImmutableList.Builder<Object> columns = ImmutableList.builder();
@@ -283,13 +313,59 @@ public class PrestoSparkQueryExecutionFactory
 
         public List<Type> getOutputTypes()
         {
-            return prestoSparkPlan.getPlan().getFragment().getTypes();
+            return plan.getFragment().getTypes();
         }
 
         public Optional<String> getUpdateType()
         {
             return updateType;
         }
+
+        private List<Tuple2<Integer, PrestoSparkRow>> doExecute(SubPlan root)
+        {
+            PlanFragment rootFragment = root.getFragment();
+
+            if (rootFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
+                checkArgument(root.getChildren().size() == 1, "exactly one children fragment is expected");
+                checkArgument(rootFragment.getRemoteSourceNodes().size() == 1, "exactly one remote source is expected");
+
+                RemoteSourceNode remoteSource = getOnlyElement(rootFragment.getRemoteSourceNodes());
+                PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
+                        session.toSessionRepresentation(),
+                        session.getIdentity().getExtraCredentials(),
+                        rootFragment,
+                        ImmutableList.of(),
+                        tableWriteInfo);
+                SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
+
+                JavaPairRDD<Integer, PrestoSparkRow> rdd = createRdd(getOnlyElement(root.getChildren()));
+                List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collect();
+                return ImmutableList.copyOf(executorFactoryProvider.get().create(
+                        0,
+                        0,
+                        serializedTaskDescriptor,
+                        new PrestoSparkTaskInputs(ImmutableMap.of(remoteSource.getId().toString(), sparkDriverInput.iterator())),
+                        taskStatsCollector));
+            }
+
+            return createRdd(root).collect();
+        }
+
+        private JavaPairRDD<Integer, PrestoSparkRow> createRdd(SubPlan subPlan)
+        {
+            PlanFragment fragment = subPlan.getFragment();
+            Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs = subPlan.getChildren().stream()
+                    .collect(toImmutableMap(children -> children.getFragment().getId(), this::createRdd));
+            return rddFactory.createSparkRdd(
+                    sparkContext,
+                    session,
+                    fragment,
+                    rddInputs,
+                    executorFactoryProvider,
+                    taskStatsCollector,
+                    tableWriteInfo);
+        }
+
         private void commit()
         {
             getFutureValue(transactionManager.asyncCommit(getTransactionInfo().getTransactionId()));
