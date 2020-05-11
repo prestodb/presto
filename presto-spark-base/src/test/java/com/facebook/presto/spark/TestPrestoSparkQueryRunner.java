@@ -64,4 +64,13 @@ public class TestPrestoSparkQueryRunner
                 "ON l.orderkey = o.orderkey " +
                 "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
     }
+
+    @Test
+    public void testCrossJoin()
+    {
+        assertQuery("" +
+                "SELECT o.custkey, l.orderkey " +
+                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+    }
 }

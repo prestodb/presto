@@ -16,6 +16,8 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.event.QueryMonitor;
@@ -36,6 +38,7 @@ import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
@@ -45,11 +48,13 @@ import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndUpdateType;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -65,30 +70,34 @@ import io.airlift.slice.Slices;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Some;
 import scala.Tuple2;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.transformRowsToPages;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterators.transform;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkQueryExecutionFactory
@@ -108,6 +117,7 @@ public class PrestoSparkQueryExecutionFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final BlockEncodingManager blockEncodingManager;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -126,6 +136,7 @@ public class PrestoSparkQueryExecutionFactory
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
+            BlockEncodingManager blockEncodingManager,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -141,6 +152,7 @@ public class PrestoSparkQueryExecutionFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -191,7 +203,8 @@ public class PrestoSparkQueryExecutionFactory
                     sparkTaskDescriptorJsonCodec,
                     rddFactory,
                     tableWriteInfo,
-                    transactionManager);
+                    transactionManager,
+                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()));
         }
         catch (RuntimeException executionFailure) {
             try {
@@ -282,6 +295,7 @@ public class PrestoSparkQueryExecutionFactory
         private final PrestoSparkRddFactory rddFactory;
         private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
+        private final PagesSerde pagesSerde;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -295,7 +309,8 @@ public class PrestoSparkQueryExecutionFactory
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
-                TransactionManager transactionManager)
+                TransactionManager transactionManager,
+                PagesSerde pagesSerde)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -309,6 +324,7 @@ public class PrestoSparkQueryExecutionFactory
             this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+            this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         }
 
         @Override
@@ -385,32 +401,57 @@ public class PrestoSparkQueryExecutionFactory
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
                 SubPlan child = getOnlyElement(root.getChildren());
-                JavaPairRDD<Integer, PrestoSparkRow> rdd = createRdd(child);
-                List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collect();
+                RddAndMore rdd = createRdd(child);
+                List<Tuple2<Integer, PrestoSparkRow>> sparkDriverInput = rdd.collectAndDestroyDependencies();
                 return ImmutableList.copyOf(executorFactoryProvider.get().create(
                         0,
                         0,
                         serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(ImmutableMap.of(child.getFragment().getId().toString(), sparkDriverInput.iterator())),
+                        new PrestoSparkTaskInputs(ImmutableMap.of(child.getFragment().getId().toString(), sparkDriverInput.iterator()), ImmutableMap.of()),
                         taskStatsCollector));
             }
 
-            return createRdd(root).collect();
+            RddAndMore rootRdd = createRdd(root);
+            return rootRdd.collectAndDestroyDependencies();
         }
 
-        private JavaPairRDD<Integer, PrestoSparkRow> createRdd(SubPlan subPlan)
+        private RddAndMore createRdd(SubPlan subPlan)
         {
-            PlanFragment fragment = subPlan.getFragment();
-            Map<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs = subPlan.getChildren().stream()
-                    .collect(toImmutableMap(children -> children.getFragment().getId(), this::createRdd));
-            return rddFactory.createSparkRdd(
+            ImmutableMap.Builder<PlanFragmentId, JavaPairRDD<Integer, PrestoSparkRow>> rddInputs = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs = ImmutableMap.builder();
+            ImmutableList.Builder<Broadcast<?>> broadcastDependencies = ImmutableList.builder();
+
+            for (SubPlan child : subPlan.getChildren()) {
+                PlanFragment childFragment = child.getFragment();
+                RddAndMore childRdd = createRdd(child);
+                if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                    List<Tuple2<Integer, PrestoSparkRow>> broadcastRows = childRdd.collectAndDestroyDependencies();
+                    // TODO: Transform rows to pages on executors (using `RDD#map` function)
+                    // TODO: Transforming it on coordinator results in 2x memory utilization as both,
+                    // TODO: rows and pages have to be kept in memory all at the same time
+                    Iterator<Page> pagesIterator = transformRowsToPages(transform(broadcastRows.iterator(), Tuple2::_2), childFragment.getTypes());
+                    Iterator<PrestoSparkSerializedPage> serializedPagesIterator = transform(transform(pagesIterator, pagesSerde::serialize), PrestoSparkUtils::toPrestoSparkSerializedPage);
+                    List<PrestoSparkSerializedPage> serializedPages = new ArrayList<>();
+                    serializedPagesIterator.forEachRemaining(serializedPages::add);
+                    Broadcast<List<PrestoSparkSerializedPage>> broadcast = sparkContext.broadcast(serializedPages);
+                    broadcastInputs.put(childFragment.getId(), broadcast);
+                    broadcastDependencies.add(broadcast);
+                }
+                else {
+                    rddInputs.put(childFragment.getId(), childRdd.getRdd());
+                    broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
+                }
+            }
+            JavaPairRDD<Integer, PrestoSparkRow> rdd = rddFactory.createSparkRdd(
                     sparkContext,
                     session,
-                    fragment,
-                    rddInputs,
+                    subPlan.getFragment(),
+                    rddInputs.build(),
+                    broadcastInputs.build(),
                     executorFactoryProvider,
                     taskStatsCollector,
                     tableWriteInfo);
+            return new RddAndMore(rdd, broadcastDependencies.build());
         }
 
         private void queryCompletedEvent(Optional<Throwable> failure)
@@ -429,6 +470,39 @@ public class PrestoSparkQueryExecutionFactory
                     .collect(toImmutableList());
             // TODO: create query info
             return null;
+        }
+    }
+
+    private static class RddAndMore
+    {
+        private final JavaPairRDD<Integer, PrestoSparkRow> rdd;
+        private final List<Broadcast<?>> broadcastDependencies;
+
+        private boolean collected;
+
+        private RddAndMore(JavaPairRDD<Integer, PrestoSparkRow> rdd, List<Broadcast<?>> broadcastDependencies)
+        {
+            this.rdd = requireNonNull(rdd, "rdd is null");
+            this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
+        }
+
+        public List<Tuple2<Integer, PrestoSparkRow>> collectAndDestroyDependencies()
+        {
+            checkState(!collected, "already collected");
+            collected = true;
+            List<Tuple2<Integer, PrestoSparkRow>> result = rdd.collect();
+            broadcastDependencies.forEach(Broadcast::destroy);
+            return result;
+        }
+
+        public JavaPairRDD<Integer, PrestoSparkRow> getRdd()
+        {
+            return rdd;
+        }
+
+        public List<Broadcast<?>> getBroadcastDependencies()
+        {
+            return broadcastDependencies;
         }
     }
 }
