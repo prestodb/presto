@@ -18,13 +18,19 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.common.block.BlockUtil.compactArray;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
@@ -55,6 +61,46 @@ public class PrestoSparkUtils
                 }
                 verify(!pageBuilder.isEmpty());
                 return pageBuilder.build();
+            }
+        };
+    }
+
+    public static PrestoSparkSerializedPage toPrestoSparkSerializedPage(SerializedPage serializedPage)
+    {
+        Slice slice = serializedPage.getSlice();
+        checkArgument(slice.hasByteArray(), "slice is expected to be based on a byte array");
+        return new PrestoSparkSerializedPage(
+                compactArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()),
+                serializedPage.getPositionCount(),
+                serializedPage.getUncompressedSizeInBytes(),
+                serializedPage.getPageCodecMarkers());
+    }
+
+    public static SerializedPage toSerializedPage(PrestoSparkSerializedPage prestoSparkSerializedPage)
+    {
+        return new SerializedPage(
+                Slices.wrappedBuffer(prestoSparkSerializedPage.getBytes()),
+                prestoSparkSerializedPage.getPageCodecMarkers(),
+                prestoSparkSerializedPage.getPositionCount(),
+                prestoSparkSerializedPage.getUncompressedSizeInBytes());
+    }
+
+    public static <T> Iterator<T> getNullifyingIterator(List<T> list)
+    {
+        return new AbstractIterator<T>()
+        {
+            private int index;
+
+            @Override
+            protected T computeNext()
+            {
+                if (index >= list.size()) {
+                    return endOfData();
+                }
+                T element = list.get(index);
+                list.set(index, null);
+                index++;
+                return element;
             }
         };
     }
