@@ -51,6 +51,8 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,9 +73,9 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskExecutorFactory
@@ -225,10 +227,16 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor);
         PrestoSparkRowBuffer rowBuffer = new PrestoSparkRowBuffer(memoryManager);
 
-        ImmutableMap<PlanNodeId, Iterator<PrestoSparkRow>> sparkInputs = inputs.getInputsMap().entrySet().stream()
-                .collect(toImmutableMap(
-                        entry -> new PlanNodeId(entry.getKey()),
-                        entry -> Iterators.transform(entry.getValue(), tuple -> tuple._2)));
+        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkRow>> shuffleInputs = ImmutableMap.builder();
+        for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
+            ImmutableList.Builder<Iterator<PrestoSparkRow>> remoteSourceInputs = ImmutableList.builder();
+            for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
+                Iterator<Tuple2<Integer, PrestoSparkRow>> input = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                checkArgument(input != null, "input is missing for fragmentId: %s", sourceFragmentId);
+                remoteSourceInputs.add(Iterators.transform(input, tuple -> tuple._2));
+            }
+            shuffleInputs.put(remoteSource.getId(), Iterators.concat(remoteSourceInputs.build().iterator()));
+        }
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
                 taskContext,
@@ -237,7 +245,7 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getStageExecutionDescriptor(),
                 fragment.getTableScanSchedulingOrder(),
                 new PrestoSparkOutputFactory(rowBuffer),
-                new PrestoSparkRemoteSourceFactory(sparkInputs),
+                new PrestoSparkRemoteSourceFactory(shuffleInputs.build()),
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
