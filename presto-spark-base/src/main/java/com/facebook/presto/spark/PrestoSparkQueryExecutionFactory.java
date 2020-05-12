@@ -67,6 +67,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -82,11 +83,14 @@ import scala.Tuple2;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
@@ -99,10 +103,12 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.transform;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -417,6 +423,7 @@ public class PrestoSparkQueryExecutionFactory
         }
 
         private List<Tuple2<Integer, PrestoSparkRow>> doExecute(SubPlan root)
+                throws SparkException
         {
             PlanFragment rootFragment = root.getFragment();
 
@@ -432,11 +439,15 @@ public class PrestoSparkQueryExecutionFactory
                 Map<PlanFragmentId, RddAndMore> inputRdds = root.getChildren().stream()
                         .collect(toImmutableMap(child -> child.getFragment().getId(), this::createRdd));
 
-                Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputs = inputRdds.entrySet().stream()
+                Map<String, Future<List<Tuple2<Integer, PrestoSparkRow>>>> inputFutures = inputRdds.entrySet().stream()
                         .collect(toImmutableMap(
                                 entry -> entry.getKey().toString(),
-                                // TODO: consider collectAsync for better parallelism
-                                entry -> entry.getValue().collectAndDestroyDependencies().iterator()));
+                                entry -> entry.getValue().getRdd().collectAsync()));
+
+                waitFor(inputFutures.values());
+
+                Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputs = inputFutures.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> getUnchecked(entry.getValue()).iterator()));
 
                 return ImmutableList.copyOf(executorFactoryProvider.get().create(
                         0,
@@ -505,6 +516,34 @@ public class PrestoSparkQueryExecutionFactory
                     .collect(toImmutableList());
             // TODO: create query info
             return null;
+        }
+
+        private static <T> void waitFor(Collection<Future<T>> futures)
+                throws SparkException
+        {
+            try {
+                for (Future<?> future : futures) {
+                    future.get();
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (ExecutionException e) {
+                propagateIfPossible(e.getCause(), SparkException.class);
+                propagateIfPossible(e.getCause(), RuntimeException.class);
+
+                // this should never happen
+                throw new UncheckedExecutionException(e.getCause());
+            }
+            finally {
+                for (Future<?> future : futures) {
+                    if (!future.isDone()) {
+                        future.cancel(true);
+                    }
+                }
+            }
         }
     }
 
