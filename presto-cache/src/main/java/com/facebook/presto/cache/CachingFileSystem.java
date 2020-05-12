@@ -84,6 +84,12 @@ public abstract class CachingFileSystem
     }
 
     @Override
+    public Configuration getConf()
+    {
+        return dataTier.getConf();
+    }
+
+    @Override
     public Path getWorkingDirectory()
     {
         return dataTier.getWorkingDirectory();
