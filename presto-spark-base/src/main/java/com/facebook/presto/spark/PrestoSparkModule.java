@@ -174,7 +174,9 @@ public class PrestoSparkModule
         // TODO: decouple configuration properties that don't make sense on Spark
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         configBinder(binder).bindConfig(QueryManagerConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfigGlobalDefaults(FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(TaskManagerConfig.class);
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
@@ -366,6 +368,7 @@ public class PrestoSparkModule
         install(new ServerSecurityModule());
 
         // spark specific
+        binder.bind(PrestoSparkSettingsRequirements.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
