@@ -127,4 +127,19 @@ public class TestPrestoSparkQueryRunner
                         "JOIN orders o " +
                         "ON (o.orderkey = t.orderkey)");
     }
+
+    @Test
+    public void testFailures()
+    {
+        assertQueryFails("SELECT * FROM orders WHERE custkey / (orderkey - orderkey) = 0", "/ by zero");
+        assertQueryFails(
+                "CREATE TABLE hive.hive_test.hive_orders AS " +
+                        "(SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders) " +
+                        "UNION ALL " +
+                        "(SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders " +
+                        "WHERE custkey / (orderkey - orderkey) = 0 )",
+                "/ by zero");
+    }
 }

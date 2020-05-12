@@ -21,6 +21,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPreparer;
@@ -44,6 +45,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.execution.PrestoSparkExecutionException;
+import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndUpdateType;
@@ -68,6 +71,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkContext;
+import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
@@ -93,6 +97,7 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_P
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -120,6 +125,7 @@ public class PrestoSparkQueryExecutionFactory
     private final Metadata metadata;
     private final BlockEncodingManager blockEncodingManager;
     private final PrestoSparkSettingsRequirements settingsRequirements;
+    private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -140,6 +146,7 @@ public class PrestoSparkQueryExecutionFactory
             Metadata metadata,
             BlockEncodingManager blockEncodingManager,
             PrestoSparkSettingsRequirements settingsRequirements,
+            PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -157,6 +164,7 @@ public class PrestoSparkQueryExecutionFactory
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.settingsRequirements = requireNonNull(settingsRequirements, "settingsRequirements is null");
+        this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -210,25 +218,27 @@ public class PrestoSparkQueryExecutionFactory
                     rddFactory,
                     tableWriteInfo,
                     transactionManager,
-                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()));
+                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()), executionExceptionFactory);
         }
         catch (RuntimeException executionFailure) {
             try {
                 rollback(session, transactionManager);
             }
             catch (RuntimeException rollbackFailure) {
-                if (executionFailure != rollbackFailure) {
-                    executionFailure.addSuppressed(rollbackFailure);
-                }
+                log.error(rollbackFailure, "Encountered error when performing rollback");
             }
             try {
                 // TODO: implement query monitor
                 // queryMonitor.queryImmediateFailureEvent();
             }
             catch (RuntimeException eventFailure) {
-                if (executionFailure != eventFailure) {
-                    executionFailure.addSuppressed(eventFailure);
-                }
+                log.error(eventFailure, "Error publishing query immediate failure event");
+            }
+
+            if (executionFailure instanceof PrestoSparkExecutionException) {
+                Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                verify(executionFailureInfo.isPresent());
+                throw executionFailureInfo.get().toFailure();
             }
             throw executionFailure;
         }
@@ -302,6 +312,7 @@ public class PrestoSparkQueryExecutionFactory
         private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
         private final PagesSerde pagesSerde;
+        private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -316,7 +327,8 @@ public class PrestoSparkQueryExecutionFactory
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager,
-                PagesSerde pagesSerde)
+                PagesSerde pagesSerde,
+                PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -331,6 +343,7 @@ public class PrestoSparkQueryExecutionFactory
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+            this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         }
 
         @Override
@@ -341,24 +354,36 @@ public class PrestoSparkQueryExecutionFactory
                 rddResults = doExecute(plan);
                 commit(session, transactionManager);
             }
-            catch (RuntimeException executionFailure) {
+            catch (Exception executionFailure) {
                 try {
                     rollback(session, transactionManager);
                 }
                 catch (RuntimeException rollbackFailure) {
-                    if (executionFailure != rollbackFailure) {
-                        executionFailure.addSuppressed(rollbackFailure);
-                    }
+                    log.error(rollbackFailure, "Encountered error when performing rollback");
                 }
+
                 try {
                     queryCompletedEvent(Optional.of(executionFailure));
                 }
                 catch (RuntimeException eventFailure) {
-                    if (executionFailure != eventFailure) {
-                        executionFailure.addSuppressed(eventFailure);
-                    }
+                    log.error(eventFailure, "Error publishing query completed event");
                 }
-                throw executionFailure;
+
+                if (executionFailure instanceof SparkException) {
+                    Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((SparkException) executionFailure);
+                    if (executionFailureInfo.isPresent()) {
+                        throw executionFailureInfo.get().toFailure();
+                    }
+                    throw toFailure(executionFailure).toFailure();
+                }
+
+                if (executionFailure instanceof PrestoSparkExecutionException) {
+                    Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                    verify(executionFailureInfo.isPresent());
+                    throw executionFailureInfo.get().toFailure();
+                }
+
+                throw toFailure(executionFailure).toFailure();
             }
 
             // successfully finished

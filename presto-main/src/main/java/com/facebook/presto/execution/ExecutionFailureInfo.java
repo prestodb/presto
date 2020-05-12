@@ -138,6 +138,11 @@ public class ExecutionFailureInfo
         return toException(this);
     }
 
+    public Failure toFailure()
+    {
+        return toException(this);
+    }
+
     private static Failure toException(ExecutionFailureInfo executionFailureInfo)
     {
         if (executionFailureInfo == null) {

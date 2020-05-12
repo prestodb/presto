@@ -82,6 +82,7 @@ import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
@@ -368,6 +369,7 @@ public class PrestoSparkModule
         install(new ServerSecurityModule());
 
         // spark specific
+        binder.bind(PrestoSparkExecutionExceptionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkSettingsRequirements.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
