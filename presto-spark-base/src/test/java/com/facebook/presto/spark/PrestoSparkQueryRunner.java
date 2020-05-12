@@ -154,7 +154,8 @@ public class PrestoSparkQueryRunner
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 ImmutableMap.of(
                         "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
+                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
+                        "prefer-distributed-union", "false"),
                 ImmutableMap.of(),
                 ImmutableList.of(),
                 Optional.of(new TestingAccessControlModule()));
