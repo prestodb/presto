@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader.dictionary;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
+import com.facebook.presto.parquet.dictionary.LongDictionary;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -37,7 +38,9 @@ public class Dictionaries
                     return new IntegerDictionary(dictionaryPage);
                 case INT64:
                 case DOUBLE:
+                    return new LongDictionary(dictionaryPage);
                 case INT96:
+                    return new TimestampDictionary(dictionaryPage);
                 case BINARY:
                     return new BinaryBatchDictionary(dictionaryPage);
                 case FIXED_LEN_BYTE_ARRAY:

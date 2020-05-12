@@ -20,13 +20,22 @@ import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
+import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
+import com.facebook.presto.parquet.dictionary.LongDictionary;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.bytes.ByteBufferInputStream;
@@ -52,6 +61,7 @@ import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_E
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianOnOneByte;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 
 public class Decoders
 {
@@ -66,18 +76,28 @@ public class Decoders
 
         if (encoding == PLAIN) {
             switch (type) {
+                case BOOLEAN:
+                    return new BooleanPlainValuesDecoder(buffer, offset, length);
                 case INT32:
                 case FLOAT:
                     return new Int32PlainValuesDecoder(buffer, offset, length);
                 case INT64:
                 case DOUBLE:
+                    return new Int64PlainValuesDecoder(buffer, offset, length);
                 case INT96:
+                    return new TimestampPlainValuesDecoder(buffer, offset, length);
                 case BINARY:
                     return new BinaryPlainValuesDecoder(buffer, offset, length);
                 case FIXED_LEN_BYTE_ARRAY:
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
+        }
+
+        if (encoding == RLE && type == BOOLEAN) {
+            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, offset, length);
+            byteBuffer.getInt(); // skip past the length
+            return new BooleanRLEValuesDecoder(byteBuffer);
         }
 
         if (encoding == RLE_DICTIONARY || encoding == PLAIN_DICTIONARY) {
@@ -89,8 +109,16 @@ public class Decoders
                     return new Int32RLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (IntegerDictionary) dictionary);
                 }
                 case INT64:
-                case DOUBLE:
-                case INT96:
+                case DOUBLE: {
+                    InputStream valuesBufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                    int bitWidth = readIntLittleEndianOnOneByte(valuesBufferInputStream);
+                    return new Int64RLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (LongDictionary) dictionary);
+                }
+                case INT96: {
+                    InputStream valuesBufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                    int bitWidth = readIntLittleEndianOnOneByte(valuesBufferInputStream);
+                    return new TimestampRLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (TimestampDictionary) dictionary);
+                }
                 case BINARY: {
                     InputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
                     int bitWidth = readIntLittleEndianOnOneByte(inputStream);
@@ -108,6 +136,11 @@ public class Decoders
                 case FLOAT: {
                     ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
                     return new Int32DeltaBinaryPackedValuesDecoder(valueCount, bufferInputStream);
+                }
+                case INT64:
+                case DOUBLE: {
+                    ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                    return new Int64DeltaBinaryPackedValuesDecoder(valueCount, bufferInputStream);
                 }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
