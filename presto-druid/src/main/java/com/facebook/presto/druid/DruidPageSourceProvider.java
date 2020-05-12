@@ -55,7 +55,7 @@ public class DruidPageSourceProvider
     public DruidPageSourceProvider(DruidClient druidClient, DruidConfig config)
     {
         this.druidClient = requireNonNull(druidClient, "druid client is null");
-        this.hadoopConfiguration = readConfiguration(config.getHadoopResourceConfigFiles());
+        this.hadoopConfiguration = readConfiguration(config.getHadoopConfiguration());
     }
 
     @Override
