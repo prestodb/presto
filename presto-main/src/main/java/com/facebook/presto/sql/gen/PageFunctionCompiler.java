@@ -111,6 +111,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
@@ -519,32 +520,72 @@ public class PageFunctionCompiler
 
         method.comment("Projections: %s", Joiner.on(", ").join(projections));
 
-        Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        declareBlockVariables(projections, page, scope, body);
-        Variable wasNull = scope.declareVariable("wasNull", body, constantFalse());
-        cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.evaluatedField, constantBoolean(false))));
+        List<MethodDefinition> projectionMethods = generateProjectMethods(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projections, blockBuilders, cseFields);
+        projectionMethods.forEach(projectionMethod -> body.append(thisVariable.invoke(projectionMethod, ImmutableList.of(properties, page, position))));
 
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields, thisVariable),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
+        body.ret();
+        return method;
+    }
 
-        Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
+    private List<MethodDefinition> generateProjectMethods(
+            SqlFunctionProperties sqlFunctionProperties,
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            List<RowExpression> projections,
+            FieldDefinition blockBuilders,
+            Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
+    {
+        ImmutableList.Builder<MethodDefinition> methods = ImmutableList.builder();
+
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
+        Parameter page = arg("page", Page.class);
+        Parameter position = arg("position", int.class);
+
         for (int i = 0; i < projections.size(); i++) {
+            RowExpression projection = projections.get(i);
+            MethodDefinition method = classDefinition.declareMethod(
+                    a(PUBLIC),
+                    format("projection_%s", i),
+                    type(void.class),
+                    ImmutableList.<Parameter>builder()
+                            .add(properties)
+                            .add(page)
+                            .add(position)
+                            .build());
+
+            method.comment("Projection: %s", projection);
+
+            Scope scope = method.getScope();
+            BytecodeBlock body = method.getBody();
+            Variable thisVariable = method.getThis();
+
+            declareBlockVariables(projections, page, scope, body);
+            Variable wasNull = scope.declareVariable("wasNull", body, constantFalse());
+            cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.evaluatedField, constantBoolean(false))));
+
+            RowExpressionCompiler compiler = new RowExpressionCompiler(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields, thisVariable),
+                    metadata,
+                    sqlFunctionProperties,
+                    compiledLambdaMap);
+
+            Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
             body.append(outputBlockVariable.set(thisVariable.getField(blockBuilders).invoke("get", Object.class, constantInt(i))))
                     .append(compiler.compile(projections.get(i), scope, Optional.of(outputBlockVariable)))
                     .append(constantBoolean(false))
                     .putVariable(wasNull);
+            body.ret();
+            methods.add(method);
         }
-        body.ret();
-        return method;
+        return methods.build();
     }
 
     public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
