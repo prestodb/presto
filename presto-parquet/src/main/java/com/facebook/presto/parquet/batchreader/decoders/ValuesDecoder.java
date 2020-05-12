@@ -43,4 +43,32 @@ public interface ValuesDecoder
             int getBufferSize();
         }
     }
+
+    interface Int64ValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(long[] values, int offset, int length)
+                throws IOException;
+
+        void skip(int length)
+                throws IOException;
+    }
+
+    interface TimestampValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(long[] values, int offset, int length)
+                throws IOException;
+
+        void skip(int length)
+                throws IOException;
+    }
+
+    interface BooleanValuesDecoder
+            extends ValuesDecoder
+    {
+        void readNext(byte[] values, int offset, int length);
+
+        void skip(int length);
+    }
 }

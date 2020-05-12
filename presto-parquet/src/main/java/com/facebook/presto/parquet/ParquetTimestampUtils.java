@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -50,6 +51,14 @@ public final class ParquetTimestampUtils
         // little endian encoding - need to invert byte order
         long timeOfDayNanos = Longs.fromBytes(bytes[7], bytes[6], bytes[5], bytes[4], bytes[3], bytes[2], bytes[1], bytes[0]);
         int julianDay = Ints.fromBytes(bytes[11], bytes[10], bytes[9], bytes[8]);
+
+        return julianDayToMillis(julianDay) + (timeOfDayNanos / NANOS_PER_MILLISECOND);
+    }
+
+    public static long getTimestampMillis(byte[] byteBuffer, int offset)
+    {
+        long timeOfDayNanos = BytesUtils.getLong(byteBuffer, offset);
+        int julianDay = BytesUtils.getInt(byteBuffer, offset + 8);
 
         return julianDayToMillis(julianDay) + (timeOfDayNanos / NANOS_PER_MILLISECOND);
     }

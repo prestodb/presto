@@ -28,4 +28,37 @@ public class BytesUtils
 
         return (ch3 << 24) + (ch2 << 16) + (ch1 << 8) + ch0;
     }
+
+    public static final long getLong(byte[] byteBuffer, int offset)
+    {
+        int ch0 = byteBuffer[offset + 0];
+        int ch1 = byteBuffer[offset + 1];
+        int ch2 = byteBuffer[offset + 2];
+        int ch3 = byteBuffer[offset + 3];
+        int ch4 = byteBuffer[offset + 4];
+        int ch5 = byteBuffer[offset + 5];
+        int ch6 = byteBuffer[offset + 6];
+        int ch7 = byteBuffer[offset + 7];
+
+        return ((long) (ch7 & 255) << 56) +
+                ((long) (ch6 & 255) << 48) +
+                ((long) (ch5 & 255) << 40) +
+                ((long) (ch4 & 255) << 32) +
+                ((long) (ch3 & 255) << 24) +
+                ((long) (ch2 & 255) << 16) +
+                ((long) (ch1 & 255) << 8) +
+                ((long) (ch0 & 255) << 0);
+    }
+
+    public static void unpack8Values(byte inByte, byte[] out, int outPos)
+    {
+        out[0 + outPos] = (byte) (inByte & 1);
+        out[1 + outPos] = (byte) (inByte >> 1 & 1);
+        out[2 + outPos] = (byte) (inByte >> 2 & 1);
+        out[3 + outPos] = (byte) (inByte >> 3 & 1);
+        out[4 + outPos] = (byte) (inByte >> 4 & 1);
+        out[5 + outPos] = (byte) (inByte >> 5 & 1);
+        out[6 + outPos] = (byte) (inByte >> 6 & 1);
+        out[7 + outPos] = (byte) (inByte >> 7 & 1);
+    }
 }

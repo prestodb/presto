@@ -14,14 +14,20 @@
 package com.facebook.presto.parquet.batchreader.decoders;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTime;
+import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
+import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.bitpacking.ByteBitPackingValuesWriter;
+import org.apache.parquet.column.values.bitpacking.Packer;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -83,11 +89,26 @@ public class TestParquetUtils
         return values.iterator();
     }
 
-    public static byte[] generatePlainValuesPage(int valueCount, int valueSize, Random random, List<Object> addedValues)
+    public static byte[] generatePlainValuesPage(int valueCount, int valueSizeBits, Random random, List<Object> addedValues)
     {
-        PlainValuesWriter writer = new PlainValuesWriter(20, 1024 * 1000, new HeapByteBufferAllocator());
+        ValuesWriter writer;
 
-        switch (valueSize) {
+        if (valueSizeBits == 1) {
+            writer = new ByteBitPackingValuesWriter(1, Packer.LITTLE_ENDIAN);
+        }
+        else {
+            writer = new PlainValuesWriter(20, 1024 * 1000, new HeapByteBufferAllocator());
+        }
+
+        switch (valueSizeBits) {
+            case 1: {
+                for (int i = 0; i < valueCount; i++) {
+                    int value = random.nextInt(2);
+                    writer.writeInteger(value);
+                    addedValues.add(value);
+                }
+                break;
+            }
             case -1: {
                 for (int i = 0; i < valueCount; i++) {
                     String valueStr = RandomStringUtils.random(random.nextInt(10), 0, 0, true, true, null, random);
@@ -97,7 +118,7 @@ public class TestParquetUtils
                 }
                 break;
             }
-            case 4: {
+            case 32: {
                 for (int i = 0; i < valueCount; i++) {
                     int value = random.nextInt();
                     writer.writeInteger(value);
@@ -105,11 +126,21 @@ public class TestParquetUtils
                 }
                 break;
             }
-            case 8: {
+            case 64: {
                 for (int i = 0; i < valueCount; i++) {
                     long value = random.nextLong();
                     writer.writeLong(value);
                     addedValues.add(value);
+                }
+                break;
+            }
+            case 96: {
+                for (int i = 0; i < valueCount; i++) {
+                    long millisValue = Long.valueOf(random.nextInt(1572281176) * 1000);
+                    NanoTime nanoTime = NanoTimeUtils.getNanoTime(new Timestamp(millisValue), false);
+                    writer.writeLong(nanoTime.getTimeOfDayNanos());
+                    writer.writeInteger(nanoTime.getJulianDay());
+                    addedValues.add(millisValue);
                 }
                 break;
             }
