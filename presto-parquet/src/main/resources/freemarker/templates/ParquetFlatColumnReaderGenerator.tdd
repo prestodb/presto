@@ -1,0 +1,10 @@
+<#list parquetTypes.types as type>
+<@pp.changeOutputFile name="/com/facebook/presto/parquet/batchreader/${type.className}.java" />
+<#assign updatedTemplate = simpleTypeTemplate?replace("Int32FlatBatchReader", "${type.className}")>
+<#assign updatedTemplate = updatedTemplate?replace("com.facebook.presto.common.block.IntArrayBlock", "com.facebook.presto.common.block.${type.blockType}")>
+<#assign updatedTemplate = updatedTemplate?replace("com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder", "com.facebook.presto.parquet.batchreader.decoders.${type.valuesDecoder}")>
+<#assign updatedTemplate = updatedTemplate?replace("IntArrayBlock", "${type.blockType}")>
+<#assign updatedTemplate = updatedTemplate?replace("Int32ValuesDecoder", "${type.valuesDecoder}")>
+<#assign updatedTemplate = updatedTemplate?replace("int[] values = new int[nextBatchSize]", "${type.primitiveType}[] values = new ${type.primitiveType}[nextBatchSize]")>
+${updatedTemplate}
+</#list>
