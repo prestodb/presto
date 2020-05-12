@@ -15,18 +15,30 @@ package com.facebook.presto.parquet.batchreader.decoders;
 
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
+import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
+import com.facebook.presto.parquet.dictionary.LongDictionary;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -60,6 +72,36 @@ public class TestValuesDecoders
     private static BinaryValuesDecoder binaryDictionary(byte[] pageBytes, int dictionarySize, BinaryBatchDictionary dictionary)
     {
         return new BinaryRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static Int64ValuesDecoder int64Plain(byte[] pageBytes)
+    {
+        return new Int64PlainValuesDecoder(pageBytes, 0, pageBytes.length);
+    }
+
+    private static Int64ValuesDecoder int64Dictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
+    {
+        return new Int64RLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static TimestampValuesDecoder timestampPlain(byte[] pageBytes)
+    {
+        return new TimestampPlainValuesDecoder(pageBytes, 0, pageBytes.length);
+    }
+
+    private static TimestampValuesDecoder timestampDictionary(byte[] pageBytes, int dictionarySize, TimestampDictionary dictionary)
+    {
+        return new TimestampRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static BooleanValuesDecoder booleanPlain(byte[] pageBytes)
+    {
+        return new BooleanPlainValuesDecoder(pageBytes, 0, pageBytes.length);
+    }
+
+    private static BooleanValuesDecoder booleanRLE(byte[] pageBytes)
+    {
+        return new BooleanRLEValuesDecoder(ByteBuffer.wrap(pageBytes));
     }
 
     private static void int32BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int32ValuesDecoder decoder, List<Object> expectedValues)
@@ -111,6 +153,74 @@ public class TestValuesDecoders
         }
     }
 
+    private static void int64BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int64ValuesDecoder decoder, List<Object> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                assertEquals(actualValues[outputOffset + i], (long) expectedValues.get(inputOffset + i));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
+    private static void timestampBatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, TimestampValuesDecoder decoder, List<Object> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                assertEquals(actualValues[outputOffset + i], (long) expectedValues.get(inputOffset + i));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
+    private static void booleanBatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, BooleanValuesDecoder decoder, List<Object> expectedValues)
+    {
+        byte[] actualValues = new byte[valueCount];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                assertEquals(actualValues[outputOffset + i], (int) expectedValues.get(inputOffset + i));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
     @Test
     public void testInt32Plain()
             throws IOException
@@ -118,7 +228,7 @@ public class TestValuesDecoders
         int valueCount = 2048;
         List<Object> expectedValues = new ArrayList<>();
 
-        byte[] pageBytes = generatePlainValuesPage(valueCount, 4, new Random(89), expectedValues);
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 32, new Random(89), expectedValues);
 
         int32BatchReadWithSkipHelper(valueCount, 0, valueCount, int32Plain(pageBytes), expectedValues); // read all values in one batch
         int32BatchReadWithSkipHelper(29, 0, valueCount, int32Plain(pageBytes), expectedValues);
@@ -140,7 +250,7 @@ public class TestValuesDecoders
         List<Object> dictionary = new ArrayList<>();
         List<Integer> dictionaryIds = new ArrayList<>();
 
-        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 4, random, dictionary);
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 32, random, dictionary);
         byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, random, dictionaryIds);
 
         List<Object> expectedValues = new ArrayList<>();
@@ -207,5 +317,145 @@ public class TestValuesDecoders
         binaryBatchReadWithSkipHelper(256, 29, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
         binaryBatchReadWithSkipHelper(89, 29, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
         binaryBatchReadWithSkipHelper(1024, 1024, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+    }
+
+    @Test
+    public void testInt64Plain()
+            throws IOException
+    {
+        int valueCount = 2048;
+        List<Object> expectedValues = new ArrayList<>();
+
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 64, new Random(89), expectedValues);
+
+        int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64Plain(pageBytes), expectedValues); // read all values in one batch
+        int64BatchReadWithSkipHelper(29, 0, valueCount, int64Plain(pageBytes), expectedValues);
+        int64BatchReadWithSkipHelper(89, 0, valueCount, int64Plain(pageBytes), expectedValues);
+        int64BatchReadWithSkipHelper(1024, 0, valueCount, int64Plain(pageBytes), expectedValues);
+
+        int64BatchReadWithSkipHelper(256, 29, valueCount, int64Plain(pageBytes), expectedValues);
+        int64BatchReadWithSkipHelper(89, 29, valueCount, int64Plain(pageBytes), expectedValues);
+        int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Plain(pageBytes), expectedValues);
+    }
+
+    @Test
+    public void testInt64RLEDictionary()
+            throws IOException
+    {
+        Random random = new Random(83);
+        int valueCount = 2048;
+        int dictionarySize = 29;
+        List<Object> dictionary = new ArrayList<>();
+        List<Integer> dictionaryIds = new ArrayList<>();
+
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 64, random, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, random, dictionaryIds);
+
+        List<Object> expectedValues = new ArrayList<>();
+        for (Integer dictionaryId : dictionaryIds) {
+            expectedValues.add(dictionary.get(dictionaryId));
+        }
+
+        LongDictionary longDictionary = new LongDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY));
+
+        int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+        int64BatchReadWithSkipHelper(29, 0, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+        int64BatchReadWithSkipHelper(89, 0, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+        int64BatchReadWithSkipHelper(1024, 0, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+
+        int64BatchReadWithSkipHelper(256, 29, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+        int64BatchReadWithSkipHelper(89, 29, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+        int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+    }
+
+    @Test
+    public void testTimestampPlain()
+            throws IOException
+    {
+        int valueCount = 2048;
+        List<Object> expectedValues = new ArrayList<>();
+
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 96, new Random(83), expectedValues);
+
+        timestampBatchReadWithSkipHelper(valueCount, 0, valueCount, timestampPlain(pageBytes), expectedValues); // read all values in one batch
+        timestampBatchReadWithSkipHelper(29, 0, valueCount, timestampPlain(pageBytes), expectedValues);
+        timestampBatchReadWithSkipHelper(89, 0, valueCount, timestampPlain(pageBytes), expectedValues);
+        timestampBatchReadWithSkipHelper(1024, 0, valueCount, timestampPlain(pageBytes), expectedValues);
+
+        timestampBatchReadWithSkipHelper(256, 29, valueCount, timestampPlain(pageBytes), expectedValues);
+        timestampBatchReadWithSkipHelper(89, 29, valueCount, timestampPlain(pageBytes), expectedValues);
+        timestampBatchReadWithSkipHelper(1024, 1024, valueCount, timestampPlain(pageBytes), expectedValues);
+    }
+
+    @Test
+    public void testTimestampRLEDictionary()
+            throws IOException
+    {
+        Random random = new Random(83);
+        int valueCount = 2048;
+        int dictionarySize = 29;
+        List<Object> dictionary = new ArrayList<>();
+        List<Integer> dictionaryIds = new ArrayList<>();
+
+        byte[] dictionaryPage = generatePlainValuesPage(dictionarySize, 96, random, dictionary);
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, random, dictionaryIds);
+
+        List<Object> expectedValues = new ArrayList<>();
+        for (Integer dictionaryId : dictionaryIds) {
+            expectedValues.add(dictionary.get(dictionaryId));
+        }
+
+        TimestampDictionary tsDictionary = new TimestampDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY));
+
+        timestampBatchReadWithSkipHelper(valueCount, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+        timestampBatchReadWithSkipHelper(29, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+        timestampBatchReadWithSkipHelper(89, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+        timestampBatchReadWithSkipHelper(1024, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+
+        timestampBatchReadWithSkipHelper(256, 29, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+        timestampBatchReadWithSkipHelper(89, 29, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+        timestampBatchReadWithSkipHelper(1024, 1024, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
+    }
+
+    @Test
+    public void testBooleanPlain()
+    {
+        int valueCount = 2048;
+        List<Object> expectedValues = new ArrayList<>();
+
+        byte[] pageBytes = generatePlainValuesPage(valueCount, 1, new Random(83), expectedValues);
+
+        booleanBatchReadWithSkipHelper(valueCount, 0, valueCount, booleanPlain(pageBytes), expectedValues); // read all values in one batch
+        booleanBatchReadWithSkipHelper(29, 0, valueCount, booleanPlain(pageBytes), expectedValues);
+        booleanBatchReadWithSkipHelper(89, 0, valueCount, booleanPlain(pageBytes), expectedValues);
+        booleanBatchReadWithSkipHelper(1024, 0, valueCount, booleanPlain(pageBytes), expectedValues);
+
+        booleanBatchReadWithSkipHelper(256, 29, valueCount, booleanPlain(pageBytes), expectedValues);
+        booleanBatchReadWithSkipHelper(89, 29, valueCount, booleanPlain(pageBytes), expectedValues);
+        booleanBatchReadWithSkipHelper(1024, 1024, valueCount, booleanPlain(pageBytes), expectedValues);
+    }
+
+    @Test
+    public void testBooleanRLE()
+    {
+        Random random = new Random(111);
+        int valueCount = 2048;
+        List<Integer> values = new ArrayList<>();
+
+        byte[] dataPage = generateDictionaryIdPage2048(1, random, values);
+
+        List<Object> expectedValues = new ArrayList<>();
+        for (Integer value : values) {
+            expectedValues.add(value.intValue());
+        }
+
+        booleanBatchReadWithSkipHelper(valueCount, 0, valueCount, booleanRLE(dataPage), expectedValues);
+        booleanBatchReadWithSkipHelper(29, 0, valueCount, booleanRLE(dataPage), expectedValues);
+        booleanBatchReadWithSkipHelper(89, 0, valueCount, booleanRLE(dataPage), expectedValues);
+        booleanBatchReadWithSkipHelper(1024, 0, valueCount, booleanRLE(dataPage), expectedValues);
+
+        booleanBatchReadWithSkipHelper(256, 29, valueCount, booleanRLE(dataPage), expectedValues);
+        booleanBatchReadWithSkipHelper(89, 29, valueCount, booleanRLE(dataPage), expectedValues);
+        booleanBatchReadWithSkipHelper(1024, 1024, valueCount, booleanRLE(dataPage), expectedValues);
     }
 }
