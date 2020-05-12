@@ -28,7 +28,7 @@ public class DruidConfig
     private String brokerUrl;
     private String schema = "druid";
     private boolean pushdown;
-    private List<String> hadoopResourceConfigFiles = ImmutableList.of();
+    private List<String> hadoopConfiguration = ImmutableList.of();
 
     @NotNull
     public String getDruidCoordinatorUrl()
@@ -86,24 +86,24 @@ public class DruidConfig
     }
 
     @NotNull
-    public List<String> getHadoopResourceConfigFiles()
+    public List<String> getHadoopConfiguration()
     {
-        return hadoopResourceConfigFiles;
+        return hadoopConfiguration;
     }
 
     @Config("druid.hadoop.config.resources")
-    public DruidConfig setHadoopResourceConfigFiles(String files)
+    public DruidConfig setHadoopConfiguration(String files)
     {
         if (files != null) {
-            this.hadoopResourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+            this.hadoopConfiguration = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
         }
         return this;
     }
 
-    public DruidConfig setHadoopResourceConfigFiles(List<String> files)
+    public DruidConfig setHadoopConfiguration(List<String> files)
     {
         if (files != null) {
-            this.hadoopResourceConfigFiles = ImmutableList.copyOf(files);
+            this.hadoopConfiguration = ImmutableList.copyOf(files);
         }
         return this;
     }
