@@ -50,6 +50,7 @@ public class MongoClientModule
 
         options.connectionsPerHost(config.getConnectionsPerHost())
                 .connectTimeout(config.getConnectionTimeout())
+                .maxConnectionIdleTime(config.getMaxConnectionIdleTime())
                 .socketTimeout(config.getSocketTimeout())
                 .socketKeepAlive(config.getSocketKeepAlive())
                 .sslEnabled(config.getSslEnabled())
