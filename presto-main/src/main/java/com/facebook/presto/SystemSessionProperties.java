@@ -150,6 +150,7 @@ public final class SystemSessionProperties
     public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
     public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
+    public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -762,7 +763,12 @@ public final class SystemSessionProperties
                         OPTIMIZE_COMMON_SUB_EXPRESSIONS,
                         "Extract and compute common sub-expressions in projection",
                         featuresConfig.isOptimizeCommonSubExpressions(),
-                        false));
+                        false),
+                booleanProperty(
+                        PREFER_DISTRIBUTED_UNION,
+                        "Prefer distributed union",
+                        featuresConfig.isPreferDistributedUnion(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1292,5 +1298,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeCommonSubExpressions(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_COMMON_SUB_EXPRESSIONS, Boolean.class);
+    }
+
+    public static boolean isPreferDistributedUnion(Session session)
+    {
+        return session.getSystemProperty(PREFER_DISTRIBUTED_UNION, Boolean.class);
     }
 }
