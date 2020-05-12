@@ -33,7 +33,7 @@ public class TestDruidConfig
                 .setDruidCoordinatorUrl(null)
                 .setDruidSchema("druid")
                 .setComputePushdownEnabled(false)
-                .setHadoopResourceConfigFiles((String) null));
+                .setHadoopConfiguration(""));
     }
 
     @Test
@@ -52,7 +52,7 @@ public class TestDruidConfig
                 .setDruidCoordinatorUrl("http://druid.coordinator:4321")
                 .setDruidSchema("test")
                 .setComputePushdownEnabled(true)
-                .setHadoopResourceConfigFiles(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"));
+                .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

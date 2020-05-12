@@ -148,6 +148,7 @@ public class DruidMetadata
         switch (type.toUpperCase()) {
             case "VARCHAR":
             case "OTHER":
+                //hyperUnique, approxHistogram Druid column types
                 return VARCHAR;
             case "BIGINT":
                 return BIGINT;
