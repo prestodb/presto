@@ -88,6 +88,7 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERT
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -409,8 +410,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void close()
     {
-        sparkContext.cancelAllJobs();
-        sparkContext.stop();
+        sparkContextHolder.release(sparkContext);
 
         try {
             if (lifeCycleManager != null) {
@@ -468,6 +468,7 @@ public class PrestoSparkQueryRunner
     private static class SparkContextHolder
     {
         private static SparkContext sparkContext;
+        private static int referenceCount;
 
         public SparkContext get()
         {
@@ -479,7 +480,21 @@ public class PrestoSparkQueryRunner
                             .set("spark.driver.host", "localhost");
                     sparkContext = new SparkContext(sparkConfiguration);
                 }
+                referenceCount++;
                 return sparkContext;
+            }
+        }
+
+        public void release(SparkContext sparkContext)
+        {
+            synchronized (SparkContextHolder.class) {
+                checkState(SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
+                referenceCount--;
+                if (referenceCount == 0) {
+                    sparkContext.cancelAllJobs();
+                    sparkContext.stop();
+                    SparkContextHolder.sparkContext = null;
+                }
             }
         }
     }
