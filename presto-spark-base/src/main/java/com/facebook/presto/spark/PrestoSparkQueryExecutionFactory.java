@@ -98,6 +98,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.transform;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkQueryExecutionFactory
@@ -369,13 +370,13 @@ public class PrestoSparkQueryExecutionFactory
             for (Tuple2<Integer, PrestoSparkRow> tuple : rddResults) {
                 PrestoSparkRow row = tuple._2;
                 SliceInput sliceInput = new BasicSliceInput(Slices.wrappedBuffer(row.getBytes(), 0, row.getLength()));
-                ImmutableList.Builder<Object> columns = ImmutableList.builder();
+                List<Object> columns = new ArrayList<>();
                 for (Type type : types) {
                     BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                     blockBuilder.readPositionFrom(sliceInput);
                     columns.add(type.getObjectValue(connectorSession.getSqlFunctionProperties(), blockBuilder, 0));
                 }
-                result.add(columns.build());
+                result.add(unmodifiableList(columns));
             }
             return result.build();
         }
