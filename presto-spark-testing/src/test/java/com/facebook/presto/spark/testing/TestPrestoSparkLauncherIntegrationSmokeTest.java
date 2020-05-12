@@ -356,6 +356,58 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
     }
 
+    @Test
+    public void testNWayJoin()
+            throws Exception
+    {
+        assertQuery("SELECT " +
+                "   l.orderkey, " +
+                "   l.linenumber, " +
+                "   o1.orderstatus as orderstatus1, " +
+                "   o2.orderstatus as orderstatus2, " +
+                "   o3.orderstatus as orderstatus3, " +
+                "   o4.orderstatus as orderstatus4, " +
+                "   o5.orderstatus as orderstatus5, " +
+                "   o6.orderstatus as orderstatus6 " +
+                "FROM lineitem l, orders o1, orders o2, orders o3, orders o4, orders o5, orders o6 " +
+                "WHERE l.orderkey = o1.orderkey " +
+                "AND l.orderkey = o2.orderkey " +
+                "AND l.orderkey = o3.orderkey " +
+                "AND l.orderkey = o4.orderkey " +
+                "AND l.orderkey = o5.orderkey " +
+                "AND l.orderkey = o6.orderkey");
+    }
+
+    @Test
+    public void testUnionAll()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders UNION ALL SELECT * FROM orders");
+    }
+
+    @Test
+    public void testValues()
+            throws Exception
+    {
+        assertQuery("SELECT a, b " +
+                "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')) t1 (a, b) ");
+    }
+
+    @Test
+    public void testUnionWithAggregationAndJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT t.orderkey, t.c, o.orderstatus  FROM ( " +
+                        "SELECT orderkey, count(*) as c FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY orderkey) t " +
+                        "JOIN orders o " +
+                        "ON (o.orderkey = t.orderkey)");
+    }
+
     private void assertQuery(String query)
             throws Exception
     {
