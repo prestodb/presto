@@ -65,6 +65,7 @@
         <dep.alluxio.version>2.2.0</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
+        <dep.jaxb.version>2.3.1</dep.jaxb.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -814,6 +815,18 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-i18n-functions</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.xml.bind</groupId>
+                <artifactId>jaxb-api</artifactId>
+                <version>${dep.jaxb.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-runtime</artifactId>
+                <version>${dep.jaxb.version}</version>
             </dependency>
 
             <dependency>
