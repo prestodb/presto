@@ -14,19 +14,19 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.TaskContext;
-import org.apache.spark.api.java.function.FlatMapFunction2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonMap;
 import static java.util.Collections.unmodifiableMap;
 
 // because of high number of template parameters inner classes are more readable then lambdas
@@ -62,52 +62,25 @@ public class TaskProcessors
         };
     }
 
-    public static PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow> createTaskProcessor(
+    public static Function<List<Iterator<Tuple2<Integer, PrestoSparkRow>>>, Iterator<Tuple2<Integer, PrestoSparkRow>>> createTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
-            String fragmentId,
+            List<String> fragmentIds,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
             // fragmentId -> Broadcast
             Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
-        return new PairFlatMapFunction<Iterator<Tuple2<Integer, PrestoSparkRow>>, Integer, PrestoSparkRow>()
+        return new SerializableFunction<List<Iterator<Tuple2<Integer, PrestoSparkRow>>>, Iterator<Tuple2<Integer, PrestoSparkRow>>>()
         {
             @Override
-            public Iterator<Tuple2<Integer, PrestoSparkRow>> call(Iterator<Tuple2<Integer, PrestoSparkRow>> input)
+            public Iterator<Tuple2<Integer, PrestoSparkRow>> apply(List<Iterator<Tuple2<Integer, PrestoSparkRow>>> iterators)
             {
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
-                return taskExecutorFactoryProvider.get().create(
-                        partitionId,
-                        attemptNumber,
-                        serializedTaskDescriptor,
-                        new PrestoSparkTaskInputs(singletonMap(fragmentId, input), broadcastInputs),
-                        taskStatsCollector);
-            }
-        };
-    }
-
-    public static FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>> createTaskProcessor(
-            PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
-            SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
-            String fragmentId1,
-            String fragmentId2,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-            // fragmentId -> Broadcast
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
-    {
-        return new FlatMapFunction2<Iterator<Tuple2<Integer, PrestoSparkRow>>, Iterator<Tuple2<Integer, PrestoSparkRow>>, Tuple2<Integer, PrestoSparkRow>>()
-        {
-            @Override
-            public Iterator<Tuple2<Integer, PrestoSparkRow>> call(
-                    Iterator<Tuple2<Integer, PrestoSparkRow>> input1,
-                    Iterator<Tuple2<Integer, PrestoSparkRow>> input2)
-            {
-                int partitionId = TaskContext.get().partitionId();
-                int attemptNumber = TaskContext.get().attemptNumber();
-                HashMap<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap = new HashMap<>();
-                inputsMap.put(fragmentId1, input1);
-                inputsMap.put(fragmentId2, input2);
+                Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap = new HashMap<>();
+                for (int i = 0; i < fragmentIds.size(); i++) {
+                    inputsMap.put(fragmentIds.get(i), iterators.get(i));
+                }
                 return taskExecutorFactoryProvider.get().create(
                         partitionId,
                         attemptNumber,
@@ -116,5 +89,10 @@ public class TaskProcessors
                         taskStatsCollector);
             }
         };
+    }
+
+    public interface SerializableFunction<T, R>
+            extends Function<T, R>, Serializable
+    {
     }
 }
