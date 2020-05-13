@@ -18,7 +18,9 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -34,6 +36,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessDeniedException;
@@ -121,6 +124,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
@@ -138,6 +142,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -156,6 +161,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -229,6 +235,7 @@ import static java.util.stream.Collectors.groupingBy;
 
 class StatementAnalyzer
 {
+    private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
@@ -1148,7 +1155,6 @@ class StatementAnalyzer
         protected Scope visitSetOperation(SetOperation node, Optional<Scope> scope)
         {
             checkState(node.getRelations().size() >= 2);
-
             List<Scope> relationScopes = node.getRelations().stream()
                     .map(relation -> {
                         Scope relationScope = process(relation, scope);
@@ -1159,8 +1165,15 @@ class StatementAnalyzer
             Type[] outputFieldTypes = relationScopes.get(0).getRelationType().getVisibleFields().stream()
                     .map(Field::getType)
                     .toArray(Type[]::new);
+            int outputFieldSize = outputFieldTypes.length;
+            if (isExpensiveUnionDistinct(node, outputFieldTypes)) {
+                warningCollector.add(new PrestoWarning(
+                        PERFORMANCE_WARNING,
+                        format("UNION DISTINCT query should consider avoiding double/real/complex types and reducing the number of visible fields (%d) to %d",
+                                outputFieldSize,
+                                UNION_DISTINCT_FIELDS_WARNING_THRESHOLD)));
+            }
             for (Scope relationScope : relationScopes) {
-                int outputFieldSize = outputFieldTypes.length;
                 RelationType relationType = relationScope.getRelationType();
                 int descFieldSize = relationType.getVisibleFields().size();
                 String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
@@ -1218,6 +1231,20 @@ class StatementAnalyzer
                 }
             }
             return createAndAssignScope(node, scope, outputDescriptorFields);
+        }
+
+        private boolean isExpensiveUnionDistinct(SetOperation setOperation, Type[] outputTypes)
+        {
+            return setOperation instanceof Union &&
+                    setOperation.isDistinct() &&
+                    outputTypes.length > UNION_DISTINCT_FIELDS_WARNING_THRESHOLD &&
+                    Arrays.stream(outputTypes)
+                            .anyMatch(
+                                    type -> type instanceof RealType ||
+                                            type instanceof DoubleType ||
+                                            type instanceof MapType ||
+                                            type instanceof ArrayType ||
+                                            type instanceof RowType);
         }
 
         @Override

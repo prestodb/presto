@@ -18,12 +18,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
@@ -44,6 +46,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -55,6 +58,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.TestingMetadata;
+import com.facebook.presto.testing.TestingWarningCollector;
+import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +78,7 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -124,6 +130,8 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -1052,6 +1060,33 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testUnionDistinctPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT a,b,c,d FROM t8 UNION DISTINCT SELECT a,b,c,d FROM t9");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+
+        // Ensure warning is the performance warning we expect
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(warning.getMessage().startsWith("UNION DISTINCT"));
+    }
+
+    @Test
+    public void testUnionNoPerformanceWarning()
+    {
+        // <= 3 fields
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT a,b,c FROM t8 UNION DISTINCT SELECT a,b,c FROM t9");
+        assertTrue(warningCollector.getWarnings().isEmpty());
+        // > 3 fields, no expensive types
+        //warningCollector = analyzeWithWarnings("SELECT a,b,c,d FROM t1 UNION DISTINCT SELECT a,b,c,d FROM t1");
+        assertTrue(warningCollector.getWarnings().isEmpty());
+        // > 3 fields, expensive types, not distinct
+        warningCollector = analyzeWithWarnings("SELECT a,b,c,d FROM t8 UNION ALL SELECT a,b,c,d FROM t9");
+        assertTrue(warningCollector.getWarnings().isEmpty());
+    }
+
+    @Test
     public void testMismatchedUnionQueries()
     {
         assertFails(TYPE_MISMATCH, "SELECT 1 UNION SELECT 'a'");
@@ -1631,6 +1666,26 @@ public class TestAnalyzer
                         new ColumnMetadata("d", new ArrayType(DOUBLE)))),
                 false));
 
+        // table with double, array of bigints, real, and bigint
+        SchemaTableName table8 = new SchemaTableName("s1", "t8");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table8, ImmutableList.of(
+                        new ColumnMetadata("a", DOUBLE),
+                        new ColumnMetadata("b", new ArrayType(BIGINT)),
+                        new ColumnMetadata("c", RealType.REAL),
+                        new ColumnMetadata("d", BIGINT))),
+                false));
+
+        // table with double, array of bigints, real, and bigint
+        SchemaTableName table9 = new SchemaTableName("s1", "t9");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table9, ImmutableList.of(
+                        new ColumnMetadata("a", DOUBLE),
+                        new ColumnMetadata("b", new ArrayType(BIGINT)),
+                        new ColumnMetadata("c", RealType.REAL),
+                        new ColumnMetadata("d", BIGINT))),
+                false));
+
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
@@ -1705,7 +1760,7 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata)
+    private static Analyzer createAnalyzer(Session session, Metadata metadata, WarningCollector warningCollector)
     {
         return new Analyzer(
                 session,
@@ -1714,7 +1769,7 @@ public class TestAnalyzer
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),
-                WarningCollector.NOOP);
+                warningCollector);
     }
 
     private void analyze(@Language("SQL") String query)
@@ -1722,14 +1777,26 @@ public class TestAnalyzer
         analyze(CLIENT_SESSION, query);
     }
 
+    private WarningCollector analyzeWithWarnings(@Language("SQL") String query)
+    {
+        WarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig());
+        analyze(CLIENT_SESSION, warningCollector, query);
+        return warningCollector;
+    }
+
     private void analyze(Session clientSession, @Language("SQL") String query)
+    {
+        analyze(clientSession, WarningCollector.NOOP, query);
+    }
+
+    private void analyze(Session clientSession, WarningCollector warningCollector, @Language("SQL") String query)
     {
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata);
+                    Analyzer analyzer = createAnalyzer(session, metadata, warningCollector);
                     Statement statement = SQL_PARSER.createStatement(query);
                     analyzer.analyze(statement);
                 });
