@@ -78,13 +78,12 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnsHive;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
 import static com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -175,7 +174,8 @@ public class BenchmarkSelectiveStreamReaders
                 "decimal(10,5)",
                 "decimal(30,10)",
 
-                "varchar_direct",
+                "varchar_unbounded_direct",
+                "varchar_bounded_direct",
                 "varchar_dictionary"
         })
         private String typeSignature = "boolean";
@@ -221,7 +221,11 @@ public class BenchmarkSelectiveStreamReaders
         public void setup()
                 throws Exception
         {
-            if (typeSignature.startsWith("varchar")) {
+            if (typeSignature.startsWith("varchar_bounded")) {
+                // Create varchar type that has a lower bound than MAX_STRING_LENGTH, so that truncation can be enforced.
+                type = VarcharType.createVarcharType(9);
+            }
+            else if (typeSignature.startsWith("varchar")) {
                 type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
             }
             else {
@@ -246,7 +250,8 @@ public class BenchmarkSelectiveStreamReaders
                 }
             }
 
-            writeOrcColumnsHive(orcFile, ORC_12, NONE, Collections.nCopies(channelCount, type), values);
+            // Use writeOrcColumnsPresto so that orcType and varchar length can be written in file footer
+            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new OrcWriterStats());
         }
 
         @TearDown
@@ -422,7 +427,7 @@ public class BenchmarkSelectiveStreamReaders
                 }
             }
 
-            if (type == VARCHAR) {
+            if (type instanceof VarcharType) {
                 if (typeSignature.equals("varchar_dictionary")) {
                     return Strings.repeat("0", 9);
                 }
