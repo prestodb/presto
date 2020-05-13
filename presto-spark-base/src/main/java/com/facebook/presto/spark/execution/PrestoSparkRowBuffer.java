@@ -49,9 +49,9 @@ public class PrestoSparkRowBuffer
         requireNonNull(row, "row is null");
         synchronized (monitor) {
             buffer.add(row);
+            memoryManager.updateMemoryUsage(row.getRetainedSize());
             monitor.notify();
         }
-        memoryManager.updateMemoryUsage(row.getRetainedSize());
     }
 
     public void setNoMoreRows()
@@ -81,9 +81,9 @@ public class PrestoSparkRowBuffer
             if (!buffer.isEmpty()) {
                 row = buffer.poll();
             }
-        }
-        if (row != null) {
-            memoryManager.updateMemoryUsage(-row.getRetainedSize());
+            if (row != null) {
+                memoryManager.updateMemoryUsage(-row.getRetainedSize());
+            }
         }
         return row;
     }
