@@ -79,8 +79,8 @@ public class FailureResolverModule
     {
         configBinder(binder).bindConfig(FailureResolverConfig.class, named(name), name);
         if (buildConfigObject(FailureResolverConfig.class, name).isEnabled()) {
-            failureResolverClass.ifPresent(clazz -> newSetBinder(binder, FailureResolver.class).addBinding().to(clazz));
-            failureResolverFactoryClass.ifPresent(clazz -> newSetBinder(binder, FailureResolverFactory.class).addBinding().to(clazz));
+            failureResolverClass.ifPresent(clazz -> newSetBinder(binder, FailureResolver.class).addBinding().to(clazz).in(SINGLETON));
+            failureResolverFactoryClass.ifPresent(clazz -> newSetBinder(binder, FailureResolverFactory.class).addBinding().to(clazz).in(SINGLETON));
             failureResolverConfigClass.ifPresent(clazz -> configBinder(binder).bindConfig(clazz, name));
         }
     }
