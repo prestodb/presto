@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.framework.QueryBundle;
 
 import static com.facebook.presto.verifier.VerifierTestUtil.TEST_BUNDLE;
 import static com.facebook.presto.verifier.resolver.FailureResolverTestUtil.createMatchResult;
@@ -32,11 +33,21 @@ public abstract class AbstractTestResultMismatchResolver
 
     protected void assertResolved(ColumnMatchResult<?>... mismatchedColumns)
     {
-        assertTrue(failureResolver.resolveResultMismatch(createMatchResult(mismatchedColumns), TEST_BUNDLE).isPresent());
+        assertResolved(TEST_BUNDLE, mismatchedColumns);
+    }
+
+    protected void assertResolved(QueryBundle bundle, ColumnMatchResult<?>... mismatchedColumns)
+    {
+        assertTrue(failureResolver.resolveResultMismatch(createMatchResult(mismatchedColumns), bundle).isPresent());
     }
 
     protected void assertNotResolved(ColumnMatchResult<?>... mismatchedColumns)
     {
-        assertFalse(failureResolver.resolveResultMismatch(createMatchResult(mismatchedColumns), TEST_BUNDLE).isPresent());
+        assertNotResolved(TEST_BUNDLE, mismatchedColumns);
+    }
+
+    protected void assertNotResolved(QueryBundle bundle, ColumnMatchResult<?>... mismatchedColumns)
+    {
+        assertFalse(failureResolver.resolveResultMismatch(createMatchResult(mismatchedColumns), bundle).isPresent());
     }
 }

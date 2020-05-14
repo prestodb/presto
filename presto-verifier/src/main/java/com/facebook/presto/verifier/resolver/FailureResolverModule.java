@@ -39,6 +39,7 @@ public class FailureResolverModule
             .bindFactory(TooManyOpenPartitionsFailureResolver.NAME, TooManyOpenPartitionsFailureResolver.Factory.class, Optional.of(TooManyOpenPartitionsFailureResolverConfig.class))
             // Result Mismatch Resolvers
             .bind(StructuredColumnMismatchResolver.NAME, StructuredColumnMismatchResolver.class, Optional.empty())
+            .bind(IgnoredFunctionsMismatchResolver.NAME, IgnoredFunctionsMismatchResolver.class, Optional.of(IgnoredFunctionsMismatchResolverConfig.class))
             .build();
 
     private final List<FailureResolverBinding> resolvers;
