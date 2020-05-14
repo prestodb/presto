@@ -31,7 +31,6 @@ import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.verifier.checksum.ArrayColumnValidator.generateArrayChecksum;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class MapColumnValidator
         implements ColumnValidator
@@ -58,41 +57,21 @@ public class MapColumnValidator
     }
 
     @Override
-    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult<MapColumnChecksum>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
-        String checksumColumnAlias = getChecksumColumnAlias(column);
-        Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
-        Object testChecksum = testResult.getChecksum(checksumColumnAlias);
+        MapColumnChecksum controlChecksum = toColumnChecksum(column, controlResult);
+        MapColumnChecksum testChecksum = toColumnChecksum(column, testResult);
 
-        String keysChecksumColumnAlias = getKeysChecksumColumnAlias(column);
-        Object controlKeysChecksum = controlResult.getChecksum(keysChecksumColumnAlias);
-        Object testKeysChecksum = testResult.getChecksum(keysChecksumColumnAlias);
+        return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
+    }
 
-        String valuesChecksumColumnAlias = getValuesChecksumColumnAlias(column);
-        Object controlValuesChecksum = controlResult.getChecksum(valuesChecksumColumnAlias);
-        Object testValuesChecksum = testResult.getChecksum(valuesChecksumColumnAlias);
-
-        String cardinalitySumColumnAlias = getCardinalitySumColumnAlias(column);
-        Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
-        Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
-
-        return ImmutableList.of(new ColumnMatchResult(
-                Objects.equals(controlChecksum, testChecksum)
-                        && Objects.equals(controlKeysChecksum, testKeysChecksum)
-                        && Objects.equals(controlValuesChecksum, testValuesChecksum)
-                        && Objects.equals(controlCardinalitySum, testCardinalitySum),
-                column,
-                format(
-                        "control(checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_sum: %s) " +
-                                "test(checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_sum: %s)",
-                        controlChecksum,
-                        controlKeysChecksum,
-                        controlValuesChecksum,
-                        controlCardinalitySum,
-                        testChecksum,
-                        testKeysChecksum,
-                        testValuesChecksum,
-                        testCardinalitySum)));
+    private static MapColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult)
+    {
+        return new MapColumnChecksum(
+                checksumResult.getChecksum(getChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getKeysChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getValuesChecksumColumnAlias(column)),
+                (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
     }
 
     private static String getChecksumColumnAlias(Column column)

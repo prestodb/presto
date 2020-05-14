@@ -63,11 +63,11 @@ public class RowColumnValidator
     }
 
     @Override
-    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult<?>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
         checkColumnType(column);
 
-        ImmutableList.Builder<ColumnMatchResult> resultsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnMatchResult<?>> resultsBuilder = ImmutableList.builder();
         List<Field> fields = getFields(column);
         for (int i = 0; i < fields.size(); i++) {
             Column fieldColumn = getFieldAsColumn(column, fields.get(i), i);
