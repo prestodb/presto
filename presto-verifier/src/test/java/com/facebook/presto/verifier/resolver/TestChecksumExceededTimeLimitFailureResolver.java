@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
 import static org.testng.Assert.assertEquals;
 
 public class TestChecksumExceededTimeLimitFailureResolver
@@ -31,7 +32,7 @@ public class TestChecksumExceededTimeLimitFailureResolver
     }
 
     @Test
-    public void testResolved()
+    public void testResolvedControl()
     {
         assertEquals(
                 getFailureResolver().resolve(
@@ -43,6 +44,22 @@ public class TestChecksumExceededTimeLimitFailureResolver
                                 Optional.of(EXCEEDED_TIME_LIMIT),
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_TOTAL_MEMORY_BYTES))),
                         Optional.empty()),
-                Optional.of("Time limit exceeded when running control checksum query"));
+                Optional.of("Time limit exceeded when running checksum query"));
+    }
+
+    @Test
+    public void testResolvedTest()
+    {
+        assertEquals(
+                getFailureResolver().resolve(
+                        CONTROL_QUERY_STATS,
+                        new PrestoQueryException(
+                                new RuntimeException(),
+                                false,
+                                TEST_CHECKSUM,
+                                Optional.of(EXCEEDED_TIME_LIMIT),
+                                Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_TOTAL_MEMORY_BYTES))),
+                        Optional.empty()),
+                Optional.of("Time limit exceeded when running checksum query"));
     }
 }

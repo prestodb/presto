@@ -19,6 +19,7 @@ import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 public class FailureResolverUtil
@@ -27,11 +28,11 @@ public class FailureResolverUtil
 
     public static <T> Optional<T> mapMatchingPrestoException(
             QueryException queryException,
-            QueryStage queryStage,
+            Set<QueryStage> queryStages,
             ErrorCodeSupplier errorCode,
             Function<PrestoQueryException, Optional<T>> mapper)
     {
-        if (queryException.getQueryStage() != queryStage || !(queryException instanceof PrestoQueryException)) {
+        if (!queryStages.contains(queryException.getQueryStage()) || !(queryException instanceof PrestoQueryException)) {
             return Optional.empty();
         }
         PrestoQueryException prestoException = (PrestoQueryException) queryException;

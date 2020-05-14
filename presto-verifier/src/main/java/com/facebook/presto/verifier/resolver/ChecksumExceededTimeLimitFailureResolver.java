@@ -16,11 +16,13 @@ package com.facebook.presto.verifier.resolver;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 
 public class ChecksumExceededTimeLimitFailureResolver
@@ -31,7 +33,7 @@ public class ChecksumExceededTimeLimitFailureResolver
     @Override
     public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, EXCEEDED_TIME_LIMIT,
-                e -> Optional.of("Time limit exceeded when running control checksum query"));
+        return mapMatchingPrestoException(queryException, ImmutableSet.of(CONTROL_CHECKSUM, TEST_CHECKSUM), EXCEEDED_TIME_LIMIT,
+                e -> Optional.of("Time limit exceeded when running checksum query"));
     }
 }
