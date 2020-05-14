@@ -23,10 +23,9 @@ import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -98,16 +97,16 @@ public class DataVerificationUtil
                     Optional.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
-                    ImmutableMap.of());
+                    ImmutableList.of());
         }
 
         OptionalLong controlRowCount = OptionalLong.of(controlChecksum.getRowCount());
         OptionalLong testRowCount = OptionalLong.of(testChecksum.getRowCount());
 
         MatchResult.MatchType matchType;
-        Map<Column, ColumnMatchResult<?>> mismatchedColumns;
+        List<ColumnMatchResult<?>> mismatchedColumns;
         if (controlChecksum.getRowCount() != testChecksum.getRowCount()) {
-            mismatchedColumns = ImmutableMap.of();
+            mismatchedColumns = ImmutableList.of();
             matchType = ROW_COUNT_MISMATCH;
         }
         else {

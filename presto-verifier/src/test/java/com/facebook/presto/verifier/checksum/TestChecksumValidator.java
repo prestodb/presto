@@ -392,7 +392,7 @@ public class TestChecksumValidator
 
     private List<ColumnMatchResult<?>> assertMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum, Column... expected)
     {
-        List<ColumnMatchResult<?>> mismatchedColumns = ImmutableList.copyOf(checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).values());
+        List<ColumnMatchResult<?>> mismatchedColumns = ImmutableList.copyOf(checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum));
         List<Column> actual = mismatchedColumns.stream()
                 .map(ColumnMatchResult::getColumn)
                 .collect(toImmutableList());
