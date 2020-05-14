@@ -185,7 +185,7 @@ public class DruidClient
             }
         }
     }
-    private static class DruidRequestBody
+    public static class DruidRequestBody
     {
         private String query;
         private String resultFormat;
