@@ -15,9 +15,9 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -43,20 +43,20 @@ public class MatchResult
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
-    private final Map<Column, ColumnMatchResult<?>> mismatchedColumns;
+    private final List<ColumnMatchResult<?>> mismatchedColumns;
 
     public MatchResult(
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
-            Map<Column, ColumnMatchResult<?>> mismatchedColumns)
+            List<ColumnMatchResult<?>> mismatchedColumns)
     {
         this.matchType = requireNonNull(matchType, "type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
-        this.mismatchedColumns = ImmutableMap.copyOf(mismatchedColumns);
+        this.mismatchedColumns = ImmutableList.copyOf(mismatchedColumns);
     }
 
     public boolean isMatched()
@@ -97,7 +97,7 @@ public class MatchResult
         }
 
         message.append("Mismatched Columns:\n");
-        mismatchedColumns.forEach((column, columnMismatch) ->
+        mismatchedColumns.forEach(columnMismatch ->
                 message.append(format(
                         "  %s (%s)%s\n    control\t(%s)\n    test\t(%s)\n",
                         columnMismatch.getColumn().getName(),
