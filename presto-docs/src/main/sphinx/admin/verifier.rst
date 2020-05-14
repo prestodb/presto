@@ -178,6 +178,8 @@ automatically resolve certain mismatches.
        * The cardinality checksum matches.
        * The checksum of the key or value that does not contains floating point types matches.
     * Resolve a test case only when all columns are resolved.
+* **Resolved Functions**: In the case of a results mismatch, if the query uses a function in a
+    specified list, the test case is marked as resolved.
 
 Extending Verifier
 ------------------
@@ -296,4 +298,8 @@ Name                                                      Description
 ``too-many-open-partitions.cluster-size-expiration``      The time limit of the test cluster size being cached.
 ``structured-column.failure-resolver.enabled``            Whether to enable the failure resolver for column mismatches of
                                                           structured-type columns.
+``ignored-functions.failure-resolver.enabled``            Whether to enable the ``IgnoredFunctions`` result mismatch failure
+                                                          resolver.
+``ignored-functions.functions``                           A comma-separated list of functions. Resolves mismatches if a query
+                                                          uses any functions in the list.
 ========================================================= ======================================================================
