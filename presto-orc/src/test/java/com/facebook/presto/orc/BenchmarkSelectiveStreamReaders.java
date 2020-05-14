@@ -53,6 +53,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -126,6 +127,16 @@ public class BenchmarkSelectiveStreamReaders
         }
 
         return blocks;
+    }
+
+    @Test
+    public void verifyReadAllBlocks()
+            throws Exception
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkSelectiveStreamReaders benchmarkSelectiveStreamReaders = new BenchmarkSelectiveStreamReaders();
+        benchmarkSelectiveStreamReaders.readAllBlocks(data);
     }
 
     @State(Scope.Thread)
@@ -346,11 +357,6 @@ public class BenchmarkSelectiveStreamReaders
     public static void main(String[] args)
             throws Throwable
     {
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        BenchmarkSelectiveStreamReaders benchmarkSelectiveStreamReaders = new BenchmarkSelectiveStreamReaders();
-        benchmarkSelectiveStreamReaders.readAllBlocks(data);
-
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkSelectiveStreamReaders.class.getSimpleName() + ".*")
