@@ -23,11 +23,13 @@ public class ArrayColumnChecksum
         extends StructureColumnChecksum
 {
     private final Object checksum;
+    private final Object cardinalityChecksum;
     private final long cardinalitySum;
 
-    public ArrayColumnChecksum(@Nullable Object checksum, long cardinalitySum)
+    public ArrayColumnChecksum(@Nullable Object checksum, @Nullable Object cardinalityChecksum, long cardinalitySum)
     {
         this.checksum = checksum;
+        this.cardinalityChecksum = cardinalityChecksum;
         this.cardinalitySum = cardinalitySum;
     }
 
@@ -35,6 +37,13 @@ public class ArrayColumnChecksum
     public Object getChecksum()
     {
         return checksum;
+    }
+
+    @Override
+    @Nullable
+    public Object getCardinalityChecksum()
+    {
+        return cardinalityChecksum;
     }
 
     @Override
@@ -54,18 +63,19 @@ public class ArrayColumnChecksum
         }
         ArrayColumnChecksum o = (ArrayColumnChecksum) obj;
         return Objects.equals(checksum, o.checksum) &&
+                Objects.equals(cardinalityChecksum, o.cardinalityChecksum) &&
                 Objects.equals(cardinalitySum, o.cardinalitySum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(checksum, cardinalitySum);
+        return Objects.hash(checksum, cardinalityChecksum, cardinalitySum);
     }
 
     @Override
     public String toString()
     {
-        return format("checksum: %s, cardinality_sum: %s", checksum, cardinalitySum);
+        return format("checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, cardinalityChecksum, cardinalitySum);
     }
 }

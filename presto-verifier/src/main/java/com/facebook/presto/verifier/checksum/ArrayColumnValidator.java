@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -40,14 +41,14 @@ public class ArrayColumnValidator
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
         Expression checksum = generateArrayChecksum(column.getExpression(), column.getType());
+        Expression arrayCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
         Expression arrayCardinalitySum = new CoalesceExpression(
-                new FunctionCall(
-                        QualifiedName.of("sum"),
-                        ImmutableList.of(new FunctionCall(QualifiedName.of("cardinality"), ImmutableList.of(column.getExpression())))),
+                functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
 
         return ImmutableList.of(
                 new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
+                new SingleColumn(arrayCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
                 new SingleColumn(arrayCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
 
@@ -82,12 +83,18 @@ public class ArrayColumnValidator
     {
         return new ArrayColumnChecksum(
                 checksumResult.getChecksum(getChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
                 (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
     }
 
     private static String getChecksumColumnAlias(Column column)
     {
         return column.getName() + "$checksum";
+    }
+
+    private static String getCardinalityChecksumColumnAlias(Column column)
+    {
+        return column.getName() + "$cardinality_checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)

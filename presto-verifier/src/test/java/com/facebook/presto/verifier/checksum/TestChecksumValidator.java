@@ -92,12 +92,13 @@ public class TestChecksumValidator
             .put("row.d$neg_inf_count", 4L)
             .put("row.d$sum", 0.0)
             .put("row.a$checksum", new SqlVarbinary(new byte[] {0xc}))
+            .put("row.a$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
             .put("row.a$cardinality_sum", 2L)
             .put("row.r._col1$nan_count", 2L)
             .put("row.r._col1$pos_inf_count", 3L)
             .put("row.r._col1$neg_inf_count", 4L)
             .put("row.r._col1$sum", 0.0)
-            .put("row.r.b$checksum", new SqlVarbinary(new byte[] {0xd}))
+            .put("row.r.b$checksum", new SqlVarbinary(new byte[] {0xe}))
             .build();
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
@@ -135,34 +136,40 @@ public class TestChecksumValidator
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = \"infinity\"())) \"real$pos_inf_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = -\"infinity\"())) \"real$neg_inf_count\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"int_array\")) \"int_array$checksum\"\n" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"int_array\")), 0) \"int_array$cardinality_sum\"" +
-                        ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"row_array\"))), \"checksum\"(\"row_array\")) \"row_array$checksum\"" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"row_array\")), 0) \"row_array$cardinality_sum\"" +
+                        ", \"checksum\"(\"cardinality\"(\"int_array\")) \"int_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"int_array\")), 0) \"int_array$cardinality_sum\"\n" +
+                        ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"row_array\"))), \"checksum\"(\"row_array\")) \"row_array$checksum\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"row_array\")) \"row_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"row_array\")), 0) \"row_array$cardinality_sum\"\n" +
                         ", \"checksum\"(\"map_array\") \"map_array$checksum\"\n" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array$cardinality_sum\"" +
+                        ", \"checksum\"(\"cardinality\"(\"map_array\")) \"map_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array$cardinality_sum\"\n" +
                         ", \"checksum\"(\"map\") \"map$checksum\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"map_keys\"(\"map\"))) \"map$keys_checksum\"\n" +
                         ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"map_values\"(\"map\")))), \"checksum\"(\"map_values\"(\"map\"))) \"map$values_checksum\"\n" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"map\")), 0) \"map$cardinality_sum\"" +
+                        ", \"checksum\"(\"cardinality\"(\"map\")) \"map$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map\")), 0) \"map$cardinality_sum\"\n" +
                         ", \"checksum\"(\"map_non_orderable\") \"map_non_orderable$checksum\"\n" +
                         ", \"checksum\"(\"map_keys\"(\"map_non_orderable\")) \"map_non_orderable$keys_checksum\"\n" +
                         ", \"checksum\"(\"map_values\"(\"map_non_orderable\")) \"map_non_orderable$values_checksum\"\n" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_non_orderable\")), 0) \"map_non_orderable$cardinality_sum\"" +
-                        ", \"checksum\"(\"row\".\"i\") \"row.i$checksum\"\n " +
-                        ", \"checksum\"(\"row\"[2]) \"row._col2$checksum\"\n " +
-                        ", \"sum\"(\"row\".\"d\") FILTER (WHERE \"is_finite\"(\"row\".\"d\")) \"row.d$sum\"" +
-                        ", \"count\"(\"row\".\"d\") FILTER (WHERE \"is_nan\"(\"row\".\"d\")) \"row.d$nan_count\"" +
-                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = \"infinity\"())) \"row.d$pos_inf_count\"" +
-                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = -\"infinity\"())) \"row.d$neg_inf_count\"" +
-                        ", \"checksum\"(\"array_sort\"(\"row\".\"a\")) \"row.a$checksum\"" +
-                        ", COALESCE(\"sum\"(\"cardinality\"(\"row\".\"a\")), 0) \"row.a$cardinality_sum\"" +
-                        ", \"sum\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_finite\"(\"row\".\"r\"[1])) \"row.r._col1$sum\"" +
-                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_nan\"(\"row\".\"r\"[1])) \"row.r._col1$nan_count\"" +
-                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = \"infinity\"())) \"row.r._col1$pos_inf_count\"" +
-                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = -\"infinity\"())) \"row.r._col1$neg_inf_count\"" +
-                        ", \"checksum\"(\"row\".\"r\".\"b\") \"row.r.b$checksum\"" +
+                        ", \"checksum\"(\"cardinality\"(\"map_non_orderable\")) \"map_non_orderable$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_non_orderable\")), 0) \"map_non_orderable$cardinality_sum\"\n" +
+                        ", \"checksum\"(\"row\".\"i\") \"row.i$checksum\"\n" +
+                        ", \"checksum\"(\"row\"[2]) \"row._col2$checksum\"\n" +
+                        ", \"sum\"(\"row\".\"d\") FILTER (WHERE \"is_finite\"(\"row\".\"d\")) \"row.d$sum\"\n" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE \"is_nan\"(\"row\".\"d\")) \"row.d$nan_count\"\n" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = \"infinity\"())) \"row.d$pos_inf_count\"\n" +
+                        ", \"count\"(\"row\".\"d\") FILTER (WHERE (\"row\".\"d\" = -\"infinity\"())) \"row.d$neg_inf_count\"\n" +
+                        ", \"checksum\"(\"array_sort\"(\"row\".\"a\")) \"row.a$checksum\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"row\".\"a\")) \"row.a$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"row\".\"a\")), 0) \"row.a$cardinality_sum\"\n" +
+                        ", \"sum\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_finite\"(\"row\".\"r\"[1])) \"row.r._col1$sum\"\n" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE \"is_nan\"(\"row\".\"r\"[1])) \"row.r._col1$nan_count\"\n" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = \"infinity\"())) \"row.r._col1$pos_inf_count\"\n" +
+                        ", \"count\"(\"row\".\"r\"[1]) FILTER (WHERE (\"row\".\"r\"[1] = -\"infinity\"())) \"row.r._col1$neg_inf_count\"\n" +
+                        ", \"checksum\"(\"row\".\"r\".\"b\") \"row.r.b$checksum\"\n" +
                         "FROM\n" +
-                        "  test:di",
+                        "  \"test:di\"\n",
                 PARSING_OPTIONS);
         assertEquals(formatSql(checksumQuery, Optional.empty()), formatSql(expectedChecksumQuery, Optional.empty()));
     }
@@ -309,9 +316,11 @@ public class TestChecksumValidator
                 5,
                 ImmutableMap.<String, Object>builder()
                         .put("int_array$checksum", new SqlVarbinary(new byte[] {0xa}))
-                        .put("int_array$cardinality_sum", 3L)
-                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0xb}))
-                        .put("map_array$cardinality_sum", 7L)
+                        .put("int_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("int_array$cardinality_sum", 1L)
+                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_array$cardinality_sum", 2L)
                         .build());
 
         // Matched
@@ -322,9 +331,24 @@ public class TestChecksumValidator
                 5,
                 ImmutableMap.<String, Object>builder()
                         .put("int_array$checksum", new SqlVarbinary(new byte[] {0x1a}))
-                        .put("int_array$cardinality_sum", 3L)
-                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0x1b}))
-                        .put("map_array$cardinality_sum", 7L)
+                        .put("int_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("int_array$cardinality_sum", 1L)
+                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0x1c}))
+                        .put("map_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_array$cardinality_sum", 2L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, INT_ARRAY_COLUMN, MAP_ARRAY_COLUMN);
+
+        // Mismatched different cardinality checksum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("int_array$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("int_array$cardinality_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("int_array$cardinality_sum", 1L)
+                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map_array$cardinality_checksum", new SqlVarbinary(new byte[] {0x1d}))
+                        .put("map_array$cardinality_sum", 2L)
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, INT_ARRAY_COLUMN, MAP_ARRAY_COLUMN);
 
@@ -332,10 +356,12 @@ public class TestChecksumValidator
         testChecksum = new ChecksumResult(
                 5,
                 ImmutableMap.<String, Object>builder()
-                        .put("int_array$checksum", new SqlVarbinary(new byte[] {0x1a}))
-                        .put("int_array$cardinality_sum", 2L)
-                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0x1b}))
-                        .put("map_array$cardinality_sum", 5L)
+                        .put("int_array$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("int_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("int_array$cardinality_sum", 3L)
+                        .put("map_array$checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map_array$cardinality_sum", 4L)
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, INT_ARRAY_COLUMN, MAP_ARRAY_COLUMN);
     }
@@ -373,18 +399,68 @@ public class TestChecksumValidator
                         .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
                         .put("map$values_checksum", new SqlVarbinary(new byte[] {0xc}))
                         .put("map$cardinality_sum", 3L)
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
                         .build());
 
         // Matched
         assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, controlChecksum).isEmpty());
 
-        // Mismatched map checksum, keys & values checksums, cardinality sum
+        // Mismatched map checksum
         ChecksumResult testChecksum = new ChecksumResult(
                 5,
                 ImmutableMap.<String, Object>builder()
                         .put("map$checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map$values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map$cardinality_sum", 3L)
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
+
+        // Mismatched keys checksum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map$checksum", new SqlVarbinary(new byte[] {0xa}))
                         .put("map$keys_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("map$values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map$cardinality_sum", 3L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
+
+        // Mismatched values checksum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
                         .put("map$values_checksum", new SqlVarbinary(new byte[] {0x1c}))
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("map$cardinality_sum", 3L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
+
+        // Mismatched cardinality checksum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map$values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0x1d}))
+                        .put("map$cardinality_sum", 3L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
+
+        // Mismatched cardinality sum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("map$checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("map$keys_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map$values_checksum", new SqlVarbinary(new byte[] {0xc}))
+                        .put("map$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
                         .put("map$cardinality_sum", 4L)
                         .build());
         assertMismatchedColumns(columns, controlChecksum, testChecksum, MAP_COLUMN);
