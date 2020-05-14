@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class StructuredColumnMismatchResolver
         implements FailureResolver
 {
-    public static final String NAME = "structure-column";
+    public static final String NAME = "structured-column";
 
     @Override
     public Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
