@@ -34,7 +34,7 @@ public class TestVerifierLimitationFailureResolver
     public void testResolveCompilerError()
     {
         assertEquals(
-                getFailureResolver().resolve(
+                getFailureResolver().resolveQueryFailure(
                         CONTROL_QUERY_STATS,
                         new PrestoQueryException(
                                 new RuntimeException(),

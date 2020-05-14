@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.framework.MatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 
@@ -31,14 +32,25 @@ public class FailureResolverManager
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
     }
 
-    public Optional<String> resolve(QueryStats controlQueryStats, Throwable throwable, Optional<QueryBundle> test)
+    public Optional<String> resolveException(QueryStats controlQueryStats, Throwable throwable, Optional<QueryBundle> test)
     {
         if (!(throwable instanceof QueryException)) {
             return Optional.of("Verifier Error");
         }
 
         for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolve(controlQueryStats, (QueryException) throwable, test);
+            Optional<String> resolveMessage = failureResolver.resolveQueryFailure(controlQueryStats, (QueryException) throwable, test);
+            if (resolveMessage.isPresent()) {
+                return resolveMessage;
+            }
+        }
+        return Optional.empty();
+    }
+
+    public Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    {
+        for (FailureResolver failureResolver : failureResolvers) {
+            Optional<String> resolveMessage = failureResolver.resolveResultMismatch(matchResult, control);
             if (resolveMessage.isPresent()) {
                 return resolveMessage;
             }

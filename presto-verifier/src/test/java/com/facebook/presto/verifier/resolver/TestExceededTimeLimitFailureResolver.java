@@ -34,7 +34,7 @@ public class TestExceededTimeLimitFailureResolver
     public void testResolved()
     {
         assertEquals(
-                getFailureResolver().resolve(
+                getFailureResolver().resolveQueryFailure(
                         CONTROL_QUERY_STATS,
                         new PrestoQueryException(
                                 new RuntimeException(),
