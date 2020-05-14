@@ -55,7 +55,7 @@ public class ChecksumValidator
         return simpleQuery(new Select(false, selectItems.build()), new Table(tableName));
     }
 
-    public Map<Column, ColumnMatchResult> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
+    public Map<Column, ColumnMatchResult<?>> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
     {
         return columns.stream()
                 .flatMap(column -> columnValidators.get(column.getCategory()).get().validate(column, controlChecksum, testChecksum).stream())

@@ -105,7 +105,7 @@ public class DataVerificationUtil
         OptionalLong testRowCount = OptionalLong.of(testChecksum.getRowCount());
 
         MatchResult.MatchType matchType;
-        Map<Column, ColumnMatchResult> mismatchedColumns;
+        Map<Column, ColumnMatchResult<?>> mismatchedColumns;
         if (controlChecksum.getRowCount() != testChecksum.getRowCount()) {
             mismatchedColumns = ImmutableMap.of();
             matchType = ROW_COUNT_MISMATCH;

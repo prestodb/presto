@@ -13,14 +13,8 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.verifier.framework.Column;
-
-import java.util.List;
-
-public interface ColumnValidator
+public abstract class StructureColumnChecksum
+        extends ColumnChecksum
 {
-    List<SingleColumn> generateChecksumColumns(Column column);
-
-    List<? extends ColumnMatchResult<?>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult);
+    public abstract long getCardinalitySum();
 }
