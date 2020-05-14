@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class ArrayColumnValidator
         implements ColumnValidator
@@ -53,25 +52,12 @@ public class ArrayColumnValidator
     }
 
     @Override
-    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult<ArrayColumnChecksum>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
-        String checksumColumnAlias = getChecksumColumnAlias(column);
-        Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
-        Object testChecksum = testResult.getChecksum(checksumColumnAlias);
+        ArrayColumnChecksum controlChecksum = toColumnChecksum(column, controlResult);
+        ArrayColumnChecksum testChecksum = toColumnChecksum(column, testResult);
 
-        String cardinalitySumColumnAlias = getCardinalitySumColumnAlias(column);
-        Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
-        Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
-
-        return ImmutableList.of(new ColumnMatchResult(
-                Objects.equals(controlChecksum, testChecksum) && Objects.equals(controlCardinalitySum, testCardinalitySum),
-                column,
-                format(
-                        "control(checksum: %s, cardinality_sum: %s) test(checksum: %s, cardinality_sum: %s)",
-                        controlChecksum,
-                        controlCardinalitySum,
-                        testChecksum,
-                        testCardinalitySum)));
+        return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
     }
 
     public static Expression generateArrayChecksum(Expression column, Type type)
@@ -90,6 +76,13 @@ public class ArrayColumnValidator
             return new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(arraySort));
         }
         return new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column));
+    }
+
+    private static ArrayColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult)
+    {
+        return new ArrayColumnChecksum(
+                checksumResult.getChecksum(getChecksumColumnAlias(column)),
+                (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
     }
 
     private static String getChecksumColumnAlias(Column column)

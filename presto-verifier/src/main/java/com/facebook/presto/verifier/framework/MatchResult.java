@@ -43,14 +43,14 @@ public class MatchResult
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
-    private final Map<Column, ColumnMatchResult> mismatchedColumns;
+    private final Map<Column, ColumnMatchResult<?>> mismatchedColumns;
 
     public MatchResult(
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
-            Map<Column, ColumnMatchResult> mismatchedColumns)
+            Map<Column, ColumnMatchResult<?>> mismatchedColumns)
     {
         this.matchType = requireNonNull(matchType, "type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
@@ -97,9 +97,14 @@ public class MatchResult
         }
 
         message.append("Mismatched Columns:\n");
-        mismatchedColumns.forEach((column, matchResult) ->
-                message.append(format("  %s (%s): %s", column.getName(), column.getType().getDisplayName(), matchResult.getMessage()))
-                        .append("\n"));
+        mismatchedColumns.forEach((column, columnMismatch) ->
+                message.append(format(
+                        "  %s (%s)%s\n    control\t(%s)\n    test\t(%s)\n",
+                        columnMismatch.getColumn().getName(),
+                        columnMismatch.getColumn().getType().getDisplayName(),
+                        columnMismatch.getMessage().map(columnMessage -> " " + columnMessage).orElse(""),
+                        columnMismatch.getControlChecksum(),
+                        columnMismatch.getTestChecksum())));
         return message.toString();
     }
 }
