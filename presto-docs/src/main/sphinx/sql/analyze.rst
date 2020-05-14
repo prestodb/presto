@@ -13,6 +13,7 @@ Description
 -----------
 
 Collects table and column statistics for a given table.
+Currently column statistics are only collected for primitive types.
 
 The optional ``WITH`` clause can be used to provide
 connector-specific properties. To list all available properties, run the following query::
