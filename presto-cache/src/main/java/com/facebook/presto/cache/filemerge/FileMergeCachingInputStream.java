@@ -46,6 +46,13 @@ public final class FileMergeCachingInputStream
     }
 
     @Override
+    public void readFully(long position, byte[] buffer)
+            throws IOException
+    {
+        readFully(position, buffer, 0, buffer.length);
+    }
+
+    @Override
     public void readFully(long position, byte[] buffer, int offset, int length)
             throws IOException
     {
