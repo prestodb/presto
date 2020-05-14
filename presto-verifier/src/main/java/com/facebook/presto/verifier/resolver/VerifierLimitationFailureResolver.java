@@ -29,7 +29,7 @@ public class VerifierLimitationFailureResolver
     public static final String NAME = "verifier-limitation";
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, COMPILER_ERROR,
                 e -> Optional.of("Checksum query too large"));

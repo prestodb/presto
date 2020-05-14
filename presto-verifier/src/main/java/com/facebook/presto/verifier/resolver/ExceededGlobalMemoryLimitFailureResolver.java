@@ -29,7 +29,7 @@ public class ExceededGlobalMemoryLimitFailureResolver
     public static final String NAME = "exceeded-global-memory-limit";
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, TEST_MAIN, EXCEEDED_GLOBAL_MEMORY_LIMIT,
                 e -> e.getQueryStats().isPresent() && controlQueryStats.getPeakTotalMemoryBytes() > e.getQueryStats().get().getPeakTotalMemoryBytes()

@@ -71,7 +71,7 @@ public class TooManyOpenPartitionsFailureResolver
     }
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         if (!test.isPresent()) {
             return Optional.empty();
