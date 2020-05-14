@@ -80,6 +80,11 @@ public class MatchResult
         return matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
     }
 
+    public List<ColumnMatchResult<?>> getMismatchedColumns()
+    {
+        return mismatchedColumns;
+    }
+
     public String getResultsComparison()
     {
         StringBuilder message = new StringBuilder()

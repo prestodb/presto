@@ -29,7 +29,7 @@ public class ChecksumExceededTimeLimitFailureResolver
     public static final String NAME = "checksum-exceeded-time-limit";
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, EXCEEDED_TIME_LIMIT,
                 e -> Optional.of("Time limit exceeded when running control checksum query"));

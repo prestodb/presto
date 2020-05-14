@@ -168,6 +168,17 @@ query failures.
 * ``COMPILER_ERROR``: Resolves if checksum fails with this error. If a control query has too many
   columns, generated checksum query might be too large in certain cases.
 
+In cases of result mismatches, Verifier may be giving noisy signals, and we allow Verifier to
+automatically resolve certain mismatches.
+
+* **Structured-typed Columns**: If array element or map key/value contains floating point types, column checksum is unlikely to match.
+    * For an array column, resolve if the element type contains floating point types and the
+      cardinality checksum matches.
+    * For a map column, resolve the mismatch when both of the following conditions are true:
+       * The cardinality checksum matches.
+       * The checksum of the key or value that does not contains floating point types matches.
+    * Resolve a test case only when all columns are resolved.
+
 Extending Verifier
 ------------------
 
@@ -283,4 +294,6 @@ Name                                                      Description
 ``too-many-open-partitions.max-buckets-per-writer``       The maximum buckets count per writer configured on the control and the
                                                           test cluster.
 ``too-many-open-partitions.cluster-size-expiration``      The time limit of the test cluster size being cached.
+``structured-column.failure-resolver.enabled``            Whether to enable the failure resolver for column mismatches of
+                                                          structured-type columns.
 ========================================================= ======================================================================

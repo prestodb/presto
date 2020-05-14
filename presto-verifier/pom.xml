@@ -69,7 +69,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-connector</artifactId>
@@ -205,6 +205,13 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory</artifactId>

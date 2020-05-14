@@ -29,7 +29,7 @@ public class ExceededTimeLimitFailureResolver
     public static final String NAME = "exceeded-time-limit";
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, TEST_MAIN, EXCEEDED_TIME_LIMIT,
                 e -> Optional.of("Time limit exceeded on test cluster"));

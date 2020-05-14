@@ -213,9 +213,13 @@ public abstract class AbstractVerification
 
         Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysis);
         Optional<String> resolveMessage = Optional.empty();
+        if (matchResult.isPresent() && !matchResult.get().isMatched()) {
+            checkState(control.isPresent(), "control is missing");
+            resolveMessage = failureResolverManager.resolveResultMismatch(matchResult.get(), control.get());
+        }
         if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
             checkState(controlQueryContext.getStats().isPresent(), "controlQueryStats is missing");
-            resolveMessage = failureResolverManager.resolve(controlQueryContext.getStats().get(), throwable.get(), test);
+            resolveMessage = failureResolverManager.resolveException(controlQueryContext.getStats().get(), throwable.get(), test);
         }
 
         EventStatus status;
