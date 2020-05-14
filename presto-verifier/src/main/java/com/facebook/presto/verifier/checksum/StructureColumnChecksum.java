@@ -16,5 +16,7 @@ package com.facebook.presto.verifier.checksum;
 public abstract class StructureColumnChecksum
         extends ColumnChecksum
 {
+    public abstract Object getCardinalityChecksum();
+
     public abstract long getCardinalitySum();
 }
