@@ -17,12 +17,18 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -35,6 +41,7 @@ public final class LambdaDefinitionExpression
     private final List<Type> argumentTypes;
     private final List<String> arguments;
     private final RowExpression body;
+    private final String canonicalizedBody;
 
     @JsonCreator
     public LambdaDefinitionExpression(
@@ -46,6 +53,7 @@ public final class LambdaDefinitionExpression
         this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");
         this.body = requireNonNull(body, "body is null");
+        this.canonicalizedBody = body.accept(new CanonicalizeExpression(arguments, argumentTypes), null);
     }
 
     @JsonProperty
@@ -89,14 +97,13 @@ public final class LambdaDefinitionExpression
         }
         LambdaDefinitionExpression that = (LambdaDefinitionExpression) o;
         return Objects.equals(argumentTypes, that.argumentTypes) &&
-                Objects.equals(arguments, that.arguments) &&
-                Objects.equals(body, that.body);
+                Objects.equals(canonicalizedBody, that.canonicalizedBody);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(argumentTypes, arguments, body);
+        return Objects.hash(argumentTypes, canonicalizedBody);
     }
 
     @Override
@@ -109,6 +116,66 @@ public final class LambdaDefinitionExpression
     {
         if (!condition) {
             throw new IllegalArgumentException(format(message, messageArgs));
+        }
+    }
+    private static class CanonicalizeExpression
+            implements RowExpressionVisitor<String, Void>
+    {
+        private final Map<String, String> canonicalizedArguments = new HashMap<>();
+
+        public CanonicalizeExpression(List<String> arguments, List<Type> argumentTypes)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                canonicalizedArguments.put(arguments.get(i), format("%s_%d", argumentTypes.get(i).toString(), i));
+            }
+        }
+
+        @Override
+        public String visitCall(CallExpression call, Void context)
+        {
+            return format("%s.%s(%s)", call.getFunctionHandle().getFunctionNamespace(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())));
+        }
+
+        @Override
+        public String visitInputReference(InputReferenceExpression reference, Void context)
+        {
+            return reference.toString();
+        }
+
+        @Override
+        public String visitConstant(ConstantExpression literal, Void context)
+        {
+            // Handle varchar and varbinary constant specifically. We canonicalize Slice the same way as in LiteralEncoder by using the same logic as function from_base64.
+            if (literal.getValue() instanceof Slice) {
+                Slice slice = (Slice) literal.getValue();
+                if (slice.hasByteArray()) {
+                    return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.toByteBuffer())).toStringUtf8();
+                }
+                return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.getBytes())).toStringUtf8();
+            }
+            // This would convert number constant to string but for other Object constant (e.g. MAP, ARRAY, ROW) it will not convert to the actual value.
+            return literal.toString();
+        }
+
+        @Override
+        public String visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return format("(%s) -> %s", String.join(", ", lambda.argumentTypes.stream().map(Type::toString).collect(Collectors.toList())), lambda.body.accept(this, null));
+        }
+
+        @Override
+        public String visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            if (canonicalizedArguments.containsKey(reference.getName())) {
+                return canonicalizedArguments.get(reference.getName());
+            }
+            return reference.getName();
+        }
+
+        @Override
+        public String visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            return format("%s(%s)", specialForm.getForm(), String.join(", ", specialForm.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())));
         }
     }
 }
