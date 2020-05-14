@@ -34,14 +34,4 @@ public class VerifierLimitationFailureResolver
         return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, COMPILER_ERROR,
                 e -> Optional.of("Checksum query too large"));
     }
-
-    public static class Factory
-            implements FailureResolverFactory
-    {
-        @Override
-        public FailureResolver create(FailureResolverFactoryContext context)
-        {
-            return new VerifierLimitationFailureResolver();
-        }
-    }
 }
