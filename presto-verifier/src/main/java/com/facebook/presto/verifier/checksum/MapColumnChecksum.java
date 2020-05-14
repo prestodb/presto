@@ -25,17 +25,20 @@ public class MapColumnChecksum
     private final Object checksum;
     private final Object keysChecksum;
     private final Object valuesChecksum;
+    private final Object cardinalityChecksum;
     private final long cardinalitySum;
 
     public MapColumnChecksum(
             @Nullable Object checksum,
             @Nullable Object keysChecksum,
             @Nullable Object valuesChecksum,
-            @Nullable long cardinalitySum)
+            @Nullable Object cardinalityChecksum,
+            long cardinalitySum)
     {
         this.checksum = checksum;
         this.keysChecksum = keysChecksum;
         this.valuesChecksum = valuesChecksum;
+        this.cardinalityChecksum = cardinalityChecksum;
         this.cardinalitySum = cardinalitySum;
     }
 
@@ -58,6 +61,13 @@ public class MapColumnChecksum
     }
 
     @Override
+    @Nullable
+    public Object getCardinalityChecksum()
+    {
+        return cardinalityChecksum;
+    }
+
+    @Override
     public long getCardinalitySum()
     {
         return cardinalitySum;
@@ -76,18 +86,19 @@ public class MapColumnChecksum
         return Objects.equals(checksum, o.checksum) &&
                 Objects.equals(keysChecksum, o.keysChecksum) &&
                 Objects.equals(valuesChecksum, o.valuesChecksum) &&
+                Objects.equals(cardinalityChecksum, o.cardinalityChecksum) &&
                 Objects.equals(cardinalitySum, o.cardinalitySum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(checksum, keysChecksum, valuesChecksum, cardinalitySum);
+        return Objects.hash(checksum, keysChecksum, valuesChecksum, cardinalityChecksum, cardinalitySum);
     }
 
     @Override
     public String toString()
     {
-        return format("checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_sum: %s", checksum, keysChecksum, valuesChecksum, cardinalitySum);
+        return format("checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_checksum: %s, cardinality_sum: %s", checksum, keysChecksum, valuesChecksum, cardinalityChecksum, cardinalitySum);
     }
 }

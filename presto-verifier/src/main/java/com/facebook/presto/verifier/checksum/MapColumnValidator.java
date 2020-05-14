@@ -45,6 +45,7 @@ public class MapColumnValidator
         Expression checksum = functionCall("checksum", column.getExpression());
         Expression keysChecksum = generateArrayChecksum(functionCall("map_keys", column.getExpression()), new ArrayType(keyType));
         Expression valuesChecksum = generateArrayChecksum(functionCall("map_values", column.getExpression()), new ArrayType(valueType));
+        Expression mapCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
         Expression mapCardinalitySum = new CoalesceExpression(
                 functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
@@ -53,6 +54,7 @@ public class MapColumnValidator
                 new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
                 new SingleColumn(keysChecksum, Optional.of(delimitedIdentifier(getKeysChecksumColumnAlias(column)))),
                 new SingleColumn(valuesChecksum, Optional.of(delimitedIdentifier(getValuesChecksumColumnAlias(column)))),
+                new SingleColumn(mapCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
                 new SingleColumn(mapCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
 
@@ -71,6 +73,7 @@ public class MapColumnValidator
                 checksumResult.getChecksum(getChecksumColumnAlias(column)),
                 checksumResult.getChecksum(getKeysChecksumColumnAlias(column)),
                 checksumResult.getChecksum(getValuesChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
                 (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
     }
 
@@ -87,6 +90,11 @@ public class MapColumnValidator
     private static String getValuesChecksumColumnAlias(Column column)
     {
         return column.getName() + "$values_checksum";
+    }
+
+    private static String getCardinalityChecksumColumnAlias(Column column)
+    {
+        return column.getName() + "$cardinality_checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)
