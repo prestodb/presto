@@ -26,6 +26,7 @@ import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.metadata.StripeEncryptionGroup;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -61,6 +62,7 @@ import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStream
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static com.facebook.presto.orc.metadata.DwrfMetadataReader.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER_UTF8;
@@ -118,37 +120,29 @@ public class StripeReader
         this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
     }
 
-    public Stripe readStripe(StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage)
+    public Stripe readStripe(StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage, Optional<GroupDwrfDecryptors> decryptors)
             throws IOException
     {
         StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
 
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
-        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
 
+        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
-        boolean hasRowGroupDictionary = false;
-        for (Stream stream : stripeFooter.getStreams()) {
-            if (includedOrcColumns.contains(stream.getColumn())) {
-                streams.put(new StreamId(stream), stream);
+        boolean hasRowGroupDictionary = addIncludedStreams(columnEncodings, stripeFooter.getStreams(), streams);
 
-                if (stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
-                    ColumnEncoding columnEncoding = columnEncodings.get(stream.getColumn());
-
-                    if (columnEncoding.getColumnEncodingKind() == DICTIONARY) {
-                        hasRowGroupDictionary = true;
-                    }
-
-                    Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
-                    if (additionalSequenceEncodings.isPresent()
-                            && additionalSequenceEncodings.get().values().stream()
-                            .map(DwrfSequenceEncoding::getValueEncoding)
-                            .anyMatch(encoding -> encoding.getColumnEncodingKind() == DICTIONARY)) {
-                        hasRowGroupDictionary = true;
-                    }
-                }
+        // if streams doesn't have all included orcColumns, some included columns may be encrypted
+        // get encrypted streams
+        if (streams.size() < includedOrcColumns.size() && decryptors.isPresent()) {
+            List<Slice> encryptedEncryptionGroups = stripeFooter.getStripeEncryptionGroups();
+            for (int i = 0; i < encryptedEncryptionGroups.size(); i++) {
+                DwrfDecryptor decryptor = decryptors.get().getDecryptorByGroupId(i);
+                Slice encryptedGroup = encryptedEncryptionGroups.get(i);
+                Slice decryptedBytes = decryptor.decrypt(encryptedGroup.byteArray(), encryptedGroup.byteArrayOffset(), encryptedGroup.length());
+                StripeEncryptionGroup stripeEncryptionGroup = toStripeEncryptionGroup(decryptedBytes.getBytes(encryptedGroup.byteArrayOffset(), encryptedGroup.length()), types);
+                hasRowGroupDictionary = hasRowGroupDictionary || addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), streams);
             }
         }
 
@@ -160,7 +154,7 @@ public class StripeReader
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
             // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage);
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors);
 
             // read the bloom filter for each column
             Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
@@ -221,7 +215,7 @@ public class StripeReader
         ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors);
 
         long minAverageRowBytes = 0;
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
@@ -259,7 +253,38 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
-    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, OrcAggregatedMemoryContext systemMemoryUsage)
+    /**
+     * Add streams that are in includedOrcColumns to the includedStreams map,
+     * and return whether there were any rowGroupDictionaries
+     */
+    private boolean addIncludedStreams(List<ColumnEncoding> columnEncodings, List<Stream> streams, Map<StreamId, Stream> includedStreams)
+    {
+        boolean hasRowGroupDictionary = false;
+        for (Stream stream : streams) {
+            if (includedOrcColumns.contains(stream.getColumn())) {
+                includedStreams.put(new StreamId(stream), stream);
+
+                if (stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
+                    ColumnEncoding columnEncoding = columnEncodings.get(stream.getColumn());
+
+                    if (columnEncoding.getColumnEncodingKind() == DICTIONARY) {
+                        hasRowGroupDictionary = true;
+                    }
+
+                    Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
+                    if (additionalSequenceEncodings.isPresent()
+                            && additionalSequenceEncodings.get().values().stream()
+                            .map(DwrfSequenceEncoding::getValueEncoding)
+                            .anyMatch(encoding -> encoding.getColumnEncodingKind() == DICTIONARY)) {
+                        hasRowGroupDictionary = true;
+                    }
+                }
+            }
+        }
+        return hasRowGroupDictionary;
+    }
+
+    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, OrcAggregatedMemoryContext systemMemoryUsage, Optional<GroupDwrfDecryptors> decryptors)
             throws IOException
     {
         //
@@ -273,9 +298,23 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, OrcDataSourceInput> entry : streamsData.entrySet()) {
             OrcDataSourceInput sourceInput = entry.getValue();
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), decompressor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
+            // if it's a dwrf file, and this column is encrypted create DecryptingDecompressor
+            Optional<OrcDecompressor> streamDecompressor = decompressor;
+            Optional<DwrfDecryptor> dwrfDecryptor = createDwrfDecryptor(entry.getKey(), decryptors);
+            if (dwrfDecryptor.isPresent()) {
+                streamDecompressor = Optional.of(new DecryptingDecompressor(dwrfDecryptor.get(), decompressor.get()));
+            }
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), streamDecompressor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
         }
         return streamsBuilder.build();
+    }
+
+    private Optional<DwrfDecryptor> createDwrfDecryptor(StreamId id, Optional<GroupDwrfDecryptors> decryptors)
+    {
+        if (!decryptors.isPresent()) {
+            return Optional.empty();
+        }
+        return decryptors.get().getDecryptorByNodeId(id.getColumn());
     }
 
     private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)

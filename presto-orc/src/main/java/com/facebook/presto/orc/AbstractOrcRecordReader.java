@@ -53,11 +53,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.AbstractOrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.GroupDwrfDecryptors.createGroupDwrfDecryptors;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -77,6 +79,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final long splitLength;
     private final Set<Integer> presentColumns;
     private final long maxBlockBytes;
+    private final Optional<DwrfDecryptorProvider> decryptorProvider;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
@@ -87,6 +90,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final StripeReader stripeReader;
     private int currentStripe = -1;
     private OrcAggregatedMemoryContext currentStripeSystemMemoryContext;
+    private Optional<GroupDwrfDecryptors> currentGroupDwrfDecryptors = Optional.empty();
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -124,6 +128,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             long splitLength,
             List<OrcType> types,
             Optional<OrcDecompressor> decompressor,
+            Optional<DwrfDecryptorProvider> decryptorProvider,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             PostScript.HiveWriterVersion hiveWriterVersion,
@@ -145,6 +150,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(types, "types is null");
         requireNonNull(decompressor, "decompressor is null");
+        requireNonNull(decryptorProvider, "decryptorProvider is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
@@ -231,6 +237,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 writeValidation,
                 stripeMetadataSource,
                 cacheable);
+
+        this.decryptorProvider = decryptorProvider;
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -532,8 +540,18 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
+        List<Slice> stripeDecryptionKeyMetadata = getDecryptionKeyMetadata(currentStripe, stripes);
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        // if there are encrypted columns and currentGroupDwrfDecryptors hasn't been set yet
+        // or it has been set, but we have new decryption keys,
+        // set currentGroupDwrfDecryptors
+        if ((!stripeDecryptionKeyMetadata.isEmpty() && !currentGroupDwrfDecryptors.isPresent())
+                || (currentGroupDwrfDecryptors.isPresent() && !stripeDecryptionKeyMetadata.equals(currentGroupDwrfDecryptors.get().getKeyMetadatas()))) {
+            verify(decryptorProvider.isPresent(), "decryptorProvider is absent");
+            currentGroupDwrfDecryptors = Optional.of(createGroupDwrfDecryptors(decryptorProvider.get(), stripeDecryptionKeyMetadata));
+        }
+
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, currentGroupDwrfDecryptors);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -546,6 +564,21 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+    }
+
+    @VisibleForTesting
+    public static List<Slice> getDecryptionKeyMetadata(int currentStripe, List<StripeInformation> stripes)
+    {
+        // if this stripe has encryption keys, then those are used
+        // otherwise look at nearest prior stripe that specifies encryption keys
+        // if the first stripe has no encryption information, then there are no encrypted columns;
+        for (int i = currentStripe; i >= 0; i--) {
+            if (!stripes.get(i).getKeyMetadata().isEmpty()) {
+                return stripes.get(i).getKeyMetadata();
+            }
+        }
+
+        return ImmutableList.of();
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)

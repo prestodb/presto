@@ -19,12 +19,15 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -37,6 +40,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.orc.DwrfDecryptorProvider.createDwrfDecryptorProvider;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static java.lang.Math.toIntExact;
@@ -54,6 +58,7 @@ public class OrcReader
     private final int bufferSize;
     private final CompressionKind compressionKind;
     private final Optional<OrcDecompressor> decompressor;
+    private final Optional<DwrfDecryptorProvider> decryptorProvider;
     private final Footer footer;
     private final Metadata metadata;
 
@@ -111,10 +116,13 @@ public class OrcReader
         if (this.footer.getTypes().size() == 0) {
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
+        validateEncryption(this.footer, this.orcDataSource.getId());
 
         try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getMetadataSlice().getInput(), decompressor, aggregatedMemoryContext, orcFileTail.getMetadataSize())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
+
+        this.decryptorProvider = footer.getEncryption().map(encryption -> createDwrfDecryptorProvider(encryption, footer.getTypes()));
 
         validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(footer.getTypes().get(0).getFieldNames()), "Unexpected column names");
         validateWrite(writeValidation, orcDataSource, validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
@@ -125,6 +133,30 @@ public class OrcReader
         }
 
         this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+    }
+
+    @VisibleForTesting
+    public static void validateEncryption(Footer footer, OrcDataSourceId dataSourceId)
+    {
+        if (!footer.getEncryption().isPresent()) {
+            return;
+        }
+        footer.getEncryption().get();
+        DwrfEncryption dwrfEncryption = footer.getEncryption().get();
+        int encryptionGroupSize = dwrfEncryption.getEncryptionGroups().size();
+        List<StripeInformation> stripes = footer.getStripes();
+        if (!stripes.isEmpty() && encryptionGroupSize > 0 && stripes.get(0).getKeyMetadata().isEmpty()) {
+            throw new OrcCorruptionException(dataSourceId, "Stripe encryption keys are missing, but file is encrypted");
+        }
+        for (StripeInformation stripe : stripes) {
+            if (!stripe.getKeyMetadata().isEmpty() && stripe.getKeyMetadata().size() != encryptionGroupSize) {
+                throw new OrcCorruptionException(
+                        dataSourceId,
+                        "Number of stripe encryption keys did not match number of encryption groups.  Expected %s, but found %s",
+                        encryptionGroupSize,
+                        stripe.getKeyMetadata().size());
+            }
+        }
     }
 
     public List<String> getColumnNames()
@@ -185,6 +217,7 @@ public class OrcReader
                 length,
                 footer.getTypes(),
                 decompressor,
+                decryptorProvider,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
                 hiveWriterVersion,
@@ -237,6 +270,7 @@ public class OrcReader
                 length,
                 footer.getTypes(),
                 decompressor,
+                decryptorProvider,
                 footer.getRowsInRowGroup(),
                 hiveStorageTimeZone,
                 legacyMapSubscript,
