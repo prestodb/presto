@@ -129,6 +129,16 @@ Memory Management Properties
     memory reservation across the cluster. The value of ``total-reservation-on-blocked-nodes``
     configures a policy that kills the query using the most memory on the workers that are out of memory (blocked).
 
+``driver.max-page-partitioning-buffer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``1000000``
+
+    Maximum number of buffers used by repartitioning per driver. This number should be set
+    sufficiently large to avoid the error of requesting too many arrays from the array allocator
+    used in repartitioning.
+
 .. _tuning-spilling:
 
 Spilling Properties
