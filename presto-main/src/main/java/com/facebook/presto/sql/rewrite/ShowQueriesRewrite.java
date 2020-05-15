@@ -629,12 +629,22 @@ final class ShowQueriesRewrite
                     .put("language", "Language")
                     .build();
 
+            Optional<Expression> predicate = Optional.empty();
+            Optional<String> likePattern = node.getLikePattern();
+            if (likePattern.isPresent()) {
+                predicate = Optional.of(new LikePredicate(
+                        identifier("function_name"),
+                        new StringLiteral(likePattern.get()),
+                        node.getEscape().map(StringLiteral::new)));
+            }
+
             return simpleQuery(
                     selectAll(columns.entrySet().stream()
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
-                    ordering(
+                    predicate,
+                    Optional.of(ordering(
                             descending("built_in"),
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),
@@ -642,7 +652,7 @@ final class ShowQueriesRewrite
                                     SortItem.NullOrdering.UNDEFINED),
                             ascending("return_type"),
                             ascending("argument_types"),
-                            ascending("function_type")));
+                            ascending("function_type"))));
         }
 
         private static String getFunctionType(SqlFunction function)
