@@ -43,7 +43,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @ThreadSafe
 public abstract class RemoteState
 {
-    private static final Logger log = Logger.get(RemoteQueryInfo.class);
+    private static final Logger log = Logger.get(RemoteState.class);
     private static final JsonCodec<JsonNode> JSON_CODEC = jsonCodec(JsonNode.class);
 
     private final HttpClient httpClient;
