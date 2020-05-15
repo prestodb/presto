@@ -109,7 +109,8 @@ statement
     | SHOW ROLE GRANTS ((FROM | IN) identifier)?                       #showRoleGrants
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
-    | SHOW FUNCTIONS                                                   #showFunctions
+    | SHOW FUNCTIONS
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showFunctions
     | SHOW SESSION                                                     #showSession
     | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
