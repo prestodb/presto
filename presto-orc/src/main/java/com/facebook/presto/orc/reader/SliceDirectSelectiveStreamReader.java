@@ -158,14 +158,17 @@ public class SliceDirectSelectiveStreamReader
 
         int totalPositionCount = positions[positionCount - 1] + 1;
         if (totalPositionCount * (1 - BATCH_EXECUTION_FILTERRATE_THRESHOLD) <= positionCount && maxCodePointCount < 0) {
-            // unbounded, simply read all data in one shot
-            dataStream.next(data, 0, dataLength);
+            if (dataLength > 0) {
+                // unbounded, simply read all data in one shot
+                dataStream.next(data, 0, dataLength);
+            }
 
             if (presentStream == null) {
                 convertLengthVectorToOffsetVector(offsets, lengthVector, totalPositionCount);
             }
             else {
                 convertLengthVectorToOffsetVector(offsets, lengthVector, isNullVector, totalPositionCount);
+
                 if (totalPositionCount > positionCount) {
                     packByteArraysForPositions(data, offsets, isNullVector, positions, positionCount);
                 }
@@ -525,7 +528,7 @@ public class SliceDirectSelectiveStreamReader
         if (lengthStream != null) {
             int nonNullCount = totalPositions - nullCount;
             lengthVector = ensureCapacity(lengthVector, nonNullCount);
-            lengthStream.nextIntVector(nonNullCount, lengthVector, 0);
+            lengthStream.next(lengthVector, nonNullCount);
 
             //TODO calculate totalLength for only requested positions
             for (int i = 0; i < nonNullCount; i++) {
