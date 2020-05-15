@@ -634,7 +634,11 @@ final class ShowQueriesRewrite
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
-                    ordering(
+                    node.getLikePattern().map(pattern -> new LikePredicate(
+                            identifier("function_name"),
+                            new StringLiteral(pattern),
+                            node.getEscape().map(StringLiteral::new))),
+                    Optional.of(ordering(
                             descending("built_in"),
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),
@@ -642,7 +646,7 @@ final class ShowQueriesRewrite
                                     SortItem.NullOrdering.UNDEFINED),
                             ascending("return_type"),
                             ascending("argument_types"),
-                            ascending("function_type")));
+                            ascending("function_type"))));
         }
 
         private static String getFunctionType(SqlFunction function)

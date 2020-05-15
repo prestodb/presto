@@ -169,6 +169,42 @@ public class TestSqlFunctions
         assertEquals(functionNames, ImmutableList.of("example.example.b", "testing.common.a", "testing.common.d", "testing.test.c"));
     }
 
+    @Test
+    public void testShowFunctionsLike()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.bar() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo_bar() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.fooobar() RETURNS int RETURN 1");
+
+        // Match function names with prefix foo
+        MaterializedResult functionsLike = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo%'");
+        List<String> functionNamesLike = functionsLike.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLike, ImmutableList.of("testing.test.foo", "testing.test.foo_bar", "testing.test.fooobar"));
+
+        // Match both "foo_bar" and "fooobar" because '_' is treated as a wildcard, not a literal
+        MaterializedResult functionsLikeWithoutEscape = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo_bar'");
+        List<String> functionNamesLikeWithoutEscape = functionsLikeWithoutEscape.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLikeWithoutEscape, ImmutableList.of("testing.test.foo_bar", "testing.test.fooobar"));
+
+        // Match "foo_bar" but not "fooobar" because '_' is now escaped
+        MaterializedResult functionsLikeWithEscape = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo$_bar' ESCAPE '$'");
+        List<String> functionNamesLikeWithEscape = functionsLikeWithEscape.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLikeWithEscape, ImmutableList.of("testing.test.foo_bar"));
+    }
+
     public void testShowCreateFunctions()
     {
         @Language("SQL") String createFunctionInt = "CREATE FUNCTION testing.common.array_append(a array<int>, x int)\n" +
