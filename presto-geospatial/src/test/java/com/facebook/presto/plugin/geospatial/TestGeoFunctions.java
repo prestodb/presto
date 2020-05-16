@@ -63,31 +63,32 @@ public class TestGeoFunctions
         assertSpatialPartitions(kdbTreeJson, "POINT EMPTY", null);
         // points inside partitions
         assertSpatialPartitions(kdbTreeJson, "POINT (0 0)", ImmutableList.of(0));
-        assertSpatialPartitions(kdbTreeJson, "POINT (3 1)", ImmutableList.of(2));
+        assertSpatialPartitions(kdbTreeJson, "POINT (3 1)", ImmutableList.of(1));
         // point on the border between two partitions
-        assertSpatialPartitions(kdbTreeJson, "POINT (1 2.5)", ImmutableList.of(1));
+        assertSpatialPartitions(kdbTreeJson, "POINT (1 2.5)", ImmutableList.of(2));
         // point at the corner of three partitions
-        assertSpatialPartitions(kdbTreeJson, "POINT (4.5 2.5)", ImmutableList.of(4));
+        assertSpatialPartitions(kdbTreeJson, "POINT (4.5 2.5)", ImmutableList.of(5));
         // points outside
-        assertSpatialPartitions(kdbTreeJson, "POINT (2 6)", ImmutableList.of());
-        assertSpatialPartitions(kdbTreeJson, "POINT (3 -1)", ImmutableList.of());
-        assertSpatialPartitions(kdbTreeJson, "POINT (10 3)", ImmutableList.of());
+        assertSpatialPartitions(kdbTreeJson, "POINT (-10 -10)", ImmutableList.of(0));
+        assertSpatialPartitions(kdbTreeJson, "POINT (-10 10)", ImmutableList.of(2));
+        assertSpatialPartitions(kdbTreeJson, "POINT (10 -10)", ImmutableList.of(4));
+        assertSpatialPartitions(kdbTreeJson, "POINT (10 10)", ImmutableList.of(5));
 
         // geometry within a partition
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", ImmutableList.of(3));
         // geometries spanning multiple partitions
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 5.5 3, 6 2)", ImmutableList.of(4, 3));
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (3 2, 8 3)", ImmutableList.of(5, 4, 3, 2));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 5.5 3, 6 2)", ImmutableList.of(5, 3));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (3 2, 8 3)", ImmutableList.of(5, 4, 3, 2, 1));
         // geometry outside
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", ImmutableList.of());
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 5 7)", ImmutableList.of(5, 2));
 
         // with distance
         assertSpatialPartitions(kdbTreeJson, "POINT EMPTY", 1.2, null);
         assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 1.2, ImmutableList.of(0));
         assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 2.3, ImmutableList.of(2, 1, 0));
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 0.2, ImmutableList.of(3));
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(4, 3, 2));
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", 1.2, ImmutableList.of());
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(5, 3, 2, 1));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", 1.2, ImmutableList.of(2));
     }
 
     private static String makeKdbTreeJson()
@@ -98,7 +99,7 @@ public class TestGeoFunctions
                 rectangles.add(new Rectangle(x, y, x + 1, y + 2));
             }
         }
-        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(10, rectangles.build()));
     }
 
     private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
