@@ -55,6 +55,6 @@ public class TestKdbTreeCasts
                 rectangles.add(new Rectangle(x, y, x + 1, y + 2));
             }
         }
-        return KdbTreeUtils.toJson(buildKdbTree(100, new Rectangle(0, 0, 9, 4), rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(100, rectangles.build()));
     }
 }
