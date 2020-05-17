@@ -13,25 +13,38 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.checksum.ChecksumResult;
+import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.google.common.collect.ImmutableMap;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.facebook.presto.verifier.framework.AbstractVerification.formatSql;
+import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class VerifierUtil
 {
@@ -77,6 +90,27 @@ public class VerifierUtil
         }
     }
 
+    public static QueryResult<ChecksumResult> validateChecksum(
+            PrestoAction prestoAction,
+            ChecksumValidator checksumValidator,
+            Statement controlChecksumQuery,
+            Statement testChecksumQuery,
+            ChecksumQueryContext controlContext,
+            ChecksumQueryContext testContext)
+    {
+        controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
+        testContext.setChecksumQuery(formatSql(testChecksumQuery));
+
+        QueryResult<ChecksumResult> controlChecksum = callAndConsume(
+                () -> prestoAction.execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
+                stats -> controlContext.setChecksumQueryId(stats.getQueryId()));
+        QueryResult<ChecksumResult> testChecksum = callAndConsume(
+                () -> prestoAction.execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
+                stats -> testContext.setChecksumQueryId(stats.getQueryId()));
+
+        return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
+    }
+
     public static List<String> getColumnNames(ResultSetMetaData metadata)
     {
         return callUnchecked(() ->
@@ -93,14 +127,34 @@ public class VerifierUtil
                         .collect(toImmutableMap(i -> callUnchecked(() -> metadata.getColumnName(i)), i -> i - 1)));
     }
 
-    public static List<Type> getColumnTypes(TypeManager typeManager, ResultSetMetaData metadata)
+    public static List<Column> getColumns(TypeManager typeManager, ResultSetMetaData metadata)
     {
         return callUnchecked(() ->
                 IntStream.rangeClosed(1, metadata.getColumnCount())
-                        .mapToObj(i -> callUnchecked(() -> metadata.getColumnTypeName(i)))
-                        .map(TypeSignature::parseTypeSignature)
-                        .map(typeManager::getType)
+                        .mapToObj(i -> callUnchecked(() -> Column.create(
+                                metadata.getColumnName(i),
+                                delimitedIdentifier(metadata.getColumnName(i)),
+                                typeManager.getType(parseTypeSignature(metadata.getColumnTypeName(i))))))
                         .collect(toImmutableList()));
+    }
+
+    public static MatchResult matchSingleRowResults(QueryResult<List<Object>> controlResults, QueryResult<List<Object>> testResults, TypeManager typeManager)
+    {
+        List<Column> columns = getColumns(typeManager, controlResults.getMetadata());
+        List<Column> testColumns = getColumns(typeManager, testResults.getMetadata());
+        if (!Objects.equals(columns, testColumns)) {
+            return new MatchResult(MatchResult.MatchType.SCHEMA_MISMATCH, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), ImmutableMap.of());
+        }
+
+        List<Object> controlResult = getOnlyElement(controlResults.getResults());
+        List<Object> testResult = getOnlyElement(testResults.getResults());
+
+        IntStream.range(0, columns.size())
+                .boxed()
+                .filter(i -> !Objects.equals(controlResult.get(i), testResult.get(i)))
+                .collect(toImmutableMap(columns::get, i -> new ColumnMatchResult(false, columns.get(i), )))
+
+        return new MatchResult()
     }
 
     private static <V> V callUnchecked(SqlExceptionCallable<V> callable)

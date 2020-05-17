@@ -198,6 +198,25 @@ public class TestVerificationManager
         assertEquals(events.get(0).getErrorCode(), "VERIFIER_INTERNAL_ERROR");
     }
 
+    @Test
+    public void testParsingFailed()
+    {
+        SourceQuery sourceQuery = new SourceQuery(
+                SUITE,
+                NAME,
+                "SELECT",
+                "SELECT 1",
+                QUERY_CONFIGURATION,
+                QUERY_CONFIGURATION);
+        VerificationManager manager = getVerificationManager(ImmutableList.of(sourceQuery), new MockPrestoAction(new RuntimeException()), VERIFIER_CONFIG);
+        manager.start();
+
+        List<VerifierQueryEvent> events = eventClient.getEvents();
+        assertEquals(events.size(), 1);
+        assertEquals(events.get(0).getStatus(), SKIPPED.name());
+        assertEquals(events.get(0).getSkippedReason(), SYNTAX_ERROR.name());
+    }
+
     private static SourceQuery createSourceQuery(String name, String controlQuery, String testQuery)
     {
         return new SourceQuery(SUITE, name, controlQuery, testQuery, QUERY_CONFIGURATION, QUERY_CONFIGURATION);

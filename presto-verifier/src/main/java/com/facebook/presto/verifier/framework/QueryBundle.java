@@ -28,19 +28,22 @@ public class QueryBundle
     private final Statement query;
     private final List<Statement> teardownQueries;
     private final ClusterType cluster;
+    private final QueryType queryType;
 
     public QueryBundle(
             QualifiedName tableName,
             List<Statement> setupQueries,
             Statement query,
             List<Statement> teardownQueries,
-            ClusterType cluster)
+            ClusterType cluster,
+            QueryType queryType)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.setupQueries = ImmutableList.copyOf(setupQueries);
         this.query = requireNonNull(query, "query is null");
         this.teardownQueries = ImmutableList.copyOf(teardownQueries);
         this.cluster = requireNonNull(cluster, "cluster is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     public QualifiedName getTableName()
@@ -66,5 +69,10 @@ public class QueryBundle
     public ClusterType getCluster()
     {
         return cluster;
+    }
+
+    public QueryType getQueryType()
+    {
+        return queryType;
     }
 }

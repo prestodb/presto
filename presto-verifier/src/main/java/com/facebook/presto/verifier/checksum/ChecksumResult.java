@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnNames;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.unmodifiableMap;
@@ -30,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ChecksumResult
 {
+    public static String ROW_COUNT_COLUMN_NAME = "$row_count";
+
     private final long rowCount;
     private final Map<String, Object> checksums;
 
@@ -59,12 +62,16 @@ public class ChecksumResult
     public static Optional<ChecksumResult> fromResultSet(ResultSet resultSet)
             throws SQLException
     {
-        long rowCount = resultSet.getLong(1);
+        long rowCount = getColumnNames(resultSet.getMetaData()).contains(ROW_COUNT_COLUMN_NAME) ? resultSet.getLong(ROW_COUNT_COLUMN_NAME) : 0L;
         ResultSetMetaData metaData = resultSet.getMetaData();
         Map<String, Object> checksums = new HashMap<>(metaData.getColumnCount());
 
-        for (int i = 2; i <= metaData.getColumnCount(); i++) {
+        for (int i = 1; i <= metaData.getColumnCount(); i++) {
             String columnName = metaData.getColumnName(i);
+            if (columnName.equals(ROW_COUNT_COLUMN_NAME)) {
+                continue;
+            }
+
             Object checksum = resultSet.getObject(i);
             if (checksum == null) {
                 checksums.put(columnName, null);
@@ -77,6 +84,10 @@ public class ChecksumResult
             }
             else if (metaData.getColumnType(i) == Types.BIGINT) {
                 checkState(checksum instanceof Long, "Expecting bigint for column %s, found %s", columnName, checksum.getClass());
+                checksums.put(columnName, checksum);
+            }
+            else if (metaData.getColumnType(i) == Types.VARCHAR) {
+                checkState(checksum instanceof String, "Expecting string for column %s, found %s", columnName, checksum.getClass());
                 checksums.put(columnName, checksum);
             }
             else {

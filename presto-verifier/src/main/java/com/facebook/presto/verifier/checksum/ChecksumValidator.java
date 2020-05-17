@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Select;
@@ -29,8 +28,12 @@ import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.functionCall;
+import static com.facebook.presto.sql.QueryUtil.quotedIdentifier;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.verifier.checksum.ChecksumResult.ROW_COUNT_COLUMN_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ChecksumValidator
@@ -46,7 +49,7 @@ public class ChecksumValidator
     public Query generateChecksumQuery(QualifiedName tableName, List<Column> columns)
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
-        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        selectItems.add(new SingleColumn(functionCall("count"), Optional.of(quotedIdentifier(ROW_COUNT_COLUMN_NAME))));
         for (Column column : columns) {
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }

@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 
+import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_DEFINITION;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.QueryType.Category.METADATA_READ;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +35,7 @@ public enum QueryType
     CREATE_TABLE_AS_SELECT(DATA_PRODUCING, CreateTableAsSelect.class),
     INSERT(DATA_PRODUCING, Insert.class),
     QUERY(DATA_PRODUCING, Query.class),
+    CREATE_VIEW(DATA_DEFINITION, CreateView.class),
     SHOW_CATALOGS(METADATA_READ, ShowCatalogs.class),
     SHOW_COLUMNS(METADATA_READ, ShowColumns.class),
     SHOW_FUNCTIONS(METADATA_READ, ShowFunctions.class),
@@ -43,6 +46,7 @@ public enum QueryType
     public enum Category
     {
         DATA_PRODUCING,
+        DATA_DEFINITION,
         METADATA_READ
     }
 

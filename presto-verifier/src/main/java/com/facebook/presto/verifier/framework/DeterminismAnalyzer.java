@@ -49,6 +49,7 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -91,11 +92,15 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    protected Optional<DeterminismAnalysis> analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
+        if (control.getQueryType().getCategory() != DATA_PRODUCING) {
+            return Optional.empty();
+        }
+
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {
-            return NON_DETERMINISTIC_CATALOG;
+            return Optional.of(NON_DETERMINISTIC_CATALOG);
         }
 
         List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
@@ -117,7 +122,7 @@ public class DeterminismAnalyzer
 
                 DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {
-                    return analysis;
+                    return Optional.of(analysis);
                 }
             }
 
@@ -131,21 +136,21 @@ public class DeterminismAnalyzer
 
             switch (limitQueryAnalysis) {
                 case NON_DETERMINISTIC:
-                    return NON_DETERMINISTIC_LIMIT_CLAUSE;
+                    return Optional.of(NON_DETERMINISTIC_LIMIT_CLAUSE);
                 case NOT_RUN:
                 case DETERMINISTIC:
-                    return DETERMINISTIC;
+                    return Optional.of(DETERMINISTIC);
                 case FAILED_DATA_CHANGED:
-                    return ANALYSIS_FAILED_DATA_CHANGED;
+                    return Optional.of(ANALYSIS_FAILED_DATA_CHANGED);
                 default:
                     throw new IllegalArgumentException(format("Invalid limitQueryAnalysis: %s", limitQueryAnalysis));
             }
         }
         catch (QueryException qe) {
-            return ANALYSIS_FAILED_QUERY_FAILURE;
+            return Optional.of(ANALYSIS_FAILED_QUERY_FAILURE);
         }
         catch (Throwable t) {
-            return ANALYSIS_FAILED;
+            return Optional.of(ANALYSIS_FAILED);
         }
         finally {
             if (runTeardown) {

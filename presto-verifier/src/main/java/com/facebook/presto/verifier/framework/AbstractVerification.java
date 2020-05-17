@@ -153,7 +153,7 @@ public abstract class AbstractVerification
 
             // Determinism analysis
             if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control.get(), matchResult.get().getControlChecksum(), determinismAnalysisDetails));
+                determinismAnalysis = determinismAnalyzer.analyze(control.get(), matchResult.get().getControlChecksum(), determinismAnalysisDetails);
             }
 
             result = Optional.of(concludeVerification(

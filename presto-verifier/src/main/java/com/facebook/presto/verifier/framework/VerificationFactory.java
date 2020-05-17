@@ -30,6 +30,8 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.QueryType.CREATE_VIEW;
+import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -72,35 +74,46 @@ public class VerificationFactory
     public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
     {
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
-        switch (queryType.getCategory()) {
-            case DATA_PRODUCING:
-                VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission).orElseGet(VerificationContext::create);
-                PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
-                QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
-                DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
-                        sourceQuery,
-                        prestoAction,
-                        queryRewriter,
-                        checksumValidator,
-                        typeManager,
-                        verificationContext,
-                        determinismAnalyzerConfig);
-                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
-                        sqlParser,
-                        prestoAction,
-                        testResourceClient));
-                return new DataVerification(
-                        prestoAction,
-                        sourceQuery,
-                        queryRewriter,
-                        determinismAnalyzer,
-                        failureResolverManager,
-                        verificationContext,
-                        verifierConfig,
-                        typeManager,
-                        checksumValidator);
-            default:
-                throw new IllegalStateException(format("Unsupported query type: %s", queryType));
+        VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission).orElseGet(VerificationContext::create);
+        PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
+        QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+        DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
+                sourceQuery,
+                prestoAction,
+                queryRewriter,
+                checksumValidator,
+                typeManager,
+                verificationContext,
+                determinismAnalyzerConfig);
+        FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
+                sqlParser,
+                prestoAction,
+                testResourceClient));
+
+        if (queryType.getCategory() == DATA_PRODUCING) {
+            return new DataVerification(
+                    prestoAction,
+                    sourceQuery,
+                    queryRewriter,
+                    determinismAnalyzer,
+                    failureResolverManager,
+                    verificationContext,
+                    verifierConfig,
+                    typeManager,
+                    checksumValidator);
         }
+        if (queryType == CREATE_VIEW) {
+            return new CreateViewVerification(
+                    prestoAction,
+                    sourceQuery,
+                    queryRewriter,
+                    determinismAnalyzer,
+                    failureResolverManager,
+                    verificationContext,
+                    verifierConfig,
+                    typeManager,
+                    checksumValidator);
+        }
+        throw new IllegalStateException(format("Unsupported query type: %s", queryType));
     }
 }
