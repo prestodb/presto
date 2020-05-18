@@ -1,5 +1,9 @@
 /* global __dirname */
 
+const process = require('process');
+
+const mode = process.argv.includes('-p') ? 'production' : 'development';
+
 module.exports = {
     entry: {
         'index': `${__dirname}/index.jsx`,
@@ -9,7 +13,7 @@ module.exports = {
         'stage': `${__dirname}/stage.jsx`,
         'worker': `${__dirname}/worker.jsx`,
     },
-    mode: 'development',
+    mode,
     module: {
         rules: [
             {
