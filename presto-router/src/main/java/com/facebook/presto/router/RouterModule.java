@@ -24,6 +24,8 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 
+import java.lang.annotation.Annotation;
+
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
@@ -33,6 +35,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class RouterModule
         extends AbstractConfigurationAwareModule
 {
+    private static final int IDLE_TIMEOUT_SECOND = 30;
+    private static final int REQUEST_TIMEOUT_SECOND = 10;
+    private static final String QUERY_TRACKER = "query-tracker";
+
     @Override
     protected void setup(Binder binder)
     {
@@ -42,19 +48,21 @@ public class RouterModule
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);
 
-        httpClientBinder(binder).bindHttpClient("query-tracker", ForQueryInfoTracker.class)
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                });
-        httpClientBinder(binder).bindHttpClient("query-tracker", ForClusterInfoTracker.class)
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                });
+        bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class);
+        bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class);
+
         binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(RouterResource.class);
         jaxrsBinder(binder).bind(ClusterStatusResource.class);
+    }
+
+    private void bindHttpClient(Binder binder, String name, Class<? extends Annotation> annotation)
+    {
+        httpClientBinder(binder).bindHttpClient(name, annotation)
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(IDLE_TIMEOUT_SECOND, SECONDS));
+                    config.setRequestTimeout(new Duration(REQUEST_TIMEOUT_SECOND, SECONDS));
+                });
     }
 }
