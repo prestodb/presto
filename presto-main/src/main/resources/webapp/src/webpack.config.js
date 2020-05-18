@@ -9,7 +9,7 @@ module.exports = {
         'stage': `${__dirname}/stage.jsx`,
         'worker': `${__dirname}/worker.jsx`,
     },
-    mode: "development",
+    mode: 'development',
     module: {
         rules: [
             {
