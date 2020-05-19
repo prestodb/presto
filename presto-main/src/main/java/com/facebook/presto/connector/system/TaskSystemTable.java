@@ -111,10 +111,10 @@ public class TaskSystemTable
             table.addRow(
                     nodeId,
 
-                    taskStatus.getTaskId().toString(),
-                    taskStatus.getTaskId().getStageExecutionId().toString(),
-                    taskStatus.getTaskId().getStageExecutionId().getStageId().toString(),
-                    taskStatus.getTaskId().getQueryId().toString(),
+                    taskInfo.getTaskId().toString(),
+                    taskInfo.getTaskId().getStageExecutionId().toString(),
+                    taskInfo.getTaskId().getStageExecutionId().getStageId().toString(),
+                    taskInfo.getTaskId().getQueryId().toString(),
                     taskStatus.getState().toString(),
 
                     (long) stats.getTotalDrivers(),

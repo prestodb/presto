@@ -449,7 +449,7 @@ public class SqlTaskManager
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
-            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+            TaskId taskId = taskInfo.getTaskId();
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
@@ -475,8 +475,8 @@ public class SqlTaskManager
                 }
                 DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskStatus.getTaskId());
-                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));
+                    log.info("Failing abandoned task %s", taskInfo.getTaskId());
+                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskInfo.getTaskId(), lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {

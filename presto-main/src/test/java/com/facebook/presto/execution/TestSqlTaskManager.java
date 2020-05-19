@@ -230,7 +230,7 @@ public class TestSqlTaskManager
             sqlTaskManager.removeOldTasks();
 
             for (TaskInfo info : sqlTaskManager.getAllTaskInfo()) {
-                assertNotEquals(info.getTaskStatus().getTaskId(), taskId);
+                assertNotEquals(info.getTaskId(), taskId);
             }
         }
     }

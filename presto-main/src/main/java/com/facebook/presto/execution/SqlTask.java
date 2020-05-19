@@ -284,23 +284,21 @@ public class SqlTask
         }
 
         return new TaskStatus(
-                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
                 location,
-                nodeId,
                 completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
                 outputBuffer.getUtilization(),
                 isOutputBufferOverutilized(),
-                physicalWrittenDataSize,
-                userMemoryReservation,
-                systemMemoryReservation,
+                physicalWrittenDataSize.toBytes(),
+                userMemoryReservation.toBytes(),
+                systemMemoryReservation.toBytes(),
                 fullGcCount,
-                fullGcTime);
+                fullGcTime.toMillis());
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -338,6 +336,7 @@ public class SqlTask
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
+                taskStateMachine.getTaskId(),
                 taskStatus,
                 lastHeartbeat.get(),
                 outputBuffer.getInfo(),

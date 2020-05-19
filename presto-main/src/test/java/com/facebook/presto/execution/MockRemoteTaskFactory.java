@@ -55,7 +55,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -89,7 +88,6 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
@@ -246,24 +244,23 @@ public class MockRemoteTaskFactory
             }
 
             return new TaskInfo(
+                    taskStateMachine.getTaskId(),
                     new TaskStatus(
-                            taskStateMachine.getTaskId(),
                             TASK_INSTANCE_ID,
                             nextTaskInfoVersion.getAndIncrement(),
                             state,
                             location,
-                            nodeId,
                             ImmutableSet.of(),
                             failures,
                             0,
                             0,
                             0.0,
                             false,
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
                             0,
-                            new Duration(0, MILLISECONDS)),
+                            0,
+                            0,
+                            0,
+                            0),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -281,23 +278,21 @@ public class MockRemoteTaskFactory
         public TaskStatus getTaskStatus()
         {
             TaskStats stats = taskContext.getTaskStats();
-            return new TaskStatus(taskStateMachine.getTaskId(),
-                    TASK_INSTANCE_ID,
+            return new TaskStatus(TASK_INSTANCE_ID,
                     nextTaskInfoVersion.get(),
                     taskStateMachine.getState(),
                     location,
-                    nodeId,
                     ImmutableSet.of(),
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
                     0.0,
                     false,
-                    stats.getPhysicalWrittenDataSize(),
-                    stats.getUserMemoryReservation(),
-                    stats.getSystemMemoryReservation(),
+                    stats.getPhysicalWrittenDataSize().toBytes(),
+                    stats.getUserMemoryReservation().toBytes(),
+                    stats.getSystemMemoryReservation().toBytes(),
                     0,
-                    new Duration(0, MILLISECONDS));
+                    0);
         }
 
         private synchronized void updateSplitQueueSpace()

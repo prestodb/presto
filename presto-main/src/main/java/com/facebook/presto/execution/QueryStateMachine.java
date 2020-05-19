@@ -413,8 +413,7 @@ public class QueryStateMachine
                     .flatMap(stageInfo -> Streams.concat(ImmutableList.of(stageInfo.getLatestAttemptExecutionInfo()).stream(), stageInfo.getPreviousAttemptsExecutionInfos().stream()))
                     .flatMap(execution -> execution.getTasks().stream())
                     .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
-                    .map(TaskInfo::getTaskStatus)
-                    .map(TaskStatus::getTaskId)
+                    .map(TaskInfo::getTaskId)
                     .collect(toImmutableList()));
         }
         else {

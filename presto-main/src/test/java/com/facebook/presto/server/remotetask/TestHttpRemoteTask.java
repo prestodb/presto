@@ -463,6 +463,7 @@ public class TestHttpRemoteTask
         private TaskInfo buildTaskInfo()
         {
             return new TaskInfo(
+                    initialTaskInfo.getTaskId(),
                     buildTaskStatus(),
                     initialTaskInfo.getLastHeartbeat(),
                     initialTaskInfo.getOutputBuffers(),
@@ -496,23 +497,21 @@ public class TestHttpRemoteTask
             }
 
             return new TaskStatus(
-                    initialTaskStatus.getTaskId(),
                     taskInstanceId,
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
-                    "fake",
                     ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
                     initialTaskStatus.getOutputBufferUtilization(),
                     initialTaskStatus.isOutputBufferOverutilized(),
-                    initialTaskStatus.getPhysicalWrittenDataSize(),
-                    initialTaskStatus.getMemoryReservation(),
-                    initialTaskStatus.getSystemMemoryReservation(),
+                    initialTaskStatus.getPhysicalWrittenDataSizeInBytes(),
+                    initialTaskStatus.getMemoryReservationInBytes(),
+                    initialTaskStatus.getSystemMemoryReservationInBytes(),
                     initialTaskStatus.getFullGcCount(),
-                    initialTaskStatus.getFullGcTime());
+                    initialTaskStatus.getFullGcTimeInMillis());
         }
     }
 }
