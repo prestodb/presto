@@ -15,6 +15,7 @@ package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.Partitioner;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IntegerIdentityPartitioner
@@ -38,7 +39,7 @@ public class IntegerIdentityPartitioner
     {
         int partition = requireNonNull((Integer) key, "key is null");
         if (!(partition >= 0 && partition < numPartitions)) {
-            throw new IllegalArgumentException("invalid partition: %s" + partition);
+            throw new IllegalArgumentException(format("Unexpected partition: %s. Total number of partitions: %s.", partition, numPartitions));
         }
         return partition;
     }
