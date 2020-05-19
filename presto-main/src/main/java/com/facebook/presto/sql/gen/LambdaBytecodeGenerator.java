@@ -39,6 +39,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
@@ -105,12 +106,42 @@ public class LambdaBytecodeGenerator
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
+            RowExpression expression,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            String methodNamePrefix,
+            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+    {
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, existingCompiledLambdas);
+    }
+
+    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
             List<RowExpression> expressions,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             String methodNamePrefix)
     {
-        Set<LambdaDefinitionExpression> lambdaExpressions = expressions.stream().map(LambdaExpressionExtractor::extractLambdaExpressions).flatMap(List::stream).collect(toImmutableSet());
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expressions, metadata, sqlFunctionProperties, methodNamePrefix, ImmutableSet.of());
+    }
+
+    private static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            List<RowExpression> expressions,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            String methodNamePrefix,
+            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+    {
+        Set<LambdaDefinitionExpression> lambdaExpressions = expressions.stream()
+                .map(LambdaExpressionExtractor::extractLambdaExpressions)
+                .flatMap(List::stream)
+                .filter(lambda -> !existingCompiledLambdas.contains(lambda))
+                .collect(toImmutableSet());
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
