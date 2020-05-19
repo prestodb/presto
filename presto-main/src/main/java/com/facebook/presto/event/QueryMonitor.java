@@ -386,7 +386,7 @@ public class QueryMonitor
                 failureInfo.getErrorCode(),
                 Optional.ofNullable(failureInfo.getType()),
                 Optional.ofNullable(failureInfo.getMessage()),
-                failedTask.map(task -> task.getTaskStatus().getTaskId().toString()),
+                failedTask.map(task -> task.getTaskId().toString()),
                 failedTask.map(task -> task.getTaskStatus().getSelf().getHost()),
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
