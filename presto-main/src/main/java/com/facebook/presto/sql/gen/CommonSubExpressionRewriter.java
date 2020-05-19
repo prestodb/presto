@@ -148,6 +148,7 @@ public class CommonSubExpressionRewriter
                     newList.add(expression);
                     dependencies.addAll(second);
                     merged[j] = true;
+                    j = i + 1;
                 }
                 else {
                     j++;
