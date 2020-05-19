@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class TaskInfo
 {
+    private final TaskId taskId;
     private final TaskStatus taskStatus;
     private final DateTime lastHeartbeat;
     private final OutputBufferInfo outputBuffers;
@@ -45,13 +46,16 @@ public class TaskInfo
     private final boolean needsPlan;
 
     @JsonCreator
-    public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
+    public TaskInfo(
+            @JsonProperty("taskId") TaskId taskId,
+            @JsonProperty("taskStatus") TaskStatus taskStatus,
             @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
             @JsonProperty("needsPlan") boolean needsPlan)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
@@ -59,6 +63,12 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
+    }
+
+    @JsonProperty
+    public TaskId getTaskId()
+    {
+        return taskId;
     }
 
     @JsonProperty
@@ -100,24 +110,25 @@ public class TaskInfo
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
+            return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
         }
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
+        return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskStatus.getTaskId())
+                .add("taskId", taskId)
                 .add("state", taskStatus.getState())
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, List<BufferInfo> bufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, List<BufferInfo> bufferStates, TaskStats taskStats)
     {
         return new TaskInfo(
-                initialTaskStatus(taskId, location, nodeId),
+                taskId,
+                initialTaskStatus(location),
                 DateTime.now(),
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
@@ -127,6 +138,6 @@ public class TaskInfo
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
     }
 }

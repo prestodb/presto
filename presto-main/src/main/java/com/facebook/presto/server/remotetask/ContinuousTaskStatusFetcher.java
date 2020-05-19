@@ -80,6 +80,7 @@ class ContinuousTaskStatusFetcher
 
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
+            TaskId taskId,
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
             Codec<TaskStatus> taskStatusCodec,
@@ -92,7 +93,7 @@ class ContinuousTaskStatusFetcher
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
-        this.taskId = initialTaskStatus.getTaskId();
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
 
