@@ -66,7 +66,7 @@ public class TestCommonSubExpressionRewritter
                         ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2")), true,
                         ImmutableList.of(rowExpression("x + 2"), rowExpression("y * (x + 2)")), true,
                         ImmutableList.of(rowExpression("x * y")), false));
-        expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2"), rowExpression("y * 2"), rowExpression("x * 2"), rowExpression("x + y * 2"));
+        expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("x * 2"), rowExpression("x + y + x * 2"), rowExpression("y * 2"), rowExpression("x + y * 2"));
         expressionsWithCSE = getExpressionsPartitionedByCSE(expressions);
         assertEquals(
                 expressionsWithCSE,
