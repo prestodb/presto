@@ -198,6 +198,7 @@ public class DruidQueryGeneratorContext
     {
         return "\"" + identifier + "\"";
     }
+
     public DruidQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
     {
         return new DruidQueryGeneratorContext(
@@ -290,7 +291,7 @@ public class DruidQueryGeneratorContext
             VariableReferenceExpression variable = entry.getKey();
             Selection selection = entry.getValue();
             DruidColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ?
-                    new DruidColumnHandle(selection.getEscapedDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) :
+                    new DruidColumnHandle(selection.getDefinition(), variable.getType(), DruidColumnHandle.DruidColumnType.REGULAR) :
                     new DruidColumnHandle(variable, DruidColumnHandle.DruidColumnType.DERIVED);
             result.put(variable, handle);
         });
