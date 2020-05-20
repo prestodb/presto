@@ -111,7 +111,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         dockerCompose.pull();
         composeProcess = dockerCompose.up(ImmutableMap.of(
                 "spark-master", 1,
-                "spark-worker", 3,
+                "spark-worker", 2,
                 "hadoop-master", 1));
 
         Session session = testSessionBuilder()
@@ -235,6 +235,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/etc/catalogs", catalogDirectory.getAbsolutePath()),
                 "spark-submit",
                 "/spark/bin/spark-submit",
+                "--executor-memory", "512m",
                 "--master", "spark://spark-master:7077",
                 "--class", "com.facebook.presto.spark.launcher.PrestoSparkLauncher",
                 "/presto/launcher.jar",

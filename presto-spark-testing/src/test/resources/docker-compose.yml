@@ -12,10 +12,9 @@ services:
     environment:
       - "TZ=America/Bahia_Banderas"
       - SPARK_MASTER=spark://spark-master:7077
-      - SPARK_DRIVER_MEMORY=1G
+      - SPARK_DRIVER_MEMORY=512m
       - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_EXECUTOR_MEMORY=2G
+      - SPARK_WORKER_MEMORY=1G
   spark-submit:
     image: spydernaz/spark-submit:2.4.3
     environment:
