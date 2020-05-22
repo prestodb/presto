@@ -170,6 +170,9 @@ public class CommonSubExpressionRewriter
         int startCSELevel = cseByLevel.keySet().stream().reduce(Math::max).get();
         int stopCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();
         for (int i = startCSELevel; i > stopCSELevel; i--) {
+            if (!cseByLevel.containsKey(i)) {
+                continue;
+            }
             Map<RowExpression, Integer> expressions = cseByLevel.get(i).stream().filter(expression -> expressionCount.get(expression) > 0).collect(toImmutableMap(identity(), expressionCount::get));
             if (!expressions.isEmpty()) {
                 results.put(i, expressions);
