@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
@@ -25,6 +26,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.execution.PrestoSparkRowBuffer.BufferedRows;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.planner.OutputPartitioning;
@@ -38,7 +40,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -46,6 +50,9 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkOutputOperator
         implements Operator
 {
+    private static final int BATCH_SIZE = 1024 * 1024;
+    private static final int EXPECTED_ROWS_COUNT_PER_BATCH = 10000;
+
     public static class PrestoSparkOutputFactory
             implements OutputFactory
     {
@@ -145,6 +152,7 @@ public class PrestoSparkOutputOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkOutputOperator.class.getSimpleName());
             return new PrestoSparkOutputOperator(
                     operatorContext,
+                    operatorContext.newLocalSystemMemoryContext(PrestoSparkOutputOperator.class.getSimpleName()),
                     rowBuffer,
                     pagePreprocessor,
                     partitionFunction,
@@ -176,6 +184,7 @@ public class PrestoSparkOutputOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext systemMemoryContext;
     private final PrestoSparkRowBuffer rowBuffer;
     private final Function<Page, Page> pagePreprocessor;
     private final PartitionFunction partitionFunction;
@@ -184,11 +193,15 @@ public class PrestoSparkOutputOperator
     private final boolean replicateNullsAndAny;
     private final OptionalInt nullChannel;
 
+    private ImmutableList.Builder<PrestoSparkRow> currentBatch;
+    private long currentBatchSize;
+
     private boolean finished;
     private boolean hasAnyRowBeenReplicated;
 
     public PrestoSparkOutputOperator(
             OperatorContext operatorContext,
+            LocalMemoryContext systemMemoryContext,
             PrestoSparkRowBuffer rowBuffer,
             Function<Page, Page> pagePreprocessor,
             PartitionFunction partitionFunction,
@@ -198,6 +211,7 @@ public class PrestoSparkOutputOperator
             OptionalInt nullChannel)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
@@ -245,15 +259,29 @@ public class PrestoSparkOutputOperator
             byte[] rowBytes = output.size() == 0 ? new byte[0] : output.getUnderlyingSlice().byteArray();
             if (shouldReplicate) {
                 for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                    rowBuffer.enqueue(new PrestoSparkRow(i, output.size(), rowBytes));
+                    appendRow(new PrestoSparkRow(i, output.size(), rowBytes));
                 }
                 hasAnyRowBeenReplicated = true;
             }
             else {
                 int partition = getPartition(partitionFunctionArguments, position);
-                rowBuffer.enqueue(new PrestoSparkRow(partition, output.size(), rowBytes));
+                appendRow(new PrestoSparkRow(partition, output.size(), rowBytes));
             }
         }
+        updateMemoryContext();
+    }
+
+    private void appendRow(PrestoSparkRow row)
+    {
+        long rowSize = row.getRetainedSize();
+        if (currentBatchSize + rowSize > BATCH_SIZE) {
+            flush();
+        }
+        if (currentBatch == null) {
+            currentBatch = ImmutableList.builderWithExpectedSize(EXPECTED_ROWS_COUNT_PER_BATCH);
+        }
+        currentBatch.add(row);
+        currentBatchSize += rowSize;
     }
 
     private int getPartition(Page partitionFunctionArgs, int position)
@@ -285,7 +313,36 @@ public class PrestoSparkOutputOperator
     @Override
     public void finish()
     {
+        flush();
+        updateMemoryContext();
         finished = true;
+    }
+
+    private void flush()
+    {
+        if (currentBatchSize > 0) {
+            verify(currentBatch != null);
+            // Uses currentBatch internally. Must be called before currentBatch is set to null.
+            int rowsListRetainedSize = getCurrentBatchRetainedBytes();
+            List<PrestoSparkRow> rowsList = currentBatch.build();
+            BufferedRows bufferedRows = new BufferedRows(rowsList, rowsListRetainedSize);
+            rowBuffer.enqueue(bufferedRows);
+            currentBatch = null;
+            currentBatchSize = 0;
+        }
+    }
+
+    private void updateMemoryContext()
+    {
+        systemMemoryContext.setBytes(getCurrentBatchRetainedBytes());
+    }
+
+    private int getCurrentBatchRetainedBytes()
+    {
+        if (currentBatch != null) {
+            return toIntExact(currentBatchSize + sizeOfObjectArray(EXPECTED_ROWS_COUNT_PER_BATCH));
+        }
+        return 0;
     }
 
     @Override
