@@ -63,13 +63,6 @@ public class PrestoSparkRowBuffer
         }
     }
 
-    public boolean hasRowsBuffered()
-    {
-        synchronized (monitor) {
-            return !buffer.isEmpty();
-        }
-    }
-
     public PrestoSparkRow get()
             throws InterruptedException
     {

@@ -80,6 +80,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
+import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -477,7 +479,9 @@ public class PrestoSparkQueryRunner
                     SparkConf sparkConfiguration = new SparkConf()
                             .setMaster(format("local[%s]", NODE_COUNT))
                             .setAppName("presto")
-                            .set("spark.driver.host", "localhost");
+                            .set("spark.driver.host", "localhost")
+                            .set(SPARK_EXECUTOR_CORES_PROPERTY, "4")
+                            .set(SPARK_TASK_CPUS_PROPERTY, "4");
                     sparkContext = new SparkContext(sparkConfiguration);
                 }
                 referenceCount++;
