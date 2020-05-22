@@ -18,21 +18,19 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.execution.ScheduledSplit;
+import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.OutputBufferMemoryManager;
+import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.Driver;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
@@ -57,7 +55,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -69,18 +66,18 @@ import scala.Tuple2;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.collect.Iterables.getFirst;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskExecutorFactory
@@ -99,6 +96,8 @@ public class PrestoSparkTaskExecutorFactory
 
     private final LocalExecutionPlanner localExecutionPlanner;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
+    private final TaskExecutor taskExecutor;
+    private final SplitMonitor splitMonitor;
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
@@ -123,6 +122,8 @@ public class PrestoSparkTaskExecutorFactory
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
+            TaskExecutor taskExecutor,
+            SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
@@ -137,6 +138,8 @@ public class PrestoSparkTaskExecutorFactory
                 yieldExecutor,
                 localExecutionPlanner,
                 executionExceptionFactory,
+                taskExecutor,
+                splitMonitor,
                 authenticatorProviders,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
@@ -157,6 +160,8 @@ public class PrestoSparkTaskExecutorFactory
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
+            TaskExecutor taskExecutor,
+            SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
@@ -175,6 +180,8 @@ public class PrestoSparkTaskExecutorFactory
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
+        this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
+        this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
@@ -300,63 +307,30 @@ public class PrestoSparkTaskExecutorFactory
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
-        List<Driver> drivers = createDrivers(
-                localExecutionPlan,
+        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
+        taskStateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                rowBuffer.setNoMoreRows();
+            }
+        });
+
+        PrestoSparkTaskExecution taskExecution = new PrestoSparkTaskExecution(
+                taskStateMachine,
                 taskContext,
-                fragment.getTableScanSchedulingOrder(),
-                taskDescriptor.getSources());
+                localExecutionPlan,
+                taskExecutor,
+                splitMonitor,
+                notificationExecutor);
 
-        return new PrestoSparkTaskExecutor(taskContext, drivers, rowBuffer, taskStatsJsonCodec, taskStatsCollector, executionExceptionFactory);
-    }
+        taskExecution.start(taskDescriptor.getSources());
 
-    private List<Driver> createDrivers(
-            LocalExecutionPlan localExecutionPlan,
-            TaskContext taskContext,
-            List<PlanNodeId> tableScanSchedulingOrder,
-            List<TaskSource> sources)
-    {
-        // Based on LocalQueryRunner#createDrivers
-        List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
-                if (driverFactory.getSourceId().isPresent()) {
-                    boolean partitioned = tableScanSchedulingOrder.contains(driverFactory.getSourceId().get());
-                    if (partitioned) {
-                        checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
-                    }
-                    else {
-                        DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
-                        Driver driver = driverFactory.createDriver(driverContext);
-                        drivers.add(driver);
-                    }
-                }
-                else {
-                    DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), false).addDriverContext();
-                    Driver driver = driverFactory.createDriver(driverContext);
-                    drivers.add(driver);
-                }
-            }
-        }
-
-        // TODO: avoid pre-creating drivers for all task sources
-        for (TaskSource source : sources) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
-            checkState(driverFactory != null);
-            boolean partitioned = tableScanSchedulingOrder.contains(driverFactory.getSourceId().get());
-            for (ScheduledSplit split : source.getSplits()) {
-                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
-                Driver driver = driverFactory.createDriver(driverContext);
-                driver.updateSource(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
-                drivers.add(driver);
-            }
-        }
-
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            driverFactory.noMoreDrivers();
-        }
-
-        return ImmutableList.copyOf(drivers);
+        return new PrestoSparkTaskExecutor(
+                taskContext,
+                taskStateMachine,
+                rowBuffer,
+                taskStatsJsonCodec,
+                taskStatsCollector,
+                executionExceptionFactory);
     }
 
     private static class PrestoSparkTaskExecutor
@@ -364,7 +338,7 @@ public class PrestoSparkTaskExecutorFactory
             implements IPrestoSparkTaskExecutor
     {
         private final TaskContext taskContext;
-        private final List<Driver> drivers;
+        private final TaskStateMachine taskStateMachine;
         private final PrestoSparkRowBuffer rowBuffer;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
@@ -372,14 +346,14 @@ public class PrestoSparkTaskExecutorFactory
 
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
-                List<Driver> drivers,
+                TaskStateMachine taskStateMachine,
                 PrestoSparkRowBuffer rowBuffer,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
                 CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
-            this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
+            this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
             this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
@@ -397,6 +371,7 @@ public class PrestoSparkTaskExecutorFactory
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                taskStateMachine.abort();
                 throw new RuntimeException(e);
             }
         }
@@ -404,35 +379,29 @@ public class PrestoSparkTaskExecutorFactory
         private Tuple2<Integer, PrestoSparkRow> doComputeNext()
                 throws InterruptedException
         {
-            boolean done = false;
-            while (!done && !rowBuffer.hasRowsBuffered()) {
-                boolean processed = false;
-                for (Driver driver : drivers) {
-                    if (!driver.isFinished()) {
-                        // TODO: avoid busy looping, wait on blocked future
-                        driver.process();
-                        processed = true;
-                    }
-                }
-                done = !processed;
+            PrestoSparkRow row = rowBuffer.get();
+            if (row != null) {
+                return new Tuple2<>(row.getPartition(), row);
             }
 
-            if (done) {
-                rowBuffer.setNoMoreRows();
-            }
+            //  TODO: Implement task stats collection
+            //  TaskStats taskStats = taskContext.getTaskStats();
+            //  byte[] taskStatsSerialized = taskStatsJsonCodec.toJsonBytes(taskStats);
+            //  taskStatsCollector.add(new SerializedTaskStats(taskStatsSerialized));
 
-            if (!rowBuffer.hasRowsBuffered()) {
-                verify(done, "all drivers must be done if no rows are in the buffer");
-
-                // TODO: Fix task stats collection
-                //  TaskStats taskStats = taskContext.getTaskStats();
-                //  byte[] taskStatsSerialized = taskStatsJsonCodec.toJsonBytes(taskStats);
-                //  taskStatsCollector.add(new SerializedTaskStats(taskStatsSerialized));
+            // task finished
+            TaskState taskState = taskStateMachine.getState();
+            checkState(taskState.isDone(), "task is expected to be done");
+            LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
+            if (failures.isEmpty()) {
                 return endOfData();
             }
 
-            PrestoSparkRow row = requireNonNull(rowBuffer.get(), "row is null");
-            return new Tuple2<>(row.getPartition(), row);
+            Throwable failure = getFirst(failures, null);
+            propagateIfPossible(failure, Error.class);
+            propagateIfPossible(failure, RuntimeException.class);
+            propagateIfPossible(failure, InterruptedException.class);
+            throw new RuntimeException(failure);
         }
     }
 }
