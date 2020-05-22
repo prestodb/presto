@@ -18,6 +18,7 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -33,12 +34,17 @@ import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.NONE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
 public class PrestoSparkSettingsRequirements
 {
+    public static final String SPARK_TASK_CPUS_PROPERTY = "spark.task.cpus";
+    public static final String SPARK_EXECUTOR_CORES_PROPERTY = "spark.executor.cores";
+
     public void verify(SparkContext sparkContext, Session session)
     {
+        // verify Presto configuration
         verify(!isDistributedSortEnabled(session), "distributed sort is not supported");
         verify(getExchangeMaterializationStrategy(session) == NONE, "exchange materialization is not supported");
         verify(getPartitioningProviderCatalog(session).equals(GlobalSystemConnector.NAME), "partitioning provider other that system is not supported");
@@ -51,6 +57,26 @@ public class PrestoSparkSettingsRequirements
         verify(!isRedistributeWrites(session), "redistribute writes is not supported");
         verify(!isScaleWriters(session), "scale writes is not supported");
         verify(!isForceSingleNodeOutput(session), "force single node output is expected to be disabled");
+
+        // verify Spark configuration
+        verifyExecutorConfiguration(sparkContext.conf());
+    }
+
+    private static void verifyExecutorConfiguration(SparkConf sparkConf)
+    {
+        String taskCpusString = sparkConf.get(SPARK_TASK_CPUS_PROPERTY, null);
+        verify(taskCpusString != null, "%s must be set", SPARK_TASK_CPUS_PROPERTY);
+        String executorCoresString = sparkConf.get(SPARK_EXECUTOR_CORES_PROPERTY, null);
+        verify(executorCoresString != null, "%s must be set", SPARK_EXECUTOR_CORES_PROPERTY);
+        int taskCpus = parseInt(taskCpusString);
+        int executorCores = parseInt(executorCoresString);
+        verify(
+                taskCpus == executorCores,
+                "%s (%s) must be equal to %s (%s)",
+                SPARK_TASK_CPUS_PROPERTY,
+                taskCpus,
+                SPARK_EXECUTOR_CORES_PROPERTY,
+                executorCores);
     }
 
     private static void verify(boolean condition, String message, Object... args)

@@ -236,6 +236,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "spark-submit",
                 "/spark/bin/spark-submit",
                 "--executor-memory", "512m",
+                "--executor-cores", "4",
+                "--conf", "spark.task.cpus=4",
                 "--master", "spark://spark-master:7077",
                 "--class", "com.facebook.presto.spark.launcher.PrestoSparkLauncher",
                 "/presto/launcher.jar",
