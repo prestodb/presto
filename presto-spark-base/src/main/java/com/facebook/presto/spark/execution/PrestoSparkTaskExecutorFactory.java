@@ -344,6 +344,9 @@ public class PrestoSparkTaskExecutorFactory
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
+        private List<PrestoSparkRow> currentRowBatch;
+        private int indexInBatch;
+
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
@@ -379,7 +382,7 @@ public class PrestoSparkTaskExecutorFactory
         private Tuple2<Integer, PrestoSparkRow> doComputeNext()
                 throws InterruptedException
         {
-            PrestoSparkRow row = rowBuffer.get();
+            PrestoSparkRow row = getNextRow();
             if (row != null) {
                 return new Tuple2<>(row.getPartition(), row);
             }
@@ -402,6 +405,21 @@ public class PrestoSparkTaskExecutorFactory
             propagateIfPossible(failure, RuntimeException.class);
             propagateIfPossible(failure, InterruptedException.class);
             throw new RuntimeException(failure);
+        }
+
+        private PrestoSparkRow getNextRow()
+                throws InterruptedException
+        {
+            if (currentRowBatch == null || indexInBatch >= currentRowBatch.size()) {
+                currentRowBatch = rowBuffer.get();
+                indexInBatch = 0;
+                if (currentRowBatch == null || currentRowBatch.isEmpty()) {
+                    return null;
+                }
+            }
+            PrestoSparkRow row = currentRowBatch.get(indexInBatch);
+            indexInBatch++;
+            return row;
         }
     }
 }
