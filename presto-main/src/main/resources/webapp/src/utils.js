@@ -214,45 +214,45 @@ export function initializeSvg(selector: any)
 export function getChildren(nodeInfo: any)
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
-    const nodeType = removeNodeTypePackage(nodeInfo['@type']);
+    const nodeType = removeNodeTypePackage(nodeInfo["@type"]);
     switch (nodeType) {
-        case 'OutputNode':
-        case 'ExplainAnalyzeNode':
-        case 'ProjectNode':
-        case 'FilterNode':
-        case 'AggregationNode':
-        case 'SortNode':
-        case 'MarkDistinctNode':
-        case 'WindowNode':
-        case 'RowNumberNode':
-        case 'TopNRowNumberNode':
-        case 'LimitNode':
-        case 'DistinctLimitNode':
-        case 'TopNNode':
-        case 'SampleNode':
-        case 'TableWriterNode':
-        case 'DeleteNode':
-        case 'MetadataDeleteNode':
-        case 'TableFinishNode':
-        case 'GroupIdNode':
-        case 'UnnestNode':
-        case 'EnforceSingleRowNode':
+        case "OutputNode":
+        case "ExplainAnalyzeNode":
+        case "ProjectNode":
+        case "FilterNode":
+        case "AggregationNode":
+        case "SortNode":
+        case "MarkDistinctNode":
+        case "WindowNode":
+        case "RowNumberNode":
+        case "TopNRowNumberNode":
+        case "LimitNode":
+        case "DistinctLimitNode":
+        case "TopNNode":
+        case "SampleNode":
+        case "TableWriterNode":
+        case "DeleteNode":
+        case "MetadataDeleteNode":
+        case "TableFinishNode":
+        case "GroupIdNode":
+        case "UnnestNode":
+        case "EnforceSingleRowNode":
             return [nodeInfo.source];
-        case 'JoinNode':
+        case "JoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'SemiJoinNode':
+        case "SemiJoinNode":
             return [nodeInfo.source, nodeInfo.filteringSource];
-        case 'SpatialJoinNode':
+        case "SpatialJoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'IndexJoinNode':
+        case "IndexJoinNode":
             return [nodeInfo.probeSource, nodeInfo.indexSource];
-        case 'UnionNode':
-        case 'ExchangeNode':
+        case "UnionNode":
+        case "ExchangeNode":
             return nodeInfo.sources;
-        case 'RemoteSourceNode':
-        case 'TableScanNode':
-        case 'ValuesNode':
-        case 'IndexSourceNode':
+        case "RemoteSourceNode":
+        case "TableScanNode":
+        case "ValuesNode":
+        case "IndexSourceNode":
             break;
         default:
             console.log("NOTE: Unhandled PlanNode: " + nodeType);
