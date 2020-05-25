@@ -199,11 +199,22 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
+    public static HiveType toHiveType(
+            TypeTranslator typeTranslator,
+            Type type)
+    {
+        return toHiveType(typeTranslator, type, Optional.empty());
+    }
+
+    public static HiveType toHiveType(
+            TypeTranslator typeTranslator,
+            Type type,
+            Optional<HiveType> defaultHiveType)
     {
         requireNonNull(typeTranslator, "typeTranslator is null");
         requireNonNull(type, "type is null");
-        return new HiveType(typeTranslator.translate(type));
+        requireNonNull(defaultHiveType, "defaultHiveType is null");
+        return new HiveType(typeTranslator.translate(type, defaultHiveType));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
