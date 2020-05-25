@@ -178,6 +178,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -197,6 +198,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColu
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveTableProperties.getPreferredOrderingColumns;
+import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -860,6 +862,10 @@ public class HiveMetadata
             return new HiveBucketProperty(partitioning.getPartitionColumns(), partitioningHandle.getBucketCount(), ImmutableList.of());
         });
 
+        // PAGEFILE format doesn't require translation to hive type,
+        // choose HIVE_BINARY as a default hive type to make it compatible with Hive connector
+        Optional<HiveType> defaultHiveType = storageFormat == PAGEFILE ? Optional.of(HIVE_BINARY) : Optional.empty();
+
         List<HiveColumnHandle> columnHandles = getColumnHandles(
                 // Hive doesn't support anonymous rows and unknown type
                 // Since this method doesn't create a real table, it is fine
@@ -867,7 +873,8 @@ public class HiveMetadata
                 // type to the boolean type that is binary compatible
                 translateHiveUnsupportedTypesForTemporaryTable(columns, typeManager),
                 ImmutableSet.of(),
-                typeTranslator);
+                typeTranslator,
+                defaultHiveType);
         validateColumns(storageFormat, columnHandles);
 
         Table table = Table.builder()
@@ -2213,7 +2220,9 @@ public class HiveMetadata
         return new HivePartitioningHandle(
                 partitionCount,
                 partitionTypes.stream()
-                        .map(type -> toHiveType(typeTranslator, translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
+                        .map(type -> toHiveType(
+                                typeTranslator,
+                                translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
                         .collect(toImmutableList()),
                 OptionalInt.empty());
     }
@@ -2676,7 +2685,19 @@ public class HiveMetadata
         return getColumnHandles(tableMetadata.getColumns(), partitionColumnNames, typeTranslator);
     }
 
-    private static List<HiveColumnHandle> getColumnHandles(List<ColumnMetadata> columns, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
+    private static List<HiveColumnHandle> getColumnHandles(
+            List<ColumnMetadata> columns,
+            Set<String> partitionColumnNames,
+            TypeTranslator typeTranslator)
+    {
+        return getColumnHandles(columns, partitionColumnNames, typeTranslator, Optional.empty());
+    }
+
+    private static List<HiveColumnHandle> getColumnHandles(
+            List<ColumnMetadata> columns,
+            Set<String> partitionColumnNames,
+            TypeTranslator typeTranslator,
+            Optional<HiveType> defaultHiveType)
     {
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
@@ -2693,7 +2714,7 @@ public class HiveMetadata
             }
             columnHandles.add(new HiveColumnHandle(
                     column.getName(),
-                    toHiveType(typeTranslator, column.getType()),
+                    toHiveType(typeTranslator, column.getType(), defaultHiveType),
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,

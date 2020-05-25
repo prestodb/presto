@@ -16,7 +16,19 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
+import java.util.Optional;
+
 public interface TypeTranslator
 {
-    TypeInfo translate(Type type);
+    default TypeInfo translate(Type type)
+    {
+        return translate(type, Optional.empty());
+    }
+
+    /**
+     * When there is no mapping type in hive to translate {@code type},
+     * use provided {@code }defaultHiveType} when necessary. For example,
+     * explicit type is not needed for PageFile format.
+     */
+    TypeInfo translate(Type type, Optional<HiveType> defaultHiveType);
 }
