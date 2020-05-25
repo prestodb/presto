@@ -26,6 +26,8 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -63,7 +65,7 @@ public class HiveTypeTranslator
         implements TypeTranslator
 {
     @Override
-    public TypeInfo translate(Type type)
+    public TypeInfo translate(Type type, Optional<HiveType> defaultHiveType)
     {
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.getTypeInfo();
@@ -123,12 +125,12 @@ public class HiveTypeTranslator
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (isArrayType(type)) {
-            TypeInfo elementType = translate(type.getTypeParameters().get(0));
+            TypeInfo elementType = translate(type.getTypeParameters().get(0), defaultHiveType);
             return getListTypeInfo(elementType);
         }
         if (isMapType(type)) {
-            TypeInfo keyType = translate(type.getTypeParameters().get(0));
-            TypeInfo valueType = translate(type.getTypeParameters().get(1));
+            TypeInfo keyType = translate(type.getTypeParameters().get(0), defaultHiveType);
+            TypeInfo valueType = translate(type.getTypeParameters().get(1), defaultHiveType);
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
@@ -146,9 +148,11 @@ public class HiveTypeTranslator
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(this::translate)
+                            .map(t -> translate(t, defaultHiveType))
                             .collect(toList()));
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        return defaultHiveType
+                .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type)))
+                .getTypeInfo();
     }
 }
