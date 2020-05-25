@@ -156,6 +156,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
+    public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -800,7 +801,12 @@ public final class SystemSessionProperties
                         warningCollectorConfig.getWarningHandlingLevel(),
                         false,
                         value -> WarningHandlingLevel.valueOf(((String) value).toUpperCase()),
-                        WarningHandlingLevel::name));
+                        WarningHandlingLevel::name),
+                booleanProperty(
+                        OPTIMIZE_NULLS_IN_JOINS,
+                        "Filter nulls from inner side of join",
+                        featuresConfig.isOptimizeNullsInJoin(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1350,5 +1356,10 @@ public final class SystemSessionProperties
     public static WarningHandlingLevel getWarningHandlingLevel(Session session)
     {
         return session.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class);
+    }
+
+    public static boolean isOptimizeNullsInJoin(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
     }
 }

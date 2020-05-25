@@ -56,6 +56,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -8200,6 +8201,46 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
                 "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+    }
+
+    @Test
+    public void testJoinsWithNulls()
+    {
+        Session sessionWithOptNulls = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_NULLS_IN_JOINS, "true")
+                .build();
+        testJoinsWithNullsInternal(getSession());
+        testJoinsWithNullsInternal(sessionWithOptNulls);
+    }
+
+    private void testJoinsWithNullsInternal(Session session)
+    {
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES 2, 3, null) a(x) INNER JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x",
+                "SELECT * FROM VALUES (3, 3)");
+
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES 2, 3, null) a(x) LEFT JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x",
+                "SELECT * FROM VALUES (3, 3), (2, NULL), (NULL, NULL)");
+
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES 2, 3, null) a(x) RIGHT JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x",
+                "SELECT * FROM VALUES (3, 3), (NULL, 4), (NULL, NULL)");
+
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES 2, 3, null) a(x) " +
+                        "FULL OUTER JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x",
+                "SELECT * FROM VALUES (3, 3), (NULL, 4), (2, NULL), (NULL, NULL), (NULL, NULL)");
+
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES 2, 3, null) a(x) " +
+                        "FULL OUTER JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x WHERE a.x IS NULL",
+                "SELECT * FROM VALUES (NULL, 4), (NULL, NULL), (NULL, NULL)");
     }
 
     @Test
