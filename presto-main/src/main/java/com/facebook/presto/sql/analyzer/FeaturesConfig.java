@@ -153,6 +153,7 @@ public class FeaturesConfig
     private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
+    private boolean optimizeNullsInJoin;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1262,6 +1263,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreferDistributedUnion(boolean preferDistributedUnion)
     {
         this.preferDistributedUnion = preferDistributedUnion;
+        return this;
+    }
+
+    public boolean isOptimizeNullsInJoin()
+    {
+        return optimizeNullsInJoin;
+    }
+
+    @Config("optimize-nulls-in-join")
+    public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
+    {
+        this.optimizeNullsInJoin = optimizeNullsInJoin;
         return this;
     }
 }

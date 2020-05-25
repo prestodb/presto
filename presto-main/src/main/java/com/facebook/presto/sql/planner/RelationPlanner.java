@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -290,11 +291,13 @@ class RelationPlanner
                     if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
                         rightComparisonExpressions.add(secondExpression);
+                        addNullFilters(complexJoinExpressions, node.getType(), firstExpression, secondExpression);
                         joinConditionComparisonOperators.add(comparisonOperator);
                     }
                     else if (firstDependencies.stream().allMatch(right::canResolve) && secondDependencies.stream().allMatch(left::canResolve)) {
                         leftComparisonExpressions.add(secondExpression);
                         rightComparisonExpressions.add(firstExpression);
+                        addNullFilters(complexJoinExpressions, node.getType(), secondExpression, firstExpression);
                         joinConditionComparisonOperators.add(comparisonOperator.flip());
                     }
                     else {
@@ -398,6 +401,32 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, analysis.getScope(node), outputs);
+    }
+
+    private void addNullFilters(List<Expression> conditions, Join.Type joinType, Expression left, Expression right)
+    {
+        if (SystemSessionProperties.isOptimizeNullsInJoin(session)) {
+            switch (joinType) {
+                case INNER:
+                    addNullFilterIfSupported(conditions, left);
+                    addNullFilterIfSupported(conditions, right);
+                    break;
+                case LEFT:
+                    addNullFilterIfSupported(conditions, right);
+                    break;
+                case RIGHT:
+                    addNullFilterIfSupported(conditions, left);
+                    break;
+            }
+        }
+    }
+
+    private void addNullFilterIfSupported(List<Expression> conditions, Expression incoming)
+    {
+        if (!(incoming instanceof InPredicate)) {
+            // (A.x IN (1,2,3)) IS NOT NULL is not supported as a join condition as of today.
+            conditions.add(new IsNotNullPredicate(incoming));
+        }
     }
 
     private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
