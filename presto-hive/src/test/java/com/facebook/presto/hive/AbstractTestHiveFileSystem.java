@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -133,6 +134,7 @@ public abstract class AbstractTestHiveFileSystem
 
     private ExecutorService executor;
     private HiveClientConfig config;
+    private CacheConfig cacheConfig;
     private MetastoreClientConfig metastoreClientConfig;
 
     @BeforeClass
@@ -161,6 +163,7 @@ public abstract class AbstractTestHiveFileSystem
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
 
         config = new HiveClientConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+        cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
@@ -217,7 +220,9 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxPartitionBatchSize(),
                 config.getMaxInitialSplits(),
                 config.getSplitLoaderConcurrency(),
-                config.getRecursiveDirWalkerEnabled());
+                config.getRecursiveDirWalkerEnabled(),
+                cacheConfig.getCacheQuotaScope(),
+                cacheConfig.getDefaultCacheQuota());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,

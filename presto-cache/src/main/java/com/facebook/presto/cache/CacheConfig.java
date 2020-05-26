@@ -15,8 +15,13 @@ package com.facebook.presto.cache;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.hive.CacheQuotaScope;
+import io.airlift.units.DataSize;
 
 import java.net.URI;
+import java.util.Optional;
+
+import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 
 public class CacheConfig
 {
@@ -24,6 +29,8 @@ public class CacheConfig
     private CacheType cacheType;
     private URI baseDirectory;
     private boolean validationEnabled;
+    private CacheQuotaScope cacheQuotaScope = GLOBAL;
+    private Optional<DataSize> defaultCacheQuota = Optional.empty();
 
     public URI getBaseDirectory()
     {
@@ -75,5 +82,31 @@ public class CacheConfig
     public CacheType getCacheType()
     {
         return cacheType;
+    }
+
+    public CacheQuotaScope getCacheQuotaScope()
+    {
+        return cacheQuotaScope;
+    }
+
+    @Config("cache.cache-quota-scope")
+    public CacheConfig setCacheQuotaScope(CacheQuotaScope cacheQuotaScope)
+    {
+        this.cacheQuotaScope = cacheQuotaScope;
+        return this;
+    }
+
+    public Optional<DataSize> getDefaultCacheQuota()
+    {
+        return defaultCacheQuota;
+    }
+
+    @Config("cache.default-cache-quota")
+    public CacheConfig setDefaultCacheQuota(DataSize defaultCacheQuota)
+    {
+        if (defaultCacheQuota != null) {
+            this.defaultCacheQuota = Optional.of(defaultCacheQuota);
+        }
+        return this;
     }
 }

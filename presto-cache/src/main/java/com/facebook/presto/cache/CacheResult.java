@@ -13,23 +13,18 @@
  */
 package com.facebook.presto.cache;
 
-import com.facebook.presto.hive.CacheQuota;
-import io.airlift.slice.Slice;
-
-import static com.facebook.presto.cache.CacheResult.MISS;
-
-public class NoOpCacheManager
-        implements CacheManager
+public enum CacheResult
 {
-    @Override
-    public CacheResult get(FileReadRequest request, byte[] buffer, int offset, CacheQuota cacheQuota)
-    {
-        return MISS;
-    }
-
-    @Override
-    public void put(FileReadRequest request, Slice data, CacheQuota cacheQuota)
-    {
-        // no op
-    }
+    /**
+     * The data we're reading is in cache
+     */
+    HIT,
+    /**
+     * The data we're reading is not in cache and we have quota to write them to cache
+     */
+    MISS,
+    /**
+     * The data we're reading is not in cache and we don't have quota to write them to cache
+     */
+    CACHE_QUOTA_EXCEED
 }
