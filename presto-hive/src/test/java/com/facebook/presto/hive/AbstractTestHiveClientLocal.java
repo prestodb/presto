@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -68,7 +69,7 @@ public abstract class AbstractTestHiveClientLocal
                 .setTimeZone("America/Los_Angeles");
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
 
-        setup(testDbName, hiveConfig, metastoreClientConfig, metastore);
+        setup(testDbName, hiveConfig, new CacheConfig(), metastoreClientConfig, metastore);
     }
 
     @AfterClass(alwaysRun = true)

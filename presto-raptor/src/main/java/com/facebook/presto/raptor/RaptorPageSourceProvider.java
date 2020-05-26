@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -61,7 +62,6 @@ public class RaptorPageSourceProvider
             SplitContext splitContext)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
-        HiveFileContext hiveFileContext = new HiveFileContext(splitContext.isCacheable(), Optional.empty());
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);
@@ -76,7 +76,7 @@ public class RaptorPageSourceProvider
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
             return createPageSource(
                     context,
-                    hiveFileContext,
+                    DEFAULT_HIVE_FILE_CONTEXT,
                     shardUuid,
                     Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                     tableSupportsDeltaDelete,
@@ -91,7 +91,7 @@ public class RaptorPageSourceProvider
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
                 .map(shardUuid -> createPageSource(
                         context,
-                        hiveFileContext,
+                        DEFAULT_HIVE_FILE_CONTEXT,
                         shardUuid,
                         Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                         tableSupportsDeltaDelete,

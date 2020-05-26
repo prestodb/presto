@@ -15,6 +15,7 @@ package com.facebook.presto.cache.filemerge;
 
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.FileReadRequest;
+import com.facebook.presto.hive.CacheQuota;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 
@@ -30,18 +31,21 @@ public final class FileMergeCachingInputStream
     private final FSDataInputStream inputStream;
     private final CacheManager cacheManager;
     private final Path path;
+    private final CacheQuota cacheQuota;
     private final boolean cacheValidationEnabled;
 
     public FileMergeCachingInputStream(
             FSDataInputStream inputStream,
             CacheManager cacheManager,
             Path path,
+            CacheQuota cacheQuota,
             boolean cacheValidationEnabled)
     {
         super(inputStream);
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.path = requireNonNull(path, "path is null");
+        this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.cacheValidationEnabled = cacheValidationEnabled;
     }
 
@@ -57,11 +61,16 @@ public final class FileMergeCachingInputStream
             throws IOException
     {
         FileReadRequest key = new FileReadRequest(path, position, length);
-
-        if (!cacheManager.get(key, buffer, offset)) {
-            inputStream.readFully(position, buffer, offset, length);
-            cacheManager.put(key, wrappedBuffer(buffer, offset, length));
-            return;
+        switch (cacheManager.get(key, buffer, offset, cacheQuota)) {
+            case HIT:
+                break;
+            case MISS:
+                inputStream.readFully(position, buffer, offset, length);
+                cacheManager.put(key, wrappedBuffer(buffer, offset, length), cacheQuota);
+                return;
+            case CACHE_QUOTA_EXCEED:
+                inputStream.readFully(position, buffer, offset, length);
+                return;
         }
 
         if (cacheValidationEnabled) {

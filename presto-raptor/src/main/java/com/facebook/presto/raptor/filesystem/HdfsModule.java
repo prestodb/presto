@@ -75,7 +75,8 @@ public class HdfsModule
                     fileMergeCacheConfig,
                     cacheStats,
                     newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
-                    newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")));
+                    newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s")));
         }
         return new NoOpCacheManager();
     }

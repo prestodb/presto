@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
@@ -33,11 +34,13 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -57,6 +60,7 @@ import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -68,6 +72,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -145,6 +150,7 @@ public class HivePageSourceProvider
             }
         }
 
+        CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
@@ -172,7 +178,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(splitContext.isCacheable(), hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService);
@@ -180,6 +186,24 @@ public class HivePageSourceProvider
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
+    }
+
+    @VisibleForTesting
+    protected static CacheQuota generateCacheQuota(HiveSplit hiveSplit)
+    {
+        Optional<DataSize> quota = hiveSplit.getCacheQuotaRequirement().getQuota();
+        switch (hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope()) {
+            case GLOBAL:
+                return new CacheQuota(".", quota);
+            case SCHEMA:
+                return new CacheQuota(hiveSplit.getDatabase(), quota);
+            case TABLE:
+                return new CacheQuota(hiveSplit.getDatabase() + "." + hiveSplit.getTable(), quota);
+            case PARTITION:
+                return new CacheQuota(hiveSplit.getDatabase() + "." + hiveSplit.getTable() + "." + hiveSplit.getPartitionName(), quota);
+            default:
+                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("%s is not supported", quota));
+        }
     }
 
     private static Optional<ConnectorPageSource> createSelectivePageSource(
@@ -233,6 +257,7 @@ public class HivePageSourceProvider
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
+        CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
@@ -250,7 +275,7 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));
+                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }

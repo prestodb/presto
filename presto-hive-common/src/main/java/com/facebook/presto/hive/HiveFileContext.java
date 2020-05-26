@@ -15,18 +15,21 @@ package com.facebook.presto.hive;
 
 import java.util.Optional;
 
+import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileContext
 {
-    public static final HiveFileContext DEFAULT_HIVE_FILE_CONTEXT = new HiveFileContext(false, Optional.empty());
+    public static final HiveFileContext DEFAULT_HIVE_FILE_CONTEXT = new HiveFileContext(true, NO_CACHE_CONSTRAINTS, Optional.empty());
 
     private final boolean cacheable;
+    private final CacheQuota cacheQuota;
     private final Optional<ExtraHiveFileInfo<?>> extraFileInfo;
 
-    public HiveFileContext(boolean cacheable, Optional<ExtraHiveFileInfo<?>> extraFileInfo)
+    public HiveFileContext(boolean cacheable, CacheQuota cacheQuota, Optional<ExtraHiveFileInfo<?>> extraFileInfo)
     {
         this.cacheable = cacheable;
+        this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
     }
 
@@ -36,6 +39,11 @@ public class HiveFileContext
     public boolean isCacheable()
     {
         return cacheable;
+    }
+
+    public CacheQuota getCacheQuota()
+    {
+        return cacheQuota;
     }
 
     /**

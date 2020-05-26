@@ -14,6 +14,7 @@
 package com.facebook.presto.cache;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -23,6 +24,8 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.cache.CacheType.FILE_MERGE;
+import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
+import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
 
 public class TestCacheConfig
 {
@@ -33,7 +36,9 @@ public class TestCacheConfig
                 .setCachingEnabled(false)
                 .setCacheType(null)
                 .setBaseDirectory(null)
-                .setValidationEnabled(false));
+                .setValidationEnabled(false)
+                .setCacheQuotaScope(GLOBAL)
+                .setDefaultCacheQuota(null));
     }
 
     @Test
@@ -45,13 +50,17 @@ public class TestCacheConfig
                 .put("cache.type", "FILE_MERGE")
                 .put("cache.base-directory", "tcp://abc")
                 .put("cache.validation-enabled", "true")
+                .put("cache.cache-quota-scope", "TABLE")
+                .put("cache.default-cache-quota", "1GB")
                 .build();
 
         CacheConfig expected = new CacheConfig()
                 .setCachingEnabled(true)
                 .setCacheType(FILE_MERGE)
                 .setBaseDirectory(new URI("tcp://abc"))
-                .setValidationEnabled(true);
+                .setValidationEnabled(true)
+                .setCacheQuotaScope(TABLE)
+                .setDefaultCacheQuota(DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

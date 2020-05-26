@@ -17,6 +17,7 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.FileReadRequest;
+import com.facebook.presto.hive.CacheQuota;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,13 +31,16 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.cache.TestingCacheUtils.stressTest;
 import static com.facebook.presto.cache.TestingCacheUtils.validateBuffer;
+import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -54,6 +58,7 @@ public class TestFileMergeCacheManager
     private final byte[] data = new byte[DATA_LENGTH];
     private final ExecutorService flushExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-flusher-%s"));
     private final ExecutorService removeExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%s"));
+    private final ScheduledExecutorService cacheSizeCalculator = newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s"));
 
     private URI cacheDirectory;
     private URI fileDirectory;
@@ -103,7 +108,7 @@ public class TestFileMergeCacheManager
         byte[] buffer = new byte[1024];
 
         // new read
-        assertFalse(readFully(cacheManager, 42, buffer, 0, 100));
+        assertFalse(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 42, buffer, 0, 100));
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 0);
         stats.trigger();
@@ -111,14 +116,14 @@ public class TestFileMergeCacheManager
         validateBuffer(data, 42, buffer, 0, 100);
 
         // within the range of the cache
-        assertTrue(readFully(cacheManager, 47, buffer, 0, 90));
+        assertTrue(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 47, buffer, 0, 90));
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
         assertEquals(stats.getInMemoryRetainedBytes(), 0);
         validateBuffer(data, 47, buffer, 0, 90);
 
         // partially within the range of the cache
-        assertFalse(readFully(cacheManager, 52, buffer, 0, 100));
+        assertFalse(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 52, buffer, 0, 100));
         assertEquals(stats.getCacheMiss(), 2);
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
@@ -126,7 +131,7 @@ public class TestFileMergeCacheManager
         validateBuffer(data, 52, buffer, 0, 100);
 
         // partially within the range of the cache
-        assertFalse(readFully(cacheManager, 32, buffer, 10, 50));
+        assertFalse(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 32, buffer, 10, 50));
         assertEquals(stats.getCacheMiss(), 3);
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
@@ -134,7 +139,7 @@ public class TestFileMergeCacheManager
         validateBuffer(data, 32, buffer, 10, 50);
 
         // create a hole within two caches
-        assertFalse(readFully(cacheManager, 200, buffer, 40, 50));
+        assertFalse(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 200, buffer, 40, 50));
         assertEquals(stats.getCacheMiss(), 4);
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
@@ -142,7 +147,7 @@ public class TestFileMergeCacheManager
         validateBuffer(data, 200, buffer, 40, 50);
 
         // use a range to cover the hole
-        assertFalse(readFully(cacheManager, 40, buffer, 400, 200));
+        assertFalse(readFully(cacheManager, NO_CACHE_CONSTRAINTS, 40, buffer, 400, 200));
         assertEquals(stats.getCacheMiss(), 5);
         assertEquals(stats.getCacheHit(), 1);
         stats.trigger();
@@ -159,34 +164,74 @@ public class TestFileMergeCacheManager
 
         CacheManager cacheManager = fileMergeCacheManager(cacheConfig, fileMergeCacheConfig);
 
-        stressTest(data, (position, buffer, offset, length) -> readFully(cacheManager, position, buffer, offset, length));
+        stressTest(data, (position, buffer, offset, length) -> readFully(cacheManager, NO_CACHE_CONSTRAINTS, position, buffer, offset, length));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testQuota()
+            throws InterruptedException, ExecutionException, IOException
+    {
+        TestingCacheStats stats = new TestingCacheStats();
+        CacheManager cacheManager = fileMergeCacheManager(stats);
+        byte[] buffer = new byte[10240];
+
+        CacheQuota cacheQuota = new CacheQuota("test.table", Optional.of(DataSize.succinctDataSize(1, KILOBYTE)));
+        // read within the cache quota
+        assertFalse(readFully(cacheManager, cacheQuota, 42, buffer, 0, 100));
+        assertEquals(stats.getCacheMiss(), 1);
+        assertEquals(stats.getCacheHit(), 0);
+        assertEquals(stats.getQuotaExceed(), 0);
+        stats.trigger();
+        assertEquals(stats.getInMemoryRetainedBytes(), 0);
+        validateBuffer(data, 42, buffer, 0, 100);
+
+        // read beyond cache quota
+        assertFalse(readFully(cacheManager, cacheQuota, 47, buffer, 0, 9000));
+        assertEquals(stats.getCacheMiss(), 1);
+        assertEquals(stats.getCacheHit(), 0);
+        assertEquals(stats.getQuotaExceed(), 1);
+        assertEquals(stats.getInMemoryRetainedBytes(), 0);
+        validateBuffer(data, 47, buffer, 0, 90);
+
+        // previous data won't be evicted if last read exceed quota
+        assertTrue(readFully(cacheManager, cacheQuota, 47, buffer, 0, 90));
+        assertEquals(stats.getCacheMiss(), 1);
+        assertEquals(stats.getCacheHit(), 1);
+        assertEquals(stats.getQuotaExceed(), 1);
+        assertEquals(stats.getInMemoryRetainedBytes(), 0);
+        validateBuffer(data, 47, buffer, 0, 90);
     }
 
     private CacheManager fileMergeCacheManager(CacheConfig cacheConfig, FileMergeCacheConfig fileMergeCacheConfig)
     {
-        return new FileMergeCacheManager(cacheConfig, fileMergeCacheConfig, new CacheStats(), flushExecutor, removeExecutor);
+        return new FileMergeCacheManager(cacheConfig, fileMergeCacheConfig, new CacheStats(), flushExecutor, removeExecutor, cacheSizeCalculator);
     }
 
     private CacheManager fileMergeCacheManager(CacheStats cacheStats)
     {
         CacheConfig cacheConfig = new CacheConfig();
         FileMergeCacheConfig fileMergeCacheConfig = new FileMergeCacheConfig();
-        return new FileMergeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory), fileMergeCacheConfig, cacheStats, flushExecutor, removeExecutor);
+        return new FileMergeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory), fileMergeCacheConfig, cacheStats, flushExecutor, removeExecutor, cacheSizeCalculator);
     }
 
-    private boolean readFully(CacheManager cacheManager, long position, byte[] buffer, int offset, int length)
+    private boolean readFully(CacheManager cacheManager, CacheQuota cacheQuota, long position, byte[] buffer, int offset, int length)
             throws IOException
     {
         FileReadRequest key = new FileReadRequest(new Path(dataFile.getAbsolutePath()), position, length);
-        if (!cacheManager.get(key, buffer, offset)) {
-            RandomAccessFile file = new RandomAccessFile(dataFile.getAbsolutePath(), "r");
-            file.seek(position);
-            file.readFully(buffer, offset, length);
-            file.close();
-            cacheManager.put(key, wrappedBuffer(buffer, offset, length));
-            return false;
+        switch (cacheManager.get(key, buffer, offset, cacheQuota)) {
+            case HIT:
+                return true;
+            case MISS:
+                RandomAccessFile file = new RandomAccessFile(dataFile.getAbsolutePath(), "r");
+                file.seek(position);
+                file.readFully(buffer, offset, length);
+                file.close();
+                cacheManager.put(key, wrappedBuffer(buffer, offset, length), NO_CACHE_CONSTRAINTS);
+                return false;
+            case CACHE_QUOTA_EXCEED:
+            default:
+                return false;
         }
-        return true;
     }
 
     private static class TestingCacheStats
