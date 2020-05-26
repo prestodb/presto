@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -94,10 +95,13 @@ public class HiveSplitManager
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
+    private final CacheQuotaScope cacheQuotaScope;
+    private final Optional<DataSize> configuredCacheQuota;
 
     @Inject
     public HiveSplitManager(
             HiveClientConfig hiveClientConfig,
+            CacheConfig cacheConfig,
             HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -119,7 +123,9 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                cacheConfig.getCacheQuotaScope(),
+                cacheConfig.getDefaultCacheQuota());
     }
 
     public HiveSplitManager(
@@ -136,7 +142,9 @@ public class HiveSplitManager
             int maxPartitionBatchSize,
             int maxInitialSplits,
             int splitLoaderConcurrency,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            CacheQuotaScope cacheQuotaScope,
+            Optional<DataSize> configuredCacheQuota)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -153,6 +161,8 @@ public class HiveSplitManager
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.cacheQuotaScope = requireNonNull(cacheQuotaScope, "cacheScope is null");
+        this.configuredCacheQuota = requireNonNull(configuredCacheQuota, "defaultCacheQuota is null");
     }
 
     @Override
@@ -238,6 +248,8 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
+                        cacheQuotaScope,
+                        configuredCacheQuota,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -250,6 +262,8 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
+                        cacheQuotaScope,
+                        configuredCacheQuota,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -262,6 +276,8 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
+                        cacheQuotaScope,
+                        configuredCacheQuota,
                         maxInitialSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,

@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
@@ -193,6 +194,7 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteI
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_FINISH_INSERT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_SINK_FINISH;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_RIGHT_AWAY;
+import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -288,6 +290,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
@@ -396,6 +399,8 @@ public abstract class AbstractTestHiveClient
             .build();
 
     private static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
+    private static final DataSize DEFAULT_QUOTA_SIZE = DataSize.succinctDataSize(2, GIGABYTE);
+    private static final CacheQuotaScope CACHE_SCOPE = TABLE;
 
     private static RowType toRowType(List<ColumnMetadata> columns)
     {
@@ -881,6 +886,7 @@ public abstract class AbstractTestHiveClient
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
         HiveClientConfig hiveClientConfig = getHiveClientConfig();
+        CacheConfig cacheConfig = getCacheConfig();
         MetastoreClientConfig metastoreClientConfig = getMetastoreClientConfig();
         hiveClientConfig.setTimeZone(timeZone);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
@@ -896,10 +902,10 @@ public abstract class AbstractTestHiveClient
                 Duration.valueOf("15s"),
                 10000);
 
-        setup(databaseName, hiveClientConfig, metastoreClientConfig, metastore);
+        setup(databaseName, hiveClientConfig, cacheConfig, metastoreClientConfig, metastore);
     }
 
-    protected final void setup(String databaseName, HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore hiveMetastore)
+    protected final void setup(String databaseName, HiveClientConfig hiveClientConfig, CacheConfig cacheConfig, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore hiveMetastore)
     {
         HiveConnectorId connectorId = new HiveConnectorId("hive-test");
 
@@ -950,7 +956,9 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
-                false);
+                false,
+                cacheConfig.getCacheQuotaScope(),
+                cacheConfig.getDefaultCacheQuota());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig, metastoreClientConfig),
                 hdfsEnvironment,
@@ -979,6 +987,11 @@ public abstract class AbstractTestHiveClient
                 .setMaxOpenSortFiles(10)
                 .setWriterSortBufferSize(new DataSize(100, KILOBYTE))
                 .setTemporaryTableSchema(database);
+    }
+
+    protected CacheConfig getCacheConfig()
+    {
+        return new CacheConfig().setCacheQuotaScope(CACHE_SCOPE).setDefaultCacheQuota(DEFAULT_QUOTA_SIZE);
     }
 
     protected MetastoreClientConfig getMetastoreClientConfig()

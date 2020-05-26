@@ -25,6 +25,7 @@ public class CacheStats
     private final AtomicLong inMemoryRetainedBytes = new AtomicLong();
     private final AtomicLong hit = new AtomicLong();
     private final AtomicLong miss = new AtomicLong();
+    private final AtomicLong quotaExceed = new AtomicLong();
 
     public void incrementCacheHit()
     {
@@ -34,6 +35,11 @@ public class CacheStats
     public void incrementCacheMiss()
     {
         miss.getAndIncrement();
+    }
+
+    public void incrementQuotaExceed()
+    {
+        quotaExceed.getAndIncrement();
     }
 
     public void addInMemoryRetainedBytes(long bytes)
@@ -57,5 +63,11 @@ public class CacheStats
     public long getCacheMiss()
     {
         return miss.get();
+    }
+
+    @Managed
+    public long getQuotaExceed()
+    {
+        return quotaExceed.get();
     }
 }

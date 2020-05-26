@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutionException;
 import static com.facebook.presto.cache.CacheType.ALLUXIO;
 import static com.facebook.presto.cache.TestingCacheUtils.stressTest;
 import static com.facebook.presto.cache.TestingCacheUtils.validateBuffer;
+import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.nio.file.Files.createTempDirectory;
@@ -222,7 +223,7 @@ public class TestAlluxioCachingFileSystem
     private int readFully(AlluxioCachingFileSystem fileSystem, long position, byte[] buffer, int offset, int length)
             throws Exception
     {
-        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, Optional.empty()))) {
+        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, NO_CACHE_CONSTRAINTS, Optional.empty()))) {
             return stream.read(position, buffer, offset, length);
         }
     }

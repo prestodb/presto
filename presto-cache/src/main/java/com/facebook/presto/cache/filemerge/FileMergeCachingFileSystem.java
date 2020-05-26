@@ -53,7 +53,7 @@ public final class FileMergeCachingFileSystem
             throws Exception
     {
         if (hiveFileContext.isCacheable()) {
-            return new FileMergeCachingInputStream(dataTier.openFile(path, hiveFileContext), cacheManager, path, cacheValidationEnabled);
+            return new FileMergeCachingInputStream(dataTier.openFile(path, hiveFileContext), cacheManager, path, hiveFileContext.getCacheQuota(), cacheValidationEnabled);
         }
 
         return dataTier.openFile(path, hiveFileContext);

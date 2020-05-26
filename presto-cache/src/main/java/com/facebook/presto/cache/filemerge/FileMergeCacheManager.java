@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.cache.filemerge;
 
+import alluxio.collections.ConcurrentHashSet;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
+import com.facebook.presto.cache.CacheResult;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.FileReadRequest;
+import com.facebook.presto.hive.CacheQuota;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -48,6 +51,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -64,8 +69,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-// 3 major TODOs for this class:
-// TODO: Make cache eviction based on cache size rather than file count; add evict count stats to CacheStats as well.
 // TODO: Make cache state persistent on disk so we do not need to wipe out cache every time we reboot a server.
 @SuppressWarnings("UnstableApiUsage")
 public class FileMergeCacheManager
@@ -81,11 +84,16 @@ public class FileMergeCacheManager
 
     private final ExecutorService cacheFlushExecutor;
     private final ExecutorService cacheRemovalExecutor;
+    private final ScheduledExecutorService cacheSizeCalculateExecutor;
 
     // a mapping from remote file `F` to a range map `M`; the corresponding local cache file for each range in `M` represents the cached chunk of `F`
     private final Map<Path, CacheRange> persistedRanges = new ConcurrentHashMap<>();
     // a local cache only to control the lifecycle of persisted
-    private final Cache<Path, Boolean> cache;
+    // Path and its corresponding cacheScope identifier
+    private final Cache<Path, Long> cache;
+    // CacheScope identifier to its cached files mapping
+    private final Map<Long, Set<Path>> cacheScopeFiles = new ConcurrentHashMap<>();
+    private final Map<Long, Long> cacheScopeSizeInBytes = new ConcurrentHashMap<>();
 
     // stats
     private final CacheStats stats;
@@ -100,11 +108,13 @@ public class FileMergeCacheManager
             FileMergeCacheConfig fileMergeCacheConfig,
             CacheStats stats,
             ExecutorService cacheFlushExecutor,
-            ExecutorService cacheRemovalExecutor)
+            ExecutorService cacheRemovalExecutor,
+            ScheduledExecutorService cacheSizeCalculateExecutor)
     {
         requireNonNull(cacheConfig, "directory is null");
         this.cacheFlushExecutor = cacheFlushExecutor;
         this.cacheRemovalExecutor = cacheRemovalExecutor;
+        this.cacheSizeCalculateExecutor = cacheSizeCalculateExecutor;
         this.cache = CacheBuilder.newBuilder()
                 .maximumSize(fileMergeCacheConfig.getMaxCachedEntries())
                 .expireAfterAccess(fileMergeCacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
@@ -140,6 +150,15 @@ public class FileMergeCacheManager
                 }
             }));
         }
+
+        this.cacheSizeCalculateExecutor.scheduleAtFixedRate(
+                () -> {
+                    cacheScopeFiles.keySet().forEach(cacheIdentifier -> cacheScopeSizeInBytes.put(cacheIdentifier, getCacheScopeSizeInBytes(cacheIdentifier)));
+                    cacheScopeSizeInBytes.keySet().removeIf(key -> !cacheScopeFiles.containsKey(key));
+                },
+                0,
+                15,
+                TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -147,30 +166,72 @@ public class FileMergeCacheManager
     {
         cacheFlushExecutor.shutdownNow();
         cacheRemovalExecutor.shutdownNow();
+        cacheSizeCalculateExecutor.shutdownNow();
         buffers.remove();
     }
 
     @Override
-    public boolean get(FileReadRequest request, byte[] buffer, int offset)
+    public CacheResult get(FileReadRequest request, byte[] buffer, int offset, CacheQuota cacheQuota)
     {
         boolean result = read(request, buffer, offset);
-        if (result) {
-            stats.incrementCacheHit();
-        }
-        else {
-            stats.incrementCacheMiss();
+
+        if (!result && ifExceedQuota(cacheQuota, request)) {
+            stats.incrementQuotaExceed();
+            return CacheResult.CACHE_QUOTA_EXCEED;
         }
 
-        return result;
+        try {
+            // hint the cache
+            cache.get(request.getPath(), cacheQuota::getIdentifier);
+        }
+        catch (ExecutionException e) {
+            // ignore
+        }
+
+        if (result) {
+            stats.incrementCacheHit();
+            return CacheResult.HIT;
+        }
+
+        stats.incrementCacheMiss();
+        return CacheResult.MISS;
+    }
+
+    private boolean ifExceedQuota(CacheQuota cacheQuota, FileReadRequest request)
+    {
+        DataSize cacheSize = DataSize.succinctBytes(cacheScopeSizeInBytes.getOrDefault(cacheQuota.getIdentifier(), 0L) + request.getLength());
+        return cacheQuota.getQuota().map(quota -> cacheSize.compareTo(quota) > 0).orElse(false);
+    }
+
+    private long getCacheScopeSizeInBytes(long cacheScopeIdentifier)
+    {
+        long bytes = 0;
+        for (Path path : cacheScopeFiles.get(cacheScopeIdentifier)) {
+            CacheRange cacheRange = persistedRanges.get(path);
+            Lock readLock = cacheRange.getLock().readLock();
+            readLock.lock();
+            try {
+                for (Range<Long> range : cacheRange.getRange().asDescendingMapOfRanges().keySet()) {
+                    bytes += range.upperEndpoint() - range.lowerEndpoint();
+                }
+            }
+            finally {
+                readLock.unlock();
+            }
+        }
+        return bytes;
     }
 
     @Override
-    public void put(FileReadRequest key, Slice data)
+    public void put(FileReadRequest key, Slice data, CacheQuota cacheQuota)
     {
         if (stats.getInMemoryRetainedBytes() + data.length() >= maxInflightBytes) {
             // cannot accept more requests
             return;
         }
+
+        cacheScopeFiles.putIfAbsent(cacheQuota.getIdentifier(), new ConcurrentHashSet<>());
+        cacheScopeFiles.get(cacheQuota.getIdentifier()).add(key.getPath());
 
         // make a copy given the input data could be a reusable buffer
         stats.addInMemoryRetainedBytes(data.length());
@@ -190,14 +251,6 @@ public class FileMergeCacheManager
         if (request.getLength() <= 0) {
             // no-op
             return true;
-        }
-
-        try {
-            // hint the cache no matter what
-            cache.get(request.getPath(), () -> true);
-        }
-        catch (ExecutionException e) {
-            // ignore
         }
 
         // check if the file is cached on local disk
@@ -472,13 +525,18 @@ public class FileMergeCacheManager
     }
 
     private class CacheRemovalListener
-            implements RemovalListener<Path, Boolean>
+            implements RemovalListener<Path, Long>
     {
         @Override
-        public void onRemoval(RemovalNotification<Path, Boolean> notification)
+        public void onRemoval(RemovalNotification<Path, Long> notification)
         {
             Path path = notification.getKey();
             CacheRange cacheRange = persistedRanges.remove(path);
+            cacheScopeFiles.get(notification.getValue()).remove(path);
+            if (cacheScopeFiles.get(notification.getValue()).isEmpty()) {
+                cacheScopeFiles.remove(notification.getValue());
+            }
+
             if (cacheRange == null) {
                 return;
             }
