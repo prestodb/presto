@@ -139,7 +139,7 @@ public class FeaturesConfig
 
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 3;
-    private boolean optimizedRepartitioningEnabled;
+    private boolean optimizedRepartitioningEnabled = true;
 
     private boolean pushdownSubfieldsEnabled;
 
