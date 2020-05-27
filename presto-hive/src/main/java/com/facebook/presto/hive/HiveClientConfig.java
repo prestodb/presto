@@ -172,6 +172,7 @@ public class HiveClientConfig
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
+    private boolean parquetDereferencePushdownEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1423,5 +1424,18 @@ public class HiveClientConfig
     public boolean isParquetBatchReaderVerificationEnabled()
     {
         return this.parquetEnableBatchReaderVerification;
+    }
+
+    @Config("hive.enable-parquet-dereference-pushdown")
+    @ConfigDescription("enable parquet dereference pushdown")
+    public HiveClientConfig setParquetDereferencePushdownEnabled(boolean parquetDereferencePushdownEnabled)
+    {
+        this.parquetDereferencePushdownEnabled = parquetDereferencePushdownEnabled;
+        return this;
+    }
+
+    public boolean isParquetDereferencePushdownEnabled()
+    {
+        return this.parquetDereferencePushdownEnabled;
     }
 }

@@ -138,7 +138,8 @@ public class TestHiveClientConfig
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
-                .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE));
+                .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
+                .setParquetDereferencePushdownEnabled(false));
     }
 
     @Test
@@ -238,6 +239,7 @@ public class TestHiveClientConfig
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
+                .put("hive.enable-parquet-dereference-pushdown", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -334,7 +336,8 @@ public class TestHiveClientConfig
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
-                .setBucketFunctionTypeForExchange(PRESTO_NATIVE);
+                .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
+                .setParquetDereferencePushdownEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
