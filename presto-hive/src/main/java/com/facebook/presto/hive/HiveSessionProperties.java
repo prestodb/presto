@@ -105,6 +105,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
+    public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -484,7 +485,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getBucketFunctionTypeForExchange(),
                         false,
                         value -> BucketFunctionType.valueOf((String) value),
-                        BucketFunctionType::toString));
+                        BucketFunctionType::toString),
+                booleanProperty(
+                        PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                        "Is dereference pushdown expression pushdown into Parquet reader enabled?",
+                        hiveClientConfig.isParquetDereferencePushdownEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -843,5 +849,10 @@ public final class HiveSessionProperties
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
     {
         return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
+    }
+
+    public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
     }
 }
