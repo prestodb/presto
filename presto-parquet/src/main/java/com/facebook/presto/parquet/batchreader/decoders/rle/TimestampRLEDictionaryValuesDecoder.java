@@ -39,42 +39,41 @@ public class TimestampRLEDictionaryValuesDecoder
     public void readNext(long[] values, int offset, int length)
             throws IOException
     {
-        int destIndex = offset;
+        int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (this.currentCount == 0) {
+            if (currentCount == 0) {
                 if (!readNext()) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, this.currentCount);
-            int endIndex = destIndex + numEntriesToFill;
-            switch (this.mode) {
+            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int endIndex = destinationIndex + numEntriesToFill;
+            switch (mode) {
                 case RLE: {
-                    final int rleValue = this.currentValue;
+                    final int rleValue = currentValue;
                     final long rleValueMillis = dictionary.decodeToLong(rleValue);
-                    while (destIndex < endIndex) {
-                        values[destIndex++] = rleValueMillis;
+                    while (destinationIndex < endIndex) {
+                        values[destinationIndex++] = rleValueMillis;
                     }
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = this.currentBuffer;
-                    final TimestampDictionary localDictionary = this.dictionary;
-                    for (int srcIndex = this.currentBuffer.length - this.currentCount; destIndex < endIndex; srcIndex++) {
-                        values[destIndex++] = localDictionary.decodeToLong(localCurrentBuffer[srcIndex]);
+                    final int[] localCurrentBuffer = currentBuffer;
+                    final TimestampDictionary localDictionary = dictionary;
+                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
+                        values[destinationIndex++] = localDictionary.decodeToLong(localCurrentBuffer[srcIndex]);
                     }
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
 
-            this.currentCount -= numEntriesToFill;
+            currentCount -= numEntriesToFill;
             remainingToCopy -= numEntriesToFill;
         }
-
         checkState(remainingToCopy == 0, "End of stream: Invalid read size request");
     }
 
@@ -85,17 +84,16 @@ public class TimestampRLEDictionaryValuesDecoder
         checkArgument(length >= 0, "invalid length %s", length);
         int remaining = length;
         while (remaining > 0) {
-            if (this.currentCount == 0) {
+            if (currentCount == 0) {
                 if (!readNext()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remaining, this.currentCount);
-            this.currentCount -= readChunkSize;
+            int readChunkSize = Math.min(remaining, currentCount);
+            currentCount -= readChunkSize;
             remaining -= readChunkSize;
         }
-
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
     }
 }

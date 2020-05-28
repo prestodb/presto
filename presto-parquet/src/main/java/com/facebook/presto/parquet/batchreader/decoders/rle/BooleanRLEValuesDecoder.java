@@ -30,7 +30,6 @@ public class BooleanRLEValuesDecoder
     private MODE mode;
     private int currentCount;
     private byte currentValue;
-
     private int currentByteOffset;
     private byte currentByte;
 
@@ -57,24 +56,24 @@ public class BooleanRLEValuesDecoder
     @Override
     public void readNext(byte[] values, int offset, int length)
     {
-        int destIndex = offset;
+        int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (this.currentCount == 0) {
-                this.readNext();
-                if (this.currentCount == 0) {
+            if (currentCount == 0) {
+                readNext();
+                if (currentCount == 0) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, this.currentCount);
-            int endIndex = destIndex + numEntriesToFill;
-            switch (this.mode) {
+            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int endIndex = destinationIndex + numEntriesToFill;
+            switch (mode) {
                 case RLE: {
-                    byte rleValue = this.currentValue;
-                    while (destIndex < endIndex) {
-                        values[destIndex] = rleValue;
-                        destIndex++;
+                    byte rleValue = currentValue;
+                    while (destinationIndex < endIndex) {
+                        values[destinationIndex] = rleValue;
+                        destinationIndex++;
                     }
                     break;
                 }
@@ -86,7 +85,7 @@ public class BooleanRLEValuesDecoder
 
                         final byte inValue = currentByte;
                         for (int i = 0; i < readChunk; i++) {
-                            values[destIndex++] = (byte) (inValue >> currentByteOffset & 1);
+                            values[destinationIndex++] = (byte) (inValue >> currentByteOffset & 1);
                             currentByteOffset++;
                         }
 
@@ -96,16 +95,16 @@ public class BooleanRLEValuesDecoder
 
                     final ByteBuffer localInputBuffer = inputBuffer;
                     while (remainingPackedBlock >= 8) {
-                        BytesUtils.unpack8Values(localInputBuffer.get(), values, destIndex);
+                        BytesUtils.unpack8Values(localInputBuffer.get(), values, destinationIndex);
                         remainingPackedBlock -= 8;
-                        destIndex += 8;
+                        destinationIndex += 8;
                     }
 
                     if (remainingPackedBlock > 0) {
                         // read partial values from current byte until the requested length is satisfied
                         byte inValue = localInputBuffer.get();
                         for (int i = 0; i < remainingPackedBlock; i++) {
-                            values[destIndex++] = (byte) (inValue >> i & 1);
+                            values[destinationIndex++] = (byte) (inValue >> i & 1);
                         }
 
                         currentByte = inValue;
@@ -115,10 +114,9 @@ public class BooleanRLEValuesDecoder
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
-
-            this.currentCount -= numEntriesToFill;
+            currentCount -= numEntriesToFill;
             remainingToCopy -= numEntriesToFill;
         }
     }
@@ -128,15 +126,15 @@ public class BooleanRLEValuesDecoder
     {
         int remainingToSkip = length;
         while (remainingToSkip > 0) {
-            if (this.currentCount == 0) {
-                this.readNext();
-                if (this.currentCount == 0) {
+            if (currentCount == 0) {
+                readNext();
+                if (currentCount == 0) {
                     break;
                 }
             }
 
-            int numEntriesToSkip = Math.min(remainingToSkip, this.currentCount);
-            switch (this.mode) {
+            int numEntriesToSkip = Math.min(remainingToSkip, currentCount);
+            switch (mode) {
                 case RLE:
                     break;
                 case PACKED: {
@@ -168,33 +166,31 @@ public class BooleanRLEValuesDecoder
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
-
-            this.currentCount -= numEntriesToSkip;
+            currentCount -= numEntriesToSkip;
             remainingToSkip -= numEntriesToSkip;
         }
-
         checkState(remainingToSkip == 0, "Invalid read size request");
     }
 
     private void readNext()
     {
-        Preconditions.checkArgument(this.inputBuffer.hasRemaining(), "Reading past RLE/BitPacking stream.");
-        int header = readUnsignedVarInt(this.inputBuffer);
-        this.mode = (header & 1) == 0 ? MODE.RLE : MODE.PACKED;
-        switch (this.mode) {
+        Preconditions.checkArgument(inputBuffer.hasRemaining(), "Reading past RLE/BitPacking stream.");
+        int header = readUnsignedVarInt(inputBuffer);
+        mode = (header & 1) == 0 ? MODE.RLE : MODE.PACKED;
+        switch (mode) {
             case RLE:
-                this.currentCount = header >>> 1;
-                this.currentValue = inputBuffer.get();
+                currentCount = header >>> 1;
+                currentValue = inputBuffer.get();
                 return;
             case PACKED:
                 int numGroups = header >>> 1;
-                this.currentCount = numGroups * 8;
-                this.currentByteOffset = 0;
+                currentCount = numGroups * 8;
+                currentByteOffset = 0;
                 return;
             default:
-                throw new ParquetDecodingException("not a valid mode " + this.mode);
+                throw new ParquetDecodingException("not a valid mode " + mode);
         }
     }
 

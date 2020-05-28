@@ -25,7 +25,6 @@ public class RepetitionLevelDecoder
         extends BaseRLEBitPackedDecoder
 {
     private int remaining;
-
     private int currentOffsetPackedBuffer;
     private int endOffsetPackedBuffer;
 
@@ -40,7 +39,7 @@ public class RepetitionLevelDecoder
         super(rleValue, valueCount);
     }
 
-    public int readNext(IntList rls, int batchSize)
+    public int readNext(IntList repetitionLevels, int batchSize)
             throws IOException
     {
         int remainingToCopy = batchSize;
@@ -49,61 +48,60 @@ public class RepetitionLevelDecoder
                 break;
             }
 
-            switch (this.mode) {
+            switch (mode) {
                 case RLE: {
-                    int rleValue = this.currentValue;
+                    int rleValue = currentValue;
                     if (rleValue == 0) {
-                        int readChunkSize = Math.min(remainingToCopy, this.currentCount);
+                        int readChunkSize = Math.min(remainingToCopy, currentCount);
                         for (int i = 0; i < readChunkSize; i++) {
-                            rls.add(0);
+                            repetitionLevels.add(0);
                         }
-                        this.currentCount -= readChunkSize;
-                        this.remaining -= readChunkSize;
+                        currentCount -= readChunkSize;
+                        remaining -= readChunkSize;
                         remainingToCopy -= readChunkSize;
                     }
                     else {
-                        this.remaining -= currentCount;
+                        remaining -= currentCount;
                         for (int i = 0; i < currentCount; i++) {
-                            rls.add(rleValue);
+                            repetitionLevels.add(rleValue);
                         }
                         currentCount = 0;
                     }
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = this.currentBuffer;
+                    final int[] localCurrentBuffer = currentBuffer;
                     do {
-                        int rlValue = localCurrentBuffer[currentOffsetPackedBuffer++];
-                        rls.add(rlValue);
+                        int rlValue = localCurrentBuffer[currentOffsetPackedBuffer];
+                        currentOffsetPackedBuffer = currentOffsetPackedBuffer + 1;
+                        repetitionLevels.add(rlValue);
                         if (rlValue == 0) {
                             remainingToCopy--;
                         }
-                        this.remaining--;
+                        remaining--;
                     }
                     while (currentOffsetPackedBuffer < endOffsetPackedBuffer && remainingToCopy > 0);
-                    this.currentCount = endOffsetPackedBuffer - currentOffsetPackedBuffer;
+                    currentCount = endOffsetPackedBuffer - currentOffsetPackedBuffer;
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
         }
-
         return batchSize - remainingToCopy;
     }
 
     private boolean ensureBlockAvailable()
             throws IOException
     {
-        if (this.currentCount == 0) {
+        if (currentCount == 0) {
             if (!readNext()) {
                 return false;
             }
-            this.currentCount = Math.min(this.remaining, this.currentCount);
-            this.currentOffsetPackedBuffer = 0;
-            this.endOffsetPackedBuffer = this.currentCount;
+            currentCount = Math.min(remaining, currentCount);
+            currentOffsetPackedBuffer = 0;
+            endOffsetPackedBuffer = currentCount;
         }
-
         return true;
     }
 }

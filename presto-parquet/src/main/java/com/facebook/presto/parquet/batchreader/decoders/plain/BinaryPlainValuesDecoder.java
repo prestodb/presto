@@ -39,39 +39,37 @@ public class BinaryPlainValuesDecoder
     {
         int remaining = length;
         int[] offsets = new int[length + 1];
-        int offsetsIdx = 0;
+        int offsetIndex = 0;
         int bufferSize = 0;
         while (remaining > 0 && bufOffset < bufEnd) {
             int size = BytesUtils.getInt(buffer, bufOffset);
-            offsets[offsetsIdx++] = bufOffset;
+            offsets[offsetIndex++] = bufOffset;
             bufOffset += (4 + size);
             bufferSize += size;
             remaining--;
         }
-        offsets[offsetsIdx] = bufOffset;
+        offsets[offsetIndex] = bufOffset;
 
         return new ReadChunkPlain(bufferSize, offsets);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIdx, int[] offsets, int offsetIdx, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
     {
-        checkArgument(byteBuffer.length - bufferIdx >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
 
         ReadChunkPlain readChunkPlain = (ReadChunkPlain) readChunk;
-
         final int[] sourceOffsets = readChunkPlain.getSourceOffsets();
         final int numEntries = sourceOffsets.length - 1;
 
         for (int i = 0; i < numEntries; i++) {
-            offsets[offsetIdx++] = bufferIdx;
+            offsets[offsetIndex++] = bufferIndex;
             int length = sourceOffsets[i + 1] - (sourceOffsets[i] + 4);
-            System.arraycopy(buffer, sourceOffsets[i] + 4, byteBuffer, bufferIdx, length);
-            bufferIdx += length;
+            System.arraycopy(buffer, sourceOffsets[i] + 4, byteBuffer, bufferIndex, length);
+            bufferIndex += length;
         }
-        offsets[offsetIdx] = bufferIdx;
-
-        return bufferIdx;
+        offsets[offsetIndex] = bufferIndex;
+        return bufferIndex;
     }
 
     @Override
@@ -83,7 +81,6 @@ public class BinaryPlainValuesDecoder
             bufOffset += (4 + size);
             remaining--;
         }
-
         checkState(remaining == 0, "Invalid read size request");
     }
 

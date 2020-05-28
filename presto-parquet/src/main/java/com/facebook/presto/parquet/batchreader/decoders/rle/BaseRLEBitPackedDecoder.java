@@ -31,7 +31,6 @@ import static org.apache.parquet.bytes.BytesUtils.readUnsignedVarInt;
 public abstract class BaseRLEBitPackedDecoder
 {
     private final boolean rleOnlyMode;
-
     private final int bitWidth;
     private final BytePacker packer;
     private final InputStream inputStream;
@@ -54,7 +53,6 @@ public abstract class BaseRLEBitPackedDecoder
             this.rleOnlyMode = true;
             this.packer = null;
             this.inputStream = null;
-
             this.mode = RLE;
             this.currentValue = 0;
             this.currentCount = valueCount;
@@ -67,7 +65,6 @@ public abstract class BaseRLEBitPackedDecoder
         this.bitWidth = 0;
         this.packer = null;
         this.inputStream = null;
-
         this.mode = RLE;
         this.currentValue = rleValue;
         this.currentCount = rleValueCount;
@@ -82,7 +79,7 @@ public abstract class BaseRLEBitPackedDecoder
         }
 
         if (inputStream.available() <= 0) {
-            this.currentCount = 0;
+            currentCount = 0;
             return false;
         }
 
@@ -98,7 +95,7 @@ public abstract class BaseRLEBitPackedDecoder
                 currentCount = numGroups * 8;
                 currentBuffer = new int[currentCount];
                 byte[] bytes = new byte[numGroups * bitWidth];
-                int bytesToRead = (int) ceil((double) (this.currentCount * bitWidth) / 8.0D);
+                int bytesToRead = (int) ceil((double) (currentCount * bitWidth) / 8.0D);
                 bytesToRead = Math.min(bytesToRead, inputStream.available());
                 DataInputStream dataInputStream = new DataInputStream(inputStream);
                 dataInputStream.readFully(bytes, 0, bytesToRead);
@@ -108,10 +105,9 @@ public abstract class BaseRLEBitPackedDecoder
                     packer.unpack8Values(bytes, byteIndex, currentBuffer, valueIndex);
                     valueIndex += 8;
                 }
-
                 return true;
             default:
-                throw new ParquetDecodingException("not a valid mode " + this.mode);
+                throw new ParquetDecodingException("not a valid mode " + mode);
         }
     }
 
