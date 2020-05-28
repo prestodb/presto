@@ -33,7 +33,8 @@ public class TestDruidConfig
                 .setDruidCoordinatorUrl(null)
                 .setDruidSchema("druid")
                 .setComputePushdownEnabled(false)
-                .setHadoopConfiguration(""));
+                .setHadoopConfiguration("")
+                .setDruidAuthenticationType(null));
     }
 
     @Test
@@ -45,6 +46,7 @@ public class TestDruidConfig
                 .put("druid.schema-name", "test")
                 .put("druid.compute-pushdown-enabled", "true")
                 .put("druid.hadoop.config.resources", "/etc/core-site.xml,/etc/hdfs-site.xml")
+                .put("druid.authentication.type", "BASIC")
                 .build();
 
         DruidConfig expected = new DruidConfig()
@@ -52,7 +54,8 @@ public class TestDruidConfig
                 .setDruidCoordinatorUrl("http://druid.coordinator:4321")
                 .setDruidSchema("test")
                 .setComputePushdownEnabled(true)
-                .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"));
+                .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"))
+                .setDruidAuthenticationType(DruidConfig.DruidAuthenticationType.BASIC);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
