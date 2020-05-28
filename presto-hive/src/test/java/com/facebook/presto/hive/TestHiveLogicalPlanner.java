@@ -162,7 +162,7 @@ public class TestHiveLogicalPlanner
         Session pushdownFilterEnabled = pushdownFilterEnabled();
 
         // Only domain predicates
-        assertPlan("SELECT linenumber FROM lineitem WHERE partkey = 10",
+        assertPlan(pushdownFilterDisabled(), "SELECT linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(project(
                         filter("partkey = 10",
                                 strictTableScan("lineitem", identityMap("linenumber", "partkey")))))));
@@ -178,7 +178,7 @@ public class TestHiveLogicalPlanner
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
-        assertPlan("SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
+        assertPlan(pushdownFilterDisabled(), "SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
                 output(exchange(project(
                         filter("mod(orderkey, 2) = 1",
                                 strictTableScan("lineitem", identityMap("linenumber", "orderkey")))))));
@@ -228,7 +228,7 @@ public class TestHiveLogicalPlanner
                 plan -> assertTableLayout(plan, "lineitem", TupleDomain.all(), remainingPredicate, ImmutableSet.of("orderkey")));
 
         // A mix of domain and remaining predicates
-        assertPlan("SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
+        assertPlan(pushdownFilterDisabled(), "SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(project(
                         filter("partkey = 10 AND mod(orderkey, 2) = 1",
                                 strictTableScan("lineitem", identityMap("linenumber", "orderkey", "partkey")))))));
@@ -478,20 +478,20 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("a", toSubfields("a[1]", "a[2]")));
 
         // Join
-        assertPlan(format("SELECT l.orderkey, a.a[1] FROM lineitem l, %s a WHERE l.linenumber = a.id", tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT l.orderkey, a.a[1] FROM lineitem l, %s a WHERE l.linenumber = a.id", tableName),
                 anyTree(
                         node(JoinNode.class,
                                 anyTree(tableScan("lineitem", ImmutableMap.of())),
                                 anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))))));
 
-        assertPlan(format("SELECT l.orderkey, a.a[1] FROM lineitem l, %s a WHERE l.linenumber = a.id AND a.a[2] > 10", tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT l.orderkey, a.a[1] FROM lineitem l, %s a WHERE l.linenumber = a.id AND a.a[2] > 10", tableName),
                 anyTree(
                         node(JoinNode.class,
                                 anyTree(tableScan("lineitem", ImmutableMap.of())),
                                 anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]", "a[2]")))))));
 
         // Semi join
-        assertPlan(format("SELECT a[1] FROM %s WHERE a[2] IN (SELECT a[3] FROM %s)", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM %s WHERE a[2] IN (SELECT a[3] FROM %s)", tableName, tableName),
                 anyTree(node(SemiJoinNode.class,
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]", "a[2]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[3]")))))));
@@ -537,29 +537,29 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("z", toSubfields("z[2][3].e.e2")));
 
         // Union
-        assertPlan(format("SELECT a[1] FROM %s UNION ALL SELECT a[2] FROM %s", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM %s UNION ALL SELECT a[2] FROM %s", tableName, tableName),
                 anyTree(exchange(
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[2]")))))));
 
-        assertPlan(format("SELECT a[1] FROM (SELECT * FROM %s UNION ALL SELECT * FROM %s)", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM (SELECT * FROM %s UNION ALL SELECT * FROM %s)", tableName, tableName),
                 anyTree(exchange(
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))))));
 
-        assertPlan(format("SELECT a[1] FROM (SELECT * FROM %s WHERE a[2] > 10 UNION ALL SELECT * FROM %s)", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM (SELECT * FROM %s WHERE a[2] > 10 UNION ALL SELECT * FROM %s)", tableName, tableName),
                 anyTree(exchange(
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]", "a[2]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))))));
 
         // Except
-        assertPlan(format("SELECT a[1] FROM %s EXCEPT SELECT a[2] FROM %s", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM %s EXCEPT SELECT a[2] FROM %s", tableName, tableName),
                 anyTree(exchange(
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[2]")))))));
 
         // Intersect
-        assertPlan(format("SELECT a[1] FROM %s INTERSECT SELECT a[2] FROM %s", tableName, tableName),
+        assertPlan(pushdownFilterDisabled(), format("SELECT a[1] FROM %s INTERSECT SELECT a[2] FROM %s", tableName, tableName),
                 anyTree(exchange(
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[1]")))),
                         anyTree(tableScan(tableName, ImmutableMap.of("a", toSubfields("a[2]")))))));
@@ -783,6 +783,7 @@ public class TestHiveLogicalPlanner
             assertUpdate("CREATE TABLE test_virtual_bucket(a bigint, b bigint)");
             Session virtualBucketEnabled = Session.builder(getSession())
                     .setCatalogSessionProperty(HIVE_CATALOG, "virtual_bucket_count", "2")
+                    .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
                     .build();
 
             assertPlan(
@@ -946,7 +947,7 @@ public class TestHiveLogicalPlanner
 
     private void assertPushdownSubfields(String query, String tableName, Map<String, Set<Subfield>> requiredSubfields)
     {
-        assertPlan(query, anyTree(tableScan(tableName, requiredSubfields)));
+        assertPlan(pushdownFilterDisabled(), query, anyTree(tableScan(tableName, requiredSubfields)));
     }
 
     private void assertPushdownSubfields(Session session, String query, String tableName, Map<String, Set<Subfield>> requiredSubfields)
@@ -983,6 +984,14 @@ public class TestHiveLogicalPlanner
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
     }
+
+    private Session pushdownFilterDisabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
+                .build();
+    }
+
 
     private Session pushdownFilterAndNestedColumnFilterEnabled()
     {

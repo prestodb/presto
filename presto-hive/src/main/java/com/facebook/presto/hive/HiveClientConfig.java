@@ -159,10 +159,10 @@ public class HiveClientConfig
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
-    private boolean pushdownFilterEnabled;
+    private boolean pushdownFilterEnabled = true;
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
-    private boolean zstdJniDecompressionEnabled;
+    private boolean zstdJniDecompressionEnabled = true;
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
     private long fileStatusCacheMaxSize;

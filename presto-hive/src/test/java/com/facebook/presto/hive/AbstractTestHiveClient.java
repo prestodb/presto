@@ -1278,13 +1278,13 @@ public abstract class AbstractTestHiveClient
     public void testMismatchSchemaTable()
             throws Exception
     {
-        boolean pushdownFilterEnabled = getHiveClientConfig().isPushdownFilterEnabled();
 
         for (HiveStorageFormat storageFormat : createTableFormats) {
             // TODO: fix coercion for JSON or PAGEFILE
             if (storageFormat == JSON || storageFormat == PAGEFILE) {
                 continue;
             }
+            boolean pushdownFilterEnabled = getHiveClientConfig().isPushdownFilterEnabled() && (storageFormat == ORC || storageFormat == DWRF);
             SchemaTableName temporaryMismatchSchemaTable = temporaryTable("mismatch_schema");
             try {
                 doTestMismatchSchemaTable(
@@ -4877,21 +4877,26 @@ public abstract class AbstractTestHiveClient
         return ((HivePartition) partition).getPartitionId();
     }
 
-    private static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
+    private static void assertPageSourceType(ConnectorPageSource connectorPageSource, HiveStorageFormat hiveStorageFormat)
     {
-        if (pageSource instanceof OrcSelectivePageSource) {
+        if (connectorPageSource instanceof OrcSelectivePageSource) {
             assertTrue(hiveStorageFormat == ORC || hiveStorageFormat == DWRF);
         }
-        else if (pageSource instanceof RecordPageSource) {
-            RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
-            hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
-                hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
-        }
         else {
-            assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
+            FilteringPageSource filteringPageSource = (FilteringPageSource) connectorPageSource;
+            ConnectorPageSource pageSource = filteringPageSource.getPageSource();
+            if (pageSource instanceof RecordPageSource) {
+                RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
+                hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
+                if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
+                    hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
+                }
+                assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            }
+            else {
+                HivePageSource hivePageSource = (HivePageSource) pageSource;
+                assertInstanceOf(hivePageSource.getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
+            }
         }
     }
 

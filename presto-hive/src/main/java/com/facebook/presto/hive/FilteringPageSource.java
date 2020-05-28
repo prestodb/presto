@@ -31,6 +31,7 @@ import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -285,5 +286,11 @@ public class FilteringPageSource
     public boolean isFinished()
     {
         return delegate.isFinished();
+    }
+
+    @VisibleForTesting
+    ConnectorPageSource getPageSource()
+    {
+        return delegate;
     }
 }
