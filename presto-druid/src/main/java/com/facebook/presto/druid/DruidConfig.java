@@ -29,6 +29,14 @@ public class DruidConfig
     private String schema = "druid";
     private boolean pushdown;
     private List<String> hadoopConfiguration = ImmutableList.of();
+    private DruidAuthenticationType druidAuthenticationType = DruidAuthenticationType.NONE;
+
+    public enum DruidAuthenticationType
+    {
+        NONE,
+        BASIC,
+        KERBEROS,
+    }
 
     @NotNull
     public String getDruidCoordinatorUrl()
@@ -104,6 +112,21 @@ public class DruidConfig
     {
         if (files != null) {
             this.hadoopConfiguration = ImmutableList.copyOf(files);
+        }
+        return this;
+    }
+
+    @NotNull
+    public DruidAuthenticationType getDruidAuthenticationType()
+    {
+        return druidAuthenticationType;
+    }
+
+    @Config("druid.authentication.type")
+    public DruidConfig setDruidAuthenticationType(DruidAuthenticationType druidAuthenticationType)
+    {
+        if (druidAuthenticationType != null) {
+            this.druidAuthenticationType = druidAuthenticationType;
         }
         return this;
     }
