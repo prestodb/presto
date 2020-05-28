@@ -152,7 +152,6 @@ public class Decoders
             ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
             return new BinaryDeltaValuesDecoder(encoding, valueCount, bufferInputStream);
         }
-
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
     }
 
@@ -162,7 +161,6 @@ public class Decoders
             if (page instanceof DataPageV1) {
                 return readFlatPageV1((DataPageV1) page, columnDescriptor, dictionary);
             }
-
             return readFlatPageV2((DataPageV2) page, columnDescriptor, dictionary);
         }
         catch (IOException e) {
@@ -175,7 +173,6 @@ public class Decoders
     {
         byte[] bytes = page.getSlice().getBytes();
         ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, 0, bytes.length);
-
         FlatDefinitionLevelDecoder definitionLevelDecoder = createFlatDefLevelDecoder(page.getDefinitionLevelEncoding(), columnDescriptor.isRequired(), columnDescriptor.getMaxDefinitionLevel(), page.getValueCount(), byteBuffer);
         ValuesDecoder valuesDecoder = createValuesDecoder(columnDescriptor, dictionary, page.getValueCount(), page.getValueEncoding(), bytes, byteBuffer.position(), bytes.length - byteBuffer.position());
         return new FlatDecoders(definitionLevelDecoder, valuesDecoder);
@@ -195,9 +192,7 @@ public class Decoders
         else {
             definitionLevelDecoder = new FlatDefinitionLevelDecoder(valueCount, new ByteArrayInputStream(pageV2.getDefinitionLevels().getBytes()));
         }
-
         ValuesDecoder valuesDecoder = createValuesDecoderV2(pageV2, columnDescriptor, dictionary);
-
         return new FlatDecoders(definitionLevelDecoder, valuesDecoder);
     }
 
@@ -207,7 +202,6 @@ public class Decoders
             if (page instanceof DataPageV1) {
                 return readNestedPageV1((DataPageV1) page, columnDescriptor, dictionary);
             }
-
             return readNestedPageV2((DataPageV2) page, columnDescriptor, dictionary);
         }
         catch (IOException e) {
@@ -239,24 +233,22 @@ public class Decoders
 
     private static final RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
     {
-        final int maxRL = columnDescriptor.getMaxRepetitionLevel();
-        final int rlBitWidth = getWidthFromMaxInt(maxRL);
-        if (maxRL == 0 || rlBitWidth == 0) {
+        final int maxRepetitionLevel = columnDescriptor.getMaxRepetitionLevel();
+        final int repetitionLevelBitWidth = getWidthFromMaxInt(maxRepetitionLevel);
+        if (maxRepetitionLevel == 0 || repetitionLevelBitWidth == 0) {
             return new RepetitionLevelDecoder(0, valueCount);
         }
-
-        return new RepetitionLevelDecoder(valueCount, rlBitWidth, new ByteArrayInputStream(repetitionLevelBuffer.getBytes()));
+        return new RepetitionLevelDecoder(valueCount, repetitionLevelBitWidth, new ByteArrayInputStream(repetitionLevelBuffer.getBytes()));
     }
 
     private static final DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
     {
-        final int maxDL = columnDescriptor.getMaxDefinitionLevel();
-        final int dlBitWidth = getWidthFromMaxInt(maxDL);
-        if (maxDL == 0 || dlBitWidth == 0) {
+        final int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
+        final int definitionLevelBitWidth = getWidthFromMaxInt(maxDefinitionLevel);
+        if (maxDefinitionLevel == 0 || definitionLevelBitWidth == 0) {
             return new DefinitionLevelDecoder(0, valueCount);
         }
-
-        return new DefinitionLevelDecoder(valueCount, dlBitWidth, new ByteArrayInputStream(definitionLevelBuffer.getBytes()));
+        return new DefinitionLevelDecoder(valueCount, definitionLevelBitWidth, new ByteArrayInputStream(definitionLevelBuffer.getBytes()));
     }
 
     private static final ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)

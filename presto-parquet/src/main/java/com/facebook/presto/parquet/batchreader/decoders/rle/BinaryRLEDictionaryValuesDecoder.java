@@ -39,69 +39,65 @@ public class BinaryRLEDictionaryValuesDecoder
     public ReadChunk readNext(int length)
             throws IOException
     {
-        int[] dictIds = new int[length];
-        int destIndex = 0;
+        int[] dictionaries = new int[length];
+        int destinationIndex = 0;
         int bufferSize = 0;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (this.currentCount == 0) {
+            if (currentCount == 0) {
                 if (!readNext()) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, this.currentCount);
-            int endIndex = destIndex + numEntriesToFill;
+            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int endIndex = destinationIndex + numEntriesToFill;
             switch (this.mode) {
                 case RLE: {
-                    final int rleValue = this.currentValue;
+                    final int rleValue = currentValue;
                     final int rleValueLength = dictionary.getLength(rleValue);
-                    while (destIndex < endIndex) {
-                        dictIds[destIndex++] = rleValue;
+                    while (destinationIndex < endIndex) {
+                        dictionaries[destinationIndex++] = rleValue;
                     }
                     bufferSize += (rleValueLength * numEntriesToFill);
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = this.currentBuffer;
-                    final BinaryBatchDictionary localDictionary = this.dictionary;
-                    for (int srcIndex = this.currentBuffer.length - this.currentCount; destIndex < endIndex; srcIndex++, destIndex++) {
-                        int dictId = localCurrentBuffer[srcIndex];
-                        dictIds[destIndex] = dictId;
-                        bufferSize += localDictionary.getLength(dictId);
+                    final int[] localCurrentBuffer = currentBuffer;
+                    final BinaryBatchDictionary localDictionary = dictionary;
+                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++, destinationIndex++) {
+                        int dictionaryId = localCurrentBuffer[srcIndex];
+                        dictionaries[destinationIndex] = dictionaryId;
+                        bufferSize += localDictionary.getLength(dictionaryId);
                     }
                     break;
                 }
                 default:
                     throw new ParquetDecodingException("not a valid mode " + this.mode);
             }
-
-            this.currentCount -= numEntriesToFill;
+            currentCount -= numEntriesToFill;
             remainingToCopy -= numEntriesToFill;
         }
 
         checkState(remainingToCopy == 0, "Invalid read size request");
-
-        return new ReadChunkRLE(bufferSize, dictIds);
+        return new ReadChunkRLE(bufferSize, dictionaries);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIdx, int[] offsets, int offsetIdx, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
     {
-        checkArgument(byteBuffer.length - bufferIdx >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
 
         ReadChunkRLE readChunkRLE = (ReadChunkRLE) readChunk;
-
         final int[] dictionaryIds = readChunkRLE.getDictionaryIds();
         final int numEntries = dictionaryIds.length;
 
         for (int i = 0; i < numEntries; i++) {
-            offsets[offsetIdx++] = bufferIdx;
-            bufferIdx += dictionary.copyTo(byteBuffer, bufferIdx, dictionaryIds[i]);
+            offsets[offsetIndex++] = bufferIndex;
+            bufferIndex += dictionary.copyTo(byteBuffer, bufferIndex, dictionaryIds[i]);
         }
-        offsets[offsetIdx] = bufferIdx;
-
-        return bufferIdx;
+        offsets[offsetIndex] = bufferIndex;
+        return bufferIndex;
     }
 
     @Override
@@ -110,17 +106,16 @@ public class BinaryRLEDictionaryValuesDecoder
     {
         int remaining = length;
         while (remaining > 0) {
-            if (this.currentCount == 0) {
+            if (currentCount == 0) {
                 if (!readNext()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remaining, this.currentCount);
-            this.currentCount -= readChunkSize;
+            int readChunkSize = Math.min(remaining, currentCount);
+            currentCount -= readChunkSize;
             remaining -= readChunkSize;
         }
-
         checkState(remaining == 0, "Invalid read size request");
     }
 

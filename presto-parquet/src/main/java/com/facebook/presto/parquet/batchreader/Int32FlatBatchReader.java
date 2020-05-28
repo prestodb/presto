@@ -93,7 +93,10 @@ public class Int32FlatBatchReader
     {
         ColumnChunk columnChunk = null;
         try {
-            seek();
+            if (readOffset != 0) {
+                skip(readOffset);
+            }
+
             if (field.isRequired()) {
                 columnChunk = readWithoutNull();
             }
@@ -107,18 +110,7 @@ public class Int32FlatBatchReader
 
         readOffset = 0;
         nextBatchSize = 0;
-
         return columnChunk;
-    }
-
-    private void seek()
-            throws IOException
-    {
-        if (readOffset == 0) {
-            return;
-        }
-
-        skip(readOffset);
     }
 
     protected boolean readNextPage()
@@ -198,7 +190,6 @@ public class Int32FlatBatchReader
             throws IOException
     {
         int[] values = new int[nextBatchSize];
-
         int remainingInBatch = nextBatchSize;
         int startOffset = 0;
         while (remainingInBatch > 0) {
@@ -211,7 +202,6 @@ public class Int32FlatBatchReader
             int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
             valuesDecoder.readNext(values, startOffset, readChunkSize);
-
             startOffset += readChunkSize;
             remainingInBatch -= readChunkSize;
             remainingCountInPage -= readChunkSize;
@@ -239,7 +229,6 @@ public class Int32FlatBatchReader
 
                 int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
                 valuesDecoder.skip(readChunkSize);
-
                 remainingInBatch -= readChunkSize;
                 remainingCountInPage -= readChunkSize;
             }
@@ -257,7 +246,6 @@ public class Int32FlatBatchReader
                 int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
                 int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, readChunkSize);
                 valuesDecoder.skip(nonNullCount);
-
                 startOffset += readChunkSize;
                 remainingInBatch -= readChunkSize;
                 remainingCountInPage -= readChunkSize;
