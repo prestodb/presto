@@ -141,7 +141,7 @@ public class FeaturesConfig
     private int maxConcurrentMaterializations = 3;
     private boolean optimizedRepartitioningEnabled;
 
-    private boolean pushdownSubfieldsEnabled;
+    private boolean pushdownSubfieldsEnabled = true;
 
     private boolean tableWriterMergeOperatorEnabled = true;
 
