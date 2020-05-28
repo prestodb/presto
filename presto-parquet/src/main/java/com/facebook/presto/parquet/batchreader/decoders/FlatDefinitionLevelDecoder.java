@@ -44,36 +44,36 @@ public class FlatDefinitionLevelDecoder
         int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (this.currentCount == 0) {
-                if (!this.readNext()) {
+            if (currentCount == 0) {
+                if (!readNext()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remainingToCopy, this.currentCount);
+            int readChunkSize = Math.min(remainingToCopy, currentCount);
             int endIndex = destinationIndex + readChunkSize;
-            switch (this.mode) {
+            switch (mode) {
                 case RLE: {
-                    boolean rleValue = this.currentValue == 0;
+                    boolean rleValue = currentValue == 0;
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = rleValue;
                     }
-                    nonNullCount += this.currentValue * readChunkSize;
+                    nonNullCount += currentValue * readChunkSize;
                     break;
                 }
                 case PACKED: {
-                    int[] currentBuffer = this.currentBuffer;
-                    for (int sourceIndex = currentBuffer.length - this.currentCount; destinationIndex < endIndex; sourceIndex++, destinationIndex++) {
-                        final int value = currentBuffer[sourceIndex];
+                    int[] buffer = currentBuffer;
+                    for (int sourceIndex = buffer.length - currentCount; destinationIndex < endIndex; sourceIndex++, destinationIndex++) {
+                        final int value = buffer[sourceIndex];
                         values[destinationIndex] = value == 0;
                         nonNullCount += value;
                     }
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
-            this.currentCount -= readChunkSize;
+            currentCount -= readChunkSize;
             remainingToCopy -= readChunkSize;
         }
 

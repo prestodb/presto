@@ -25,7 +25,6 @@ public class BooleanPlainValuesDecoder
     private final int bufferEnd;
 
     private int bufferOffset;
-
     private int currentByteOffset;
     private byte currentByte;
 

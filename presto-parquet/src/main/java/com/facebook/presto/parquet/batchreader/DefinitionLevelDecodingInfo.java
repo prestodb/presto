@@ -19,7 +19,7 @@ import java.util.List;
 public class DefinitionLevelDecodingInfo
 {
     private final List<ValuesDecoderInfo> valuesDecoderInfos = new LinkedList<>();
-    private int[] dls;
+    private int[] definitionLevels;
 
     public void add(ValuesDecoderInfo valuesDecoderInfo)
     {
@@ -31,13 +31,13 @@ public class DefinitionLevelDecodingInfo
         return valuesDecoderInfos;
     }
 
-    public int[] getDLs()
+    public int[] getDefinitionLevels()
     {
-        return dls;
+        return definitionLevels;
     }
 
-    public void setDLs(int[] dls)
+    public void setDefinitionLevels(int[] definitionLevels)
     {
-        this.dls = dls;
+        this.definitionLevels = definitionLevels;
     }
 }

@@ -23,6 +23,8 @@ import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
 
+import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static com.facebook.presto.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
@@ -38,16 +40,15 @@ public class BinaryDeltaValuesDecoder
     public BinaryDeltaValuesDecoder(ParquetEncoding encoding, int valueCount, ByteBufferInputStream bufferInputStream)
             throws IOException
     {
-        if (encoding == ParquetEncoding.DELTA_BYTE_ARRAY) {
+        if (encoding == DELTA_BYTE_ARRAY) {
             innerReader = new DeltaByteArrayReader();
         }
-        else if (encoding == ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY) {
+        else if (encoding == DELTA_LENGTH_BYTE_ARRAY) {
             innerReader = new DeltaLengthByteArrayValuesReader();
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding: " + encoding);
         }
-
         innerReader.initFromPage(valueCount, bufferInputStream);
     }
 
@@ -62,14 +63,13 @@ public class BinaryDeltaValuesDecoder
             values[i] = value;
             bufferSize += value.length();
         }
-
         return new ReadChunkDelta(values, bufferSize);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIdx, int[] offsets, int offsetIdx, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
     {
-        checkArgument(byteBuffer.length - bufferIdx >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
 
         ReadChunkDelta readChunkDelta = (ReadChunkDelta) readChunk;
 
@@ -77,14 +77,14 @@ public class BinaryDeltaValuesDecoder
         for (int i = 0; i < values.length; i++) {
             Binary value = values[i];
 
-            offsets[offsetIdx++] = bufferIdx;
+            offsets[offsetIndex++] = bufferIndex;
             byte[] valueBytes = value.getBytes();
-            System.arraycopy(valueBytes, 0, byteBuffer, bufferIdx, valueBytes.length);
-            bufferIdx += valueBytes.length;
+            System.arraycopy(valueBytes, 0, byteBuffer, bufferIndex, valueBytes.length);
+            bufferIndex += valueBytes.length;
         }
-        offsets[offsetIdx] = bufferIdx;
+        offsets[offsetIndex] = bufferIndex;
 
-        return bufferIdx;
+        return bufferIndex;
     }
 
     @Override

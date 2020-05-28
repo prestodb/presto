@@ -37,35 +37,35 @@ public class DefinitionLevelDecoder
     public void readNext(int[] values, int offset, int length)
             throws IOException
     {
-        int destIndex = offset;
+        int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (this.currentCount == 0) {
-                if (!this.readNext()) {
+            if (currentCount == 0) {
+                if (!readNext()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remainingToCopy, this.currentCount);
-            switch (this.mode) {
+            int readChunkSize = Math.min(remainingToCopy, currentCount);
+            switch (mode) {
                 case RLE: {
-                    int rleValue = this.currentValue;
-                    int endIndex = destIndex + readChunkSize;
-                    while (destIndex < endIndex) {
-                        values[destIndex] = rleValue;
-                        destIndex++;
+                    int rleValue = currentValue;
+                    int endIndex = destinationIndex + readChunkSize;
+                    while (destinationIndex < endIndex) {
+                        values[destinationIndex] = rleValue;
+                        destinationIndex++;
                     }
                     break;
                 }
                 case PACKED: {
-                    System.arraycopy(currentBuffer, currentBuffer.length - this.currentCount, values, destIndex, readChunkSize);
-                    destIndex += readChunkSize;
+                    System.arraycopy(currentBuffer, currentBuffer.length - currentCount, values, destinationIndex, readChunkSize);
+                    destinationIndex += readChunkSize;
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + mode);
             }
-            this.currentCount -= readChunkSize;
+            currentCount -= readChunkSize;
             remainingToCopy -= readChunkSize;
         }
 
