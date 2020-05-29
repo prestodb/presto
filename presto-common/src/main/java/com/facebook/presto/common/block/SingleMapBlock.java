@@ -134,7 +134,7 @@ public class SingleMapBlock
     @Nullable
     int[] getHashTable()
     {
-        return mapBlock.getHashTables().get().orElse(null);
+        return mapBlock.getHashTables().get();
     }
 
     Type getKeyType()
@@ -152,7 +152,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -199,7 +199,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -243,7 +243,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -287,7 +287,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -331,7 +331,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {
@@ -375,7 +375,7 @@ public class SingleMapBlock
         }
 
         mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get().get();
+        int[] hashTable = mapBlock.getHashTables().get();
 
         long hashCode;
         try {

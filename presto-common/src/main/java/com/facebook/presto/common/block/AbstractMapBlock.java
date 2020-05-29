@@ -121,7 +121,7 @@ public abstract class AbstractMapBlock
             newPosition++;
         }
 
-        int[] rawHashTables = getHashTables().get().orElse(null);
+        int[] rawHashTables = getHashTables().get();
         int[] newRawHashTables = null;
         int newHashTableEntries = newOffsets[newOffsets.length - 1] * HASH_MULTIPLIER;
         if (rawHashTables != null) {
@@ -237,7 +237,7 @@ public abstract class AbstractMapBlock
         boolean[] mapIsNull = getMapIsNull();
         boolean[] newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + getOffsetBase(), length);
 
-        int[] rawHashTables = getHashTables().get().orElse(null);
+        int[] rawHashTables = getHashTables().get();
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;
         if (rawHashTables != null) {
@@ -314,7 +314,7 @@ public abstract class AbstractMapBlock
         Block newKeys = getRawKeyBlock().copyRegion(startValueOffset, valueLength);
         Block newValues = getRawValueBlock().copyRegion(startValueOffset, valueLength);
 
-        int[] rawHashTables = getHashTables().get().orElse(null);
+        int[] rawHashTables = getHashTables().get();
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;
         if (rawHashTables != null) {
@@ -373,7 +373,7 @@ public abstract class AbstractMapBlock
 
     public boolean isHashTablesPresent()
     {
-        return getHashTables().get().isPresent();
+        return getHashTables().get() != null;
     }
 
     private void checkReadablePosition(int position)
@@ -410,9 +410,10 @@ public abstract class AbstractMapBlock
             this.expectedHashTableCount = expectedHashTableCount;
         }
 
-        Optional<int[]> get()
+        @Nullable
+        int[] get()
         {
-            return Optional.ofNullable(hashTables);
+            return hashTables;
         }
 
         void set(int[] hashTables)
