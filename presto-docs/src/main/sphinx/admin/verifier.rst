@@ -165,8 +165,9 @@ query failures.
 * ``EXCEEDED_TIME_LIMIT``: Resolves unconditionally.
 * ``TOO_MANY_HIVE_PARTITIONS``: Resolves if the test cluster does not have enough workers to make
   sure the number of partitions assigned to each worker stays within the limit.
-* ``COMPILER_ERROR``: Resolves if checksum fails with this error. If a control query has too many
-  columns, generated checksum query might be too large in certain cases.
+* ``COMPILER_ERROR``, ``GENERATED_BYTECODE_TOO_LARGE``: Resolves if the control checksum query
+  fails with this error. If the control query has too many columns, generated checksum queries
+  might be too large in certain cases.
 
 In cases of result mismatches, Verifier may be giving noisy signals, and we allow Verifier to
 automatically resolve certain mismatches.
