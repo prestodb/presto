@@ -31,14 +31,14 @@ public class DruidConfig
     private boolean pushdown;
     private List<String> hadoopConfiguration = ImmutableList.of();
     private DruidAuthenticationType druidAuthenticationType = DruidAuthenticationType.NONE;
-    private String username;
-    private String password;
+    private String basicAuthenticationUsername;
+    private String basicAuthenticationPassword;
 
     public enum DruidAuthenticationType
     {
         NONE,
         BASIC,
-        KERBEROS,
+        KERBEROS
     }
 
     @NotNull
@@ -135,28 +135,28 @@ public class DruidConfig
     }
 
     @Nullable
-    public String getUsername()
+    public String getBasicAuthenticationUsername()
     {
-        return username;
+        return basicAuthenticationUsername;
     }
 
-    @Config("druid.authentication.username")
-    public DruidConfig setUsername(String username)
+    @Config("druid.basic.authentication.username")
+    public DruidConfig setBasicAuthenticationUsername(String basicAuthenticationUsername)
     {
-        this.username = username;
+        this.basicAuthenticationUsername = basicAuthenticationUsername;
         return this;
     }
 
     @Nullable
-    public String getPassword()
+    public String getBasicAuthenticationPassword()
     {
-        return password;
+        return basicAuthenticationPassword;
     }
 
-    @Config("druid.authentication.password")
-    public DruidConfig setPassword(String password)
+    @Config("druid.basic.authentication.password")
+    public DruidConfig setBasicAuthenticationPassword(String basicAuthenticationPassword)
     {
-        this.password = password;
+        this.basicAuthenticationPassword = basicAuthenticationPassword;
         return this;
     }
 }
