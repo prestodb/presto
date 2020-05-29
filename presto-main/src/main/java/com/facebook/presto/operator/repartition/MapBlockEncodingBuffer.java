@@ -34,8 +34,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Optional;
-
 import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
 import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
@@ -276,8 +274,8 @@ public class MapBlockEncodingBuffer
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
 
-        if (!noHashTables && columnarMap.getHashTables().isPresent()) {
-            estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * columnarMap.getHashTables().get().length / columnarMap.getRetainedSizeInBytes());
+        if (!noHashTables && columnarMap.getHashTables() != null) {
+            estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * columnarMap.getHashTables().length / columnarMap.getRetainedSizeInBytes());
             targetBufferSize -= estimatedHashTableBufferMaxCapacity;
         }
         else {
@@ -378,8 +376,8 @@ public class MapBlockEncodingBuffer
             return;
         }
 
-        Optional<int[]> hashTables = columnarMap.getHashTables();
-        if (!hashTables.isPresent()) {
+        int[] hashTables = columnarMap.getHashTables();
+        if (hashTables == null) {
             noHashTables = true;
             hashTableBufferIndex = 0;
             return;
@@ -399,7 +397,7 @@ public class MapBlockEncodingBuffer
             hashTableBufferIndex = setInts(
                     hashTablesBuffer,
                     hashTableBufferIndex,
-                    hashTables.get(),
+                    hashTables,
                     beginOffset * HASH_MULTIPLIER,
                     (endOffset - beginOffset) * HASH_MULTIPLIER);
         }
