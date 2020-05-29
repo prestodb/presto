@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
@@ -30,6 +31,8 @@ public class DruidConfig
     private boolean pushdown;
     private List<String> hadoopConfiguration = ImmutableList.of();
     private DruidAuthenticationType druidAuthenticationType = DruidAuthenticationType.NONE;
+    private String username;
+    private String password;
 
     public enum DruidAuthenticationType
     {
@@ -128,6 +131,32 @@ public class DruidConfig
         if (druidAuthenticationType != null) {
             this.druidAuthenticationType = druidAuthenticationType;
         }
+        return this;
+    }
+
+    @Nullable
+    public String getUsername()
+    {
+        return username;
+    }
+
+    @Config("druid.authentication.username")
+    public DruidConfig setUsername(String username)
+    {
+        this.username = username;
+        return this;
+    }
+
+    @Nullable
+    public String getPassword()
+    {
+        return password;
+    }
+
+    @Config("druid.authentication.password")
+    public DruidConfig setPassword(String password)
+    {
+        this.password = password;
         return this;
     }
 }
