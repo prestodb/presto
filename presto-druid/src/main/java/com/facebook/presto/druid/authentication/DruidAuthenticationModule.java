@@ -37,6 +37,10 @@ public class DruidAuthenticationModule
         bindAuthenticationModule(
                 config -> config.getDruidAuthenticationType() == DruidConfig.DruidAuthenticationType.BASIC,
                 basicAuthenticationModule());
+
+        bindAuthenticationModule(
+                config -> config.getDruidAuthenticationType() == DruidConfig.DruidAuthenticationType.KERBEROS,
+                kerberosbAuthenticationModule());
     }
 
     private void bindAuthenticationModule(Predicate<DruidConfig> predicate, Module module)
@@ -56,5 +60,12 @@ public class DruidAuthenticationModule
                         config -> config.setAuthenticationEnabled(false) //disable Kerberos auth
                 ).withFilter(
                         DruidBasicAuthHttpRequestFilter.class);
+    }
+
+    private static Module kerberosbAuthenticationModule()
+    {
+        return binder -> httpClientBinder(binder).bindHttpClient("druid-client", ForDruidClient.class)
+                .withConfigDefaults(
+                        config -> config.setAuthenticationEnabled(true));
     }
 }
