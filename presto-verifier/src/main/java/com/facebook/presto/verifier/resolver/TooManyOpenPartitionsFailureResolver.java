@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -77,7 +78,7 @@ public class TooManyOpenPartitionsFailureResolver
             return Optional.empty();
         }
 
-        return mapMatchingPrestoException(queryException, TEST_MAIN, HIVE_TOO_MANY_OPEN_PARTITIONS,
+        return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
                 e -> {
                     try {
                         ShowCreate showCreate = new ShowCreate(TABLE, test.get().getTableName());

@@ -16,10 +16,12 @@ package com.facebook.presto.verifier.resolver;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 
@@ -31,7 +33,7 @@ public class VerifierLimitationFailureResolver
     @Override
     public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, COMPILER_ERROR,
+        return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, ImmutableSet.of(COMPILER_ERROR, GENERATED_BYTECODE_TOO_LARGE),
                 e -> Optional.of("Checksum query too large"));
     }
 }
