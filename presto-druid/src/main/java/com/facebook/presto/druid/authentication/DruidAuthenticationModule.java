@@ -23,6 +23,9 @@ import java.util.function.Predicate;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
+import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.KERBEROS;
+import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;
 
 public class DruidAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -31,15 +34,15 @@ public class DruidAuthenticationModule
     protected void setup(Binder binder)
     {
         bindAuthenticationModule(
-                config -> config.getDruidAuthenticationType() == DruidConfig.DruidAuthenticationType.NONE,
+                config -> config.getDruidAuthenticationType() == NONE,
                 noneAuthenticationModule());
 
         bindAuthenticationModule(
-                config -> config.getDruidAuthenticationType() == DruidConfig.DruidAuthenticationType.BASIC,
+                config -> config.getDruidAuthenticationType() == BASIC,
                 basicAuthenticationModule());
 
         bindAuthenticationModule(
-                config -> config.getDruidAuthenticationType() == DruidConfig.DruidAuthenticationType.KERBEROS,
+                config -> config.getDruidAuthenticationType() == KERBEROS,
                 kerberosbAuthenticationModule());
     }
 

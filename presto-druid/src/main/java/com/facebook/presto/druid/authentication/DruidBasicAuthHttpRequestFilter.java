@@ -30,8 +30,8 @@ public class DruidBasicAuthHttpRequestFilter
     @Inject
     public DruidBasicAuthHttpRequestFilter(DruidConfig config)
     {
-        String username = requireNonNull(config.getUsername(), "username cannot be null when using basic authentication");
-        String password = requireNonNull(config.getPassword(), "password cannot be null when using basic authentication");
+        String username = requireNonNull(config.getBasicAuthenticationUsername(), "username cannot be null when using basic authentication");
+        String password = requireNonNull(config.getBasicAuthenticationPassword(), "password cannot be null when using basic authentication");
         this.filter = new BasicAuthRequestFilter(username, password);
     }
 
