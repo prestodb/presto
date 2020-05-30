@@ -122,8 +122,15 @@ public final class StringFunctions
     {
         // Empty search?
         if (search.length() == 0) {
-            // With empty `search` we insert `replace` in front of every character and and the end
-            Slice buffer = Slices.allocate((countCodePoints(str) + 1) * replace.length() + str.length());
+            // With empty `search` we insert `replace` in front of every character and at the end
+            int resultLength;
+            try {
+                resultLength = Math.addExact(Math.multiplyExact(countCodePoints(str) + 1, replace.length()), str.length());
+            }
+            catch (ArithmeticException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "inputs to \"replace\" function are too large: when \"search\" parameter is empty, length of \"string\" times length of \"replace\" must not exceed " + Integer.MAX_VALUE);
+            }
+            Slice buffer = Slices.allocate(resultLength);
             // Always start with replace
             buffer.setBytes(0, replace);
             int indexBuffer = replace.length();
