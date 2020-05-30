@@ -81,6 +81,9 @@ String Functions
 
     Replaces all instances of ``search`` with ``replace`` in ``string``.
 
+    If ``search`` is an empty string, inserts ``replace`` in front of every
+    character and at the end of the ``string``.
+
 .. function:: reverse(string) -> varchar
 
     Returns ``string`` with the characters in reverse order.

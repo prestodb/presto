@@ -248,6 +248,9 @@ public class TestStringFunctions
         assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
                 VARBINARY,
                 new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
+
+        String longString = new String(new char[1_000_000]);
+        assertInvalidFunction(String.format("replace('%s', '', '%s')", longString, longString), "inputs to \"replace\" function are too large: when \"search\" parameter is empty, length of \"string\" times length of \"replace\" must not exceed 2147483647");
     }
 
     @Test
