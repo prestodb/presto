@@ -46,6 +46,8 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -167,10 +169,10 @@ public class QueryExplainer
                 return textIOPlan(plan.getRoot(), metadata, session);
             case LOGICAL:
                 plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session);
+                return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.jsonDistributedPlan(subPlan);
+                return jsonDistributedPlan(subPlan);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }
