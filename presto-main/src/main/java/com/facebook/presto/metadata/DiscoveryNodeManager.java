@@ -79,7 +79,7 @@ public final class DiscoveryNodeManager
     private static final Splitter CONNECTOR_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
-    private final NodeStatusService nodeStatusService;
+    private final Optional<NodeStatusService> nodeStatusService;
     private final NodeVersion expectedNodeVersion;
     private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
@@ -107,7 +107,7 @@ public final class DiscoveryNodeManager
             @ServiceType("presto") ServiceSelector serviceSelector,
             NodeInfo nodeInfo,
             FailureDetector failureDetector,
-            NodeStatusService nodeStatusService,
+            Optional<NodeStatusService> nodeStatusService,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
             @ForNodeManager DriftClient<ThriftServerInfoClient> driftClient,
@@ -230,7 +230,8 @@ public final class DiscoveryNodeManager
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
-                .filter(service -> nodeStatusService.isAllowed(service.getNodeId()))
+                // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
+                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getNodeId()) || isCoordinator(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
