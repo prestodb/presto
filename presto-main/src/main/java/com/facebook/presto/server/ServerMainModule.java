@@ -150,7 +150,6 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.statusservice.AllowAllStatusService;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
@@ -529,8 +528,8 @@ public class ServerMainModule
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
 
-        //Status Detector
-        binder.bind(NodeStatusService.class).to(AllowAllStatusService.class).in(Scopes.SINGLETON);
+        //Optional Status Detector
+        newOptionalBinder(binder, NodeStatusService.class);
     }
 
     @Provides
