@@ -296,6 +296,13 @@
             <version>${netty.version}</version>
         </dependency>
 
+        <!-- Force newer version of netty because older 4.1.x versions have some CVEs -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.50.Final</version>
+        </dependency>
+
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-utils</artifactId>
