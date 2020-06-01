@@ -29,13 +29,13 @@ import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -144,10 +144,10 @@ public class JdbcPrestoAction
             // Do nothing
         }
 
-        Map<String, String> sessionProperties = ImmutableMap.<String, String>builder()
-                .putAll(queryConfiguration.getSessionProperties())
-                .put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString())
-                .build();
+        Map<String, String> sessionProperties = new HashMap<>(queryConfiguration.getSessionProperties());
+
+        // Add or override query max execution time to enforce the timeout.
+        sessionProperties.put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString());
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
             connection.setSessionProperty(entry.getKey(), entry.getValue());
         }
