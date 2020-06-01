@@ -252,6 +252,16 @@ public class PlanPrinter
     public static String jsonLogicalPlan(
             PlanNode plan,
             TypeProvider types,
+            FunctionManager functionManager,
+            StatsAndCosts estimatedStatsAndCosts,
+            Session session)
+    {
+        return jsonLogicalPlan(plan, types, Optional.empty(), functionManager, estimatedStatsAndCosts, session, Optional.empty());
+    }
+
+    public static String jsonLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
             FunctionManager functionManager,
             StatsAndCosts estimatedStatsAndCosts,
@@ -259,16 +269,6 @@ public class PlanPrinter
             Optional<Map<PlanNodeId, PlanNodeStats>> stats)
     {
         return new PlanPrinter(plan, types, stageExecutionStrategy, functionManager, estimatedStatsAndCosts, session, stats).toJson();
-    }
-
-    public static String jsonLogicalPlan(
-            PlanNode plan,
-            TypeProvider types,
-            FunctionManager functionManager,
-            StatsAndCosts estimatedStatsAndCosts,
-            Session session)
-    {
-        return jsonLogicalPlan(plan, types, Optional.empty(), functionManager, estimatedStatsAndCosts, session, Optional.empty());
     }
 
     public static String jsonDistributedPlan(StageInfo outputStageInfo)
