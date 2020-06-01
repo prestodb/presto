@@ -35,6 +35,7 @@ import com.facebook.presto.verifier.rewrite.QueryRewriteConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterFactory;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
@@ -75,6 +77,7 @@ public class TestDataVerification
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
     private static final String TEST_ID = "test-id";
+    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
 
     private static StandaloneQueryRunner queryRunner;
 
@@ -92,19 +95,19 @@ public class TestDataVerification
 
     private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
-        return runVerification(controlQuery, testQuery, Optional.empty(), determinismAnalyzerConfig);
+        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, QUERY_CONFIGURATION, QUERY_CONFIGURATION);
+        return runVerification(sourceQuery, Optional.empty(), determinismAnalyzerConfig);
     }
 
-    private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, Optional<PrestoAction> mockPrestoAction, DeterminismAnalyzerConfig determinismAnalyzerConfig)
+    private Optional<VerifierQueryEvent> runVerification(SourceQuery sourceQuery, Optional<PrestoAction> mockPrestoAction, DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = VerificationContext.create();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> new JdbcPrestoAction(
                 PrestoExceptionClassifier.createDefault(),
-                configuration,
+                sourceQuery.getControlConfiguration(),
                 verificationContext,
                 new PrestoClusterConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
@@ -117,7 +120,6 @@ public class TestDataVerification
                 new QueryRewriteConfig().setTablePrefix("tmp_verifier_c"),
                 new QueryRewriteConfig().setTablePrefix("tmp_verifier_t")).create(prestoAction);
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
-        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
         return new DataVerification(
                 prestoAction,
                 sourceQuery,
@@ -371,6 +373,16 @@ public class TestDataVerification
         assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
         assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
         assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());
+    }
+
+    @Test
+    public void testExecutionTimeSessionProperty()
+    {
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME, "20m")));
+        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", configuration, configuration);
+        Optional<VerifierQueryEvent> event = runVerification(sourceQuery, Optional.empty(), new DeterminismAnalyzerConfig());
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private void assertEvent(
