@@ -2059,6 +2059,10 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("CREATE TABLE tmp_map12 AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
         assertQuery("SELECT col[1.0][2] FROM tmp_map12", "SELECT 2");
+
+        assertUpdate("CREATE TABLE tmp_map13 AS SELECT MAP(ARRAY['puppies', 'kittens'], ARRAY['corgi', 'norwegianWood']) AS col", 1);
+        assertQuery("SELECT col['puppies'] FROM tmp_map13", "SELECT 'corgi'");
+        assertQuery("SELECT col['kittens'] FROM tmp_map13", "SELECT 'norwegianWood'");
     }
 
     @Test
