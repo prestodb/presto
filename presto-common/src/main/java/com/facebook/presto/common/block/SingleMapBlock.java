@@ -352,7 +352,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.keyBlockNativeEquals.invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = mapBlock.getRawKeyBlock().bytesEqual(offset / 2 + keyPosition, 0, nativeValue, 0, nativeValue.length());
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
