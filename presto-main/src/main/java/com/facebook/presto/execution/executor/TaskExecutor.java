@@ -536,7 +536,7 @@ public class TaskExecutor
 
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
-                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
+                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split);
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
@@ -868,7 +868,7 @@ public class TaskExecutor
             if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(String.format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
+                stackTrace.append(String.format("\"%s\" tid=%s status=%s", splitInfo.getThreadId(), splitInfo.getThread().getId(), splitInfo.isFinished() ? "finished" : "running")).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
@@ -897,13 +897,15 @@ public class TaskExecutor
         private final long startTime;
         private final String threadId;
         private final Thread thread;
+        private final PrioritizedSplitRunner split;
         private boolean printed;
 
-        public RunningSplitInfo(long startTime, String threadId, Thread thread)
+        public RunningSplitInfo(long startTime, String threadId, Thread thread, PrioritizedSplitRunner split)
         {
             this.startTime = startTime;
             this.threadId = threadId;
             this.thread = thread;
+            this.split = split;
             this.printed = false;
         }
 
@@ -930,6 +932,11 @@ public class TaskExecutor
         public void setPrinted()
         {
             printed = true;
+        }
+
+        public boolean isFinished()
+        {
+            return split.isFinished();
         }
 
         @Override
