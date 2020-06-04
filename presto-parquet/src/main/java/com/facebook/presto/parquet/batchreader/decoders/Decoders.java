@@ -38,9 +38,7 @@ import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
-import org.apache.parquet.Preconditions;
 import org.apache.parquet.bytes.ByteBufferInputStream;
-import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
@@ -59,8 +57,10 @@ import static com.facebook.presto.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_IO_READ_ERROR;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
+import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianOnOneByte;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 
@@ -70,7 +70,20 @@ public class Decoders
     {
     }
 
-    public static final ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
+    public static FlatDecoders readFlatPage(DataPage page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+    {
+        try {
+            if (page instanceof DataPageV1) {
+                return readFlatPageV1((DataPageV1) page, columnDescriptor, dictionary);
+            }
+            return readFlatPageV2((DataPageV2) page, columnDescriptor, dictionary);
+        }
+        catch (IOException e) {
+            throw new PrestoException(PARQUET_IO_READ_ERROR, "Error reading parquet page " + page + " in column " + columnDescriptor, e);
+        }
+    }
+
+    private static final ValuesDecoder createValuesDecoder(ColumnDescriptor columnDescriptor, Dictionary dictionary, int valueCount, ParquetEncoding encoding, byte[] buffer, int offset, int length)
             throws IOException
     {
         final PrimitiveTypeName type = columnDescriptor.getPrimitiveType().getPrimitiveTypeName();
@@ -102,27 +115,21 @@ public class Decoders
         }
 
         if (encoding == RLE_DICTIONARY || encoding == PLAIN_DICTIONARY) {
+            InputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+            int bitWidth = readIntLittleEndianOnOneByte(inputStream);
             switch (type) {
                 case INT32:
                 case FLOAT: {
-                    InputStream valuesBufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    int bitWidth = readIntLittleEndianOnOneByte(valuesBufferInputStream);
-                    return new Int32RLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (IntegerDictionary) dictionary);
+                    return new Int32RLEDictionaryValuesDecoder(bitWidth, inputStream, (IntegerDictionary) dictionary);
                 }
                 case INT64:
                 case DOUBLE: {
-                    InputStream valuesBufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    int bitWidth = readIntLittleEndianOnOneByte(valuesBufferInputStream);
-                    return new Int64RLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (LongDictionary) dictionary);
+                    return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                 }
                 case INT96: {
-                    InputStream valuesBufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    int bitWidth = readIntLittleEndianOnOneByte(valuesBufferInputStream);
-                    return new TimestampRLEDictionaryValuesDecoder(bitWidth, valuesBufferInputStream, (TimestampDictionary) dictionary);
+                    return new TimestampRLEDictionaryValuesDecoder(bitWidth, inputStream, (TimestampDictionary) dictionary);
                 }
                 case BINARY: {
-                    InputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    int bitWidth = readIntLittleEndianOnOneByte(inputStream);
                     return new BinaryRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                 }
                 case FIXED_LEN_BYTE_ARRAY:
@@ -132,16 +139,15 @@ public class Decoders
         }
 
         if (encoding == DELTA_BINARY_PACKED) {
+            ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
             switch (type) {
                 case INT32:
                 case FLOAT: {
-                    ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    return new Int32DeltaBinaryPackedValuesDecoder(valueCount, bufferInputStream);
+                    return new Int32DeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                 }
                 case INT64:
                 case DOUBLE: {
-                    ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-                    return new Int64DeltaBinaryPackedValuesDecoder(valueCount, bufferInputStream);
+                    return new Int64DeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                 }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
@@ -149,23 +155,10 @@ public class Decoders
         }
 
         if ((encoding == DELTA_BYTE_ARRAY || encoding == DELTA_LENGTH_BYTE_ARRAY) && type == PrimitiveTypeName.BINARY) {
-            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
-            return new BinaryDeltaValuesDecoder(encoding, valueCount, bufferInputStream);
+            ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+            return new BinaryDeltaValuesDecoder(encoding, valueCount, inputStream);
         }
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
-    }
-
-    public static FlatDecoders readFlatPage(DataPage page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
-    {
-        try {
-            if (page instanceof DataPageV1) {
-                return readFlatPageV1((DataPageV1) page, columnDescriptor, dictionary);
-            }
-            return readFlatPageV2((DataPageV2) page, columnDescriptor, dictionary);
-        }
-        catch (IOException e) {
-            throw new PrestoException(PARQUET_IO_READ_ERROR, "Error reading parquet page " + page + " in column " + columnDescriptor, e);
-        }
     }
 
     private static FlatDecoders readFlatPageV1(DataPageV1 page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
@@ -173,8 +166,20 @@ public class Decoders
     {
         byte[] bytes = page.getSlice().getBytes();
         ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, 0, bytes.length);
-        FlatDefinitionLevelDecoder definitionLevelDecoder = createFlatDefLevelDecoder(page.getDefinitionLevelEncoding(), columnDescriptor.isRequired(), columnDescriptor.getMaxDefinitionLevel(), page.getValueCount(), byteBuffer);
-        ValuesDecoder valuesDecoder = createValuesDecoder(columnDescriptor, dictionary, page.getValueCount(), page.getValueEncoding(), bytes, byteBuffer.position(), bytes.length - byteBuffer.position());
+        FlatDefinitionLevelDecoder definitionLevelDecoder = createFlatDefinitionLevelDecoder(
+                page.getDefinitionLevelEncoding(),
+                columnDescriptor.isRequired(),
+                columnDescriptor.getMaxDefinitionLevel(),
+                page.getValueCount(),
+                byteBuffer);
+        ValuesDecoder valuesDecoder = createValuesDecoder(
+                columnDescriptor,
+                dictionary,
+                page.getValueCount(),
+                page.getValueEncoding(),
+                bytes,
+                byteBuffer.position(),
+                bytes.length - byteBuffer.position());
         return new FlatDecoders(definitionLevelDecoder, valuesDecoder);
     }
 
@@ -183,7 +188,7 @@ public class Decoders
     {
         final int valueCount = pageV2.getValueCount();
         final int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
-        Preconditions.checkArgument(maxDefinitionLevel <= 1 && maxDefinitionLevel >= 0, "Invalid max definition level: " + maxDefinitionLevel);
+        checkArgument(maxDefinitionLevel <= 1 && maxDefinitionLevel >= 0, "Invalid max definition level: " + maxDefinitionLevel);
 
         FlatDefinitionLevelDecoder definitionLevelDecoder;
         if (maxDefinitionLevel == 0) {
@@ -215,9 +220,24 @@ public class Decoders
         byte[] bytes = page.getSlice().getBytes();
         ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, 0, bytes.length);
 
-        RepetitionLevelDecoder repetitionLevelDecoder = createRepetitionLevelDecoder(page.getRepetitionLevelEncoding(), columnDescriptor.getMaxRepetitionLevel(), page.getValueCount(), byteBuffer);
-        DefinitionLevelDecoder definitionLevelDecoder = createDefinitionLevelDecoder(page.getDefinitionLevelEncoding(), columnDescriptor.getMaxDefinitionLevel(), page.getValueCount(), byteBuffer);
-        ValuesDecoder valuesDecoder = createValuesDecoder(columnDescriptor, dictionary, page.getValueCount(), page.getValueEncoding(), bytes, byteBuffer.position(), bytes.length - byteBuffer.position());
+        RepetitionLevelDecoder repetitionLevelDecoder = createRepetitionLevelDecoder(
+                page.getRepetitionLevelEncoding(),
+                columnDescriptor.getMaxRepetitionLevel(),
+                page.getValueCount(),
+                byteBuffer);
+        DefinitionLevelDecoder definitionLevelDecoder = createDefinitionLevelDecoder(
+                page.getDefinitionLevelEncoding(),
+                columnDescriptor.getMaxDefinitionLevel(),
+                page.getValueCount(),
+                byteBuffer);
+        ValuesDecoder valuesDecoder = createValuesDecoder(
+                columnDescriptor,
+                dictionary,
+                page.getValueCount(),
+                page.getValueEncoding(),
+                bytes,
+                byteBuffer.position(),
+                bytes.length - byteBuffer.position());
         return new NestedDecoders(repetitionLevelDecoder, definitionLevelDecoder, valuesDecoder);
     }
 
@@ -258,10 +278,10 @@ public class Decoders
         return createValuesDecoder(columnDescriptor, dictionary, pageV2.getValueCount(), pageV2.getDataEncoding(), valueBuffer, 0, valueBuffer.length);
     }
 
-    private static final FlatDefinitionLevelDecoder createFlatDefLevelDecoder(ParquetEncoding encoding, boolean isRequiredType, int maxLevelValue, int valueCount, ByteBuffer buffer)
+    private static final FlatDefinitionLevelDecoder createFlatDefinitionLevelDecoder(ParquetEncoding encoding, boolean isRequired, int maxLevelValue, int valueCount, ByteBuffer buffer)
             throws IOException
     {
-        if (isRequiredType) {
+        if (isRequired) {
             return new FlatDefinitionLevelDecoder(1, valueCount);
         }
 
@@ -274,17 +294,13 @@ public class Decoders
             return new FlatDefinitionLevelDecoder(0, valueCount);
         }
 
-        if (encoding == RLE) {
-            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
+        checkArgument(encoding == RLE, "Invalid definition level encoding: " + encoding);
+        ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
 
-            final int bufferSize = BytesUtils.readIntLittleEndian(bufferInputStream);
-            FlatDefinitionLevelDecoder dlDecoder = new FlatDefinitionLevelDecoder(valueCount, bufferInputStream.sliceStream(bufferSize));
-
-            buffer.position(buffer.position() + bufferSize + 4);
-            return dlDecoder;
-        }
-
-        throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("DL Encoding: %s", encoding));
+        final int bufferSize = readIntLittleEndian(bufferInputStream);
+        FlatDefinitionLevelDecoder definitionLevelDecoder = new FlatDefinitionLevelDecoder(valueCount, bufferInputStream.sliceStream(bufferSize));
+        buffer.position(buffer.position() + bufferSize + 4);
+        return definitionLevelDecoder;
     }
 
     public static final RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
@@ -295,17 +311,13 @@ public class Decoders
             return new RepetitionLevelDecoder(0, valueCount);
         }
 
-        if (encoding == RLE) {
-            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
+        checkArgument(encoding == RLE, "Invalid repetition level encoding: " + encoding);
+        ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
 
-            final int bufferSize = BytesUtils.readIntLittleEndian(bufferInputStream);
-            RepetitionLevelDecoder repetitionLevelDecoder = new RepetitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
-
-            buffer.position(buffer.position() + bufferSize + 4);
-            return repetitionLevelDecoder;
-        }
-
-        throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("RL Encoding: %s", encoding));
+        final int bufferSize = readIntLittleEndian(bufferInputStream);
+        RepetitionLevelDecoder repetitionLevelDecoder = new RepetitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
+        buffer.position(buffer.position() + bufferSize + 4);
+        return repetitionLevelDecoder;
     }
 
     public static final DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
@@ -316,17 +328,13 @@ public class Decoders
             return new DefinitionLevelDecoder(0, valueCount);
         }
 
-        if (encoding == RLE) {
-            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
+        checkArgument(encoding == RLE, "Invalid definition level encoding: " + encoding);
+        ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
 
-            final int bufferSize = BytesUtils.readIntLittleEndian(bufferInputStream);
-            DefinitionLevelDecoder definitionLevelDecoder = new DefinitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
-
-            buffer.position(buffer.position() + bufferSize + 4);
-            return definitionLevelDecoder;
-        }
-
-        throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Definition level encoding: %s is not supported", encoding));
+        final int bufferSize = readIntLittleEndian(bufferInputStream);
+        DefinitionLevelDecoder definitionLevelDecoder = new DefinitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
+        buffer.position(buffer.position() + bufferSize + 4);
+        return definitionLevelDecoder;
     }
 
     public static class FlatDecoders
