@@ -464,5 +464,9 @@ public class TestDataVerification
             assertEquals(queryInfo.getSetupQueries().size(), 1);
             assertEquals(queryInfo.getSetupQueryIds().size(), 1);
         }
+
+        assertNotNull(queryInfo.getCpuTimeSecs());
+        assertNotNull(queryInfo.getWallTimeSecs());
+        assertNotNull(queryInfo.getPeakTotalMemoryBytes());
     }
 }

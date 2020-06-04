@@ -329,7 +329,8 @@ public abstract class AbstractVerification
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQueryContext.getChecksumQuery(),
                 millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)));
+                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)),
+                queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes));
     }
 
     protected static String formatSql(Statement statement)
