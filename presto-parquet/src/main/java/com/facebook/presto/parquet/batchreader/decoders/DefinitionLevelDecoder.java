@@ -24,9 +24,9 @@ import static com.google.common.base.Preconditions.checkState;
 public class DefinitionLevelDecoder
         extends BaseRLEBitPackedDecoder
 {
-    public DefinitionLevelDecoder(int valueCount, int bitWidth, InputStream in)
+    public DefinitionLevelDecoder(int valueCount, int bitWidth, InputStream inputStream)
     {
-        super(valueCount, bitWidth, in);
+        super(valueCount, bitWidth, inputStream);
     }
 
     public DefinitionLevelDecoder(int rleValue, int valueCount)
@@ -41,16 +41,16 @@ public class DefinitionLevelDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remainingToCopy, currentCount);
+            int chunkSize = Math.min(remainingToCopy, currentCount);
             switch (mode) {
                 case RLE: {
                     int rleValue = currentValue;
-                    int endIndex = destinationIndex + readChunkSize;
+                    int endIndex = destinationIndex + chunkSize;
                     while (destinationIndex < endIndex) {
                         values[destinationIndex] = rleValue;
                         destinationIndex++;
@@ -58,17 +58,16 @@ public class DefinitionLevelDecoder
                     break;
                 }
                 case PACKED: {
-                    System.arraycopy(currentBuffer, currentBuffer.length - currentCount, values, destinationIndex, readChunkSize);
-                    destinationIndex += readChunkSize;
+                    System.arraycopy(currentBuffer, currentBuffer.length - currentCount, values, destinationIndex, chunkSize);
+                    destinationIndex += chunkSize;
                     break;
                 }
                 default:
                     throw new ParquetDecodingException("not a valid mode " + mode);
             }
-            currentCount -= readChunkSize;
-            remainingToCopy -= readChunkSize;
+            currentCount -= chunkSize;
+            remainingToCopy -= chunkSize;
         }
-
         checkState(remainingToCopy == 0, "Failed to copy the requested number of DLs");
     }
 }

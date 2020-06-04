@@ -133,11 +133,11 @@ public class TestValuesDecoders
         int inputOffset = 0;
         while (inputOffset < valueCount) {
             int readBatchSize = min(batchSize, valueCount - inputOffset);
-            BinaryValuesDecoder.ReadChunk readChunk = decoder.readNext(readBatchSize);
-            byte[] byteBuffer = new byte[readChunk.getBufferSize()];
+            BinaryValuesDecoder.ValueBuffer valueBuffer = decoder.readNext(readBatchSize);
+            byte[] byteBuffer = new byte[valueBuffer.getBufferSize()];
             int[] offsets = new int[readBatchSize + 1];
 
-            decoder.readIntoBuffer(byteBuffer, 0, offsets, 0, readChunk);
+            decoder.readIntoBuffer(byteBuffer, 0, offsets, 0, valueBuffer);
 
             for (int i = 0; i < readBatchSize; i++) {
                 byte[] expected = ((String) expectedValues.get(inputOffset + i)).getBytes(UTF8);

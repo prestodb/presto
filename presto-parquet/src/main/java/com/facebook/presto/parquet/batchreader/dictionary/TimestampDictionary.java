@@ -14,9 +14,9 @@
 package com.facebook.presto.parquet.batchreader.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
-import com.facebook.presto.parquet.ParquetTimestampUtils;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 
+import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +38,7 @@ public class TimestampDictionary
 
         int offset = 0;
         for (int i = 0; i < dictionarySize; i++) {
-            dictionary[i] = ParquetTimestampUtils.getTimestampMillis(pageBuffer, offset);
+            dictionary[i] = getTimestampMillis(pageBuffer, offset);
             offset += 12;
         }
         this.dictionary = dictionary;

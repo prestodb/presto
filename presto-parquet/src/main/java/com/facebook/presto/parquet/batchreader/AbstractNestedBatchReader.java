@@ -45,9 +45,9 @@ public abstract class AbstractNestedBatchReader
 
     protected Field field;
     protected int nextBatchSize;
+    protected int readOffset;
 
     private Dictionary dictionary;
-    private int readOffset;
     private RepetitionLevelDecoder repetitionLevelDecoder;
     private DefinitionLevelDecoder definitionLevelDecoder;
     private ValuesDecoder valuesDecoder;
