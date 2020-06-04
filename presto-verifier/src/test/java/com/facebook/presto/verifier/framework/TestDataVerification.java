@@ -111,7 +111,7 @@ public class TestDataVerification
         RetryConfig retryConfig = new RetryConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> new JdbcPrestoAction(
-                PrestoExceptionClassifier.createDefault(),
+                PrestoExceptionClassifier.defaultBuilder().build(),
                 sourceQuery.getControlConfiguration(),
                 verificationContext,
                 new PrestoClusterConfig()

@@ -64,6 +64,6 @@ public class PrestoVerifyCommand
     @Override
     public SqlExceptionClassifier getSqlExceptionClassifier()
     {
-        return PrestoExceptionClassifier.createDefault();
+        return PrestoExceptionClassifier.defaultBuilder().build();
     }
 }

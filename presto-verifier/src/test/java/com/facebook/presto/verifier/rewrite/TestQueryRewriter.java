@@ -72,7 +72,7 @@ public class TestQueryRewriter
         queryRunner = setupPresto();
         queryRunner.execute("CREATE TABLE test_table (a bigint, b varchar)");
         prestoAction = new JdbcPrestoAction(
-                PrestoExceptionClassifier.createDefault(),
+                PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 VerificationContext.create(),
                 new PrestoClusterConfig()

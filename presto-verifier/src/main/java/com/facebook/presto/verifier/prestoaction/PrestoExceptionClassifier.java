@@ -24,7 +24,6 @@ import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import java.io.EOFException;
 import java.io.UncheckedIOException;
@@ -51,6 +50,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -69,39 +70,6 @@ import static java.util.regex.Pattern.CASE_INSENSITIVE;
 public class PrestoExceptionClassifier
         implements SqlExceptionClassifier
 {
-    public static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
-            .addAll(asList(StandardErrorCode.values()))
-            .addAll(asList(HiveErrorCode.values()))
-            .addAll(asList(JdbcErrorCode.values()))
-            .addAll(asList(ThriftErrorCode.values()))
-            .build();
-
-    public static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
-            // From StandardErrorCode
-            NO_NODES_AVAILABLE,
-            REMOTE_TASK_ERROR,
-            SERVER_SHUTTING_DOWN,
-            SERVER_STARTING_UP,
-            TOO_MANY_REQUESTS_FAILED,
-            PAGE_TRANSPORT_ERROR,
-            PAGE_TRANSPORT_TIMEOUT,
-            REMOTE_HOST_GONE,
-            ABANDONED_TASK,
-            // From HiveErrorCode
-            HIVE_CURSOR_ERROR,
-            HIVE_FILE_NOT_FOUND,
-            HIVE_TOO_MANY_OPEN_PARTITIONS,
-            HIVE_WRITER_OPEN_ERROR,
-            HIVE_WRITER_CLOSE_ERROR,
-            HIVE_WRITER_DATA_ERROR,
-            HIVE_FILESYSTEM_ERROR,
-            HIVE_CANNOT_OPEN_SPLIT,
-            HIVE_METASTORE_ERROR,
-            // From JdbcErrorCode
-            JDBC_ERROR,
-            // From ThriftErrorCode
-            THRIFT_SERVICE_CONNECTION_ERROR);
-
     private static final Set<ErrorCodeSupplier> DEFAULT_REQUEUABLE_ERRORS = ImmutableSet.of(
             HIVE_PARTITION_DROPPED_DURING_QUERY,
             HIVE_TABLE_DROPPED_DURING_QUERY);
@@ -118,16 +86,37 @@ public class PrestoExceptionClassifier
         this.retryableErrors = ImmutableSet.copyOf(retryableErrors);
     }
 
-    public static PrestoExceptionClassifier createDefault()
+    public static Builder defaultBuilder()
     {
-        return create(DEFAULT_ERRORS, DEFAULT_RETRYABLE_ERRORS);
-    }
-
-    public static PrestoExceptionClassifier create(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
-    {
-        Set<ErrorCodeSupplier> unrecognized = Sets.difference(retryableErrors, recognizedErrors);
-        checkArgument(unrecognized.isEmpty(), "Retryable errors not recognized: %s", unrecognized);
-        return new PrestoExceptionClassifier(recognizedErrors, retryableErrors);
+        return new Builder()
+                .addRecognizedErrors(asList(StandardErrorCode.values()))
+                .addRecognizedErrors(asList(HiveErrorCode.values()))
+                .addRecognizedErrors(asList(JdbcErrorCode.values()))
+                .addRecognizedErrors(asList(ThriftErrorCode.values()))
+                // From StandardErrorCode
+                .addRetryableError(NO_NODES_AVAILABLE)
+                .addRetryableError(REMOTE_TASK_ERROR)
+                .addRetryableError(SERVER_SHUTTING_DOWN)
+                .addRetryableError(SERVER_STARTING_UP)
+                .addRetryableError(TOO_MANY_REQUESTS_FAILED)
+                .addRetryableError(PAGE_TRANSPORT_ERROR)
+                .addRetryableError(PAGE_TRANSPORT_TIMEOUT)
+                .addRetryableError(REMOTE_HOST_GONE)
+                .addRetryableError(ABANDONED_TASK)
+                // From HiveErrorCode
+                .addRetryableError(HIVE_CURSOR_ERROR)
+                .addRetryableError(HIVE_FILE_NOT_FOUND)
+                .addRetryableError(HIVE_TOO_MANY_OPEN_PARTITIONS)
+                .addRetryableError(HIVE_WRITER_OPEN_ERROR)
+                .addRetryableError(HIVE_WRITER_CLOSE_ERROR)
+                .addRetryableError(HIVE_WRITER_DATA_ERROR)
+                .addRetryableError(HIVE_FILESYSTEM_ERROR)
+                .addRetryableError(HIVE_CANNOT_OPEN_SPLIT)
+                .addRetryableError(HIVE_METASTORE_ERROR)
+                // From JdbcErrorCode
+                .addRetryableError(JDBC_ERROR)
+                // From ThriftErrorCode
+                .addRetryableError(THRIFT_SERVICE_CONNECTION_ERROR);
     }
 
     public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
@@ -178,5 +167,35 @@ public class PrestoExceptionClassifier
         return queryException.getErrorCode().equals(Optional.of(SYNTAX_ERROR))
                 && queryException.getQueryStage().isSetup()
                 && TABLE_ALREADY_EXISTS_PATTERN.matcher(queryException.getMessage()).find();
+    }
+
+    public static class Builder
+    {
+        private final ImmutableSet.Builder<ErrorCodeSupplier> recognizedErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorCodeSupplier> retryableErrors = ImmutableSet.builder();
+
+        private Builder()
+        {
+        }
+
+        public Builder addRecognizedErrors(Iterable<ErrorCodeSupplier> errors)
+        {
+            this.recognizedErrors.addAll(errors);
+            return this;
+        }
+
+        public Builder addRetryableError(ErrorCodeSupplier error)
+        {
+            this.retryableErrors.add(error);
+            return this;
+        }
+
+        public PrestoExceptionClassifier build()
+        {
+            Set<ErrorCodeSupplier> recognizedErrors = this.recognizedErrors.build();
+            Set<ErrorCodeSupplier> retryableErrors = this.retryableErrors.build();
+            retryableErrors.forEach(error -> checkArgument(recognizedErrors.contains(error), "Error not recognized: %s", error));
+            return new PrestoExceptionClassifier(recognizedErrors, retryableErrors);
+        }
     }
 }

@@ -66,7 +66,7 @@ public class TestDeterminismAnalyzer
         RetryConfig retryConfig = new RetryConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = new JdbcPrestoAction(
-                PrestoExceptionClassifier.createDefault(),
+                PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
                 new PrestoClusterConfig(),

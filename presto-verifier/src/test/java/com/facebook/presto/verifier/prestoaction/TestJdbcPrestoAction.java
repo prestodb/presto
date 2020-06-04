@@ -73,7 +73,7 @@ public class TestJdbcPrestoAction
     {
         verificationContext = VerificationContext.create();
         prestoAction = new JdbcPrestoAction(
-                PrestoExceptionClassifier.createDefault(),
+                PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 verificationContext,
                 new PrestoClusterConfig()
