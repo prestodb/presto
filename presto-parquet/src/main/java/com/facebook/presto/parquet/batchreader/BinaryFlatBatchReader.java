@@ -139,7 +139,7 @@ public class BinaryFlatBatchReader
         boolean[] isNull = new boolean[nextBatchSize];
 
         List<ValueBuffer> valueBuffers = new ArrayList<>();
-        List<ValuesDecoderInfo> valuesDecoderInfos = new ArrayList<>();
+        List<ValuesDecoderContext> valuesDecoderContexts = new ArrayList<>();
         int bufferSize = 0;
 
         int totalNonNullCount = 0;
@@ -160,10 +160,10 @@ public class BinaryFlatBatchReader
             bufferSize += valueBuffer.getBufferSize();
             valueBuffers.add(valueBuffer);
 
-            ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo = new ValuesDecoderInfo(valuesDecoder, startOffset, startOffset + readChunkSize);
-            valuesDecoderInfo.setValueCount(readChunkSize);
-            valuesDecoderInfo.setNonNullCount(nonNullCount);
-            valuesDecoderInfos.add(valuesDecoderInfo);
+            ValuesDecoderContext<BinaryValuesDecoder> valuesDecoderContext = new ValuesDecoderContext(valuesDecoder, startOffset, startOffset + readChunkSize);
+            valuesDecoderContext.setValueCount(readChunkSize);
+            valuesDecoderContext.setNonNullCount(nonNullCount);
+            valuesDecoderContexts.add(valuesDecoderContext);
 
             startOffset += readChunkSize;
             remainingInBatch -= readChunkSize;
@@ -181,27 +181,27 @@ public class BinaryFlatBatchReader
         int i = 0;
         int bufferIndex = 0;
         int offsetIndex = 0;
-        for (ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo : valuesDecoderInfos) {
-            BinaryValuesDecoder binaryValuesDecoder = valuesDecoderInfo.getValuesDecoder();
+        for (ValuesDecoderContext<BinaryValuesDecoder> valuesDecoderContext : valuesDecoderContexts) {
+            BinaryValuesDecoder binaryValuesDecoder = valuesDecoderContext.getValuesDecoder();
             ValueBuffer value = valueBuffers.get(i);
             bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
-            offsetIndex += valuesDecoderInfo.getValueCount();
+            offsetIndex += valuesDecoderContext.getValueCount();
             i++;
         }
 
-        Collections.reverse(valuesDecoderInfos);
-        for (ValuesDecoderInfo valuesDecoderInfo : valuesDecoderInfos) {
-            int destinationIndex = valuesDecoderInfo.getEnd() - 1;
-            int sourceIndex = valuesDecoderInfo.getStart() + valuesDecoderInfo.getNonNullCount() - 1;
+        Collections.reverse(valuesDecoderContexts);
+        for (ValuesDecoderContext valuesDecoderContext : valuesDecoderContexts) {
+            int destinationIndex = valuesDecoderContext.getEnd() - 1;
+            int sourceIndex = valuesDecoderContext.getStart() + valuesDecoderContext.getNonNullCount() - 1;
 
             offsets[destinationIndex + 1] = offsets[sourceIndex + 1];
-            while (destinationIndex >= valuesDecoderInfo.getStart()) {
-                if (!isNull[destinationIndex]) {
-                    offsets[destinationIndex] = offsets[sourceIndex];
-                    sourceIndex--;
+            while (destinationIndex >= valuesDecoderContext.getStart()) {
+                if (isNull[destinationIndex]) {
+                    offsets[destinationIndex] = offsets[sourceIndex + 1];
                 }
                 else {
-                    offsets[destinationIndex] = offsets[sourceIndex + 1];
+                    offsets[destinationIndex] = offsets[sourceIndex];
+                    sourceIndex--;
                 }
                 destinationIndex--;
             }
@@ -218,7 +218,7 @@ public class BinaryFlatBatchReader
     {
         boolean[] isNull = new boolean[nextBatchSize];
         List<ValueBuffer> valueBuffers = new ArrayList<>();
-        List<ValuesDecoderInfo> valuesDecoderInfos = new ArrayList<>();
+        List<ValuesDecoderContext> valuesDecoderContexts = new ArrayList<>();
         int bufferSize = 0;
 
         int remainingInBatch = nextBatchSize;
@@ -236,10 +236,10 @@ public class BinaryFlatBatchReader
             bufferSize += valueBuffer.getBufferSize();
             valueBuffers.add(valueBuffer);
 
-            ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo = new ValuesDecoderInfo(valuesDecoder, startOffset, startOffset + readChunkSize);
-            valuesDecoderInfo.setValueCount(readChunkSize);
-            valuesDecoderInfo.setNonNullCount(readChunkSize);
-            valuesDecoderInfos.add(valuesDecoderInfo);
+            ValuesDecoderContext<BinaryValuesDecoder> valuesDecoderContext = new ValuesDecoderContext(valuesDecoder, startOffset, startOffset + readChunkSize);
+            valuesDecoderContext.setValueCount(readChunkSize);
+            valuesDecoderContext.setNonNullCount(readChunkSize);
+            valuesDecoderContexts.add(valuesDecoderContext);
 
             startOffset += readChunkSize;
             remainingInBatch -= readChunkSize;
@@ -252,11 +252,11 @@ public class BinaryFlatBatchReader
         int i = 0;
         int bufferIndex = 0;
         int offsetIndex = 0;
-        for (ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo : valuesDecoderInfos) {
-            BinaryValuesDecoder binaryValuesDecoder = valuesDecoderInfo.getValuesDecoder();
+        for (ValuesDecoderContext<BinaryValuesDecoder> valuesDecoderContext : valuesDecoderContexts) {
+            BinaryValuesDecoder binaryValuesDecoder = valuesDecoderContext.getValuesDecoder();
             ValueBuffer value = valueBuffers.get(i);
             bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
-            offsetIndex += valuesDecoderInfo.getValueCount();
+            offsetIndex += valuesDecoderContext.getValueCount();
             i++;
         }
 

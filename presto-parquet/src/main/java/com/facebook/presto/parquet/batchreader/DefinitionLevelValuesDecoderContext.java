@@ -13,25 +13,30 @@
  */
 package com.facebook.presto.parquet.batchreader;
 
+import com.facebook.presto.parquet.batchreader.decoders.DefinitionLevelDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder;
 
-public class ValuesDecoderInfo<V extends ValuesDecoder>
+public class DefinitionLevelValuesDecoderContext
 {
-    private final V valuesDecoder;
+    private final DefinitionLevelDecoder definitionLevelDecoder;
+    private final ValuesDecoder valuesDecoder;
     private final int start;
     private final int end;
 
-    private int nonNullCount;
-    private int valueCount;
-
-    public ValuesDecoderInfo(V valuesDecoder, int start, int end)
+    public DefinitionLevelValuesDecoderContext(DefinitionLevelDecoder definitionLevelDecoder, ValuesDecoder valuesDecoder, int start, int end)
     {
+        this.definitionLevelDecoder = definitionLevelDecoder;
         this.valuesDecoder = valuesDecoder;
         this.start = start;
         this.end = end;
     }
 
-    public V getValuesDecoder()
+    public DefinitionLevelDecoder getDefinitionLevelDecoder()
+    {
+        return definitionLevelDecoder;
+    }
+
+    public ValuesDecoder getValuesDecoder()
     {
         return valuesDecoder;
     }
@@ -44,25 +49,5 @@ public class ValuesDecoderInfo<V extends ValuesDecoder>
     public int getEnd()
     {
         return end;
-    }
-
-    public int getNonNullCount()
-    {
-        return nonNullCount;
-    }
-
-    public void setNonNullCount(int nonNullCount)
-    {
-        this.nonNullCount = nonNullCount;
-    }
-
-    public int getValueCount()
-    {
-        return valueCount;
-    }
-
-    public void setValueCount(int valueCount)
-    {
-        this.valueCount = valueCount;
     }
 }

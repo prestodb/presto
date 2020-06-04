@@ -144,14 +144,14 @@ public class Int32FlatBatchReader
                 }
             }
 
-            int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
-            int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, readChunkSize);
+            int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
+            int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, chunkSize);
             totalNonNullCount += nonNullCount;
 
             if (nonNullCount > 0) {
                 valuesDecoder.readNext(values, startOffset, nonNullCount);
 
-                int valueDestinationIndex = startOffset + readChunkSize - 1;
+                int valueDestinationIndex = startOffset + chunkSize - 1;
                 int valueSourceIndex = startOffset + nonNullCount - 1;
 
                 while (valueDestinationIndex >= startOffset) {
@@ -163,9 +163,9 @@ public class Int32FlatBatchReader
                 }
             }
 
-            startOffset += readChunkSize;
-            remainingInBatch -= readChunkSize;
-            remainingCountInPage -= readChunkSize;
+            startOffset += chunkSize;
+            remainingInBatch -= chunkSize;
+            remainingCountInPage -= chunkSize;
         }
 
         if (remainingInBatch != 0) {
@@ -195,12 +195,12 @@ public class Int32FlatBatchReader
                 }
             }
 
-            int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
+            int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
-            valuesDecoder.readNext(values, startOffset, readChunkSize);
-            startOffset += readChunkSize;
-            remainingInBatch -= readChunkSize;
-            remainingCountInPage -= readChunkSize;
+            valuesDecoder.readNext(values, startOffset, chunkSize);
+            startOffset += chunkSize;
+            remainingInBatch -= chunkSize;
+            remainingCountInPage -= chunkSize;
         }
 
         if (remainingInBatch != 0) {
