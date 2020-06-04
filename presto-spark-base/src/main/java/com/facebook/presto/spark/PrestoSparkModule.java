@@ -55,6 +55,7 @@ import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -196,6 +197,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(TaskManagerConfig.class);
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
+        configBinder(binder).bindConfig(WarningCollectorConfig.class);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
         configBinder(binder).bindConfig(CompilerConfig.class);
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);

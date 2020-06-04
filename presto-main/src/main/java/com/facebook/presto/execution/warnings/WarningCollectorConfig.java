@@ -15,11 +15,13 @@ package com.facebook.presto.execution.warnings;
 
 import com.facebook.airlift.configuration.Config;
 
+import static com.facebook.presto.execution.warnings.WarningHandlingLevel.NORMAL;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class WarningCollectorConfig
 {
     private int maxWarnings = Integer.MAX_VALUE;
+    private WarningHandlingLevel warningHandlingLevel = NORMAL;
 
     @Config("warning-collector.max-warnings")
     public WarningCollectorConfig setMaxWarnings(int maxWarnings)
@@ -32,5 +34,17 @@ public class WarningCollectorConfig
     public int getMaxWarnings()
     {
         return maxWarnings;
+    }
+
+    @Config("warning-collector.warning-handling")
+    public WarningCollectorConfig setWarningHandlingLevel(WarningHandlingLevel warningHandlingLevel)
+    {
+        this.warningHandlingLevel = warningHandlingLevel;
+        return this;
+    }
+
+    public WarningHandlingLevel getWarningHandlingLevel()
+    {
+        return warningHandlingLevel;
     }
 }

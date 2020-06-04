@@ -343,7 +343,8 @@ public class LocalQueryRunner
                                 new TaskManagerConfig(),
                                 new MemoryManagerConfig(),
                                 featuresConfig,
-                                new NodeMemoryConfig())),
+                                new NodeMemoryConfig(),
+                                new WarningCollectorConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -655,7 +656,9 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeWithPlan(session, sql, new DefaultWarningCollector(new WarningCollectorConfig())).getMaterializedResult();
+        return executeWithPlan(session, sql, new DefaultWarningCollector(
+                new WarningCollectorConfig(),
+                SystemSessionProperties.getWarningHandlingLevel(session))).getMaterializedResult();
     }
 
     @Override

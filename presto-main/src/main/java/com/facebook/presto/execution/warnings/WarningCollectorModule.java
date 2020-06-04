@@ -35,6 +35,6 @@ public class WarningCollectorModule
     public WarningCollectorFactory createWarningCollectorFactory(WarningCollectorConfig config)
     {
         requireNonNull(config, "config is null");
-        return () -> new DefaultWarningCollector(config);
+        return (warningHandlingLevel) -> new DefaultWarningCollector(config, warningHandlingLevel);
     }
 }

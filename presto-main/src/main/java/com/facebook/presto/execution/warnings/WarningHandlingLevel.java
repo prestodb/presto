@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.execution.warnings;
 
-public interface WarningCollectorFactory
+public enum WarningHandlingLevel
 {
-    WarningCollector create(WarningHandlingLevel warningHandlingLevel);
+    SUPPRESS,
+    NORMAL,
+    AS_ERROR
 }
