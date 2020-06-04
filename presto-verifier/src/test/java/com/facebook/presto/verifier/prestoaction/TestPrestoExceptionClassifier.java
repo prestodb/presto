@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
+import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier.shouldResubmit;
 import static org.testng.Assert.assertFalse;
@@ -79,19 +80,27 @@ public class TestPrestoExceptionClassifier
 
         testPrestoException(SUBQUERY_MULTIPLE_ROWS, false);
         testPrestoException(FUNCTION_IMPLEMENTATION_ERROR, false);
-        testPrestoException(EXCEEDED_TIME_LIMIT, false);
         testPrestoException(HIVE_CORRUPTED_COLUMN_STATISTICS, false);
+
+        // TIME_LIMIT_EXCEEDED
+        testPrestoException(EXCEEDED_TIME_LIMIT, false);
+        testPrestoException(EXCEEDED_TIME_LIMIT, DESCRIBE, true);
     }
 
     private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
     {
+        testPrestoException(errorCode, QUERY_STAGE, expectedRetryable);
+    }
+
+    private void testPrestoException(ErrorCodeSupplier errorCode, QueryStage queryStage, boolean expectedRetryable)
+    {
         SQLException sqlException = new SQLException("", "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, errorCode.toErrorCode().getName()));
         assertPrestoQueryException(
-                classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
+                classifier.createException(queryStage, Optional.of(QUERY_STATS), sqlException),
                 Optional.of(errorCode),
                 expectedRetryable,
                 Optional.of(QUERY_STATS),
-                QUERY_STAGE);
+                queryStage);
     }
 
     @Test
