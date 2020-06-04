@@ -464,7 +464,7 @@ public class TestQueuesDb
 
         QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
-        assertEquals(queryRunner.getQueryInfo(secondDashboardQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
+        assertEquals(queryRunner.getCoordinator().getDispatchManager().getFullQueryInfo(secondDashboardQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
     }
 
     @Test
