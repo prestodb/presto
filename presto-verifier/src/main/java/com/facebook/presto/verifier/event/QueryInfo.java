@@ -41,13 +41,14 @@ public class QueryInfo
     private final String checksumQuery;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
+    private final Long peakTotalMemoryBytes;
 
     public QueryInfo(
             String catalog,
             String schema,
             String originalQuery)
     {
-        this(catalog, schema, originalQuery, Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(catalog, schema, originalQuery, Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public QueryInfo(
@@ -63,7 +64,8 @@ public class QueryInfo
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
             Optional<Double> cpuTimeSecs,
-            Optional<Double> wallTimeSecs)
+            Optional<Double> wallTimeSecs,
+            Optional<Long> peakTotalMemoryBytes)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -78,6 +80,7 @@ public class QueryInfo
         this.checksumQuery = checksumQuery.orElse(null);
         this.cpuTimeSecs = cpuTimeSecs.orElse(null);
         this.wallTimeSecs = wallTimeSecs.orElse(null);
+        this.peakTotalMemoryBytes = peakTotalMemoryBytes.orElse(null);
     }
 
     @EventField
@@ -156,5 +159,11 @@ public class QueryInfo
     public Double getWallTimeSecs()
     {
         return wallTimeSecs;
+    }
+
+    @EventField
+    public Long getPeakTotalMemoryBytes()
+    {
+        return peakTotalMemoryBytes;
     }
 }
