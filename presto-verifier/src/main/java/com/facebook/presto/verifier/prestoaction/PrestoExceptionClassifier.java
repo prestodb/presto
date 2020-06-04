@@ -61,7 +61,9 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,25 +75,27 @@ import static java.util.regex.Pattern.CASE_INSENSITIVE;
 public class PrestoExceptionClassifier
         implements SqlExceptionClassifier
 {
-    private static final Set<ErrorCodeSupplier> DEFAULT_REQUEUABLE_ERRORS = ImmutableSet.of(
-            HIVE_PARTITION_DROPPED_DURING_QUERY,
-            HIVE_TABLE_DROPPED_DURING_QUERY);
-
     private static final Pattern TABLE_ALREADY_EXISTS_PATTERN = Pattern.compile("table.*already exists", CASE_INSENSITIVE);
 
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
     private final Set<ErrorMatcher> conditionalRetryableErrors;
+    private final Set<ErrorCodeSupplier> resubmittedErrors;
+    private final Set<ErrorMatcher> conditionalResubmittedErrors;
 
     private PrestoExceptionClassifier(
             Set<ErrorCodeSupplier> recognizedErrors,
             Set<ErrorCodeSupplier> retryableErrors,
-            Set<ErrorMatcher> conditionalRetryableErrors)
+            Set<ErrorMatcher> conditionalRetryableErrors,
+            Set<ErrorCodeSupplier> resubmittedErrors,
+            Set<ErrorMatcher> conditionalResubmittedErrors)
     {
         this.errorByCode = recognizedErrors.stream()
                 .collect(toImmutableMap(errorCode -> errorCode.toErrorCode().getCode(), identity()));
         this.retryableErrors = ImmutableSet.copyOf(retryableErrors);
         this.conditionalRetryableErrors = ImmutableSet.copyOf(conditionalRetryableErrors);
+        this.resubmittedErrors = ImmutableSet.copyOf(resubmittedErrors);
+        this.conditionalResubmittedErrors = ImmutableSet.copyOf(conditionalResubmittedErrors);
     }
 
     public static Builder defaultBuilder()
@@ -126,7 +130,13 @@ public class PrestoExceptionClassifier
                 // From ThriftErrorCode
                 .addRetryableError(THRIFT_SERVICE_CONNECTION_ERROR)
                 // Conditional Retryable Errors
-                .addRetryableError(EXCEEDED_TIME_LIMIT, Optional.of(DESCRIBE), Optional.empty());
+                .addRetryableError(EXCEEDED_TIME_LIMIT, Optional.of(DESCRIBE), Optional.empty())
+                // Resubmitted Errors
+                .addResubmittedError(HIVE_PARTITION_DROPPED_DURING_QUERY)
+                .addResubmittedError(HIVE_TABLE_DROPPED_DURING_QUERY)
+                // Conditional Resubmitted Errors
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(CONTROL_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
     }
 
     public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
@@ -143,15 +153,16 @@ public class PrestoExceptionClassifier
         return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryStats);
     }
 
-    public static boolean shouldResubmit(Throwable throwable)
+    public boolean shouldResubmit(Throwable throwable)
     {
         if (!(throwable instanceof PrestoQueryException)) {
             return false;
         }
         PrestoQueryException queryException = (PrestoQueryException) throwable;
         Optional<ErrorCodeSupplier> errorCode = queryException.getErrorCode();
-        return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get())
-                || isTargetTableAlreadyExistsException(queryException);
+        return errorCode.isPresent()
+                && (resubmittedErrors.contains(errorCode.get())
+                || conditionalResubmittedErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryException.getQueryStage(), queryException.getMessage())));
     }
 
     public static boolean isClusterConnectionException(Throwable t)
@@ -175,18 +186,13 @@ public class PrestoExceptionClassifier
         return Optional.empty();
     }
 
-    private static boolean isTargetTableAlreadyExistsException(PrestoQueryException queryException)
-    {
-        return queryException.getErrorCode().equals(Optional.of(SYNTAX_ERROR))
-                && queryException.getQueryStage().isSetup()
-                && TABLE_ALREADY_EXISTS_PATTERN.matcher(queryException.getMessage()).find();
-    }
-
     public static class Builder
     {
         private final ImmutableSet.Builder<ErrorCodeSupplier> recognizedErrors = ImmutableSet.builder();
         private final ImmutableSet.Builder<ErrorCodeSupplier> retryableErrors = ImmutableSet.builder();
         private final ImmutableSet.Builder<ErrorMatcher> conditionalRetryableErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorCodeSupplier> resubmittedErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorMatcher> conditionalResubmittedErrors = ImmutableSet.builder();
 
         private Builder()
         {
@@ -210,15 +216,39 @@ public class PrestoExceptionClassifier
             return this;
         }
 
+        public Builder addResubmittedError(ErrorCodeSupplier error)
+        {
+            this.resubmittedErrors.add(error);
+            return this;
+        }
+
+        public Builder addResubmittedError(ErrorCodeSupplier errorCode, Optional<QueryStage> queryStage, Optional<Pattern> errorMessagePattern)
+        {
+            this.conditionalResubmittedErrors.add(new ErrorMatcher(errorCode, queryStage, errorMessagePattern));
+            return this;
+        }
+
         public PrestoExceptionClassifier build()
         {
             Set<ErrorCodeSupplier> recognizedErrors = this.recognizedErrors.build();
             Set<ErrorCodeSupplier> retryableErrors = this.retryableErrors.build();
             Set<ErrorMatcher> conditionalRetryableErrors = this.conditionalRetryableErrors.build();
+            Set<ErrorCodeSupplier> resubmittedErrors = this.resubmittedErrors.build();
+            Set<ErrorMatcher> conditionalResubmittedErrors = this.conditionalResubmittedErrors.build();
+
             retryableErrors.forEach(error -> checkArgument(recognizedErrors.contains(error), "Error not recognized: %s", error));
             conditionalRetryableErrors.forEach(
                     errorMatcher -> checkArgument(recognizedErrors.contains(errorMatcher.getErrorCode()), "Error not recognized: %s", errorMatcher.getErrorCode()));
-            return new PrestoExceptionClassifier(recognizedErrors, retryableErrors, conditionalRetryableErrors);
+            resubmittedErrors.forEach(error -> checkArgument(recognizedErrors.contains(error), "Error not recognized: %s", error));
+            conditionalResubmittedErrors.forEach(
+                    errorMatcher -> checkArgument(recognizedErrors.contains(errorMatcher.getErrorCode()), "Error not recognized: %s", errorMatcher.getErrorCode()));
+
+            return new PrestoExceptionClassifier(
+                    recognizedErrors,
+                    retryableErrors,
+                    conditionalRetryableErrors,
+                    resubmittedErrors,
+                    conditionalResubmittedErrors);
         }
     }
 
