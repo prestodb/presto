@@ -29,7 +29,6 @@ import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
-import org.apache.parquet.Preconditions;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -70,7 +69,7 @@ public class Int32FlatBatchReader
     @Override
     public void init(PageReader pageReader, Field field)
     {
-        Preconditions.checkState(!isInitialized(), "already initialized");
+        checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         this.field = requireNonNull(field, "field is null");
@@ -93,10 +92,7 @@ public class Int32FlatBatchReader
     {
         ColumnChunk columnChunk = null;
         try {
-            if (readOffset != 0) {
-                skip(readOffset);
-            }
-
+            seek();
             if (field.isRequired()) {
                 columnChunk = readWithoutNull();
             }
@@ -125,8 +121,8 @@ public class Int32FlatBatchReader
         }
 
         FlatDecoders flatDecoders = readFlatPage(page, columnDescriptor, dictionary);
-        this.definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
-        this.valuesDecoder = (Int32ValuesDecoder) flatDecoders.getValuesDecoder();
+        definitionLevelDecoder = flatDecoders.getDefinitionLevelDecoder();
+        valuesDecoder = (Int32ValuesDecoder) flatDecoders.getValuesDecoder();
 
         remainingCountInPage = page.getValueCount();
         return true;
@@ -215,41 +211,33 @@ public class Int32FlatBatchReader
         return new ColumnChunk(block, new int[0], new int[0]);
     }
 
-    private void skip(int skipSize)
+    private void seek()
             throws IOException
     {
-        int remainingInBatch = skipSize;
-        if (columnDescriptor.isRequired()) {
-            while (remainingInBatch > 0) {
-                if (remainingCountInPage == 0) {
-                    if (!readNextPage()) {
-                        break;
-                    }
-                }
-
-                int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
-                valuesDecoder.skip(readChunkSize);
-                remainingInBatch -= readChunkSize;
-                remainingCountInPage -= readChunkSize;
-            }
+        if (readOffset == 0) {
+            return;
         }
-        else {
-            boolean[] isNull = new boolean[skipSize];
-            int startOffset = 0;
-            while (remainingInBatch > 0) {
-                if (remainingCountInPage == 0) {
-                    if (!readNextPage()) {
-                        break;
-                    }
-                }
 
-                int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
-                int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, readChunkSize);
-                valuesDecoder.skip(nonNullCount);
-                startOffset += readChunkSize;
-                remainingInBatch -= readChunkSize;
-                remainingCountInPage -= readChunkSize;
+        int remainingInBatch = readOffset;
+        int startOffset = 0;
+        while (remainingInBatch > 0) {
+            if (remainingCountInPage == 0) {
+                if (!readNextPage()) {
+                    break;
+                }
             }
+
+            int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
+            int skipSize = chunkSize;
+            if (!columnDescriptor.isRequired()) {
+                boolean[] isNull = new boolean[readOffset];
+                int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, chunkSize);
+                skipSize = nonNullCount;
+                startOffset += chunkSize;
+            }
+            valuesDecoder.skip(skipSize);
+            remainingInBatch -= chunkSize;
+            remainingCountInPage -= chunkSize;
         }
     }
 }

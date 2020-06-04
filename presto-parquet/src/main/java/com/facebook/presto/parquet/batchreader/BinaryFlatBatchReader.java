@@ -33,7 +33,6 @@ import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.parquet.Preconditions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -75,7 +74,7 @@ public class BinaryFlatBatchReader
     @Override
     public void init(PageReader pageReader, Field field)
     {
-        Preconditions.checkState(!isInitialized(), "already initialized");
+        checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         this.field = requireNonNull(field, "field is null");
@@ -98,10 +97,7 @@ public class BinaryFlatBatchReader
     {
         ColumnChunk columnChunk = null;
         try {
-            if (readOffset != 0) {
-                skip(readOffset);
-            }
-
+            seek();
             if (field.isRequired()) {
                 columnChunk = readWithoutNull();
             }
@@ -270,42 +266,33 @@ public class BinaryFlatBatchReader
         return new ColumnChunk(block, new int[0], new int[0]);
     }
 
-    private void skip(int skipSize)
+    private void seek()
             throws IOException
     {
-        if (columnDescriptor.isRequired()) {
-            int remainingInBatch = skipSize;
-            while (remainingInBatch > 0) {
-                if (remainingCountInPage == 0) {
-                    if (!readNextPage()) {
-                        break;
-                    }
-                }
-
-                int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
-                valuesDecoder.skip(readChunkSize);
-                remainingInBatch -= readChunkSize;
-                remainingCountInPage -= readChunkSize;
-            }
+        if (readOffset == 0) {
+            return;
         }
-        else {
-            boolean[] isNull = new boolean[skipSize];
-            int remainingInBatch = skipSize;
-            int startOffset = 0;
-            while (remainingInBatch > 0) {
-                if (remainingCountInPage == 0) {
-                    if (!readNextPage()) {
-                        break;
-                    }
-                }
 
-                int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
-                int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, readChunkSize);
-                valuesDecoder.skip(nonNullCount);
-                startOffset += readChunkSize;
-                remainingInBatch -= readChunkSize;
-                remainingCountInPage -= readChunkSize;
+        int remainingInBatch = readOffset;
+        int startOffset = 0;
+        while (remainingInBatch > 0) {
+            if (remainingCountInPage == 0) {
+                if (!readNextPage()) {
+                    break;
+                }
             }
+
+            int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
+            int skipSize = chunkSize;
+            if (!columnDescriptor.isRequired()) {
+                boolean[] isNull = new boolean[readOffset];
+                int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, chunkSize);
+                skipSize = nonNullCount;
+                startOffset += chunkSize;
+            }
+            valuesDecoder.skip(skipSize);
+            remainingInBatch -= chunkSize;
+            remainingCountInPage -= chunkSize;
         }
     }
 }
