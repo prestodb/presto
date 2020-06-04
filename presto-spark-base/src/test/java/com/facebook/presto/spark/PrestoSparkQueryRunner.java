@@ -40,6 +40,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
@@ -485,6 +486,7 @@ public class PrestoSparkQueryRunner
                             .set("spark.driver.host", "localhost")
                             .set(SPARK_EXECUTOR_CORES_PROPERTY, "4")
                             .set(SPARK_TASK_CPUS_PROPERTY, "4");
+                    PrestoSparkConfInitializer.initialize(sparkConfiguration);
                     sparkContext = new SparkContext(sparkConfiguration);
                 }
                 referenceCount++;
