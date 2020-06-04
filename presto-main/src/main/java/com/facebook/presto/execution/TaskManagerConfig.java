@@ -60,7 +60,6 @@ public class TaskManagerConfig
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private int maxPagePartitioningBufferCount = 1_000_000;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -382,20 +381,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
     {
         this.maxPagePartitioningBufferSize = size;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxPagePartitioningBufferCount()
-    {
-        return maxPagePartitioningBufferCount;
-    }
-
-    @Config("driver.max-page-partitioning-buffer-count")
-    @ConfigDescription("Maximum number of buffers used by repartitioning per driver")
-    public TaskManagerConfig setMaxPagePartitioningBufferCount(int bufferCount)
-    {
-        this.maxPagePartitioningBufferCount = bufferCount;
         return this;
     }
 
