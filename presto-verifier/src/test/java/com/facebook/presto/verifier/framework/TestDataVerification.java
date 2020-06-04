@@ -106,19 +106,22 @@ public class TestDataVerification
 
     private Optional<VerifierQueryEvent> runVerification(SourceQuery sourceQuery, Optional<PrestoAction> mockPrestoAction, DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
+        PrestoExceptionClassifier exceptionClassifier = PrestoExceptionClassifier.defaultBuilder().build();
         VerificationContext verificationContext = VerificationContext.create();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
         TypeManager typeManager = createTypeManager();
-        PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> new JdbcPrestoAction(
-                PrestoExceptionClassifier.defaultBuilder().build(),
-                sourceQuery.getControlConfiguration(),
-                verificationContext,
-                new PrestoClusterConfig()
-                        .setHost(queryRunner.getServer().getAddress().getHost())
-                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
-                retryConfig,
-                retryConfig));
+        PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> {
+            return new JdbcPrestoAction(
+                    exceptionClassifier,
+                    sourceQuery.getControlConfiguration(),
+                    verificationContext,
+                    new PrestoClusterConfig()
+                            .setHost(queryRunner.getServer().getAddress().getHost())
+                            .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                    retryConfig,
+                    retryConfig);
+        });
         QueryRewriter queryRewriter = new VerificationQueryRewriterFactory(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
                 typeManager,
@@ -142,6 +145,7 @@ public class TestDataVerification
                         new ExceededTimeLimitFailureResolver(),
                         new ChecksumExceededTimeLimitFailureResolver(),
                         new VerifierLimitationFailureResolver())),
+                exceptionClassifier,
                 verificationContext,
                 verifierConfig,
                 typeManager,
