@@ -30,6 +30,12 @@ Functions
     Returns the approximate percentile values from the quantile digest given
     the number ``quantile`` between 0 and 1.
 
+.. function:: quantile_at_value(qdigest(T), T) -> quantile
+
+    Returns the approximate ``quantile`` number between 0 and 1 from the
+    quantile digest given an input value. Null is returned if the quantile digest
+    is empty or the input value is outside of the range of the quantile digest.
+
 .. function:: scale_qdigest(qdigest(T), scale_factor) -> qdigest(T)
 
     Returns a ``qdigest`` whose distribution has been scaled by a factor
