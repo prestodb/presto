@@ -39,6 +39,6 @@ public class TestingWarningCollectorModule
     {
         requireNonNull(config, "config is null");
         requireNonNull(testConfig, "testConfig is null");
-        return () -> new TestingWarningCollector(config, testConfig);
+        return (warningHandlingLevel) -> new TestingWarningCollector(config, testConfig);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.warnings;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
+import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -33,18 +36,34 @@ public class DefaultWarningCollector
     @GuardedBy("this")
     private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
+    private final WarningHandlingLevel warningHandlingLevel;
 
-    public DefaultWarningCollector(WarningCollectorConfig config)
+    public DefaultWarningCollector(WarningCollectorConfig config, WarningHandlingLevel warningHandlingLevel)
     {
         this.config = requireNonNull(config, "config is null");
+        this.warningHandlingLevel = warningHandlingLevel;
     }
 
     @Override
     public synchronized void add(PrestoWarning warning)
     {
         requireNonNull(warning, "warning is null");
-        if (warnings.size() < config.getMaxWarnings()) {
-            warnings.putIfAbsent(warning.getWarningCode(), warning);
+        switch (warningHandlingLevel) {
+            case SUPPRESS:
+                break;
+            case NORMAL:
+                addWarningIfNumWarningsLessThanConfig(warning);
+                break;
+            case AS_ERROR:
+                /* Parser warnings must be handled differently since we should not throw an exception when parsing.
+                 * Warnings are collected and an exception with all warnings is thrown in {@link QueryPreparer#prepareQuery}
+                 */
+                if (warning.getWarningCode() == PARSER_WARNING.toWarningCode()) {
+                    addWarningIfNumWarningsLessThanConfig(warning);
+                }
+                else {
+                    throw new PrestoException(WARNING_AS_ERROR, warning.toString());
+                }
         }
     }
 
@@ -52,5 +71,18 @@ public class DefaultWarningCollector
     public synchronized List<PrestoWarning> getWarnings()
     {
         return ImmutableList.copyOf(warnings.values());
+    }
+
+    private synchronized void addWarningIfNumWarningsLessThanConfig(PrestoWarning warning)
+    {
+        if (warnings.size() < config.getMaxWarnings()) {
+            warnings.putIfAbsent(warning.getWarningCode(), warning);
+        }
+    }
+
+    @Override
+    public synchronized boolean hasWarnings()
+    {
+        return !warnings.isEmpty();
     }
 }

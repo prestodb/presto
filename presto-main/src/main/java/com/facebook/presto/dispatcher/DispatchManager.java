@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
@@ -178,7 +179,7 @@ public class DispatchManager
             session = sessionSupplier.createSession(queryId, sessionContext);
 
             // prepare query
-            WarningCollector warningCollector = warningCollectorFactory.create();
+            WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
 
             // select resource group

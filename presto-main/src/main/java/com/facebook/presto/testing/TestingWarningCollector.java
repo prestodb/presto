@@ -72,6 +72,11 @@ public class TestingWarningCollector
         return ImmutableList.copyOf(warnings.values());
     }
 
+    public synchronized boolean hasWarnings()
+    {
+        return !warnings.isEmpty();
+    }
+
     @VisibleForTesting
     public static PrestoWarning createTestWarning(int code)
     {

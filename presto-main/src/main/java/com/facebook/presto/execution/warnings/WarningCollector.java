@@ -31,9 +31,17 @@ public interface WarningCollector
                 {
                     return ImmutableList.of();
                 }
+
+                @Override
+                public boolean hasWarnings()
+                {
+                    return false;
+                }
             };
 
     void add(PrestoWarning warning);
 
     List<PrestoWarning> getWarnings();
+
+    boolean hasWarnings();
 }
