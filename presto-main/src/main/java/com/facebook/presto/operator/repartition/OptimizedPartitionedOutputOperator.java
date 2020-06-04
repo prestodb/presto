@@ -38,7 +38,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SimpleArrayAllocator;
+import com.facebook.presto.operator.UncheckedStackArrayAllocator;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -362,12 +362,12 @@ public class OptimizedPartitionedOutputOperator
 
         // The ArrayAllocator used by BlockFlattener for decoding blocks.
         // There could be queries that shuffles data with up to 1000 columns so we need to set the maxOutstandingArrays a high number.
-        private final ArrayAllocator blockDecodingAllocator = new SimpleArrayAllocator(5_000);
+        private final ArrayAllocator blockDecodingAllocator = new UncheckedStackArrayAllocator(500);
         private final BlockFlattener flattener = new BlockFlattener(blockDecodingAllocator);
         private final Closer blockLeaseCloser = Closer.create();
 
         // The ArrayAllocator for the buffers used in repartitioning, e.g. PartitionBuffer#serializedRowSizes, BlockEncodingBuffer#mappedPositions.
-        private final ArrayAllocator bufferAllocator = new SimpleArrayAllocator(10_000);
+        private final ArrayAllocator bufferAllocator = new UncheckedStackArrayAllocator(2000);
 
         private final PartitionBuffer[] partitionBuffers;
         private final List<Type> sourceTypes;
