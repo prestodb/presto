@@ -22,7 +22,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +72,7 @@ public abstract class AbstractVerification
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
     private final FailureResolverManager failureResolverManager;
+    private final SqlExceptionClassifier exceptionClassifier;
     private final VerificationContext verificationContext;
 
     private final String testId;
@@ -84,6 +85,7 @@ public abstract class AbstractVerification
             QueryRewriter queryRewriter,
             DeterminismAnalyzer determinismAnalyzer,
             FailureResolverManager failureResolverManager,
+            SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig)
     {
@@ -92,6 +94,7 @@ public abstract class AbstractVerification
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
+        this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
@@ -174,7 +177,7 @@ public abstract class AbstractVerification
             partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, matchResult, determinismAnalysis, Optional.empty()));
         }
         catch (Throwable t) {
-            if (PrestoExceptionClassifier.shouldResubmit(t)
+            if (exceptionClassifier.shouldResubmit(t)
                     && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
                 return new VerificationResult(this, true, Optional.empty());
             }

@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 
@@ -43,12 +44,13 @@ public class DataVerification
             QueryRewriter queryRewriter,
             DeterminismAnalyzer determinismAnalyzer,
             FailureResolverManager failureResolverManager,
+            SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, verificationContext, verifierConfig);
+        super(prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }

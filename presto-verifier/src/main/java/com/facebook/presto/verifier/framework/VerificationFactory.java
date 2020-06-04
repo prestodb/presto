@@ -20,6 +20,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
+import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverFactoryContext;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
@@ -42,6 +43,7 @@ public class VerificationFactory
     private final FailureResolverManagerFactory failureResolverManagerFactory;
     private final NodeResourceClient testResourceClient;
     private final ChecksumValidator checksumValidator;
+    private final SqlExceptionClassifier exceptionClassifier;
     private final VerifierConfig verifierConfig;
     private final TypeManager typeManager;
     private final DeterminismAnalyzerConfig determinismAnalyzerConfig;
@@ -54,6 +56,7 @@ public class VerificationFactory
             FailureResolverManagerFactory failureResolverManagerFactory,
             @ForTest NodeResourceClient testResourceClient,
             ChecksumValidator checksumValidator,
+            SqlExceptionClassifier exceptionClassifier,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
             DeterminismAnalyzerConfig determinismAnalyzerConfig)
@@ -64,6 +67,7 @@ public class VerificationFactory
         this.failureResolverManagerFactory = requireNonNull(failureResolverManagerFactory, "failureResolverManagerFactory is null");
         this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
+        this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
@@ -95,6 +99,7 @@ public class VerificationFactory
                         queryRewriter,
                         determinismAnalyzer,
                         failureResolverManager,
+                        exceptionClassifier,
                         verificationContext,
                         verifierConfig,
                         typeManager,

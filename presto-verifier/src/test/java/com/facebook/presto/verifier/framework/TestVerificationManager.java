@@ -24,6 +24,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
@@ -221,6 +222,7 @@ public class TestVerificationManager
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
                         new MockNodeResourceClient(),
                         createChecksumValidator(verifierConfig),
+                        PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
                         new TypeRegistry(),
                         new DeterminismAnalyzerConfig()),
