@@ -17,13 +17,16 @@ import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -69,6 +72,52 @@ public class TestQuantileDigestFunctions
         functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS qdigest(bigint)), 0.5)", toHexString(qdigest)),
                 BIGINT,
                 5L);
+    }
+
+    @Test
+    public void testQuantileAtValueBigint()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        addAll(qdigest, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(bigint)), 20)", toHexString(qdigest)),
+                DOUBLE,
+                null);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(bigint)), 6)", toHexString(qdigest)),
+                DOUBLE,
+                0.6);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(bigint)), -1)", toHexString(qdigest)),
+                DOUBLE,
+                null);
+    }
+
+    @Test
+    public void testQuantileAtValueDouble()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9).stream()
+                .mapToLong(FloatingPointBitsConverterUtil::doubleToSortableLong)
+                .forEach(qdigest::add);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(double)), 5.6)", toHexString(qdigest)),
+                DOUBLE,
+                0.6);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(double)), -1.23)", toHexString(qdigest)),
+                DOUBLE,
+                null);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(double)), 12.3)", toHexString(qdigest)),
+                DOUBLE,
+                null);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(double)), nan())", toHexString(qdigest)),
+                DOUBLE,
+                null);
+    }
+
+    @Test
+    public void testQuantileAtValueBigintWithEmptyDigest()
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+        functionAssertions.assertFunction(format("quantile_at_value(CAST(X'%s' AS qdigest(bigint)), 5)", toHexString(qdigest)),
+                DOUBLE,
+                null);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Scale factor should be positive\\.")
