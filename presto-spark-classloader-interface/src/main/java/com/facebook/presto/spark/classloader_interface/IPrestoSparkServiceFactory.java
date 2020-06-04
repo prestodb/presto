@@ -15,5 +15,5 @@ package com.facebook.presto.spark.classloader_interface;
 
 public interface IPrestoSparkServiceFactory
 {
-    IPrestoSparkService createService(PrestoSparkConfiguration configuration);
+    IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration);
 }

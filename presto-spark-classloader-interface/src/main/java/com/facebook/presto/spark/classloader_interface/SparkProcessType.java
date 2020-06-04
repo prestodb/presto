@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import java.io.Serializable;
-
-public interface PrestoSparkTaskExecutorFactoryProvider
-        extends Serializable
+public enum SparkProcessType
 {
-    IPrestoSparkTaskExecutorFactory get(SparkProcessType processEnvironment);
+    DRIVER,
+    EXECUTOR,
 }
