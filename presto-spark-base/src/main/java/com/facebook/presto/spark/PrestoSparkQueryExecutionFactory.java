@@ -38,6 +38,7 @@ import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
@@ -183,6 +184,8 @@ public class PrestoSparkQueryExecutionFactory
             String sql,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider)
     {
+        PrestoSparkConfInitializer.checkInitialized(sparkContext);
+
         QueryId queryId = queryIdGenerator.createNextQueryId();
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
