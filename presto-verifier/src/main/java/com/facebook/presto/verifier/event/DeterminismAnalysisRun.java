@@ -15,9 +15,11 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -28,15 +30,21 @@ public class DeterminismAnalysisRun
 {
     private final String tableName;
     private final String queryId;
+    private final List<String> setupQueryIds;
+    private final List<String> teardownQueryIds;
     private final String checksumQueryId;
 
     private DeterminismAnalysisRun(
             Optional<String> tableName,
             Optional<String> queryId,
+            List<String> setupQueryIds,
+            List<String> teardownQueryIds,
             Optional<String> checksumQueryId)
     {
         this.tableName = tableName.orElse(null);
         this.queryId = queryId.orElse(null);
+        this.setupQueryIds = ImmutableList.copyOf(setupQueryIds);
+        this.teardownQueryIds = ImmutableList.copyOf(teardownQueryIds);
         this.checksumQueryId = checksumQueryId.orElse(null);
     }
 
@@ -50,6 +58,18 @@ public class DeterminismAnalysisRun
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @EventField
+    public List<String> getSetupQueryIds()
+    {
+        return setupQueryIds;
+    }
+
+    @EventField
+    public List<String> getTeardownQueryIds()
+    {
+        return teardownQueryIds;
     }
 
     @EventField
@@ -67,6 +87,8 @@ public class DeterminismAnalysisRun
     {
         private Optional<String> tableName = Optional.empty();
         private Optional<String> queryId = Optional.empty();
+        private ImmutableList.Builder<String> setupQueryIds = ImmutableList.builder();
+        private ImmutableList.Builder<String> teardownQueryIds = ImmutableList.builder();
         private Optional<String> checksumQueryId = Optional.empty();
 
         private Builder() {}
@@ -85,6 +107,18 @@ public class DeterminismAnalysisRun
             return this;
         }
 
+        public Builder addSetupQueryId(String queryId)
+        {
+            this.setupQueryIds.add(queryId);
+            return this;
+        }
+
+        public Builder addTeardownQueryId(String queryId)
+        {
+            this.teardownQueryIds.add(queryId);
+            return this;
+        }
+
         public Builder setChecksumQueryId(String checksumQueryId)
         {
             checkState(!this.checksumQueryId.isPresent(), "checksumQueryId is already set");
@@ -94,7 +128,7 @@ public class DeterminismAnalysisRun
 
         public DeterminismAnalysisRun build()
         {
-            return new DeterminismAnalysisRun(tableName, queryId, checksumQueryId);
+            return new DeterminismAnalysisRun(tableName, queryId, setupQueryIds.build(), teardownQueryIds.build(), checksumQueryId);
         }
     }
 }

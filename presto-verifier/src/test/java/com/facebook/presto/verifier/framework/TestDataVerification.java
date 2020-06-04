@@ -14,11 +14,13 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
+import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
@@ -48,6 +50,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
@@ -78,6 +81,8 @@ public class TestDataVerification
     private static final String NAME = "test-query";
     private static final String TEST_ID = "test-id";
     private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
+    private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
+    private static final SqlParser sqlParser = new SqlParser();
 
     private static StandaloneQueryRunner queryRunner;
 
@@ -90,7 +95,7 @@ public class TestDataVerification
 
     private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery)
     {
-        return runVerification(controlQuery, testQuery, new DeterminismAnalyzerConfig());
+        return runVerification(controlQuery, testQuery, new DeterminismAnalyzerConfig().setRunTeardown(true));
     }
 
     private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, DeterminismAnalyzerConfig determinismAnalyzerConfig)
@@ -147,6 +152,11 @@ public class TestDataVerification
     public void testSuccess()
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001");
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+
+        queryRunner.execute("CREATE TABLE success_test (x double)");
+        event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -247,6 +257,7 @@ public class TestDataVerification
     @Test
     public void testNonDeterministic()
     {
+        // Select
         Optional<VerifierQueryEvent> event = runVerification("SELECT rand()", "SELECT 2.0");
         assertTrue(event.isPresent());
         assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
@@ -265,7 +276,17 @@ public class TestDataVerification
 
         List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 1);
-        assertDeterminismAnalysisRun(runs.get(0));
+        assertDeterminismAnalysisRun(runs.get(0), false);
+
+        // Insert
+        queryRunner.execute("CREATE TABLE non_deterministic_test (x double)");
+        event = runVerification("INSERT INTO non_deterministic_test SELECT rand()", "INSERT INTO non_deterministic_test SELECT 2.0");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
+
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 1);
+        assertDeterminismAnalysisRun(runs.get(0), true);
     }
 
     @Test
@@ -294,8 +315,8 @@ public class TestDataVerification
 
         List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 2);
-        assertDeterminismAnalysisRun(runs.get(0));
-        assertDeterminismAnalysisRun(runs.get(1));
+        assertDeterminismAnalysisRun(runs.get(0), false);
+        assertDeterminismAnalysisRun(runs.get(1), false);
     }
 
     @Test
@@ -405,12 +426,43 @@ public class TestDataVerification
             assertTrue(expectedErrorMessageRegex.isPresent());
             assertTrue(Pattern.compile(expectedErrorMessageRegex.get(), DOTALL).matcher(event.getErrorMessage()).matches());
         }
+
+        if (event.getStatus().equals(SUCCEEDED.name())) {
+            QueryType queryType = QueryType.of(sqlParser.createStatement(event.getControlQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
+            assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
+            assertSuccessQueryInfo(queryType, event.getTestQueryInfo());
+        }
     }
 
-    private void assertDeterminismAnalysisRun(DeterminismAnalysisRun run)
+    private void assertDeterminismAnalysisRun(DeterminismAnalysisRun run, boolean hasSetup)
     {
         assertNotNull(run.getTableName());
         assertNotNull(run.getQueryId());
+        assertNotNull(run.getSetupQueryIds());
+        assertNotNull(run.getTeardownQueryIds());
         assertNotNull(run.getChecksumQueryId());
+
+        if (hasSetup) {
+            assertEquals(run.getSetupQueryIds().size(), 1);
+        }
+        assertEquals(run.getTeardownQueryIds().size(), 1);
+    }
+
+    private static void assertSuccessQueryInfo(QueryType queryType, QueryInfo queryInfo)
+    {
+        assertNotNull(queryInfo.getQuery());
+        assertNotNull(queryInfo.getSetupQueries());
+        assertNotNull(queryInfo.getTeardownQueries());
+        assertEquals(queryInfo.getTeardownQueries().size(), 1);
+
+        assertNotNull(queryInfo.getQueryId());
+        assertNotNull(queryInfo.getSetupQueryIds());
+        assertNotNull(queryInfo.getTeardownQueryIds());
+        assertEquals(queryInfo.getTeardownQueryIds().size(), 1);
+
+        if (queryType == QueryType.INSERT) {
+            assertEquals(queryInfo.getSetupQueries().size(), 1);
+            assertEquals(queryInfo.getSetupQueryIds().size(), 1);
+        }
     }
 }
