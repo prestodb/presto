@@ -61,7 +61,7 @@ public abstract class AbstractNestedBatchReader
     protected abstract ColumnChunk readNestedWithNull()
             throws IOException;
 
-    protected abstract void skip(int skipSize)
+    protected abstract void seek()
             throws IOException;
 
     public AbstractNestedBatchReader(RichColumnDescriptor columnDescriptor)
@@ -118,15 +118,6 @@ public abstract class AbstractNestedBatchReader
         readOffset = 0;
         nextBatchSize = 0;
         return columnChunk;
-    }
-
-    private void seek()
-            throws IOException
-    {
-        if (readOffset == 0) {
-            return;
-        }
-        skip(readOffset);
     }
 
     protected void readNextPage()

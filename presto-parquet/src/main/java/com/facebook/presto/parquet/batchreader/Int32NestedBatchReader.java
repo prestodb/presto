@@ -121,11 +121,14 @@ public class Int32NestedBatchReader
     }
 
     @Override
-    protected void skip(int skipSize)
+    protected void seek()
             throws IOException
     {
+        if (readOffset == 0) {
+            return;
+        }
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
-        RepetitionLevelDecodingInfo repetitionLevelDecodingInfo = readRepetitionLevels(skipSize);
+        RepetitionLevelDecodingInfo repetitionLevelDecodingInfo = readRepetitionLevels(readOffset);
         DefinitionLevelDecodingInfo definitionLevelDecodingInfo = readDefinitionLevels(repetitionLevelDecodingInfo.getDLValuesDecoderInfos(), repetitionLevelDecodingInfo.getRepetitionLevels().length);
 
         int[] definitionLevels = definitionLevelDecodingInfo.getDefinitionLevels();
