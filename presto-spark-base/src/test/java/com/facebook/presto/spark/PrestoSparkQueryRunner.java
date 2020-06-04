@@ -42,6 +42,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
+import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
@@ -82,6 +83,7 @@ import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
+import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -155,6 +157,7 @@ public class PrestoSparkQueryRunner
         setupLogging();
 
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
+                DRIVER,
                 ImmutableMap.of(
                         "presto.version", "testversion",
                         "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
@@ -440,7 +443,7 @@ public class PrestoSparkQueryRunner
         }
 
         @Override
-        public IPrestoSparkTaskExecutorFactory get()
+        public IPrestoSparkTaskExecutorFactory get(SparkProcessType processType)
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
         }

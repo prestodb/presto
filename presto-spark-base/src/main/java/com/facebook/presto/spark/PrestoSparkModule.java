@@ -86,6 +86,7 @@ import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
@@ -166,6 +167,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -173,6 +175,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class PrestoSparkModule
         extends AbstractConfigurationAwareModule
 {
+    private final SparkProcessType sparkProcessType;
+
+    public PrestoSparkModule(SparkProcessType sparkProcessType)
+    {
+        this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -381,6 +390,7 @@ public class PrestoSparkModule
         install(new ServerSecurityModule());
 
         // spark specific
+        binder.bind(SparkProcessType.class).toInstance(sparkProcessType);
         binder.bind(PrestoSparkExecutionExceptionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkSettingsRequirements.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);
