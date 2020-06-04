@@ -99,8 +99,7 @@ public class OptimizedPartitionedOutputOperator
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
-            DataSize maxMemory,
-            int maxBufferCount)
+            DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
@@ -114,7 +113,6 @@ public class OptimizedPartitionedOutputOperator
                 serdeFactory,
                 sourceTypes,
                 maxMemory,
-                maxBufferCount,
                 operatorContext.getDriverContext().getLifespan());
 
         operatorContext.setInfoSupplier(this::getInfo);
@@ -231,13 +229,11 @@ public class OptimizedPartitionedOutputOperator
     {
         private final OutputBuffer outputBuffer;
         private final DataSize maxMemory;
-        private final int maxBufferCount;
 
-        public OptimizedPartitionedOutputFactory(OutputBuffer outputBuffer, DataSize maxMemory, int maxBufferCount)
+        public OptimizedPartitionedOutputFactory(OutputBuffer outputBuffer, DataSize maxMemory)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.maxBufferCount = maxBufferCount;
         }
 
         @Override
@@ -262,8 +258,7 @@ public class OptimizedPartitionedOutputOperator
                     outputPartitioning.get().getNullChannel(),
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
     }
 
@@ -282,7 +277,6 @@ public class OptimizedPartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
         private final DataSize maxMemory;
-        private final int maxBufferCount;
 
         public OptimizedPartitionedOutputOperatorFactory(
                 int operatorId,
@@ -296,8 +290,7 @@ public class OptimizedPartitionedOutputOperator
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
-                DataSize maxMemory,
-                int maxBufferCount)
+                DataSize maxMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -311,7 +304,6 @@ public class OptimizedPartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.maxBufferCount = maxBufferCount;
         }
 
         @Override
@@ -329,8 +321,7 @@ public class OptimizedPartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
 
         @Override
@@ -353,8 +344,7 @@ public class OptimizedPartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
     }
 
@@ -377,7 +367,7 @@ public class OptimizedPartitionedOutputOperator
         private final Closer blockLeaseCloser = Closer.create();
 
         // The ArrayAllocator for the buffers used in repartitioning, e.g. PartitionBuffer#serializedRowSizes, BlockEncodingBuffer#mappedPositions.
-        private final ArrayAllocator bufferAllocator;
+        private final ArrayAllocator bufferAllocator = new SimpleArrayAllocator(10_000);
 
         private final PartitionBuffer[] partitionBuffers;
         private final List<Type> sourceTypes;
@@ -397,7 +387,6 @@ public class OptimizedPartitionedOutputOperator
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
                 DataSize maxMemory,
-                int maxBufferCount,
                 Lifespan lifespan)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "pagePartitioner is null");
@@ -413,7 +402,6 @@ public class OptimizedPartitionedOutputOperator
             int partitionCount = partitionFunction.getPartitionCount();
 
             int partitionBufferCapacity = max(1, min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, toIntExact(maxMemory.toBytes()) / partitionCount));
-            bufferAllocator = new SimpleArrayAllocator(maxBufferCount);
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {
