@@ -28,19 +28,16 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
-import static com.facebook.presto.verifier.framework.QueryStage.forMain;
-import static com.facebook.presto.verifier.framework.QueryStage.forSetup;
 import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static java.util.Locale.ENGLISH;
 
 public class DataVerificationUtil
@@ -49,19 +46,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static QueryStats setupAndRun(PrestoAction prestoAction, QueryBundle bundle, boolean determinismAnalysis)
-    {
-        checkState(!determinismAnalysis || bundle.getCluster() == CONTROL, "Determinism analysis can only be run on control cluster");
-        QueryStage setupStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forSetup(bundle.getCluster());
-        QueryStage mainStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forMain(bundle.getCluster());
-
-        for (Statement setupQuery : bundle.getSetupQueries()) {
-            prestoAction.execute(setupQuery, setupStage);
-        }
-        return prestoAction.execute(bundle.getQuery(), mainStage);
-    }
-
-    public static void teardownSafely(PrestoAction prestoAction, Optional<QueryBundle> bundle)
+    public static void teardownSafely(PrestoAction prestoAction, Optional<QueryBundle> bundle, Consumer<QueryStats> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;
@@ -69,7 +54,7 @@ public class DataVerificationUtil
 
         for (Statement teardownQuery : bundle.get().getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, forTeardown(bundle.get().getCluster()));
+                runAndConsume(() -> prestoAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
