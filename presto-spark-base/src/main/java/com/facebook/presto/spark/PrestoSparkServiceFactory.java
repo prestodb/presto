@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
+import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -30,13 +31,14 @@ public class PrestoSparkServiceFactory
     private final Logger log = Logger.get(PrestoSparkServiceFactory.class);
 
     @Override
-    public IPrestoSparkService createService(PrestoSparkConfiguration configuration)
+    public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(configuration.getConfigProperties());
         properties.put("plugin.dir", configuration.getPluginsDirectoryPath());
 
         PrestoSparkInjectorFactory prestoSparkInjectorFactory = new PrestoSparkInjectorFactory(
+                sparkProcessType,
                 properties.build(),
                 configuration.getCatalogProperties(),
                 getAdditionalModules());

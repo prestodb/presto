@@ -25,6 +25,7 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -42,25 +43,29 @@ import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkInjectorFactory
 {
+    private final SparkProcessType sparkProcessType;
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
     private final List<Module> additionalModules;
     private final Optional<Module> accessControlModuleOverride;
 
     public PrestoSparkInjectorFactory(
+            SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             List<Module> additionalModules)
     {
-        this(configProperties, catalogProperties, additionalModules, Optional.empty());
+        this(sparkProcessType, configProperties, catalogProperties, additionalModules, Optional.empty());
     }
 
     public PrestoSparkInjectorFactory(
+            SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             List<Module> additionalModules,
             Optional<Module> accessControlModuleOverride)
     {
+        this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
@@ -78,7 +83,7 @@ public class PrestoSparkInjectorFactory
         modules.add(
                 new JsonModule(),
                 new EventListenerModule(),
-                new PrestoSparkModule());
+                new PrestoSparkModule(sparkProcessType));
 
         boolean initializeAccessControl = false;
         if (accessControlModuleOverride.isPresent()) {

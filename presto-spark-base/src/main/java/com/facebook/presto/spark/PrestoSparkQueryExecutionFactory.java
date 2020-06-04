@@ -45,6 +45,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionException;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
@@ -449,7 +450,7 @@ public class PrestoSparkQueryExecutionFactory
                 Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputs = inputFutures.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> getUnchecked(entry.getValue()).iterator()));
 
-                return ImmutableList.copyOf(executorFactoryProvider.get().create(
+                return ImmutableList.copyOf(executorFactoryProvider.get(SparkProcessType.DRIVER).create(
                         0,
                         0,
                         serializedTaskDescriptor,

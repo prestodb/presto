@@ -52,7 +52,7 @@ public class TaskProcessors
                 }
                 int partitionId = TaskContext.get().partitionId();
                 int attemptNumber = TaskContext.get().attemptNumber();
-                return taskExecutorFactoryProvider.get().create(
+                return taskExecutorFactoryProvider.get(SparkProcessType.EXECUTOR).create(
                         partitionId,
                         attemptNumber,
                         serializedTaskDescriptor,
@@ -81,7 +81,7 @@ public class TaskProcessors
                 for (int i = 0; i < fragmentIds.size(); i++) {
                     inputsMap.put(fragmentIds.get(i), iterators.get(i));
                 }
-                return taskExecutorFactoryProvider.get().create(
+                return taskExecutorFactoryProvider.get(SparkProcessType.EXECUTOR).create(
                         partitionId,
                         attemptNumber,
                         serializedTaskDescriptor,
