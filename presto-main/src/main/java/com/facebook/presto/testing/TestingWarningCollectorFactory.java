@@ -16,6 +16,7 @@ package com.facebook.presto.testing;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
+import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +33,7 @@ public class TestingWarningCollectorFactory
     }
 
     @Override
-    public WarningCollector create()
+    public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
     {
         return new TestingWarningCollector(config, testConfig);
     }

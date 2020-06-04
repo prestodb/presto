@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoWarning;
@@ -94,7 +95,7 @@ public class TestPlannerWarnings
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
                 .setSchema(queryRunner.getDefaultSession().getSchema().get());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
-        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.NORMAL);
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
                 if (rules.isPresent()) {

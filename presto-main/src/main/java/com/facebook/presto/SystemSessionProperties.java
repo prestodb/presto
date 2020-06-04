@@ -16,6 +16,8 @@ package com.facebook.presto;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.spi.PrestoException;
@@ -151,12 +153,13 @@ public final class SystemSessionProperties
     public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
+    public static final String WARNING_HANDLING = "warning_handling";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new WarningCollectorConfig());
     }
 
     @Inject
@@ -165,7 +168,8 @@ public final class SystemSessionProperties
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            WarningCollectorConfig warningCollectorConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -768,7 +772,19 @@ public final class SystemSessionProperties
                         PREFER_DISTRIBUTED_UNION,
                         "Prefer distributed union",
                         featuresConfig.isPreferDistributedUnion(),
-                        true));
+                        true),
+                new PropertyMetadata<>(
+                        WARNING_HANDLING,
+                        format("The level of warning handling. Levels are %s",
+                                Stream.of(WarningHandlingLevel.values())
+                                        .map(WarningHandlingLevel::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        WarningHandlingLevel.class,
+                        warningCollectorConfig.getWarningHandlingLevel(),
+                        false,
+                        value -> WarningHandlingLevel.valueOf(((String) value).toUpperCase()),
+                        WarningHandlingLevel::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1303,5 +1319,10 @@ public final class SystemSessionProperties
     public static boolean isPreferDistributedUnion(Session session)
     {
         return session.getSystemProperty(PREFER_DISTRIBUTED_UNION, Boolean.class);
+    }
+
+    public static WarningHandlingLevel getWarningHandlingLevel(Session session)
+    {
+        return session.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class);
     }
 }
