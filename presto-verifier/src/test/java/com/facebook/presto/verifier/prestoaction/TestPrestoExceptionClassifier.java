@@ -33,6 +33,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -43,6 +47,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -65,11 +70,6 @@ public class TestPrestoExceptionClassifier
         testNetworkException(new SQLException(new RuntimeException("Error fetching next at")));
     }
 
-    private void testNetworkException(SQLException sqlException)
-    {
-        assertClusterConnectionException(classifier.createException(QUERY_STAGE, Optional.empty(), sqlException), QUERY_STAGE);
-    }
-
     @Test
     public void testPrestoException()
     {
@@ -86,22 +86,6 @@ public class TestPrestoExceptionClassifier
         testPrestoException(EXCEEDED_TIME_LIMIT, DESCRIBE, true);
     }
 
-    private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
-    {
-        testPrestoException(errorCode, QUERY_STAGE, expectedRetryable);
-    }
-
-    private void testPrestoException(ErrorCodeSupplier errorCode, QueryStage queryStage, boolean expectedRetryable)
-    {
-        SQLException sqlException = new SQLException("", "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, errorCode.toErrorCode().getName()));
-        assertPrestoQueryException(
-                classifier.createException(queryStage, Optional.of(QUERY_STATS), sqlException),
-                Optional.of(errorCode),
-                expectedRetryable,
-                Optional.of(QUERY_STATS),
-                queryStage);
-    }
-
     @Test
     public void testUnknownPrestoException()
     {
@@ -115,14 +99,38 @@ public class TestPrestoExceptionClassifier
     }
 
     @Test
-    public void testTargetTableAlreadyExists()
+    public void testResubmittedErrors()
     {
-        String message = "Table 'a.b.c' already exists";
-        SQLException sqlException = new SQLException(message, "", SYNTAX_ERROR.toErrorCode().getCode(), new PrestoException(SYNTAX_ERROR, message));
+        assertTrue(classifier.shouldResubmit(createTestException(HIVE_PARTITION_DROPPED_DURING_QUERY, TEST_MAIN)));
+        assertTrue(classifier.shouldResubmit(createTestException(HIVE_TABLE_DROPPED_DURING_QUERY, TEST_MAIN)));
+        assertTrue(classifier.shouldResubmit(createTestException(CLUSTER_OUT_OF_MEMORY, TEST_MAIN)));
+        assertTrue(classifier.shouldResubmit(createTestException(ADMINISTRATIVELY_PREEMPTED, TEST_MAIN)));
 
-        assertTrue(classifier.shouldResubmit(classifier.createException(CONTROL_SETUP, Optional.of(QUERY_STATS), sqlException)));
-        assertTrue(classifier.shouldResubmit(classifier.createException(TEST_SETUP, Optional.of(QUERY_STATS), sqlException)));
-        assertFalse(classifier.shouldResubmit(classifier.createException(CONTROL_MAIN, Optional.of(QUERY_STATS), sqlException)));
+        // Target Table Already Exists
+        String message = "Table 'a.b.c' already exists";
+        assertTrue(classifier.shouldResubmit(createTestException(SYNTAX_ERROR, CONTROL_SETUP, message)));
+        assertTrue(classifier.shouldResubmit(createTestException(SYNTAX_ERROR, TEST_SETUP, message)));
+        assertFalse(classifier.shouldResubmit(createTestException(SYNTAX_ERROR, CONTROL_MAIN, message)));
+    }
+
+    private void testNetworkException(SQLException sqlException)
+    {
+        assertClusterConnectionException(classifier.createException(QUERY_STAGE, Optional.empty(), sqlException), QUERY_STAGE);
+    }
+
+    private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
+    {
+        testPrestoException(errorCode, QUERY_STAGE, expectedRetryable);
+    }
+
+    private void testPrestoException(ErrorCodeSupplier errorCode, QueryStage queryStage, boolean expectedRetryable)
+    {
+        assertPrestoQueryException(
+                createTestException(errorCode, queryStage),
+                Optional.of(errorCode),
+                expectedRetryable,
+                Optional.of(QUERY_STATS),
+                queryStage);
     }
 
     private void assertClusterConnectionException(QueryException queryException, QueryStage queryStage)
@@ -148,5 +156,18 @@ public class TestPrestoExceptionClassifier
         assertEquals(exception.getErrorCode(), errorCode);
         assertEquals(exception.isRetryable(), retryable);
         assertEquals(exception.getQueryStats(), queryStats);
+    }
+
+    private QueryException createTestException(ErrorCodeSupplier errorCode, QueryStage queryStage)
+    {
+        return createTestException(errorCode, queryStage, errorCode.toErrorCode().getName());
+    }
+
+    private QueryException createTestException(ErrorCodeSupplier errorCode, QueryStage queryStage, String message)
+    {
+        return classifier.createException(
+                queryStage,
+                Optional.of(QUERY_STATS),
+                new SQLException(message, "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, message)));
     }
 }
