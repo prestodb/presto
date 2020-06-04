@@ -43,7 +43,7 @@ public class Int32RLEDictionaryValuesDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
@@ -85,16 +85,15 @@ public class Int32RLEDictionaryValuesDecoder
         int remaining = length;
         while (remaining > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remaining, currentCount);
-            currentCount -= readChunkSize;
-            remaining -= readChunkSize;
+            int chunkSize = Math.min(remaining, currentCount);
+            currentCount -= chunkSize;
+            remaining -= chunkSize;
         }
-
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
     }
 }

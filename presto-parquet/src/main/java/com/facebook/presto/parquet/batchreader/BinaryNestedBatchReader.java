@@ -18,7 +18,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder.ReadChunk;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder.ValueBuffer;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -65,12 +65,12 @@ public class BinaryNestedBatchReader
             return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingInfo.getRepetitionLevels());
         }
 
-        List<ReadChunk> readChunkList = new ArrayList<>();
+        List<ValueBuffer> valueBuffers = new ArrayList<>();
         int bufferSize = 0;
         for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ReadChunk readChunk = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(valuesDecoderInfo.getNonNullCount());
-            bufferSize += readChunk.getBufferSize();
-            readChunkList.add(readChunk);
+            ValueBuffer valueBuffer = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(valuesDecoderInfo.getNonNullCount());
+            bufferSize += valueBuffer.getBufferSize();
+            valueBuffers.add(valueBuffer);
         }
 
         byte[] byteBuffer = new byte[bufferSize];
@@ -79,8 +79,8 @@ public class BinaryNestedBatchReader
         int bufferIndex = 0;
         int offsetIndex = 0;
         for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ReadChunk readChunk = readChunkList.get(i);
-            bufferIndex = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, readChunk);
+            ValueBuffer value = valueBuffers.get(i);
+            bufferIndex = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
             offsetIndex += valuesDecoderInfo.getValueCount();
             i++;
         }
@@ -134,12 +134,12 @@ public class BinaryNestedBatchReader
             valuesDecoderInfo.setValueCount(valueCount);
         }
 
-        List<ReadChunk> readChunkList = new ArrayList<>();
+        List<ValueBuffer> valueBuffers = new ArrayList<>();
         int bufferSize = 0;
         for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ReadChunk readChunk = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(valuesDecoderInfo.getNonNullCount());
-            bufferSize += readChunk.getBufferSize();
-            readChunkList.add(readChunk);
+            ValueBuffer valueBuffer = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(valuesDecoderInfo.getNonNullCount());
+            bufferSize += valueBuffer.getBufferSize();
+            valueBuffers.add(valueBuffer);
         }
 
         byte[] byteBuffer = new byte[bufferSize];
@@ -148,8 +148,8 @@ public class BinaryNestedBatchReader
         int bufferIndex = 0;
         int offsetIndex = 0;
         for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ReadChunk readChunk = readChunkList.get(i);
-            bufferIndex = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, readChunk);
+            ValueBuffer value = valueBuffers.get(i);
+            bufferIndex = ((BinaryValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
             offsetIndex += valuesDecoderInfo.getValueCount();
             i++;
         }

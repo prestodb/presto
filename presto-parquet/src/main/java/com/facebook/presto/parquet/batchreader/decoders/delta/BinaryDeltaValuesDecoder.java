@@ -53,7 +53,7 @@ public class BinaryDeltaValuesDecoder
     }
 
     @Override
-    public ReadChunk readNext(int length)
+    public ValueBuffer readNext(int length)
             throws IOException
     {
         Binary[] values = new Binary[length];
@@ -63,17 +63,17 @@ public class BinaryDeltaValuesDecoder
             values[i] = value;
             bufferSize += value.length();
         }
-        return new ReadChunkDelta(values, bufferSize);
+        return new DeltaValueBuffer(values, bufferSize);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ValueBuffer valueBuffer)
     {
-        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= valueBuffer.getBufferSize(), "not enough space in the input buffer");
 
-        ReadChunkDelta readChunkDelta = (ReadChunkDelta) readChunk;
+        DeltaValueBuffer deltaValueBuffer = (DeltaValueBuffer) valueBuffer;
 
-        final Binary[] values = readChunkDelta.values;
+        final Binary[] values = deltaValueBuffer.values;
         for (int i = 0; i < values.length; i++) {
             Binary value = values[i];
 
@@ -83,7 +83,6 @@ public class BinaryDeltaValuesDecoder
             bufferIndex += valueBytes.length;
         }
         offsets[offsetIndex] = bufferIndex;
-
         return bufferIndex;
     }
 
@@ -97,13 +96,13 @@ public class BinaryDeltaValuesDecoder
         }
     }
 
-    private static class ReadChunkDelta
-            implements ReadChunk
+    private static class DeltaValueBuffer
+            implements ValueBuffer
     {
         private final Binary[] values;
         private final int bufferSize;
 
-        public ReadChunkDelta(Binary[] values, int bufferSize)
+        public DeltaValueBuffer(Binary[] values, int bufferSize)
         {
             this.values = values;
             this.bufferSize = bufferSize;

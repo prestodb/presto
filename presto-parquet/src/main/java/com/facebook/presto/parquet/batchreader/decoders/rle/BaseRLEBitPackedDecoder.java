@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
-import org.apache.parquet.Preconditions;
 import org.apache.parquet.column.values.bitpacking.BytePacker;
 import org.apache.parquet.column.values.bitpacking.Packer;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -24,6 +23,7 @@ import java.io.InputStream;
 
 import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.PACKED;
 import static com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder.Mode.RLE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.ceil;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianPaddedOnBitWidth;
 import static org.apache.parquet.bytes.BytesUtils.readUnsignedVarInt;
@@ -42,7 +42,7 @@ public abstract class BaseRLEBitPackedDecoder
 
     public BaseRLEBitPackedDecoder(int valueCount, int bitWidth, InputStream inputStream)
     {
-        Preconditions.checkArgument(bitWidth >= 0 && bitWidth <= 32, "bitWidth must be >= 0 and <= 32");
+        checkArgument(bitWidth >= 0 && bitWidth <= 32, "bitWidth must be >= 0 and <= 32");
         this.bitWidth = bitWidth;
         if (bitWidth != 0) {
             this.packer = Packer.LITTLE_ENDIAN.newBytePacker(bitWidth);
@@ -70,7 +70,7 @@ public abstract class BaseRLEBitPackedDecoder
         this.currentCount = rleValueCount;
     }
 
-    protected boolean readNext()
+    protected boolean decode()
             throws IOException
     {
         if (rleOnlyMode) {

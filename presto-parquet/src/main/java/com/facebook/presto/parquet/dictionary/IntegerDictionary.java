@@ -32,11 +32,11 @@ public class IntegerDictionary
     {
         super(dictionaryPage.getEncoding());
         content = new int[dictionaryPage.getDictionarySize()];
-        IntegerPlainValuesReader intReader = new IntegerPlainValuesReader();
+        IntegerPlainValuesReader reader = new IntegerPlainValuesReader();
         ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(dictionaryPage.getSlice().toByteBuffer()));
-        intReader.initFromPage(dictionaryPage.getDictionarySize(), inputStream);
+        reader.initFromPage(dictionaryPage.getDictionarySize(), inputStream);
         for (int i = 0; i < content.length; i++) {
-            content[i] = intReader.readInteger();
+            content[i] = reader.readInteger();
         }
     }
 

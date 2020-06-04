@@ -29,9 +29,9 @@ public class Int64RLEDictionaryValuesDecoder
 {
     private final LongDictionary dictionary;
 
-    public Int64RLEDictionaryValuesDecoder(int bitWidth, InputStream in, LongDictionary dictionary)
+    public Int64RLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
     {
-        super(Integer.MAX_VALUE, bitWidth, in);
+        super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
     }
 
@@ -43,7 +43,7 @@ public class Int64RLEDictionaryValuesDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
@@ -60,10 +60,10 @@ public class Int64RLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = currentBuffer;
+                    final int[] localBuffer = currentBuffer;
                     final LongDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
-                        long dictionaryValue = localDictionary.decodeToLong(localCurrentBuffer[srcIndex]);
+                        long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
                         values[destinationIndex++] = dictionaryValue;
                     }
                     break;
@@ -87,14 +87,14 @@ public class Int64RLEDictionaryValuesDecoder
         int remaining = length;
         while (remaining > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remaining, currentCount);
-            currentCount -= readChunkSize;
-            remaining -= readChunkSize;
+            int chunkSize = Math.min(remaining, currentCount);
+            currentCount -= chunkSize;
+            remaining -= chunkSize;
         }
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
     }

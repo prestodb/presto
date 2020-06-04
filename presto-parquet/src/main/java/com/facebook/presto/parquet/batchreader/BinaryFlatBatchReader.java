@@ -25,7 +25,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.Decoders.FlatDecoders;
 import com.facebook.presto.parquet.batchreader.decoders.FlatDefinitionLevelDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder.ReadChunk;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder.ValueBuffer;
 import com.facebook.presto.parquet.batchreader.dictionary.Dictionaries;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
@@ -138,7 +138,7 @@ public class BinaryFlatBatchReader
     {
         boolean[] isNull = new boolean[nextBatchSize];
 
-        List<ReadChunk> readChunkList = new ArrayList<>();
+        List<ValueBuffer> valueBuffers = new ArrayList<>();
         List<ValuesDecoderInfo> valuesDecoderInfos = new ArrayList<>();
         int bufferSize = 0;
 
@@ -156,10 +156,9 @@ public class BinaryFlatBatchReader
             int nonNullCount = definitionLevelDecoder.readNext(isNull, startOffset, readChunkSize);
             totalNonNullCount += nonNullCount;
 
-            ReadChunk readChunk = valuesDecoder.readNext(nonNullCount);
-
-            bufferSize += readChunk.getBufferSize();
-            readChunkList.add(readChunk);
+            ValueBuffer valueBuffer = valuesDecoder.readNext(nonNullCount);
+            bufferSize += valueBuffer.getBufferSize();
+            valueBuffers.add(valueBuffer);
 
             ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo = new ValuesDecoderInfo(valuesDecoder, startOffset, startOffset + readChunkSize);
             valuesDecoderInfo.setValueCount(readChunkSize);
@@ -184,8 +183,8 @@ public class BinaryFlatBatchReader
         int offsetIndex = 0;
         for (ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo : valuesDecoderInfos) {
             BinaryValuesDecoder binaryValuesDecoder = valuesDecoderInfo.getValuesDecoder();
-            ReadChunk readChunk = readChunkList.get(i);
-            bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, readChunk);
+            ValueBuffer value = valueBuffers.get(i);
+            bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
             offsetIndex += valuesDecoderInfo.getValueCount();
             i++;
         }
@@ -218,7 +217,7 @@ public class BinaryFlatBatchReader
             throws IOException
     {
         boolean[] isNull = new boolean[nextBatchSize];
-        List<ReadChunk> readChunkList = new ArrayList<>();
+        List<ValueBuffer> valueBuffers = new ArrayList<>();
         List<ValuesDecoderInfo> valuesDecoderInfos = new ArrayList<>();
         int bufferSize = 0;
 
@@ -233,9 +232,9 @@ public class BinaryFlatBatchReader
 
             int readChunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
-            ReadChunk readChunk = valuesDecoder.readNext(readChunkSize);
-            bufferSize += readChunk.getBufferSize();
-            readChunkList.add(readChunk);
+            ValueBuffer valueBuffer = valuesDecoder.readNext(readChunkSize);
+            bufferSize += valueBuffer.getBufferSize();
+            valueBuffers.add(valueBuffer);
 
             ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo = new ValuesDecoderInfo(valuesDecoder, startOffset, startOffset + readChunkSize);
             valuesDecoderInfo.setValueCount(readChunkSize);
@@ -255,8 +254,8 @@ public class BinaryFlatBatchReader
         int offsetIndex = 0;
         for (ValuesDecoderInfo<BinaryValuesDecoder> valuesDecoderInfo : valuesDecoderInfos) {
             BinaryValuesDecoder binaryValuesDecoder = valuesDecoderInfo.getValuesDecoder();
-            ReadChunk readChunk = readChunkList.get(i);
-            bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, readChunk);
+            ValueBuffer value = valueBuffers.get(i);
+            bufferIndex = binaryValuesDecoder.readIntoBuffer(byteBuffer, bufferIndex, offsets, offsetIndex, value);
             offsetIndex += valuesDecoderInfo.getValueCount();
             i++;
         }

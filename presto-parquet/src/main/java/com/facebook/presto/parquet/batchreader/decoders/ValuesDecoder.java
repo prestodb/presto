@@ -30,15 +30,15 @@ public interface ValuesDecoder
     interface BinaryValuesDecoder
             extends ValuesDecoder
     {
-        ReadChunk readNext(int length)
+        ValueBuffer readNext(int length)
                 throws IOException;
 
-        int readIntoBuffer(byte[] byteBuffer, int bufferIdx, int[] offsets, int offsetIdx, ReadChunk readChunk);
+        int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ValueBuffer valueBuffer);
 
         void skip(int length)
                 throws IOException;
 
-        interface ReadChunk
+        interface ValueBuffer
         {
             int getBufferSize();
         }
