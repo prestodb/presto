@@ -29,14 +29,14 @@ public class BinaryRLEDictionaryValuesDecoder
 {
     private final BinaryBatchDictionary dictionary;
 
-    public BinaryRLEDictionaryValuesDecoder(int bitWidth, InputStream in, BinaryBatchDictionary dictionary)
+    public BinaryRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, BinaryBatchDictionary dictionary)
     {
-        super(Integer.MAX_VALUE, bitWidth, in);
+        super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
     }
 
     @Override
-    public ReadChunk readNext(int length)
+    public ValueBuffer readNext(int length)
             throws IOException
     {
         int[] dictionaries = new int[length];
@@ -45,14 +45,14 @@ public class BinaryRLEDictionaryValuesDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
             int numEntriesToFill = Math.min(remainingToCopy, currentCount);
             int endIndex = destinationIndex + numEntriesToFill;
-            switch (this.mode) {
+            switch (mode) {
                 case RLE: {
                     final int rleValue = currentValue;
                     final int rleValueLength = dictionary.getLength(rleValue);
@@ -63,10 +63,10 @@ public class BinaryRLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = currentBuffer;
+                    final int[] localBuffer = currentBuffer;
                     final BinaryBatchDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++, destinationIndex++) {
-                        int dictionaryId = localCurrentBuffer[srcIndex];
+                        int dictionaryId = localBuffer[srcIndex];
                         dictionaries[destinationIndex] = dictionaryId;
                         bufferSize += localDictionary.getLength(dictionaryId);
                     }
@@ -80,16 +80,16 @@ public class BinaryRLEDictionaryValuesDecoder
         }
 
         checkState(remainingToCopy == 0, "Invalid read size request");
-        return new ReadChunkRLE(bufferSize, dictionaries);
+        return new RLEValueBuffer(bufferSize, dictionaries);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ValueBuffer valueBuffer)
     {
-        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= valueBuffer.getBufferSize(), "not enough space in the input buffer");
 
-        ReadChunkRLE readChunkRLE = (ReadChunkRLE) readChunk;
-        final int[] dictionaryIds = readChunkRLE.getDictionaryIds();
+        RLEValueBuffer rleValueBuffer = (RLEValueBuffer) valueBuffer;
+        final int[] dictionaryIds = rleValueBuffer.getDictionaryIds();
         final int numEntries = dictionaryIds.length;
 
         for (int i = 0; i < numEntries; i++) {
@@ -107,25 +107,25 @@ public class BinaryRLEDictionaryValuesDecoder
         int remaining = length;
         while (remaining > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remaining, currentCount);
-            currentCount -= readChunkSize;
-            remaining -= readChunkSize;
+            int chunkSize = Math.min(remaining, currentCount);
+            currentCount -= chunkSize;
+            remaining -= chunkSize;
         }
         checkState(remaining == 0, "Invalid read size request");
     }
 
-    public static class ReadChunkRLE
-            implements ReadChunk
+    public static class RLEValueBuffer
+            implements ValueBuffer
     {
         private final int bufferSize;
         private final int[] dictionaryIds;
 
-        public ReadChunkRLE(int bufferSize, int[] dictionaryIds)
+        public RLEValueBuffer(int bufferSize, int[] dictionaryIds)
         {
             this.bufferSize = bufferSize;
             this.dictionaryIds = dictionaryIds;

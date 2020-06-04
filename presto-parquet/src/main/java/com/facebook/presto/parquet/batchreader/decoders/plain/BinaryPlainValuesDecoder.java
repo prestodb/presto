@@ -35,7 +35,7 @@ public class BinaryPlainValuesDecoder
     }
 
     @Override
-    public ReadChunk readNext(int length)
+    public ValueBuffer readNext(int length)
     {
         int remaining = length;
         int[] offsets = new int[length + 1];
@@ -50,16 +50,16 @@ public class BinaryPlainValuesDecoder
         }
         offsets[offsetIndex] = bufOffset;
 
-        return new ReadChunkPlain(bufferSize, offsets);
+        return new PlainValueBuffer(bufferSize, offsets);
     }
 
     @Override
-    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ReadChunk readChunk)
+    public int readIntoBuffer(byte[] byteBuffer, int bufferIndex, int[] offsets, int offsetIndex, ValueBuffer valueBuffer)
     {
-        checkArgument(byteBuffer.length - bufferIndex >= readChunk.getBufferSize(), "not enough space in the input buffer");
+        checkArgument(byteBuffer.length - bufferIndex >= valueBuffer.getBufferSize(), "not enough space in the input buffer");
 
-        ReadChunkPlain readChunkPlain = (ReadChunkPlain) readChunk;
-        final int[] sourceOffsets = readChunkPlain.getSourceOffsets();
+        PlainValueBuffer plainValueBuffer = (PlainValueBuffer) valueBuffer;
+        final int[] sourceOffsets = plainValueBuffer.getSourceOffsets();
         final int numEntries = sourceOffsets.length - 1;
 
         for (int i = 0; i < numEntries; i++) {
@@ -84,13 +84,13 @@ public class BinaryPlainValuesDecoder
         checkState(remaining == 0, "Invalid read size request");
     }
 
-    public static class ReadChunkPlain
-            implements ReadChunk
+    public static class PlainValueBuffer
+            implements ValueBuffer
     {
         private final int bufferSize;
         private final int[] sourceOffsets;
 
-        public ReadChunkPlain(int bufferSize, int[] sourceOffsets)
+        public PlainValueBuffer(int bufferSize, int[] sourceOffsets)
         {
             this.bufferSize = bufferSize;
             this.sourceOffsets = sourceOffsets;

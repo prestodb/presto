@@ -29,9 +29,9 @@ public class TimestampRLEDictionaryValuesDecoder
 {
     private final TimestampDictionary dictionary;
 
-    public TimestampRLEDictionaryValuesDecoder(int bitWidth, InputStream in, TimestampDictionary dictionary)
+    public TimestampRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, TimestampDictionary dictionary)
     {
-        super(Integer.MAX_VALUE, bitWidth, in);
+        super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
     }
 
@@ -43,7 +43,7 @@ public class TimestampRLEDictionaryValuesDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
@@ -60,10 +60,10 @@ public class TimestampRLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = currentBuffer;
+                    final int[] localBuffer = currentBuffer;
                     final TimestampDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
-                        values[destinationIndex++] = localDictionary.decodeToLong(localCurrentBuffer[srcIndex]);
+                        values[destinationIndex++] = localDictionary.decodeToLong(localBuffer[srcIndex]);
                     }
                     break;
                 }
@@ -85,7 +85,7 @@ public class TimestampRLEDictionaryValuesDecoder
         int remaining = length;
         while (remaining > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }

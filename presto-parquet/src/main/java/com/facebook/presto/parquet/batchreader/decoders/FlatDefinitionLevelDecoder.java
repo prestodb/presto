@@ -27,9 +27,9 @@ import static com.google.common.base.Preconditions.checkState;
 public class FlatDefinitionLevelDecoder
         extends BaseRLEBitPackedDecoder
 {
-    public FlatDefinitionLevelDecoder(int valueCount, InputStream in)
+    public FlatDefinitionLevelDecoder(int valueCount, InputStream inputStream)
     {
-        super(valueCount, 1, in);
+        super(valueCount, 1, inputStream);
     }
 
     public FlatDefinitionLevelDecoder(int rleValue, int valueCount)
@@ -45,20 +45,20 @@ public class FlatDefinitionLevelDecoder
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
             if (currentCount == 0) {
-                if (!readNext()) {
+                if (!decode()) {
                     break;
                 }
             }
 
-            int readChunkSize = Math.min(remainingToCopy, currentCount);
-            int endIndex = destinationIndex + readChunkSize;
+            int chunkSize = Math.min(remainingToCopy, currentCount);
+            int endIndex = destinationIndex + chunkSize;
             switch (mode) {
                 case RLE: {
                     boolean rleValue = currentValue == 0;
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = rleValue;
                     }
-                    nonNullCount += currentValue * readChunkSize;
+                    nonNullCount += currentValue * chunkSize;
                     break;
                 }
                 case PACKED: {
@@ -73,8 +73,8 @@ public class FlatDefinitionLevelDecoder
                 default:
                     throw new ParquetDecodingException("not a valid mode " + mode);
             }
-            currentCount -= readChunkSize;
-            remainingToCopy -= readChunkSize;
+            currentCount -= chunkSize;
+            remainingToCopy -= chunkSize;
         }
 
         checkState(remainingToCopy == 0, "Failed to copy the requested number of definition levels");

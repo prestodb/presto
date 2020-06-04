@@ -28,9 +28,9 @@ public class RepetitionLevelDecoder
     private int currentOffsetPackedBuffer;
     private int endOffsetPackedBuffer;
 
-    public RepetitionLevelDecoder(int valueCount, int bitWidth, InputStream in)
+    public RepetitionLevelDecoder(int valueCount, int bitWidth, InputStream inputStream)
     {
-        super(valueCount, bitWidth, in);
+        super(valueCount, bitWidth, inputStream);
         this.remaining = valueCount;
     }
 
@@ -52,13 +52,13 @@ public class RepetitionLevelDecoder
                 case RLE: {
                     int rleValue = currentValue;
                     if (rleValue == 0) {
-                        int readChunkSize = Math.min(remainingToCopy, currentCount);
-                        for (int i = 0; i < readChunkSize; i++) {
+                        int chunkSize = Math.min(remainingToCopy, currentCount);
+                        for (int i = 0; i < chunkSize; i++) {
                             repetitionLevels.add(0);
                         }
-                        currentCount -= readChunkSize;
-                        remaining -= readChunkSize;
-                        remainingToCopy -= readChunkSize;
+                        currentCount -= chunkSize;
+                        remaining -= chunkSize;
+                        remainingToCopy -= chunkSize;
                     }
                     else {
                         remaining -= currentCount;
@@ -70,9 +70,9 @@ public class RepetitionLevelDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localCurrentBuffer = currentBuffer;
+                    final int[] localBuffer = currentBuffer;
                     do {
-                        int rlValue = localCurrentBuffer[currentOffsetPackedBuffer];
+                        int rlValue = localBuffer[currentOffsetPackedBuffer];
                         currentOffsetPackedBuffer = currentOffsetPackedBuffer + 1;
                         repetitionLevels.add(rlValue);
                         if (rlValue == 0) {
@@ -95,7 +95,7 @@ public class RepetitionLevelDecoder
             throws IOException
     {
         if (currentCount == 0) {
-            if (!readNext()) {
+            if (!decode()) {
                 return false;
             }
             currentCount = Math.min(remaining, currentCount);
