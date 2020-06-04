@@ -38,7 +38,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.SimpleArrayAllocator;
+import com.facebook.presto.operator.UncheckedStackArrayAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
@@ -324,10 +324,10 @@ public class TestBlockEncodingBuffers
     {
         Closer blockLeaseCloser = Closer.create();
 
-        BlockFlattener flattener = new BlockFlattener(new SimpleArrayAllocator());
+        BlockFlattener flattener = new BlockFlattener(new UncheckedStackArrayAllocator());
         DecodedBlockNode decodedBlock = decodeBlock(flattener, blockLeaseCloser, block);
 
-        BlockEncodingBuffer buffers = createBlockEncodingBuffers(decodedBlock, new SimpleArrayAllocator(1000), false);
+        BlockEncodingBuffer buffers = createBlockEncodingBuffers(decodedBlock, new UncheckedStackArrayAllocator(1000), false);
 
         int[] positions = IntStream.range(0, block.getPositionCount() / 2).toArray();
         copyPositions(decodedBlock, buffers, positions, expectedRowSizes);
