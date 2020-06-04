@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.Operator;
 import com.esri.core.geometry.OperatorFactoryLocal;
 import com.esri.core.geometry.ogc.OGCGeometry;
@@ -40,6 +38,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.geospatial.GeometryUtils.accelerateGeometry;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 import static com.facebook.presto.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
@@ -152,19 +151,6 @@ public class PagesSpatialIndexSupplier
         }
 
         return new Flatbush<>(geometries.toArray(new GeometryWithPosition[] {}));
-    }
-
-    private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
-    {
-        // Recurse into GeometryCollections
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            com.esri.core.geometry.Geometry esriGeometry = cursor.next();
-            if (esriGeometry == null) {
-                break;
-            }
-            relateOperator.accelerateGeometry(esriGeometry, null, Geometry.GeometryAccelerationDegree.enumMild);
-        }
     }
 
     // doesn't include memory used by channels and addresses which are shared with PagesIndex
