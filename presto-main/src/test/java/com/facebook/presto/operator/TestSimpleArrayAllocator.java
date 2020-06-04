@@ -31,6 +31,9 @@ public class TestSimpleArrayAllocator
     {
         ArrayAllocator allocator = new SimpleArrayAllocator(10);
         testNewLease(allocator);
+
+        allocator = new UncheckedStackArrayAllocator(10);
+        testNewLease(allocator);
     }
 
     @Test
