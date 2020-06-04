@@ -36,39 +36,39 @@ public class Int32NestedBatchReader
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
-        RepetitionLevelDecodingInfo repetitionLevelDecodingInfo = readRepetitionLevels(nextBatchSize);
-        DefinitionLevelDecodingInfo definitionLevelDecodingInfo = readDefinitionLevels(repetitionLevelDecodingInfo.getDLValuesDecoderInfos(), repetitionLevelDecodingInfo.getRepetitionLevels().length);
+        RepetitionLevelDecodingContext repetitionLevelDecodingContext = readRepetitionLevels(nextBatchSize);
+        DefinitionLevelDecodingContext definitionLevelDecodingContext = readDefinitionLevels(repetitionLevelDecodingContext.getDLValuesDecoderContexts(), repetitionLevelDecodingContext.getRepetitionLevels().length);
 
-        int[] definitionLevels = definitionLevelDecodingInfo.getDefinitionLevels();
+        int[] definitionLevels = definitionLevelDecodingContext.getDefinitionLevels();
         int newBatchSize = 0;
         int batchNonNullCount = 0;
-        for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
+        for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
             int nonNullCount = 0;
             int valueCount = 0;
-            for (int i = valuesDecoderInfo.getStart(); i < valuesDecoderInfo.getEnd(); i++) {
+            for (int i = valuesDecoderContext.getStart(); i < valuesDecoderContext.getEnd(); i++) {
                 nonNullCount += (definitionLevels[i] == maxDefinitionLevel ? 1 : 0);
                 valueCount += (definitionLevels[i] >= maxDefinitionLevel - 1 ? 1 : 0);
             }
             batchNonNullCount += nonNullCount;
             newBatchSize += valueCount;
-            valuesDecoderInfo.setNonNullCount(nonNullCount);
-            valuesDecoderInfo.setValueCount(valueCount);
+            valuesDecoderContext.setNonNullCount(nonNullCount);
+            valuesDecoderContext.setValueCount(valueCount);
         }
 
         if (batchNonNullCount == 0) {
             Block block = RunLengthEncodedBlock.create(field.getType(), null, newBatchSize);
-            return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingInfo.getRepetitionLevels());
+            return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingContext.getRepetitionLevels());
         }
 
         int[] values = new int[newBatchSize];
         boolean[] isNull = new boolean[newBatchSize];
         int offset = 0;
-        for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ((Int32ValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(values, offset, valuesDecoderInfo.getNonNullCount());
+        for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            ((Int32ValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
 
-            int valueDestinationIndex = offset + valuesDecoderInfo.getValueCount() - 1;
-            int valueSourceIndex = offset + valuesDecoderInfo.getNonNullCount() - 1;
-            int definitionLevelIndex = valuesDecoderInfo.getEnd() - 1;
+            int valueDestinationIndex = offset + valuesDecoderContext.getValueCount() - 1;
+            int valueSourceIndex = offset + valuesDecoderContext.getNonNullCount() - 1;
+            int definitionLevelIndex = valuesDecoderContext.getEnd() - 1;
 
             while (valueDestinationIndex >= offset) {
                 if (definitionLevels[definitionLevelIndex] == maxDefinitionLevel) {
@@ -81,12 +81,12 @@ public class Int32NestedBatchReader
                 }
                 definitionLevelIndex--;
             }
-            offset += valuesDecoderInfo.getValueCount();
+            offset += valuesDecoderContext.getValueCount();
         }
 
         boolean hasNoNull = batchNonNullCount == newBatchSize;
         Block block = new IntArrayBlock(newBatchSize, hasNoNull ? Optional.empty() : Optional.of(isNull), values);
-        return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingInfo.getRepetitionLevels());
+        return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingContext.getRepetitionLevels());
     }
 
     @Override
@@ -94,30 +94,30 @@ public class Int32NestedBatchReader
             throws IOException
     {
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
-        RepetitionLevelDecodingInfo repetitionLevelDecodingInfo = readRepetitionLevels(nextBatchSize);
-        DefinitionLevelDecodingInfo definitionLevelDecodingInfo = readDefinitionLevels(repetitionLevelDecodingInfo.getDLValuesDecoderInfos(), repetitionLevelDecodingInfo.getRepetitionLevels().length);
+        RepetitionLevelDecodingContext repetitionLevelDecodingContext = readRepetitionLevels(nextBatchSize);
+        DefinitionLevelDecodingContext definitionLevelDecodingContext = readDefinitionLevels(repetitionLevelDecodingContext.getDLValuesDecoderContexts(), repetitionLevelDecodingContext.getRepetitionLevels().length);
 
-        int[] definitionLevels = definitionLevelDecodingInfo.getDefinitionLevels();
+        int[] definitionLevels = definitionLevelDecodingContext.getDefinitionLevels();
         int newBatchSize = 0;
-        for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
+        for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
             int valueCount = 0;
-            for (int i = valuesDecoderInfo.getStart(); i < valuesDecoderInfo.getEnd(); i++) {
+            for (int i = valuesDecoderContext.getStart(); i < valuesDecoderContext.getEnd(); i++) {
                 valueCount += (definitionLevels[i] == maxDefinitionLevel ? 1 : 0);
             }
             newBatchSize += valueCount;
-            valuesDecoderInfo.setNonNullCount(valueCount);
-            valuesDecoderInfo.setValueCount(valueCount);
+            valuesDecoderContext.setNonNullCount(valueCount);
+            valuesDecoderContext.setValueCount(valueCount);
         }
 
         int[] values = new int[newBatchSize];
         int offset = 0;
-        for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
-            ((Int32ValuesDecoder) valuesDecoderInfo.getValuesDecoder()).readNext(values, offset, valuesDecoderInfo.getNonNullCount());
-            offset += valuesDecoderInfo.getValueCount();
+        for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
+            ((Int32ValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
+            offset += valuesDecoderContext.getValueCount();
         }
 
         Block block = new IntArrayBlock(newBatchSize, Optional.empty(), values);
-        return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingInfo.getRepetitionLevels());
+        return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingContext.getRepetitionLevels());
     }
 
     @Override
@@ -128,16 +128,16 @@ public class Int32NestedBatchReader
             return;
         }
         int maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
-        RepetitionLevelDecodingInfo repetitionLevelDecodingInfo = readRepetitionLevels(readOffset);
-        DefinitionLevelDecodingInfo definitionLevelDecodingInfo = readDefinitionLevels(repetitionLevelDecodingInfo.getDLValuesDecoderInfos(), repetitionLevelDecodingInfo.getRepetitionLevels().length);
+        RepetitionLevelDecodingContext repetitionLevelDecodingContext = readRepetitionLevels(readOffset);
+        DefinitionLevelDecodingContext definitionLevelDecodingContext = readDefinitionLevels(repetitionLevelDecodingContext.getDLValuesDecoderContexts(), repetitionLevelDecodingContext.getRepetitionLevels().length);
 
-        int[] definitionLevels = definitionLevelDecodingInfo.getDefinitionLevels();
-        for (ValuesDecoderInfo valuesDecoderInfo : definitionLevelDecodingInfo.getValuesDecoderInfos()) {
+        int[] definitionLevels = definitionLevelDecodingContext.getDefinitionLevels();
+        for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
             int valueCount = 0;
-            for (int i = valuesDecoderInfo.getStart(); i < valuesDecoderInfo.getEnd(); i++) {
+            for (int i = valuesDecoderContext.getStart(); i < valuesDecoderContext.getEnd(); i++) {
                 valueCount += (definitionLevels[i] == maxDefinitionLevel ? 1 : 0);
             }
-            Int32ValuesDecoder intValuesDecoder = (Int32ValuesDecoder) valuesDecoderInfo.getValuesDecoder();
+            Int32ValuesDecoder intValuesDecoder = (Int32ValuesDecoder) valuesDecoderContext.getValuesDecoder();
             intValuesDecoder.skip(valueCount);
         }
     }

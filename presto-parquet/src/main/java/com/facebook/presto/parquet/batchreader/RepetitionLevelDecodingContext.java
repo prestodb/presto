@@ -16,19 +16,19 @@ package com.facebook.presto.parquet.batchreader;
 import java.util.LinkedList;
 import java.util.List;
 
-public class RepetitionLevelDecodingInfo
+public class RepetitionLevelDecodingContext
 {
-    private final List<DefinitionLevelValuesDecoderInfo> definitionLevelValuesDecoderInfos = new LinkedList<>();
+    private final List<DefinitionLevelValuesDecoderContext> definitionLevelValuesDecoderContexts = new LinkedList<>();
     private int[] repetitionLevels;
 
-    public void add(DefinitionLevelValuesDecoderInfo definitionLevelValuesDecoderInfo)
+    public void add(DefinitionLevelValuesDecoderContext definitionLevelValuesDecoderContext)
     {
-        this.definitionLevelValuesDecoderInfos.add(definitionLevelValuesDecoderInfo);
+        this.definitionLevelValuesDecoderContexts.add(definitionLevelValuesDecoderContext);
     }
 
-    public List<DefinitionLevelValuesDecoderInfo> getDLValuesDecoderInfos()
+    public List<DefinitionLevelValuesDecoderContext> getDLValuesDecoderContexts()
     {
-        return definitionLevelValuesDecoderInfos;
+        return definitionLevelValuesDecoderContexts;
     }
 
     public int[] getRepetitionLevels()
