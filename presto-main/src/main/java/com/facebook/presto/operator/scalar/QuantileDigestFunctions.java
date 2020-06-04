@@ -19,17 +19,22 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
+import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 
 public final class QuantileDigestFunctions
 {
@@ -61,6 +66,38 @@ public final class QuantileDigestFunctions
     {
         checkCondition(quantile >= 0 && quantile <= 1, INVALID_FUNCTION_ARGUMENT, "Quantile should be within bounds [0, 1], was: " + quantile);
         return new QuantileDigest(input).getQuantile(quantile);
+    }
+
+    @ScalarFunction("quantile_at_value")
+    @Description("Given an input x between min/max values of qdigest, find which quantile is represented by that value")
+    @SqlType(StandardTypes.DOUBLE)
+    @SqlNullable
+    public static Double quantileAtValueDouble(@SqlType("qdigest(double)") Slice input, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return quantileAtValueBigint(input, doubleToSortableLong(value));
+    }
+
+    @ScalarFunction("quantile_at_value")
+    @Description("Given an input x between min/max values of qdigest, find which quantile is represented by that value")
+    @SqlType(StandardTypes.DOUBLE)
+    @SqlNullable
+    public static Double quantileAtValueReal(@SqlType("qdigest(real)") Slice input, @SqlType(StandardTypes.REAL) long value)
+    {
+        return quantileAtValueBigint(input, floatToSortableInt(intBitsToFloat((int) value)));
+    }
+
+    @ScalarFunction("quantile_at_value")
+    @Description("Given an input x between min/max values of qdigest, find which quantile is represented by that value")
+    @SqlType(StandardTypes.DOUBLE)
+    @SqlNullable
+    public static Double quantileAtValueBigint(@SqlType("qdigest(bigint)") Slice input, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        QuantileDigest digest = new QuantileDigest(input);
+        if (digest.getCount() == 0 || value > digest.getMax() || value < digest.getMin()) {
+            return null;
+        }
+        double bucketCount = digest.getHistogram(ImmutableList.of(value)).get(0).getCount();
+        return bucketCount / digest.getCount();
     }
 
     @ScalarFunction("values_at_quantiles")
