@@ -68,7 +68,7 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<Object> fields;
 
-    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
+    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split)
     {
         requireNonNull(columnHandles, "columnHandle is null");
         requireNonNull(config, "config is null");
