@@ -27,7 +27,7 @@ import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.NON
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class ElasticsearchConnectorConfig
+public class ElasticsearchConfig
 {
     private String defaultSchema = "default";
     private File tableDescriptionDirectory = new File("etc/elasticsearch/");
@@ -55,7 +55,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.table-description-directory")
     @ConfigDescription("Directory that contains JSON table description files")
-    public ElasticsearchConnectorConfig setTableDescriptionDirectory(File tableDescriptionDirectory)
+    public ElasticsearchConfig setTableDescriptionDirectory(File tableDescriptionDirectory)
     {
         this.tableDescriptionDirectory = tableDescriptionDirectory;
         return this;
@@ -69,7 +69,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.default-schema-name")
     @ConfigDescription("Default schema name to use")
-    public ElasticsearchConnectorConfig setDefaultSchema(String defaultSchema)
+    public ElasticsearchConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
         return this;
@@ -84,7 +84,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.scroll-size")
     @ConfigDescription("Scroll batch size")
-    public ElasticsearchConnectorConfig setScrollSize(int scrollSize)
+    public ElasticsearchConfig setScrollSize(int scrollSize)
     {
         this.scrollSize = scrollSize;
         return this;
@@ -98,7 +98,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.scroll-timeout")
     @ConfigDescription("Scroll timeout")
-    public ElasticsearchConnectorConfig setScrollTimeout(Duration scrollTimeout)
+    public ElasticsearchConfig setScrollTimeout(Duration scrollTimeout)
     {
         this.scrollTimeout = scrollTimeout;
         return this;
@@ -113,7 +113,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.max-hits")
     @ConfigDescription("Max number of hits a single Elasticsearch request can fetch")
-    public ElasticsearchConnectorConfig setMaxHits(int maxHits)
+    public ElasticsearchConfig setMaxHits(int maxHits)
     {
         this.maxHits = maxHits;
         return this;
@@ -127,7 +127,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.request-timeout")
     @ConfigDescription("Elasticsearch request timeout")
-    public ElasticsearchConnectorConfig setRequestTimeout(Duration requestTimeout)
+    public ElasticsearchConfig setRequestTimeout(Duration requestTimeout)
     {
         this.requestTimeout = requestTimeout;
         return this;
@@ -141,7 +141,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.max-request-retries")
     @ConfigDescription("Maximum number of Elasticsearch request retries")
-    public ElasticsearchConnectorConfig setMaxRequestRetries(int maxRequestRetries)
+    public ElasticsearchConfig setMaxRequestRetries(int maxRequestRetries)
     {
         this.maxRequestRetries = maxRequestRetries;
         return this;
@@ -155,7 +155,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("elasticsearch.max-request-retry-time")
     @ConfigDescription("Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests")
-    public ElasticsearchConnectorConfig setMaxRetryTime(Duration maxRetryTime)
+    public ElasticsearchConfig setMaxRetryTime(Duration maxRetryTime)
     {
         this.maxRetryTime = maxRetryTime;
         return this;
@@ -169,7 +169,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.certificate_format")
     @ConfigDescription("Certificate format")
-    public ElasticsearchConnectorConfig setCertificateFormat(SearchGuardCertificateFormat certificateFormat)
+    public ElasticsearchConfig setCertificateFormat(SearchGuardCertificateFormat certificateFormat)
     {
         this.certificateFormat = certificateFormat;
         return this;
@@ -183,7 +183,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.pemcert_filepath")
     @ConfigDescription("Path to the X.509 node certificate chain")
-    public ElasticsearchConnectorConfig setPemcertFilepath(File pemcertFilepath)
+    public ElasticsearchConfig setPemcertFilepath(File pemcertFilepath)
     {
         this.pemcertFilepath = pemcertFilepath;
         return this;
@@ -197,7 +197,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.pemkey_filepath")
     @ConfigDescription("Path to the certificates key file")
-    public ElasticsearchConnectorConfig setPemkeyFilepath(File pemkeyFilepath)
+    public ElasticsearchConfig setPemkeyFilepath(File pemkeyFilepath)
     {
         this.pemkeyFilepath = pemkeyFilepath;
         return this;
@@ -212,7 +212,7 @@ public class ElasticsearchConnectorConfig
     @Config("searchguard.ssl.transport.pemkey_password")
     @ConfigDescription("Key password. Omit this setting if the key has no password.")
     @ConfigSecuritySensitive
-    public ElasticsearchConnectorConfig setPemkeyPassword(String pemkeyPassword)
+    public ElasticsearchConfig setPemkeyPassword(String pemkeyPassword)
     {
         this.pemkeyPassword = pemkeyPassword;
         return this;
@@ -226,7 +226,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.pemtrustedcas_filepath")
     @ConfigDescription("Path to the root CA(s) (PEM format)")
-    public ElasticsearchConnectorConfig setPemtrustedcasFilepath(File pemtrustedcasFilepath)
+    public ElasticsearchConfig setPemtrustedcasFilepath(File pemtrustedcasFilepath)
     {
         this.pemtrustedcasFilepath = pemtrustedcasFilepath;
         return this;
@@ -240,7 +240,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.keystore_filepath")
     @ConfigDescription("Path to the keystore file")
-    public ElasticsearchConnectorConfig setKeystoreFilepath(File keystoreFilepath)
+    public ElasticsearchConfig setKeystoreFilepath(File keystoreFilepath)
     {
         this.keystoreFilepath = keystoreFilepath;
         return this;
@@ -255,7 +255,7 @@ public class ElasticsearchConnectorConfig
     @Config("searchguard.ssl.transport.keystore_password")
     @ConfigDescription("Keystore password")
     @ConfigSecuritySensitive
-    public ElasticsearchConnectorConfig setKeystorePassword(String keystorePassword)
+    public ElasticsearchConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
         return this;
@@ -269,7 +269,7 @@ public class ElasticsearchConnectorConfig
 
     @Config("searchguard.ssl.transport.truststore_filepath")
     @ConfigDescription("Path to the truststore file")
-    public ElasticsearchConnectorConfig setTruststoreFilepath(File truststoreFilepath)
+    public ElasticsearchConfig setTruststoreFilepath(File truststoreFilepath)
     {
         this.truststoreFilepath = truststoreFilepath;
         return this;
@@ -284,7 +284,7 @@ public class ElasticsearchConnectorConfig
     @Config("searchguard.ssl.transport.truststore_password")
     @ConfigDescription("Truststore password")
     @ConfigSecuritySensitive
-    public ElasticsearchConnectorConfig setTruststorePassword(String truststorePassword)
+    public ElasticsearchConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
         return this;
