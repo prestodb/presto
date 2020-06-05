@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.common.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -27,12 +29,14 @@ import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.common.block.BlockUtil.getNum128Integers;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Integer.bitCount;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 
 public class Int128ArrayBlockBuilder
         implements BlockBuilder
@@ -208,6 +212,87 @@ public class Int128ArrayBlockBuilder
             return values[(position * 2) + 1];
         }
         throw new IllegalArgumentException("offset must be 0 or 8");
+    }
+
+    /**
+     * Get the Slice starting at {@code this.positionOffset + offset} in the value at {@code position} with {@code length} bytes.
+     *
+     * @param position The logical position of the 128-bit integer in the values array.
+     *                 For example, position = 0 refers to the 128-bit integer at values[2] and values[3] if this.positionOffset = 1.
+     * @param offset The offset to the position in the unit of 128-bit integers.
+     *               For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
+     *               This means we always compare bytes starting at 128-bit integer boundaries.
+     * @param length The length in bytes. It has to be a multiple of 16.
+     */
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        checkValidRegion(positionCount, offset, length / SIZE_OF_LONG / 2);
+        return getSliceUnchecked(position + getOffsetBase(), offset, length);
+    }
+
+    @Override
+    public int getSliceLength(int position)
+    {
+        return SIZE_OF_LONG * 2;
+    }
+
+    /**
+     * Get the Slice starting at {@code offset} in the value at {@code internalPosition} with {@code length} bytes.
+     *
+     * @param internalPosition The physical position of the 128-bit integer in the values array.
+     *                         For example, internalPosition = 1 refers to the 128-bit integer at values[2] and values[3]
+     * @param offset The offset to the position in the unit of 128-bit integers.
+     *                       For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
+     *                       This means we always compare bytes starting at 128-bit integer boundaries.
+     * @param length The length in bytes. It has to be a multiple of 16.
+     */
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        int num128Integers = getNum128Integers(length);
+        return Slices.wrappedLongArray(values, (internalPosition + offset) * 2, num128Integers * 2);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int position)
+    {
+        return SIZE_OF_LONG * 2;
+    }
+
+    /**
+     * Is the byte sequences at the {@code position + offset} position in the 128-bit values of {@code length} bytes equal
+     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
+     *
+     * @param position The position of 128-bit integer.
+     * @param offset The offset to the position in the unit of 128-bit integers.
+     * For example, offset = 1 means the next position (one 128-bit integer or 16 bytes) to the specified position.
+     * This means we always compare starting at 128-bit integer boundaries.
+     * @param otherSlice The slice to compare to.
+     * @param otherOffset The offset in bytes to the start of otherSlice.
+     * @param length The length to compare in bytes. It has to be a multiple of 16.
+     * @return True if the bytes are the same, false otherwise.
+     */
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        int num128Integers = getNum128Integers(length);
+        checkValidRegion(positionCount, position + offset, num128Integers);
+        if (otherOffset < 0 || length < 0 || otherOffset + length > otherSlice.length()) {
+            throw new IllegalArgumentException(format("otherOffset %d, length %d are invalid for otherSlice with length %d", otherOffset, length, otherSlice.length()));
+        }
+
+        int currentPosition = (position + offset + getOffsetBase()) * 2;
+        for (int i = 0; i < num128Integers; i++) {
+            if (values[currentPosition] != otherSlice.getLong(otherOffset) || values[currentPosition + 1] != otherSlice.getLong(otherOffset + SIZE_OF_LONG)) {
+                return false;
+            }
+
+            currentPosition += 2;
+            otherOffset += SIZE_OF_LONG * 2;
+        }
+
+        return true;
     }
 
     @Override

@@ -19,12 +19,15 @@ import com.facebook.presto.common.block.Int128ArrayBlock;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.BlockUtil.getNum128Integers;
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.type.DecimalInequalityOperators.distinctBlockPositionLongLong;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -165,6 +168,27 @@ public class TestInt128ArrayBlock
     @Override
     protected boolean isSliceAccessSupported()
     {
-        return false;
+        return true;
+    }
+
+    @Override
+    protected void assertSlicePosition(Block block, int position, Slice expectedSliceValue)
+    {
+        int num128Integers = Math.min(getNum128Integers(expectedSliceValue.length()), block.getPositionCount() - position);
+        for (int offset = 0; offset < num128Integers; offset++) {
+            assertEquals(expectedSliceValue.length(), SIZE_OF_LONG * 2);
+
+            assertEquals(block.getSlice(position, offset, SIZE_OF_LONG * 2), expectedSliceValue.slice(offset, SIZE_OF_LONG * 2));
+            assertEquals(block.getSliceLength(position), SIZE_OF_LONG * 2);
+
+            assertTrue(block.bytesEqual(position, offset, expectedSliceValue, 0, SIZE_OF_LONG * 2));
+            assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXXXXXXXXXXXXXXX"), 0, SIZE_OF_LONG * 2));
+        }
+    }
+
+    @Override
+    protected void assertSlicePositionUnchecked(Block block, int internalPosition, Slice expectedSliceValue)
+    {
+        assertSlicePosition(block, internalPosition - block.getOffsetBase(), expectedSliceValue);
     }
 }
