@@ -1,9 +1,6 @@
 {
     "tableName": "partsupp",
     "schemaName": "tpch",
-    "host": "localhost",
-    "port": "9300",
-    "clusterName": "test",
     "index": "partsupp",
     "type": "doc",
     "columns": [
