@@ -27,6 +27,8 @@ replacing the properties as appropriate:
 .. code-block:: none
 
     connector.name=elasticsearch
+    elasticsearch.host=localhost
+    elasticsearch.port=9300
     elasticsearch.default-schema=default
     elasticsearch.table-description-directory=etc/elasticsearch/
     elasticsearch.scroll-size=1000
@@ -43,6 +45,9 @@ The following configuration properties are available:
 ============================================= ==============================================================================
 Property Name                                 Description
 ============================================= ==============================================================================
+``elasticsearch.host``                        Host name of the Elasticsearch server.
+``elasticsearch.port``                        Port of the Elasticsearch server.
+``elasticsearch.cluster-name``                Elasticsearch cluster name.
 ``elasticsearch.default-schema``              Default schema name for tables.
 ``elasticsearch.table-description-directory`` Directory containing JSON table description files.
 ``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
@@ -52,6 +57,27 @@ Property Name                                 Description
 ``elasticsearch.max-request-retries``         Maximum number of Elasticsearch request retries.
 ``elasticsearch.max-request-retry-time``      Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests.
 ============================================= ==============================================================================
+
+``elasticsearch.host``
+^^^^^^^^^^^^^^^^^^^^^^
+
+Specifies the hostname of the Elasticsearch node to connect to.
+
+This property is required.
+
+``elasticsearch.port``
+^^^^^^^^^^^^^^^^^^^^^^
+
+Specifies the port of the Elasticsearch node to connect to.
+
+This property is optional; the default is ``9300``.
+
+``elasticsearch.cluster-name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Specifies the cluster name of the Elasticsearch cluster.
+
+This property is optional; the default is ``null``.
 
 ``elasticsearch.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -222,9 +248,6 @@ A table definition file describes a table in JSON format.
     {
         "tableName": ...,
         "schemaName": ...,
-        "host": ...,
-        "port": ...,
-        "clusterName": ...,
         "index": ...,
         "indexExactMatch": ...,
         "type": ...
@@ -244,9 +267,6 @@ Field               Required  Type           Description
 =================== ========= ============== =============================
 ``tableName``       required  string         Name of the table.
 ``schemaName``      optional  string         Schema that contains the table. If omitted, the default schema name is used.
-``host``            required  string         Elasticsearch search node host name.
-``port``            required  integer        Elasticsearch search node port number.
-``clusterName``     required  string         Elasticsearch cluster name.
 ``index``           required  string         Elasticsearch index that is backing this table.
 ``indexExactMatch`` optional  boolean        If set to true, the index specified with the ``index`` property is used. Otherwise, all indices starting with the prefix specified by the ``index`` property are used.
 ``type``            required  string         Elasticsearch `mapping type`_, which determines how the document are indexed (like "_doc").

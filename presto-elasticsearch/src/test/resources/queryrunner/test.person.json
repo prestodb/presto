@@ -1,9 +1,6 @@
 {
   "tableName": "person",
   "schemaName": "test",
-  "host": "localhost",
-  "port": "9300",
-  "clusterName": "test",
   "index": "person",
   "type": "doc",
   "columns": [
