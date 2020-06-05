@@ -58,7 +58,6 @@ import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 
-// TODO: clear scroll on close
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
@@ -232,6 +231,11 @@ public class ElasticsearchRecordCursor
 
     public void close()
     {
+        if (scrollId != null) {
+            client.prepareClearScroll()
+                    .addScrollId(scrollId)
+                    .execute();
+        }
     }
 
     private SearchResponse begin()
