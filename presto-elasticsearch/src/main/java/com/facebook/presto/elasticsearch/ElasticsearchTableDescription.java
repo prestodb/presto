@@ -28,9 +28,6 @@ public class ElasticsearchTableDescription
 {
     private final String tableName;
     private final String schemaName;
-    private final String host;
-    private final int port;
-    private final String clusterName;
     private final String index;
     private final boolean indexExactMatch;
     private final String type;
@@ -40,9 +37,6 @@ public class ElasticsearchTableDescription
     public ElasticsearchTableDescription(
             @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("host") String host,
-            @JsonProperty("port") int port,
-            @JsonProperty("clusterName") String clusterName,
             @JsonProperty("index") String index,
             @JsonProperty("indexExactMatch") boolean indexExactMatch,
             @JsonProperty("type") String type,
@@ -50,16 +44,11 @@ public class ElasticsearchTableDescription
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or empty");
         checkArgument(!isNullOrEmpty(schemaName), "schemaName is null or empty");
-        checkArgument(!isNullOrEmpty(host), "host is null or empty");
-        checkArgument(!isNullOrEmpty(clusterName), "clusterName is null or empty");
         checkArgument(!isNullOrEmpty(index), "index is null or empty");
         checkArgument(!isNullOrEmpty(type), "type is null or empty");
         requireNonNull(columns, "columns is null");
         this.tableName = tableName;
         this.schemaName = schemaName;
-        this.host = host;
-        this.port = port;
-        this.clusterName = clusterName;
         this.index = index;
         this.indexExactMatch = indexExactMatch;
         this.type = type;
@@ -76,24 +65,6 @@ public class ElasticsearchTableDescription
     public String getSchemaName()
     {
         return schemaName;
-    }
-
-    @JsonProperty
-    public String getHost()
-    {
-        return host;
-    }
-
-    @JsonProperty
-    public int getPort()
-    {
-        return port;
-    }
-
-    @JsonProperty
-    public String getClusterName()
-    {
-        return clusterName;
     }
 
     @JsonProperty
@@ -126,9 +97,6 @@ public class ElasticsearchTableDescription
         return toStringHelper(this)
                 .add("tableName", tableName)
                 .add("schemaName", schemaName)
-                .add("host", host)
-                .add("port", port)
-                .add("clusterName", clusterName)
                 .add("index", index)
                 .add("indexExactMatch", indexExactMatch)
                 .add("type", type)
