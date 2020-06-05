@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -382,7 +383,8 @@ public class CommonSubExpressionRewriter
         public Integer visitSpecialForm(SpecialFormExpression specialForm, Void collect)
         {
             int level = specialForm.getArguments().stream().map(argument -> argument.accept(this, null)).reduce(Math::max).get() + 1;
-            if (specialForm.getForm() != WHEN) {
+            if (specialForm.getForm() != WHEN && specialForm.getForm() != BIND) {
+                // BIND returns a function type rather than a value type
                 // WHEN is part of CASE expression. We do not have a separate code generator to generate code for WHEN expression separately so do not consider them as CSE
                 // TODO If we detect a whole WHEN statement as CSE we should probably only keep one
                 addAtLevel(level, specialForm);
