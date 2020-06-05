@@ -1,9 +1,6 @@
 {
     "tableName": "lineitem",
     "schemaName": "tpch",
-    "host": "localhost",
-    "port": "9300",
-    "clusterName": "test",
     "index": "lineitem",
     "type": "doc",
     "columns": [
