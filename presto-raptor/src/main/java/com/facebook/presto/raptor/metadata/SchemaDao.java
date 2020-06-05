@@ -105,7 +105,7 @@ public interface SchemaDao
             "  delta_uuid BINARY(16),\n" +
             "  UNIQUE (shard_uuid),\n" +
             // include a covering index organized by table_id
-            "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size, xxhash64),\n" +
+            "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size, xxhash64, is_delta, delta_uuid),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShards();
