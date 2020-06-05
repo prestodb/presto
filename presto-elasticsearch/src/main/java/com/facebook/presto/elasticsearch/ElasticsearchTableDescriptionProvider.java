@@ -36,14 +36,14 @@ public class ElasticsearchTableDescriptionProvider
     private final Map<SchemaTableName, ElasticsearchTableDescription> tableDefinitions;
 
     @Inject
-    ElasticsearchTableDescriptionProvider(ElasticsearchConnectorConfig config, JsonCodec<ElasticsearchTableDescription> codec)
+    ElasticsearchTableDescriptionProvider(ElasticsearchConfig config, JsonCodec<ElasticsearchTableDescription> codec)
     {
         requireNonNull(config, "config is null");
         requireNonNull(codec, "codec is null");
         tableDefinitions = createTableDescriptions(config, codec);
     }
 
-    private Map<SchemaTableName, ElasticsearchTableDescription> createTableDescriptions(ElasticsearchConnectorConfig config, JsonCodec<ElasticsearchTableDescription> codec)
+    private Map<SchemaTableName, ElasticsearchTableDescription> createTableDescriptions(ElasticsearchConfig config, JsonCodec<ElasticsearchTableDescription> codec)
     {
         Optional<File[]> files = listFiles(config.getTableDescriptionDirectory());
 
