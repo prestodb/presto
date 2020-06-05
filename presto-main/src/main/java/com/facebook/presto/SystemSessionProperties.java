@@ -82,6 +82,7 @@ public final class SystemSessionProperties
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
+    public static final String QUERY_MAX_BROADCAST_MEMORY = "query_max_broadcast_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
@@ -378,6 +379,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         nodeMemoryConfig.getSoftMaxQueryMemoryPerNode(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_BROADCAST_MEMORY,
+                        "Maximum amount of memory a query can use for broadcast join",
+                        VARCHAR,
+                        DataSize.class,
+                        nodeMemoryConfig.getMaxQueryBroadcastMemory(),
                         true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -948,6 +958,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_MEMORY_PER_NODE, DataSize.class);
+    }
+
+    public static DataSize getQueryMaxBroadcastMemory(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_BROADCAST_MEMORY, DataSize.class);
     }
 
     public static DataSize getQueryMaxTotalMemory(Session session)

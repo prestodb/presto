@@ -25,6 +25,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+    public static final String QUERY_MAX_BROADCAST_MEMORY_CONFIG = "query.max-broadcast-memory";
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
     public static final String QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG = "query.soft-max-memory-per-node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.max-total-memory-per-node";
@@ -32,6 +33,7 @@ public class NodeMemoryConfig
 
     private boolean isReservedPoolEnabled = true;
 
+    private DataSize maxQueryBroadcastMemory;
     private DataSize maxQueryMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE);
     private DataSize softMaxQueryMemoryPerNode;
 
@@ -39,6 +41,24 @@ public class NodeMemoryConfig
     private DataSize maxQueryTotalMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
     private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
+
+    @NotNull
+    public DataSize getMaxQueryBroadcastMemory()
+    {
+        if (maxQueryBroadcastMemory == null) {
+            return getMaxQueryMemoryPerNode();
+        }
+        return maxQueryBroadcastMemory;
+    }
+
+    @Config(QUERY_MAX_BROADCAST_MEMORY_CONFIG)
+    public NodeMemoryConfig setMaxQueryBroadcastMemory(DataSize maxQueryBroadcastMemory)
+    {
+        if (maxQueryBroadcastMemory.toBytes() < getMaxQueryMemoryPerNode().toBytes()) {
+            this.maxQueryBroadcastMemory = maxQueryBroadcastMemory;
+        }
+        return this;
+    }
 
     @NotNull
     public DataSize getMaxQueryMemoryPerNode()

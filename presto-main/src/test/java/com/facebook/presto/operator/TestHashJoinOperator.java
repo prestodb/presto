@@ -92,6 +92,7 @@ import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -1033,6 +1034,19 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
     }
 
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node broadcast memory limit of.*", dataProvider = "testMemoryLimitProvider")
+    public void testBroadcastMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
+    {
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, MEGABYTE));
+        taskContext.getQueryContext().setMemoryLimits(new DataSize(512, MEGABYTE), new DataSize(512, MEGABYTE), new DataSize(100, BYTE));
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(10, 20, 30, 40);
+        BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0),
+                buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY, true);
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        buildLookupSource(buildSideSetup);
+    }
+
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
@@ -1298,6 +1312,20 @@ public class TestHashJoinOperator
             boolean spillEnabled,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
+        return setupBuildSide(parallelBuild, taskContext, hashChannels, buildPages,
+                filterFunction, spillEnabled, singleStreamSpillerFactory, false);
+    }
+
+    private BuildSideSetup setupBuildSide(
+            boolean parallelBuild,
+            TaskContext taskContext,
+            List<Integer> hashChannels,
+            RowPagesBuilder buildPages,
+            Optional<InternalJoinFilterFunction> filterFunction,
+            boolean spillEnabled,
+            SingleStreamSpillerFactory singleStreamSpillerFactory,
+            boolean enforceBroadcastMemoryLimit)
+    {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
@@ -1357,7 +1385,8 @@ public class TestHashJoinOperator
                 100,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                singleStreamSpillerFactory);
+                singleStreamSpillerFactory,
+                enforceBroadcastMemoryLimit);
         return new BuildSideSetup(lookupSourceFactoryManager, buildOperatorFactory, sourceOperatorFactory, partitionCount);
     }
 

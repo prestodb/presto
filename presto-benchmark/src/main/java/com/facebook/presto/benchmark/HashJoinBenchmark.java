@@ -92,7 +92,8 @@ public class HashJoinBenchmark
                     1_500_000,
                     new PagesIndex.TestingFactory(false),
                     false,
-                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                    false);
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
             DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);

@@ -40,6 +40,12 @@ public class ExceededMemoryLimitException
                 format("Query exceeded per-node user memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 
+    public static ExceededMemoryLimitException exceededLocalBroadcastMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
+    {
+        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
+                format("Query exceeded per-node broadcast memory limit of %s [%s]", maxMemory, additionalFailureInfo));
+    }
+
     public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
     {
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,

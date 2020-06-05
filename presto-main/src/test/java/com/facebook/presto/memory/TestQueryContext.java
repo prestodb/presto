@@ -77,6 +77,7 @@ public class TestQueryContext
                     new QueryId("query"),
                     new DataSize(10, BYTE),
                     new DataSize(20, BYTE),
+                    new DataSize(10, BYTE),
                     new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
@@ -140,6 +141,7 @@ public class TestQueryContext
     private static QueryContext createQueryContext(QueryId queryId, MemoryPool generalPool)
     {
         return new QueryContext(queryId,
+                new DataSize(10_000, BYTE),
                 new DataSize(10_000, BYTE),
                 new DataSize(10_000, BYTE),
                 generalPool,

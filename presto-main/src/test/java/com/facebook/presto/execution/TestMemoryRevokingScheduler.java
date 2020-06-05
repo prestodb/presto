@@ -302,6 +302,7 @@ public class TestMemoryRevokingScheduler
                 new QueryContext(new QueryId("query"),
                         new DataSize(1, MEGABYTE),
                         new DataSize(2, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
                         memoryPool,
                         new TestingGcMonitor(),
                         executor,
