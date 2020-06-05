@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.ceil;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -311,5 +312,14 @@ public final class BlockUtil
         }
 
         return buffer;
+    }
+
+    public static int getNum128Integers(int length)
+    {
+        int num128Integers = length / SIZE_OF_LONG / 2;
+        if (num128Integers * SIZE_OF_LONG * 2 != length) {
+            throw new IllegalArgumentException(format("length %d must be a multiple of 16.", length));
+        }
+        return num128Integers;
     }
 }
