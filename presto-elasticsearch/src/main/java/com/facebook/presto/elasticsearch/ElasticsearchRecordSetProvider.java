@@ -16,21 +16,40 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
+import com.google.common.net.HostAndPort;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.TransportAddress;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final ElasticsearchConfig config;
+    private final LoadingCache<HostAndPort, TransportClient> clients = CacheBuilder.newBuilder()
+            .build(CacheLoader.from(this::initializeClient));
 
     @Inject
     public ElasticsearchRecordSetProvider(ElasticsearchConfig config)
@@ -49,6 +68,34 @@ public class ElasticsearchRecordSetProvider
             handles.add((ElasticsearchColumnHandle) handle);
         }
 
-        return new ElasticsearchRecordSet(elasticsearchSplit, config, handles.build());
+        try {
+            TransportClient client = clients.getUnchecked(HostAndPort.fromParts(elasticsearchSplit.getSearchNode(), elasticsearchSplit.getPort()));
+            return new ElasticsearchRecordSet(client, elasticsearchSplit, config, handles.build());
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
+    }
+
+    private TransportClient initializeClient(HostAndPort address)
+    {
+        try {
+            return createTransportClient(config, new TransportAddress(InetAddress.getByName(address.getHost()), address.getPort()));
+        }
+        catch (UnknownHostException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Failed to resolve search node (%s)", address), e);
+        }
+    }
+
+    @PreDestroy
+    public void close()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            clients.asMap()
+                    .values()
+                    .forEach(closer::register);
+        }
     }
 }
