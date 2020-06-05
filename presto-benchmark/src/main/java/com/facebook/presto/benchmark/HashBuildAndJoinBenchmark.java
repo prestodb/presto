@@ -112,7 +112,8 @@ public class HashBuildAndJoinBenchmark
                 1_500_000,
                 new PagesIndex.TestingFactory(false),
                 false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                false);
         driversBuilder.add(hashBuilder);
         DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
 

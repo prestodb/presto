@@ -311,6 +311,7 @@ public class TestSqlTask
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),
+                new DataSize(1, MEGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
