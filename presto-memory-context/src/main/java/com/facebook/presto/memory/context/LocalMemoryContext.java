@@ -31,6 +31,12 @@ public interface LocalMemoryContext
     ListenableFuture<?> setBytes(long bytes);
 
     /**
+     * This method will eventually call {@code setBytes(long bytes)} function, after conditionally check against
+     * broadcast memory usage limit based on the value of {@code enforceBroadcastMemoryLimit}.
+     */
+    ListenableFuture<?> setBytes(long bytes, boolean enforceBroadcastMemoryLimit);
+
+    /**
      * This method can return false when there is not enough memory available to satisfy a positive delta allocation
      * ({@code bytes} is greater than the bytes tracked by this LocalMemoryContext).
      * <p/>
@@ -38,6 +44,12 @@ public interface LocalMemoryContext
      * @return true if the bytes tracked by this LocalMemoryContext can be set to {@code bytes}.
      */
     boolean trySetBytes(long bytes);
+
+    /**
+     * This method will eventually call {@code trySetBytes(long bytes)} function, after conditionally check against
+     * broadcast memory usage limit based on the value of {@code enforceBroadcastMemoryLimit}.
+     */
+    boolean trySetBytes(long bytes, boolean enforceBroadcastMemoryLimit);
 
     /**
      * Closes this LocalMemoryContext. Once closed the bytes tracked by this LocalMemoryContext will be set to 0, and
