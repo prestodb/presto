@@ -241,7 +241,7 @@ public class TestBackgroundHiveSplitLoader
     {
         assertEquals(cachingDirectoryLister.getRequestCount(), 0);
 
-        int totalCount = 1000;
+        int totalCount = 50;
         CountDownLatch firstVisit = new CountDownLatch(1);
         List<Future<List<HiveSplit>>> futures = new ArrayList<>();
 
