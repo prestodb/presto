@@ -29,7 +29,6 @@ public class ElasticsearchTableDescription
     private final String tableName;
     private final String schemaName;
     private final String index;
-    private final boolean indexExactMatch;
     private final String type;
     private final Optional<List<ElasticsearchColumn>> columns;
 
@@ -38,7 +37,6 @@ public class ElasticsearchTableDescription
             @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("index") String index,
-            @JsonProperty("indexExactMatch") boolean indexExactMatch,
             @JsonProperty("type") String type,
             @JsonProperty("columns") Optional<List<ElasticsearchColumn>> columns)
     {
@@ -50,7 +48,6 @@ public class ElasticsearchTableDescription
         this.tableName = tableName;
         this.schemaName = schemaName;
         this.index = index;
-        this.indexExactMatch = indexExactMatch;
         this.type = type;
         this.columns = columns;
     }
@@ -74,12 +71,6 @@ public class ElasticsearchTableDescription
     }
 
     @JsonProperty
-    public boolean getIndexExactMatch()
-    {
-        return indexExactMatch;
-    }
-
-    @JsonProperty
     public String getType()
     {
         return type;
@@ -98,7 +89,6 @@ public class ElasticsearchTableDescription
                 .add("tableName", tableName)
                 .add("schemaName", schemaName)
                 .add("index", index)
-                .add("indexExactMatch", indexExactMatch)
                 .add("type", type)
                 .add("columns", columns)
                 .toString();
