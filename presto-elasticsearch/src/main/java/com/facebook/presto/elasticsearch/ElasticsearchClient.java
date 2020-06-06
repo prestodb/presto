@@ -79,7 +79,7 @@ import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Map.Entry;
@@ -187,34 +187,28 @@ public class ElasticsearchClient
         if (tableDescription.getIndexExactMatch()) {
             return ImmutableList.of(tableDescription.getIndex());
         }
-        verify(client != null, "client is null");
-        String[] indices = getIndices(client, new GetIndexRequest());
-        return Arrays.stream(indices)
-                    .filter(index -> index.startsWith(tableDescription.getIndex()))
-                    .collect(toImmutableList());
-    }
-
-    public ClusterSearchShardsResponse getSearchShards(String index)
-    {
-        verify(client != null, "client is null");
-        return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
-    }
-
-    private String[] getIndices(TransportClient client, GetIndexRequest request)
-    {
         try {
-            return retry()
+            String[] result = retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
                     .run("getIndices", () -> client.admin()
                             .indices()
-                            .getIndex(request)
+                            .getIndex(new GetIndexRequest())
                             .actionGet(requestTimeout.toMillis())
                             .getIndices());
+            return Arrays.stream(result)
+                    .filter(index -> index.startsWith(tableDescription.getIndex()))
+                    .collect(toImmutableList());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public ClusterSearchShardsResponse getSearchShards(String index)
+    {
+        verifyNotNull(client, "client is null");
+        return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
     }
 
     private ClusterSearchShardsResponse getSearchShardsResponse(TransportClient client, ClusterSearchShardsRequest request)
@@ -251,7 +245,7 @@ public class ElasticsearchClient
     private List<ElasticsearchColumn> buildColumns(ElasticsearchTableDescription tableDescription)
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
-        verify(client != null, "client is null");
+        verifyNotNull(client, "client is null");
         for (String index : getIndices(tableDescription)) {
             GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
 
