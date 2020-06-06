@@ -24,7 +24,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -48,13 +47,11 @@ public class ElasticsearchSplitManager
     {
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
         ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
-        ElasticsearchTableDescription table = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verify(table != null, "Table no longer exists: %s", tableHandle.toString());
 
-        List<ElasticsearchSplit> splits = client.getSearchShards(table.getIndex()).stream()
+        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
                 .map(shard -> new ElasticsearchSplit(
-                        table.getIndex(),
-                        table.getType(),
+                        tableHandle.getIndex(),
+                        tableHandle.getType(),
                         shard.getId(),
                         shard.getHost(),
                         shard.getPort(),
