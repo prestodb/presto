@@ -27,8 +27,6 @@ import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -55,22 +53,20 @@ public class ElasticsearchSplitManager
         ElasticsearchTableDescription table = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
         verify(table != null, "Table no longer exists: %s", tableHandle.toString());
 
-        List<String> indices = client.getIndices(table);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
-                ElasticsearchSplit split = new ElasticsearchSplit(
-                        index,
-                        table.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort(),
-                        layoutHandle.getTupleDomain());
-                splits.add(split);
-            }
+        String index = table.getIndex();
+        ClusterSearchShardsResponse response = client.getSearchShards(index);
+        DiscoveryNode[] nodes = response.getNodes();
+        for (ClusterSearchShardsGroup group : response.getGroups()) {
+            int nodeIndex = group.getShardId().getId() % nodes.length;
+            ElasticsearchSplit split = new ElasticsearchSplit(
+                    index,
+                    table.getType(),
+                    group.getShardId().getId(),
+                    nodes[nodeIndex].getHostName(),
+                    nodes[nodeIndex].getAddress().getPort(),
+                    layoutHandle.getTupleDomain());
+            splits.add(split);
         }
         return new FixedSplitSource(splits.build());
     }
