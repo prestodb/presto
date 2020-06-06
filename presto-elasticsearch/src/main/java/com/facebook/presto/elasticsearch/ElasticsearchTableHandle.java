@@ -17,26 +17,45 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
+    private final String index;
+    private final String type;
     private final SchemaTableName schemaTableName;
 
     @JsonCreator
     public ElasticsearchTableHandle(
+            @JsonProperty("index") String index,
+            @JsonProperty("type") String type,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
+
+        this.index = requireNonNull(index, "index is null");
+        this.type = requireNonNull(type, "type is null");
         this.schemaTableName = new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
+    }
+
+    @JsonProperty
+    public String getIndex()
+    {
+        return index;
+    }
+
+    @JsonProperty
+    public String getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -74,12 +93,18 @@ public final class ElasticsearchTableHandle
 
         ElasticsearchTableHandle other = (ElasticsearchTableHandle) obj;
         return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
-                Objects.equals(this.getTableName(), other.getTableName());
+                Objects.equals(this.getTableName(), other.getTableName()) &&
+                Objects.equals(this.getIndex(), other.getIndex()) &&
+                Objects.equals(this.getType(), other.getType());
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").join(getSchemaName(), getTableName());
+        return toStringHelper(this)
+                .add("index", getIndex())
+                .add("type", getType())
+                .add("schemaTableName", getSchemaTableName())
+                .toString();
     }
 }

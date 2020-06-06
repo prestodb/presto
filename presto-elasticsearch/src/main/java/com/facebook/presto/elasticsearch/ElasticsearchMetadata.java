@@ -64,7 +64,7 @@ public class ElasticsearchMetadata
             return null;
         }
 
-        return new ElasticsearchTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new ElasticsearchTableHandle(table.getIndex(), table.getType(), tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
