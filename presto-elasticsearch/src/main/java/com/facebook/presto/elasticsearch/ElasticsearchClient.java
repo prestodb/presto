@@ -13,22 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.floragunn.searchguard.ssl.SearchGuardSSLPlugin;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
@@ -48,29 +34,13 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RowType.Field;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CORRUPTED_MAPPING_METADATA;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH;
@@ -82,106 +52,32 @@ import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
 import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.common.cache.CacheLoader.asyncReloading;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ElasticsearchClient
 {
-    private static final Logger LOG = Logger.get(ElasticsearchClient.class);
-
-    private final ExecutorService executor = newFixedThreadPool(1, daemonThreadsNamed("elasticsearch-metadata-%s"));
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
-    private final ElasticsearchTableDescriptionProvider tableDescriptions;
     private final TransportClient client;
-    private final LoadingCache<ElasticsearchTableDescription, List<ColumnMetadata>> columnMetadataCache;
     private final Duration requestTimeout;
     private final int maxAttempts;
     private final Duration maxRetryTime;
 
     @Inject
-    public ElasticsearchClient(ElasticsearchTableDescriptionProvider descriptions, ElasticsearchConfig config)
+    public ElasticsearchClient(ElasticsearchConfig config)
             throws IOException
     {
-        tableDescriptions = requireNonNull(descriptions, "description is null");
-        ElasticsearchConfig configuration = requireNonNull(config, "config is null");
-        requestTimeout = configuration.getRequestTimeout();
-        maxAttempts = configuration.getMaxRequestRetries();
-        maxRetryTime = configuration.getMaxRetryTime();
+        requireNonNull(config, "config is null");
+        requestTimeout = config.getRequestTimeout();
+        maxAttempts = config.getMaxRequestRetries();
+        maxRetryTime = config.getMaxRetryTime();
 
         TransportAddress address = new TransportAddress(InetAddress.getByName(config.getHost()), config.getPort());
         client = createTransportClient(config, address, Optional.of(config.getClusterName()));
-
-        this.columnMetadataCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(30, MINUTES)
-                .refreshAfterWrite(15, MINUTES)
-                .maximumSize(500)
-                .build(asyncReloading(CacheLoader.from(this::loadColumns), executor));
     }
 
     @PreDestroy
     public void tearDown()
     {
-        // Closer closes the resources in reverse order.
-        try (Closer closer = Closer.create()) {
-            closer.register(client);
-            closer.register(executor::shutdown);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    public List<String> listSchemas()
-    {
-        return tableDescriptions.getAllSchemaTableNames()
-                .stream()
-                .map(SchemaTableName::getSchemaName)
-                .collect(toImmutableList());
-    }
-
-    public List<SchemaTableName> listTables(Optional<String> schemaName)
-    {
-        return tableDescriptions.getAllSchemaTableNames()
-                .stream()
-                .filter(schemaTableName -> !schemaName.isPresent() || schemaTableName.getSchemaName().equals(schemaName.get()))
-                .collect(toImmutableList());
-    }
-
-    private List<ColumnMetadata> loadColumns(ElasticsearchTableDescription table)
-    {
-        if (table.getColumns().isPresent()) {
-            return buildMetadata(table.getColumns().get());
-        }
-        return buildMetadata(buildColumns(table));
-    }
-
-    public List<ColumnMetadata> getColumnMetadata(ElasticsearchTableDescription tableDescription)
-    {
-        return columnMetadataCache.getUnchecked(tableDescription);
-    }
-
-    public ElasticsearchTableDescription getTable(String schemaName, String tableName)
-    {
-        requireNonNull(schemaName, "schemaName is null");
-        requireNonNull(tableName, "tableName is null");
-        ElasticsearchTableDescription table = tableDescriptions.get(new SchemaTableName(schemaName, tableName));
-        if (table == null) {
-            return null;
-        }
-        if (table.getColumns().isPresent()) {
-            return table;
-        }
-        return new ElasticsearchTableDescription(
-                table.getTableName(),
-                table.getSchemaName(),
-                table.getIndex(),
-                table.getType(),
-                Optional.of(buildColumns(table)));
+        client.close();
     }
 
     public List<Shard> getSearchShards(String index)
@@ -233,67 +129,14 @@ public class ElasticsearchClient
         return left.primary() ? 1 : -1;
     }
 
-    private List<ColumnMetadata> buildMetadata(List<ElasticsearchColumn> columns)
-    {
-        List<ColumnMetadata> result = new ArrayList<>();
-        for (ElasticsearchColumn column : columns) {
-            Map<String, Object> properties = new HashMap<>();
-            properties.put("originalColumnName", column.getName());
-            properties.put("jsonPath", column.getJsonPath());
-            properties.put("jsonType", column.getJsonType());
-            properties.put("isList", column.isList());
-            properties.put("ordinalPosition", column.getOrdinalPosition());
-            result.add(new ColumnMetadata(column.getName(), column.getType(), "", "", false, properties));
-        }
-        return result;
-    }
-
-    private List<ElasticsearchColumn> buildColumns(ElasticsearchTableDescription tableDescription)
-    {
-        List<ElasticsearchColumn> columns = new ArrayList<>();
-        verifyNotNull(client, "client is null");
-        String index = tableDescription.getIndex();
-        GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
-
-        if (!isNullOrEmpty(index)) {
-            mappingsRequest.indices(index);
-        }
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = getMappings(client, mappingsRequest);
-
-        Iterator<String> indexIterator = mappings.keysIt();
-        while (indexIterator.hasNext()) {
-            // TODO use io.airlift.json.JsonCodec
-            MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
-            JsonNode rootNode;
-            try {
-                rootNode = objectMapper.readTree(mappingMetaData.source().uncompressed());
-            }
-            catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
-            }
-            // parse field mapping JSON: https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-field-mapping.html
-            JsonNode mappingNode = rootNode.get(tableDescription.getType());
-            JsonNode propertiesNode = mappingNode.get("properties");
-
-            List<String> lists = new ArrayList<>();
-            JsonNode metaNode = mappingNode.get("_meta");
-            if (metaNode != null) {
-                JsonNode arrayNode = metaNode.get("lists");
-                if (arrayNode != null && arrayNode.isArray()) {
-                    ArrayNode arrays = (ArrayNode) arrayNode;
-                    for (int i = 0; i < arrays.size(); i++) {
-                        lists.add(arrays.get(i).textValue());
-                    }
-                }
-            }
-            populateColumns(propertiesNode, lists, columns);
-        }
-        return columns;
-    }
-
-    private ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> getMappings(TransportClient client, GetMappingsRequest request)
+    public ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> getMappings(String index, String type)
     {
         try {
+            GetMappingsRequest request = new GetMappingsRequest().types(type);
+            if (!isNullOrEmpty(index)) {
+                request.indices(index);
+            }
+
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
@@ -308,148 +151,6 @@ public class ElasticsearchClient
         }
     }
 
-    private List<String> getColumnMetadata(Optional<String> parent, JsonNode propertiesNode)
-    {
-        ImmutableList.Builder<String> metadata = ImmutableList.builder();
-        Iterator<Entry<String, JsonNode>> iterator = propertiesNode.fields();
-        while (iterator.hasNext()) {
-            Entry<String, JsonNode> entry = iterator.next();
-            String key = entry.getKey();
-            JsonNode value = entry.getValue();
-            String childKey;
-            if (parent.isPresent()) {
-                if (parent.get().isEmpty()) {
-                    childKey = key;
-                }
-                else {
-                    childKey = parent.get().concat(".").concat(key);
-                }
-            }
-            else {
-                childKey = key;
-            }
-
-            if (value.isObject()) {
-                metadata.addAll(getColumnMetadata(Optional.of(childKey), value));
-                continue;
-            }
-
-            if (!value.isArray()) {
-                metadata.add(childKey.concat(":").concat(value.textValue()));
-            }
-        }
-        return metadata.build();
-    }
-
-    private void populateColumns(JsonNode propertiesNode, List<String> arrays, List<ElasticsearchColumn> columns)
-    {
-        FieldNestingComparator comparator = new FieldNestingComparator();
-        TreeMap<String, Type> fieldsMap = new TreeMap<>(comparator);
-        for (String columnMetadata : getColumnMetadata(Optional.empty(), propertiesNode)) {
-            int delimiterIndex = columnMetadata.lastIndexOf(":");
-            if (delimiterIndex == -1 || delimiterIndex == columnMetadata.length() - 1) {
-                LOG.debug("Invalid column path format: %s", columnMetadata);
-                continue;
-            }
-            String fieldName = columnMetadata.substring(0, delimiterIndex);
-            String typeName = columnMetadata.substring(delimiterIndex + 1);
-
-            if (!fieldName.endsWith(".type")) {
-                LOG.debug("Ignoring column with no type info: %s", columnMetadata);
-                continue;
-            }
-            String propertyName = fieldName.substring(0, fieldName.lastIndexOf('.'));
-            String nestedName = propertyName.replaceAll("properties\\.", "");
-            if (nestedName.contains(".")) {
-                fieldsMap.put(nestedName, getPrestoType(typeName));
-            }
-            else {
-                boolean newColumnFound = columns.stream()
-                        .noneMatch(column -> column.getName().equalsIgnoreCase(nestedName));
-                if (newColumnFound) {
-                    columns.add(new ElasticsearchColumn(nestedName, getPrestoType(typeName), nestedName, typeName, arrays.contains(nestedName), -1));
-                }
-            }
-        }
-        processNestedFields(fieldsMap, columns, arrays);
-    }
-
-    private void processNestedFields(TreeMap<String, Type> fieldsMap, List<ElasticsearchColumn> columns, List<String> arrays)
-    {
-        if (fieldsMap.size() == 0) {
-            return;
-        }
-        Entry<String, Type> first = fieldsMap.firstEntry();
-        String field = first.getKey();
-        Type type = first.getValue();
-        if (field.contains(".")) {
-            String prefix = field.substring(0, field.lastIndexOf('.'));
-            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
-            int size = field.split("\\.").length;
-            Iterator<String> iterator = fieldsMap.navigableKeySet().iterator();
-            while (iterator.hasNext()) {
-                String name = iterator.next();
-                if (name.split("\\.").length == size && name.startsWith(prefix)) {
-                    Optional<String> columnName = Optional.of(name.substring(name.lastIndexOf('.') + 1));
-                    Type columnType = fieldsMap.get(name);
-                    Field column = new Field(columnName, columnType);
-                    fieldsBuilder.add(column);
-                    iterator.remove();
-                }
-            }
-            fieldsMap.put(prefix, RowType.from(fieldsBuilder.build()));
-        }
-        else {
-            boolean newColumnFound = columns.stream()
-                    .noneMatch(column -> column.getName().equalsIgnoreCase(field));
-            if (newColumnFound) {
-                columns.add(new ElasticsearchColumn(field, type, field, type.getDisplayName(), arrays.contains(field), -1));
-            }
-            fieldsMap.remove(field);
-        }
-        processNestedFields(fieldsMap, columns, arrays);
-    }
-
-    private static Type getPrestoType(String elasticsearchType)
-    {
-        switch (elasticsearchType) {
-            case "double":
-            case "float":
-                return DOUBLE;
-            case "integer":
-                return INTEGER;
-            case "long":
-                return BIGINT;
-            case "string":
-            case "text":
-            case "keyword":
-                return VARCHAR;
-            case "boolean":
-                return BOOLEAN;
-            case "binary":
-                return VARBINARY;
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + elasticsearchType);
-        }
-    }
-
-    private static class FieldNestingComparator
-            implements Comparator<String>
-    {
-        FieldNestingComparator() {}
-
-        @Override
-        public int compare(String left, String right)
-        {
-            // comparator based on levels of nesting
-            int leftLength = left.split("\\.").length;
-            int rightLength = right.split("\\.").length;
-            if (leftLength == rightLength) {
-                return left.compareTo(right);
-            }
-            return rightLength - leftLength;
-        }
-    }
     static TransportClient createTransportClient(ElasticsearchConfig config, TransportAddress address)
     {
         return createTransportClient(config, address, Optional.empty());
