@@ -40,13 +40,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.common.collect.ImmutableOpenMap;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -66,10 +63,10 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RowType.Field;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CORRUPTED_MAPPING_METADATA;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.builder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -166,7 +163,7 @@ public class ElasticsearchMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = builder();
         int index = 0;
         for (ColumnMetadata column : getColumnMetadata(table)) {
             Map<String, Object> properties = column.getProperties();
@@ -206,7 +203,7 @@ public class ElasticsearchMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
@@ -277,37 +274,22 @@ public class ElasticsearchMetadata
 
     private List<ElasticsearchColumn> buildColumns(ElasticsearchTableDescription tableDescription)
     {
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = client.getMappings(tableDescription.getIndex(), tableDescription.getType());
+        JsonNode mappings = client.getMappings(tableDescription.getIndex(), tableDescription.getType());
+        JsonNode propertiesNode = mappings.get("properties");
 
         List<ElasticsearchColumn> columns = new ArrayList<>();
-        Iterator<String> indexIterator = mappings.keysIt();
-        while (indexIterator.hasNext()) {
-            // TODO use io.airlift.json.JsonCodec
-            MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
-            JsonNode rootNode;
-            try {
-                rootNode = objectMapper.readTree(mappingMetaData.source().uncompressed());
-            }
-            catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
-            }
-            // parse field mapping JSON: https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-field-mapping.html
-            JsonNode mappingNode = rootNode.get(tableDescription.getType());
-            JsonNode propertiesNode = mappingNode.get("properties");
-
-            List<String> lists = new ArrayList<>();
-            JsonNode metaNode = mappingNode.get("_meta");
-            if (metaNode != null) {
-                JsonNode arrayNode = metaNode.get("lists");
-                if (arrayNode != null && arrayNode.isArray()) {
-                    ArrayNode arrays = (ArrayNode) arrayNode;
-                    for (int i = 0; i < arrays.size(); i++) {
-                        lists.add(arrays.get(i).textValue());
-                    }
+        List<String> lists = new ArrayList<>();
+        JsonNode metaNode = mappings.get("_meta");
+        if (metaNode != null) {
+            JsonNode arrayNode = metaNode.get("lists");
+            if (arrayNode != null && arrayNode.isArray()) {
+                ArrayNode arrays = (ArrayNode) arrayNode;
+                for (int i = 0; i < arrays.size(); i++) {
+                    lists.add(arrays.get(i).textValue());
                 }
             }
-            populateColumns(propertiesNode, lists, columns);
         }
+        populateColumns(propertiesNode, lists, columns);
         return columns;
     }
 

@@ -29,7 +29,7 @@ public class ElasticsearchTableDescription
     private final String tableName;
     private final String schemaName;
     private final String index;
-    private final String type;
+    private final Optional<String> type;
     private final Optional<List<ElasticsearchColumn>> columns;
 
     @JsonCreator
@@ -37,13 +37,13 @@ public class ElasticsearchTableDescription
             @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
+            @JsonProperty("type") Optional<String> type,
             @JsonProperty("columns") Optional<List<ElasticsearchColumn>> columns)
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or empty");
         checkArgument(!isNullOrEmpty(schemaName), "schemaName is null or empty");
         checkArgument(!isNullOrEmpty(index), "index is null or empty");
-        checkArgument(!isNullOrEmpty(type), "type is null or empty");
+        requireNonNull(type, "type is null");
         requireNonNull(columns, "columns is null");
         this.tableName = tableName;
         this.schemaName = schemaName;
@@ -71,7 +71,7 @@ public class ElasticsearchTableDescription
     }
 
     @JsonProperty
-    public String getType()
+    public Optional<String> getType()
     {
         return type;
     }
@@ -89,7 +89,7 @@ public class ElasticsearchTableDescription
                 .add("tableName", tableName)
                 .add("schemaName", schemaName)
                 .add("index", index)
-                .add("type", type)
+                .add("type", type.orElse("<none>"))
                 .add("columns", columns)
                 .toString();
     }
