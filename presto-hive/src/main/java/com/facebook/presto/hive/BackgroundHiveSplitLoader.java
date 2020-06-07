@@ -324,7 +324,8 @@ public class BackgroundHiveSplitLoader
                         getNodeSelectionStrategy(session),
                         s3SelectPushdownEnabled,
                         new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty()),
-                        schedulerUsesHostAddresses);
+                        schedulerUsesHostAddresses,
+                        partition.getEncryptionInformation());
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -364,7 +365,8 @@ public class BackgroundHiveSplitLoader
                         partitionDataColumnCount,
                         partition.getPartitionSchemaDifference(),
                         bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
-                schedulerUsesHostAddresses);
+                schedulerUsesHostAddresses,
+                partition.getEncryptionInformation());
 
         if (!isHudiInputFormat(inputFormat) && shouldUseFileSplitsFromInputFormat(inputFormat)) {
             if (tableBucketInfo.isPresent()) {

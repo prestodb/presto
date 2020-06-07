@@ -251,6 +251,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static com.facebook.presto.hive.TestEncryptionInformationSource.createEncryptionInformation;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -719,6 +720,7 @@ public abstract class AbstractTestHiveClient
     protected HiveTransactionManager transactionManager;
     protected HivePartitionManager hivePartitionManager;
     protected ExtendedHiveMetastore metastoreClient;
+    protected HiveEncryptionInformationProvider encryptionInformationProvider;
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSourceProvider pageSourceProvider;
     protected ConnectorPageSinkProvider pageSinkProvider;
@@ -946,6 +948,7 @@ public abstract class AbstractTestHiveClient
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder());
         transactionManager = new HiveTransactionManager();
+        encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of(new TestEncryptionInformationSource(Optional.of(createEncryptionInformation("test1")))));
         splitManager = new HiveSplitManager(
                 transactionManager,
                 new NamenodeStats(),
@@ -962,7 +965,8 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 cacheConfig.getCacheQuotaScope(),
-                cacheConfig.getDefaultCacheQuota());
+                cacheConfig.getDefaultCacheQuota(),
+                encryptionInformationProvider);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig, metastoreClientConfig),
                 hdfsEnvironment,
@@ -1679,6 +1683,68 @@ public abstract class AbstractTestHiveClient
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT);
 
             assertEquals(getSplitCount(splitSource), partitionCount);
+        }
+    }
+
+    @Test
+    public void testGetEncryptionInformationInPartitionedTable()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_encrypt_with_partitions");
+        ConnectorTableHandle tableHandle = new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        try {
+            doInsertIntoNewPartition(ORC, tableName, PageSinkProperties.defaultProperties());
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+
+                ConnectorTableLayout tableLayout = getTableLayout(session, metadata, tableHandle, Constraint.alwaysTrue(), transaction);
+                ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT);
+                List<ConnectorSplit> allSplits = getAllSplits(splitSource);
+
+                assertTrue(allSplits.size() >= 1, "There should be atleast 1 split");
+
+                for (ConnectorSplit split : allSplits) {
+                    HiveSplit hiveSplit = (HiveSplit) split;
+                    assertTrue(hiveSplit.getEncryptionInformation().isPresent());
+                    assertTrue(hiveSplit.getEncryptionInformation().get().getDwrfEncryptionMetadata().isPresent());
+                }
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testGetEncryptionInformationInUnpartitionedTable()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_encrypt_with_no_partitions");
+        ConnectorTableHandle tableHandle = new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        try {
+            doInsert(ORC, tableName, PageSinkProperties.defaultProperties());
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+
+                ConnectorTableLayout tableLayout = getTableLayout(session, metadata, tableHandle, Constraint.alwaysTrue(), transaction);
+                ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT);
+                List<ConnectorSplit> allSplits = getAllSplits(splitSource);
+
+                assertTrue(allSplits.size() >= 1, "There should be atleast 1 split");
+
+                for (ConnectorSplit split : allSplits) {
+                    HiveSplit hiveSplit = (HiveSplit) split;
+                    assertTrue(hiveSplit.getEncryptionInformation().isPresent());
+                    assertTrue(hiveSplit.getEncryptionInformation().get().getDwrfEncryptionMetadata().isPresent());
+                }
+            }
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 

@@ -503,7 +503,8 @@ class HiveSplitSource
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getExtraFileInfo(),
-                        new CacheQuotaRequirement(cacheQuotaScope, configuredCacheQuota)));
+                        new CacheQuotaRequirement(cacheQuotaScope, configuredCacheQuota),
+                        internalSplit.getEncryptionInformation()));
 
                 internalSplit.increaseStart(splitBytes);
 
