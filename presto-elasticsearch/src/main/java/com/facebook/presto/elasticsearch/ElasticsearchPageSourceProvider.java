@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -27,31 +29,36 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchSplitManager
-        implements ConnectorSplitManager
+public class ElasticsearchPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
 
     @Inject
-    public ElasticsearchSplitManager(ElasticsearchClient client)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
     {
         this.client = requireNonNull(client, "client is null");
     }
 
     @Override
-    public ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transactionHandle,
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
+            ConnectorSplit split,
             ConnectorTableLayoutHandle layout,
-            SplitSchedulingContext splitSchedulingContext)
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
     {
+        requireNonNull(split, "split is null");
+        requireNonNull(layout, "layout is null");
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
-        ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
-
-        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
-                .map(shard -> new ElasticsearchSplit(shard.getId(), layoutHandle.getTupleDomain(), shard.getAddress()))
-                .collect(toImmutableList());
-
-        return new FixedSplitSource(splits);
+        return new ElasticsearchPageSource(
+                client,
+                session,
+                layoutHandle.getTable(),
+                (ElasticsearchSplit) split,
+                columns.stream()
+                        .map(ElasticsearchColumnHandle.class::cast)
+                        .collect(toImmutableList()));
     }
 }
