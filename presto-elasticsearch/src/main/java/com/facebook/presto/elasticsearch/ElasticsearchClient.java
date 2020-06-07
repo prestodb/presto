@@ -13,188 +13,347 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.floragunn.searchguard.ssl.SearchGuardSSLPlugin;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
+import com.google.common.collect.ImmutableMap;
+import org.apache.http.HttpHost;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.routing.ShardRouting;
-import org.elasticsearch.common.collect.ImmutableOpenMap;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.Settings.Builder;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import javax.security.auth.x500.X500Principal;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.InetAddress;
+import java.io.InputStream;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.elasticsearch.RetryDriver.retry;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
+import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
+import static java.util.Collections.list;
 
 public class ElasticsearchClient
 {
-    private final TransportClient client;
-    private final Duration requestTimeout;
-    private final int maxAttempts;
-    private final Duration maxRetryTime;
+    private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
+    private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    private final RestHighLevelClient client;
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config)
-            throws IOException
     {
-        requireNonNull(config, "config is null");
-        requestTimeout = config.getRequestTimeout();
-        maxAttempts = config.getMaxRequestRetries();
-        maxRetryTime = config.getMaxRetryTime();
+        client = createClient(config);
+        // discover other nodes in the cluster and add them to the client
+        // TODO: refresh periodically
+        HttpHost[] hosts = getNodes().values().stream()
+                .map(Node::getAddress)
+                .map(address -> HttpHost.create(format("%s://%s", config.isTlsEnabled() ? "https" : "http", address)))
+                .toArray(HttpHost[]::new);
 
-        TransportAddress address = new TransportAddress(InetAddress.getByName(config.getHost()), config.getPort());
-        client = createTransportClient(config, address, Optional.of(config.getClusterName()));
+        client.getLowLevelClient().setHosts(hosts);
     }
 
     @PreDestroy
-    public void tearDown()
+    public void close()
+            throws IOException
     {
         client.close();
     }
 
+    private static RestHighLevelClient createClient(ElasticsearchConfig config)
+    {
+        RestClientBuilder builder = RestClient.builder(
+                new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                .setRequestConfigCallback(
+                        configBuilder -> configBuilder
+                                .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
+                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())));
+
+        if (config.isTlsEnabled()) {
+            builder.setHttpClientConfigCallback(clientBuilder -> {
+                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
+                        .ifPresent(clientBuilder::setSSLContext);
+
+                if (config.isVerifyHostnames()) {
+                    clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+                }
+
+                return clientBuilder;
+            });
+        }
+
+        return new RestHighLevelClient(builder);
+    }
+
+    private static Optional<SSLContext> buildSslContext(
+            Optional<File> keyStorePath,
+            Optional<String> keyStorePassword,
+            Optional<File> trustStorePath,
+            Optional<String> trustStorePassword)
+    {
+        if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
+            return Optional.empty();
+        }
+
+        try {
+            // load KeyStore if configured and get KeyManagers
+            KeyStore keyStore = null;
+            KeyManager[] keyManagers = null;
+            if (keyStorePath.isPresent()) {
+                char[] keyManagerPassword;
+                try {
+                    // attempt to read the key store as a PEM file
+                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                    // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
+                    keyManagerPassword = new char[0];
+                }
+                catch (IOException | GeneralSecurityException ignored) {
+                    keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
+
+                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
+                        keyStore.load(in, keyManagerPassword);
+                    }
+                }
+
+                validateCertificates(keyStore);
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keyStore, keyManagerPassword);
+                keyManagers = keyManagerFactory.getKeyManagers();
+            }
+
+            // load TrustStore if configured, otherwise use KeyStore
+            KeyStore trustStore = keyStore;
+            if (trustStorePath.isPresent()) {
+                trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword);
+            }
+
+            // create TrustManagerFactory
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(trustStore);
+
+            // get X509TrustManager
+            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
+            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
+            }
+            X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
+
+            // create SSLContext
+            SSLContext result = SSLContext.getInstance("SSL");
+            result.init(keyManagers, new TrustManager[] {trustManager}, null);
+            return Optional.of(result);
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new PrestoException(ELASTICSEARCH_SSL_INITIALIZATION_FAILURE, e);
+        }
+    }
+
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+            throws IOException, GeneralSecurityException
+    {
+        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        try {
+            // attempt to read the trust store as a PEM file
+            List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
+            if (!certificateChain.isEmpty()) {
+                trustStore.load(null, null);
+                for (X509Certificate certificate : certificateChain) {
+                    X500Principal principal = certificate.getSubjectX500Principal();
+                    trustStore.setCertificateEntry(principal.getName(), certificate);
+                }
+                return trustStore;
+            }
+        }
+        catch (IOException | GeneralSecurityException ignored) {
+        }
+
+        try (InputStream in = new FileInputStream(trustStorePath)) {
+            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
+        }
+        return trustStore;
+    }
+
+    private static void validateCertificates(KeyStore keyStore)
+            throws GeneralSecurityException
+    {
+        for (String alias : list(keyStore.aliases())) {
+            if (!keyStore.isKeyEntry(alias)) {
+                continue;
+            }
+            Certificate certificate = keyStore.getCertificate(alias);
+            if (!(certificate instanceof X509Certificate)) {
+                continue;
+            }
+            try {
+                ((X509Certificate) certificate).checkValidity();
+            }
+            catch (CertificateExpiredException e) {
+                throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());
+            }
+            catch (CertificateNotYetValidException e) {
+                throw new CertificateNotYetValidException("KeyStore certificate is not yet valid: " + e.getMessage());
+            }
+        }
+    }
+
+    public Map<String, Node> getNodes()
+    {
+        NodesResponse nodesResponse = doRequest("_nodes/http", NODES_RESPONSE_CODEC::fromJson);
+
+        ImmutableMap.Builder<String, Node> result = ImmutableMap.builder();
+        for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
+            String nodeId = entry.getKey();
+            NodesResponse.Node node = entry.getValue();
+
+            if (node.getRoles().contains("data")) {
+                result.put(nodeId, new Node(nodeId, node.getHttp().getAddress()));
+            }
+        }
+        return result.build();
+    }
+
     public List<Shard> getSearchShards(String index)
     {
-        try {
-            ClusterSearchShardsResponse result = retry()
-                    .maxAttempts(maxAttempts)
-                    .exponentialBackoff(maxRetryTime)
-                    .run("getSearchShardsResponse", () -> client.admin()
-                            .cluster()
-                            .searchShards(new ClusterSearchShardsRequest(index))
-                            .actionGet(requestTimeout.toMillis()));
+        Map<String, Node> nodeById = getNodes();
 
-            ImmutableList.Builder<Shard> shards = ImmutableList.builder();
-            DiscoveryNode[] nodes = result.getNodes();
-            Map<String, DiscoveryNode> nodeById = Arrays.stream(nodes)
-                    .collect(Collectors.toMap(DiscoveryNode::getId, node -> node));
+        SearchShardsResponse shardsResponse = doRequest(format("%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
-            for (ClusterSearchShardsGroup group : result.getGroups()) {
-                Optional<ShardRouting> routing = Arrays.stream(group.getShards())
-                        .filter(ShardRouting::assignedToNode)
-                        .sorted(this::shardPreference)
-                        .findFirst();
+        ImmutableList.Builder<Shard> shards = ImmutableList.builder();
+        List<Node> nodes = ImmutableList.copyOf(nodeById.values());
 
-                DiscoveryNode node;
-                if (routing.isPresent()) {
-                    node = nodeById.get(routing.get().currentNodeId());
-                }
-                else {
-                    // pick an arbitrary node
-                    node = nodes[group.getShardId().getId() % nodes.length];
-                }
+        for (List<SearchShardsResponse.Shard> shardGroup : shardsResponse.getShardGroups()) {
+            Stream<SearchShardsResponse.Shard> preferred = shardGroup.stream()
+                    .sorted(this::shardPreference);
 
-                shards.add(new Shard(group.getShardId().getId(), node.getHostName(), node.getAddress().getPort()));
+            Optional<SearchShardsResponse.Shard> candidate = preferred
+                    .filter(shard -> shard.getNode() != null && nodeById.containsKey(shard.getNode()))
+                    .findFirst();
+
+            SearchShardsResponse.Shard chosen;
+            Node node;
+            if (candidate.isPresent()) {
+                chosen = candidate.get();
+                node = nodeById.get(chosen.getNode());
             }
-            return shards.build();
+            else {
+                // pick an arbitrary shard with and assign to an arbitrary node
+                chosen = preferred.findFirst().get();
+                node = nodes.get(chosen.getShard() % nodes.size());
+            }
+            shards.add(new Shard(chosen.getShard(), node.getAddress()));
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+
+        return shards.build();
     }
 
-    private int shardPreference(ShardRouting left, ShardRouting right)
+    private int shardPreference(SearchShardsResponse.Shard left, SearchShardsResponse.Shard right)
     {
         // Favor non-primary shards
-        if (left.primary() == right.primary()) {
+        if (left.isPrimary() == right.isPrimary()) {
             return 0;
         }
-        return left.primary() ? 1 : -1;
+
+        return left.isPrimary() ? 1 : -1;
     }
 
-    public ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> getMappings(String index, String type)
+    private <T> T doRequest(String path, ResponseHandler<T> handler)
     {
+        Response response;
         try {
-            GetMappingsRequest request = new GetMappingsRequest().types(type);
-            if (!isNullOrEmpty(index)) {
-                request.indices(index);
-            }
+            response = client.getLowLevelClient()
+                    .performRequest("GET", path);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
 
-            return retry()
-                    .maxAttempts(maxAttempts)
-                    .exponentialBackoff(maxRetryTime)
-                    .run("getMappings", () -> client.admin()
-                            .indices()
-                            .getMappings(request)
-                            .actionGet(requestTimeout.toMillis())
-                            .getMappings());
+        String body;
+        try {
+            body = EntityUtils.toString(response.getEntity());
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
+
+        return handler.process(body);
     }
 
-    static TransportClient createTransportClient(ElasticsearchConfig config, TransportAddress address)
+    public JsonNode getMappings(String index, Optional<String> type)
     {
-        return createTransportClient(config, address, Optional.empty());
-    }
+        GetMappingsRequest request = new GetMappingsRequest();
 
-    static TransportClient createTransportClient(ElasticsearchConfig config, TransportAddress address, Optional<String> clusterName)
-    {
-        Settings settings;
-        Builder builder;
-        TransportClient client;
-        if (clusterName.isPresent()) {
-            builder = Settings.builder()
-                    .put("cluster.name", clusterName.get());
+        String path;
+        if (type.isPresent()) {
+            path = format("%s/%s/_mapping", index, type.get());
+            request.types(type.get());
         }
         else {
-            builder = Settings.builder()
-                    .put("client.transport.ignore_cluster_name", true);
+            path = format("%s/_mapping", index);
         }
-        switch (config.getCertificateFormat()) {
-            case PEM:
-                settings = builder
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH, config.getPemcertFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH, config.getPemkeyFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD, config.getPemkeyPassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH, config.getPemtrustedcasFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
-                        .build();
-                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
-                break;
-            case JKS:
-                settings = Settings.builder()
-                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH, config.getKeystoreFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH, config.getTruststoreFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD, config.getKeystorePassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD, config.getTruststorePassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
-                        .build();
-                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
-                break;
-            default:
-                settings = builder.build();
-                client = new PreBuiltTransportClient(settings).addTransportAddress(address);
-                break;
+
+        if (!isNullOrEmpty(index)) {
+            request.indices(index);
         }
+
+        JsonNode root = doRequest(path, body -> {
+            try {
+                return OBJECT_MAPPER.readTree(body);
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        });
+
+        JsonNode mappings = root.get(index).get("mappings");
+        if (type.isPresent()) {
+            mappings = mappings.get(type.get());
+        }
+
+        return mappings;
+    }
+
+    public RestHighLevelClient getRestClient()
+    {
         return client;
+    }
+
+    private interface ResponseHandler<T>
+    {
+        T process(String body);
     }
 }
