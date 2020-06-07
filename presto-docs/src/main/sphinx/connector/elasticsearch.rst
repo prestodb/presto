@@ -84,7 +84,7 @@ This property is optional; the default is ``1000``.
 
 This property defines the amount of time Elasticsearch will keep the `search context alive`_ for scroll requests
 
-This property is optional; the default is ``1s``.
+This property is optional; the default is ``1m``.
 
 .. _search context alive: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context
 
