@@ -29,11 +29,8 @@ import static java.util.Objects.requireNonNull;
 class TestingElasticsearchConnectorFactory
         extends ElasticsearchConnectorFactory
 {
-    private final ElasticsearchTableDescriptionProvider tableDescriptionSupplier;
-
-    TestingElasticsearchConnectorFactory(ElasticsearchTableDescriptionProvider tableDescriptionSupplier)
+    TestingElasticsearchConnectorFactory()
     {
-        this.tableDescriptionSupplier = tableDescriptionSupplier;
     }
 
     @Override
@@ -61,7 +58,6 @@ class TestingElasticsearchConnectorFactory
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(ElasticsearchTableDescriptionProvider.class).toInstance(tableDescriptionSupplier);
                     });
 
             Injector injector = app.strictConfig()
