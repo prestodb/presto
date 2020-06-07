@@ -22,12 +22,17 @@ import com.facebook.presto.spi.RecordCursor;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.elasticsearch.action.search.ClearScrollRequest;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -36,6 +41,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -56,26 +62,24 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
-import static org.elasticsearch.search.sort.SortOrder.ASC;
 
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
     private static final JsonCodec<Object> VALUE_CODEC = jsonCodec(Object.class);
 
-    private final TransportClient client;
+    private final RestHighLevelClient client;
     private final int scrollSize;
     private final Duration scrollTimeout;
     private final int maxAttempts;
     private final Duration maxRetryTime;
-    private final Duration requestTimeout;
 
     private final List<ElasticsearchColumnHandle> columns;
     private final Map<String, Integer> jsonPathToIndex = new HashMap<>();
     private final int maxHits;
     private final TupleDomain<ColumnHandle> constraint;
     private final List<String> fieldsNames;
-    private final String type;
+    private final Optional<String> type;
     private final int shard;
     private final String indices;
 
@@ -85,13 +89,13 @@ public class ElasticsearchRecordCursor
     private String scrollId;
     private int currentPosition;
 
-    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columns, ElasticsearchConfig config, ElasticsearchSplit split)
+    public ElasticsearchRecordCursor(ElasticsearchClient client, List<ElasticsearchColumnHandle> columns, ElasticsearchConfig config, ElasticsearchSplit split)
     {
         requireNonNull(client, "client is null");
         requireNonNull(columns, "columnHandle is null");
         requireNonNull(config, "config is null");
 
-        this.client = client;
+        this.client = client.getRestClient();
         this.columns = columns;
         this.type = split.getType();
         this.shard = split.getShard();
@@ -102,7 +106,6 @@ public class ElasticsearchRecordCursor
         this.scrollTimeout = config.getScrollTimeout();
         this.maxAttempts = config.getMaxRequestRetries();
         this.maxRetryTime = config.getMaxRetryTime();
-        this.requestTimeout = config.getRequestTimeout();
 
         for (int i = 0; i < columns.size(); i++) {
             jsonPathToIndex.put(columns.get(i).getColumnJsonPath(), i);
@@ -232,29 +235,37 @@ public class ElasticsearchRecordCursor
     public void close()
     {
         if (scrollId != null) {
-            client.prepareClearScroll()
-                    .addScrollId(scrollId)
-                    .execute();
+            ClearScrollRequest request = new ClearScrollRequest();
+            request.addScrollId(scrollId);
+            try {
+                client.clearScroll(request);
+            }
+            catch (IOException e) {
+                // ignore
+            }
         }
     }
 
     private SearchResponse begin()
     {
         try {
+            SearchRequest request = new SearchRequest(indices)
+                    .searchType(QUERY_THEN_FETCH)
+                    .preference("_shards:" + shard)
+                    .scroll(new TimeValue(scrollTimeout.toMillis()))
+                    .source(SearchSourceBuilder.searchSource()
+                            .fetchSource(fieldsNames.toArray(new String[0]), null)
+                            .query(buildSearchQuery(constraint, columns))
+                            .size(scrollSize));
+
+            type.ifPresent(request::types);
+
+            // TODO: RestHighLevelClient has a retry mechanism, so this results in two levels
+            // of retry. Figure out what we want to do here
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("searchRequest", () -> client.prepareSearch(indices)
-                            .setTypes(type)
-                            .setSearchType(QUERY_THEN_FETCH)
-                            .setFetchSource(fieldsNames.toArray(new String[0]), null)
-                            .setQuery(buildSearchQuery(constraint, columns))
-                            .setPreference("_shards:" + shard)
-                            .addSort("_doc", ASC)
-                            .setSize(scrollSize)
-                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
+                    .run("searchRequest", () -> client.search(request));
         }
         catch (Exception e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -264,13 +275,15 @@ public class ElasticsearchRecordCursor
     private SearchResponse nextPage()
     {
         try {
+            SearchScrollRequest request = new SearchScrollRequest(scrollId)
+                    .scroll(new TimeValue(scrollTimeout.toMillis()));
+
+            // TODO: RestHighLevelClient has a retry mechanism, so this results in two levels
+            // of retry. Figure out what we want to do here
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("scrollRequest", () -> client.prepareSearchScroll(scrollId)
-                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
+                    .run("scrollRequest", () -> client.searchScroll(request));
         }
         catch (Exception e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);

@@ -53,9 +53,8 @@ public class ElasticsearchSplitManager
                         tableHandle.getIndex(),
                         tableHandle.getType(),
                         shard.getId(),
-                        shard.getHost(),
-                        shard.getPort(),
-                        layoutHandle.getTupleDomain()))
+                        layoutHandle.getTupleDomain(),
+                        shard.getAddress()))
                 .collect(toImmutableList());
 
         return new FixedSplitSource(splits);

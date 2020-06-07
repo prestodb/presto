@@ -18,14 +18,12 @@ import static java.util.Objects.requireNonNull;
 public class Shard
 {
     private final int id;
-    private final String host;
-    private final int port;
+    private final String address;
 
-    public Shard(int id, String host, int port)
+    public Shard(int id, String address)
     {
         this.id = id;
-        this.host = requireNonNull(host, "host is null");
-        this.port = port;
+        this.address = requireNonNull(address, "address is null");
     }
 
     public int getId()
@@ -33,13 +31,8 @@ public class Shard
         return id;
     }
 
-    public String getHost()
+    public String getAddress()
     {
-        return host;
-    }
-
-    public int getPort()
-    {
-        return port;
+        return address;
     }
 }
