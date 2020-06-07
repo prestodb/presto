@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -32,27 +33,24 @@ public class ElasticsearchSplit
         implements ConnectorSplit
 {
     private final String index;
-    private final String type;
+    private final Optional<String> type;
     private final int shard;
-    private final String searchNode;
-    private final int port;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private final String address;
 
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
+            @JsonProperty("type") Optional<String> type,
             @JsonProperty("shard") int shard,
-            @JsonProperty("searchNode") String searchNode,
-            @JsonProperty("port") int port,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
+            @JsonProperty("address") String address)
     {
         this.index = requireNonNull(index, "index is null");
         this.type = requireNonNull(type, "index is null");
-        this.searchNode = requireNonNull(searchNode, "searchNode is null");
-        this.port = port;
         this.shard = shard;
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+        this.address = requireNonNull(address, "address is null");
     }
 
     @JsonProperty
@@ -62,7 +60,7 @@ public class ElasticsearchSplit
     }
 
     @JsonProperty
-    public String getType()
+    public Optional<String> getType()
     {
         return type;
     }
@@ -74,15 +72,9 @@ public class ElasticsearchSplit
     }
 
     @JsonProperty
-    public String getSearchNode()
+    public String getAddress()
     {
-        return searchNode;
-    }
-
-    @JsonProperty
-    public int getPort()
-    {
-        return port;
+        return address;
     }
 
     @JsonProperty
@@ -100,7 +92,7 @@ public class ElasticsearchSplit
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return ImmutableList.of(HostAddress.fromParts(searchNode, port));
+        return ImmutableList.of(HostAddress.fromString(address));
     }
 
     @Override
@@ -116,9 +108,8 @@ public class ElasticsearchSplit
                 .addValue(index)
                 .addValue(type)
                 .addValue(shard)
-                .addValue(port)
-                .addValue(searchNode)
                 .addValue(tupleDomain)
+                .addValue(address)
                 .toString();
     }
 }
