@@ -21,14 +21,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.elasticsearch.action.search.ClearScrollRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -51,6 +58,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,10 +68,10 @@ import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.list;
+import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
 {
@@ -72,11 +80,17 @@ public class ElasticsearchClient
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private final RestHighLevelClient client;
+    private final int scrollSize;
+    private final Duration scrollTimeout;
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config)
     {
         client = createClient(config);
+
+        this.scrollSize = config.getScrollSize();
+        this.scrollTimeout = config.getScrollTimeout();
+
         // discover other nodes in the cluster and add them to the client
         // TODO: refresh periodically
         HttpHost[] hosts = getNodes().values().stream()
@@ -291,6 +305,135 @@ public class ElasticsearchClient
         return left.isPrimary() ? 1 : -1;
     }
 
+    public List<String> getIndexes()
+    {
+        return doRequest("_cat/indices?h=index&format=json&s=index:asc", body -> {
+            try {
+                ImmutableList.Builder<String> result = ImmutableList.builder();
+                JsonNode root = OBJECT_MAPPER.readTree(body);
+                for (int i = 0; i < root.size(); i++) {
+                    result.add(root.get(i).get("index").asText());
+                }
+                return result.build();
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        });
+    }
+
+    public IndexMetadata getIndexMetadata(String index)
+    {
+        String path = format("/%s/_mappings", index);
+
+        return doRequest(path, body -> {
+            try {
+                JsonNode mappings = OBJECT_MAPPER.readTree(body)
+                        .get(index)
+                        .get("mappings");
+
+                if (!mappings.has("properties")) {
+                    // Older versions of ElasticSearch supported multiple "type" mappings
+                    // for a given index. Newer versions support only one and don't
+                    // expose it in the document. Here we skip it if it's present.
+                    mappings = mappings.elements().next();
+                }
+
+                return new IndexMetadata(parseType(mappings.get("properties")));
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        });
+    }
+
+    private IndexMetadata.ObjectType parseType(JsonNode properties)
+    {
+        Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
+
+        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
+        while (entries.hasNext()) {
+            Map.Entry<String, JsonNode> field = entries.next();
+
+            String name = field.getKey();
+            JsonNode value = field.getValue();
+            if (value.has("type")) {
+                String type = value.get("type").asText();
+
+                if (type.equals("date")) {
+                    List<String> formats = ImmutableList.of();
+                    if (value.has("format")) {
+                        formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
+                    }
+                    result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
+                }
+                else {
+                    result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
+                }
+            }
+            else if (value.has("properties")) {
+                result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
+            }
+        }
+
+        return new IndexMetadata.ObjectType(result.build());
+    }
+
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields)
+    {
+        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
+                .query(query)
+                .size(scrollSize);
+
+        fields.ifPresent(values -> {
+            if (values.isEmpty()) {
+                sourceBuilder.fetchSource(false);
+            }
+            else {
+                sourceBuilder.fetchSource(values.toArray(new String[0]), null);
+            }
+        });
+        documentFields.forEach(sourceBuilder::docValueField);
+
+        SearchRequest request = new SearchRequest(index)
+                .searchType(QUERY_THEN_FETCH)
+                .preference("_shards:" + shard)
+                .scroll(new TimeValue(scrollTimeout.toMillis()))
+                .source(sourceBuilder);
+
+        try {
+            return client.search(request);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
+    public SearchResponse nextPage(String scrollId)
+    {
+        SearchScrollRequest request = new SearchScrollRequest(scrollId)
+                .scroll(new TimeValue(scrollTimeout.toMillis()));
+
+        try {
+            return client.searchScroll(request);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
+    public void clearScroll(String scrollId)
+    {
+        ClearScrollRequest request = new ClearScrollRequest();
+        request.addScrollId(scrollId);
+        try {
+            client.clearScroll(request);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
     private <T> T doRequest(String path, ResponseHandler<T> handler)
     {
         Response response;
@@ -309,47 +452,7 @@ public class ElasticsearchClient
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
-
         return handler.process(body);
-    }
-
-    public JsonNode getMappings(String index, Optional<String> type)
-    {
-        GetMappingsRequest request = new GetMappingsRequest();
-
-        String path;
-        if (type.isPresent()) {
-            path = format("%s/%s/_mapping", index, type.get());
-            request.types(type.get());
-        }
-        else {
-            path = format("%s/_mapping", index);
-        }
-
-        if (!isNullOrEmpty(index)) {
-            request.indices(index);
-        }
-
-        JsonNode root = doRequest(path, body -> {
-            try {
-                return OBJECT_MAPPER.readTree(body);
-            }
-            catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
-            }
-        });
-
-        JsonNode mappings = root.get(index).get("mappings");
-        if (type.isPresent()) {
-            mappings = mappings.get(type.get());
-        }
-
-        return mappings;
-    }
-
-    public RestHighLevelClient getRestClient()
-    {
-        return client;
     }
 
     private interface ResponseHandler<T>
