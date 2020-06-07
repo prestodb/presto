@@ -91,7 +91,8 @@ public class TestHiveSplit
                         ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
                 false,
                 Optional.empty(),
-                NO_CACHE_REQUIREMENT);
+                NO_CACHE_REQUIREMENT,
+                Optional.of(EncryptionInformation.fromEncryptionMetadata(new DwrfEncryptionMetadata(ImmutableMap.of("field1", "test1".getBytes())))));
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -113,6 +114,7 @@ public class TestHiveSplit
         assertEquals(actual.getNodeSelectionStrategy(), expected.getNodeSelectionStrategy());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
+        assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()
