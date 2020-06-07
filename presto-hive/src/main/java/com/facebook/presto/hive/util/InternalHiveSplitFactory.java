@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
@@ -53,6 +54,7 @@ public class InternalHiveSplitFactory
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
     private final boolean schedulerUsesHostAddresses;
+    private final Optional<EncryptionInformation> encryptionInformation;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -61,7 +63,8 @@ public class InternalHiveSplitFactory
             NodeSelectionStrategy nodeSelectionStrategy,
             boolean s3SelectPushdownEnabled,
             HiveSplitPartitionInfo partitionInfo,
-            boolean schedulerUsesHostAddresses)
+            boolean schedulerUsesHostAddresses,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
@@ -70,6 +73,7 @@ public class InternalHiveSplitFactory
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
+        this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, boolean splittable)
@@ -184,7 +188,8 @@ public class InternalHiveSplitFactory
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks) ? HARD_AFFINITY : nodeSelectionStrategy,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 partitionInfo,
-                extraFileInfo));
+                extraFileInfo,
+                encryptionInformation));
     }
 
     private boolean needsHostAddresses(boolean forceLocalScheduling, List<HostAddress> addresses)

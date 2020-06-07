@@ -26,15 +26,18 @@ public class HivePartitionMetadata
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
     private final Map<Integer, Column> partitionSchemaDifference;
+    private final Optional<EncryptionInformation> encryptionInformation;
 
     HivePartitionMetadata(
             HivePartition hivePartition,
             Optional<Partition> partition,
-            Map<Integer, Column> partitionSchemaDifference)
+            Map<Integer, Column> partitionSchemaDifference,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
         this.partitionSchemaDifference = requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
+        this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
     }
 
     public HivePartition getHivePartition()
@@ -53,5 +56,10 @@ public class HivePartitionMetadata
     public Map<Integer, Column> getPartitionSchemaDifference()
     {
         return partitionSchemaDifference;
+    }
+
+    public Optional<EncryptionInformation> getEncryptionInformation()
+    {
+        return encryptionInformation;
     }
 }
