@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
@@ -28,13 +29,13 @@ public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
     private final String index;
-    private final String type;
+    private final Optional<String> type;
     private final SchemaTableName schemaTableName;
 
     @JsonCreator
     public ElasticsearchTableHandle(
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
+            @JsonProperty("type") Optional<String> type,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
@@ -53,7 +54,7 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public String getType()
+    public Optional<String> getType()
     {
         return type;
     }

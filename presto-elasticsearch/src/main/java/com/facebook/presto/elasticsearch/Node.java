@@ -13,18 +13,32 @@
  */
 package com.facebook.presto.elasticsearch;
 
-public enum SearchGuardCertificateFormat
+import static java.util.Objects.requireNonNull;
+
+public class Node
 {
-    /**
-     * Use X.509 PEM certificates and PKCS #8 keys
-     */
-    PEM,
-    /**
-     * Use Keystore and Truststore files
-     */
-    JKS,
-    /**
-     * Default value
-     */
-    NONE
+    private final String id;
+    private final String address;
+
+    public Node(String id, String address)
+    {
+        this.id = requireNonNull(id, "id is null");
+        this.address = requireNonNull(address, "address is null");
+    }
+
+    public String getId()
+    {
+        return id;
+    }
+
+    public String getAddress()
+    {
+        return address;
+    }
+
+    @Override
+    public String toString()
+    {
+        return id + "@" + address;
+    }
 }
