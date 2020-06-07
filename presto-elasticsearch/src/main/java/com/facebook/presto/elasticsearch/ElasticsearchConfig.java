@@ -32,14 +32,11 @@ public class ElasticsearchConfig
     private String host;
     private int port = 9200;
     private String defaultSchema = "default";
-    private File tableDescriptionDirectory = new File("etc/elasticsearch/");
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, SECONDS);
     private int maxHits = 1_000;
     private Duration requestTimeout = new Duration(100, MILLISECONDS);
     private Duration connectTimeout = new Duration(1, SECONDS);
-    private int maxRequestRetries = 5;
-    private Duration maxRetryTime = new Duration(10, SECONDS);
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -70,20 +67,6 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setPort(int port)
     {
         this.port = port;
-        return this;
-    }
-
-    @NotNull
-    public File getTableDescriptionDirectory()
-    {
-        return tableDescriptionDirectory;
-    }
-
-    @Config("elasticsearch.table-description-directory")
-    @ConfigDescription("Directory that contains JSON table description files")
-    public ElasticsearchConfig setTableDescriptionDirectory(File tableDescriptionDirectory)
-    {
-        this.tableDescriptionDirectory = tableDescriptionDirectory;
         return this;
     }
 
@@ -170,34 +153,6 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setConnectTimeout(Duration timeout)
     {
         this.connectTimeout = timeout;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxRequestRetries()
-    {
-        return maxRequestRetries;
-    }
-
-    @Config("elasticsearch.max-request-retries")
-    @ConfigDescription("Maximum number of Elasticsearch request retries")
-    public ElasticsearchConfig setMaxRequestRetries(int maxRequestRetries)
-    {
-        this.maxRequestRetries = maxRequestRetries;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMaxRetryTime()
-    {
-        return maxRetryTime;
-    }
-
-    @Config("elasticsearch.max-request-retry-time")
-    @ConfigDescription("Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests")
-    public ElasticsearchConfig setMaxRetryTime(Duration maxRetryTime)
-    {
-        this.maxRetryTime = maxRetryTime;
         return this;
     }
 
