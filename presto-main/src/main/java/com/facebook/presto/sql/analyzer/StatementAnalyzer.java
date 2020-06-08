@@ -2002,11 +2002,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector);
                 }
             }
         }
