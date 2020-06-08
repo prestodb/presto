@@ -47,6 +47,7 @@ Property Name                                 Description
 ``elasticsearch.max-hits``                    Maximum number of hits a single Elasticsearch request can fetch.
 ``elasticsearch.request-timeout``             Timeout for Elasticsearch requests.
 ``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
+``elasticsearch.max-retry-time``              Maximum duration across all retry attempts for a single request.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
@@ -110,6 +111,13 @@ This property is optional; the default is ``10s``.
 This property defines the timeout value for all Elasticsearch connection attempts.
 
 This property is optional; the default is ``1s``.
+
+``elasticsearch.max-retry-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property defines the maximum duration across all retry attempts for a single request to Elasticsearch.
+
+This property is optional; the default is ``20s``.
 
 TLS Security
 ------------
