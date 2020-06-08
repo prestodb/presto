@@ -44,6 +44,7 @@ Property Name                         Description
 ``mongodb.connections-per-host``      The maximum size of the connection pool per host
 ``mongodb.max-wait-time``             The maximum wait time
 ``mongodb.connection-timeout``        The socket connect timeout
+``mongodb.max-connection-idle-time``  The maximum time the connection can remain idle
 ``mongodb.socket-timeout``            The socket timeout
 ``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket
 ``mongodb.ssl.enabled``               Use TLS/SSL for connections to mongod/mongos
@@ -104,6 +105,13 @@ This property is optional; the default is ``120000``.
 The connection timeout in milliseconds. A value of ``0`` means no timeout. It is used solely when establishing a new connection.
 
 This property is optional; the default is ``10000``.
+
+``mongodb.max-connection-idle-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The maximum number of milliseconds that a connection can remain idle in the pool before being removed and closed.
+
+This property is optional; the default is ``0`` and means connections are not removed for being idle.
 
 ``mongodb.socket-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
