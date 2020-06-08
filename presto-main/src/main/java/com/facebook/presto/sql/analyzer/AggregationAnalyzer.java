@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.sql.planner.ParameterRewriter;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -69,6 +72,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -106,15 +110,18 @@ class AggregationAnalyzer
 
     private final Scope sourceScope;
     private final Optional<Scope> orderByScope;
+    private final WarningCollector warningCollector;
+    private final FunctionResolution functionResolution;
 
     public static void verifySourceAggregations(
             List<Expression> groupByExpressions,
             Scope sourceScope,
             Expression expression,
             Metadata metadata,
-            Analysis analysis)
+            Analysis analysis,
+            WarningCollector warningCollector)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis, warningCollector);
         analyzer.analyze(expression);
     }
 
@@ -124,24 +131,28 @@ class AggregationAnalyzer
             Scope orderByScope,
             Expression expression,
             Metadata metadata,
-            Analysis analysis)
+            Analysis analysis,
+            WarningCollector warningCollector)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis, warningCollector);
         analyzer.analyze(expression);
     }
 
-    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis)
+    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis, WarningCollector warningCollector)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(sourceScope, "sourceScope is null");
         requireNonNull(orderByScope, "orderByScope is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
+        requireNonNull(warningCollector, "warningCollector is null");
 
         this.sourceScope = sourceScope;
+        this.warningCollector = warningCollector;
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
+        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
         this.expressions = groupByExpressions.stream()
                 .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters()), e))
                 .collect(toImmutableList());
@@ -315,6 +326,11 @@ class AggregationAnalyzer
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
             if (metadata.getFunctionManager().getFunctionMetadata(analysis.getFunctionHandle(node)).getFunctionKind() == AGGREGATE) {
+                if (functionResolution.isCountFunction(analysis.getFunctionHandle(node)) && node.isDistinct()) {
+                    warningCollector.add(new PrestoWarning(
+                            PERFORMANCE_WARNING,
+                            "COUNT(DISTINCT xxx) can be a very expensive operation when the cardinality is high for xxx. In most scenarios, using approx_distinct instead would be enough"));
+                }
                 if (!node.getWindow().isPresent()) {
                     List<FunctionCall> aggregateFunctions = extractAggregateFunctions(analysis.getFunctionHandles(), node.getArguments(), metadata.getFunctionManager());
                     List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
