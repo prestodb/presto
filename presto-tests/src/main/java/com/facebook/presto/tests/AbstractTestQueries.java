@@ -8413,6 +8413,40 @@ public abstract class AbstractTestQueries
                 "values false");
     }
 
+    @Test
+    public void testSetAgg()
+    {
+        final String input = "(select 1 x, 2 y union all select 1 x, 2 y union all select 2 x, 1 y)";
+        assertQuery(
+                "select count() from (select set_agg(x) = array_distinct(array_agg(x)) equals" +
+                        " from " + input + " group by y) where equals",
+                "select count(distinct y) from " + input);
+
+        assertQuery(
+                "select count() from " +
+                        "(select set_agg(orderkey) = array_agg(distinct orderkey) eq from orders group by custkey) where eq",
+                "select count(distinct custkey) from orders");
+        assertQuery(
+                "select cardinality(set_agg(orderkey)) from orders",
+                "select count(distinct orderkey) from orders");
+
+        assertQuery(
+                "select count() from " +
+                        "(select set_agg(comment) = array_agg(distinct comment) eq from orders group by orderkey) where eq",
+                "select count(distinct orderkey) from orders");
+        assertQuery(
+                "select cardinality(set_agg(comment)) from orders",
+                "select count(distinct comment) from orders");
+
+        assertQuery(
+                "select count() from " +
+                        "(select set_agg(cast(orderdate as date)) = array_agg(distinct cast(orderdate as date)) eq from orders group by orderkey) where eq",
+                "select count(distinct orderkey) from orders");
+        assertQuery(
+                "select cardinality(set_agg(cast(orderdate as date))) from orders",
+                "select count(distinct orderdate) from orders");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
