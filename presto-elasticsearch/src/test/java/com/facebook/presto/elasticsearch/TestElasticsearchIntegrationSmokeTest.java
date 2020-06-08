@@ -17,6 +17,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.airlift.tpch.TpchTable;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
@@ -305,6 +307,24 @@ public class TestElasticsearchIntegrationSmokeTest
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testQueryString()
+    {
+        MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
+
+        MaterializedResult expected = resultBuilder(getSession(), ImmutableList.of(BIGINT))
+                .row(1639L)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testQueryStringError()
+    {
+        assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
     private void index(String indexName, Map<String, Object> document)
