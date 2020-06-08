@@ -37,6 +37,7 @@ public class ElasticsearchConfig
     private int maxHits = 1_000;
     private Duration requestTimeout = new Duration(10, SECONDS);
     private Duration connectTimeout = new Duration(1, SECONDS);
+    private Duration maxRetryTime = new Duration(30, SECONDS);
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -153,6 +154,20 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setConnectTimeout(Duration timeout)
     {
         this.connectTimeout = timeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaxRetryTime()
+    {
+        return maxRetryTime;
+    }
+
+    @Config("elasticsearch.max-retry-time")
+    @ConfigDescription("Maximum timeout in case of multiple retries")
+    public ElasticsearchConfig setMaxRetryTime(Duration maxRetryTime)
+    {
+        this.maxRetryTime = maxRetryTime;
         return this;
     }
 
