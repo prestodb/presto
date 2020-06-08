@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -38,6 +39,7 @@ public class ElasticsearchConfig
     private Duration requestTimeout = new Duration(10, SECONDS);
     private Duration connectTimeout = new Duration(1, SECONDS);
     private Duration maxRetryTime = new Duration(30, SECONDS);
+    private Duration nodeRefreshInterval = new Duration(1, MINUTES);
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -168,6 +170,21 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setMaxRetryTime(Duration maxRetryTime)
     {
         this.maxRetryTime = maxRetryTime;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getNodeRefreshInterval()
+    {
+        return nodeRefreshInterval;
+    }
+
+    @Config("elasticsearch.node-refresh-interval")
+    @ConfigDescription("How often to refresh the list of available Elasticsearch nodes")
+    public ElasticsearchConfig setNodeRefreshInterval(Duration nodeRefreshInterval)
+    {
+        this.nodeRefreshInterval = nodeRefreshInterval;
         return this;
     }
 
