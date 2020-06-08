@@ -143,6 +143,10 @@ General Aggregate Functions
 
     The state type must be a boolean, integer, floating-point, or date/time/interval.
 
+.. function:: set_agg(x) -> array<[same as input]>
+
+        Returns an array created from the distinct input ``x`` elements.
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
