@@ -41,6 +41,7 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
+        binder.bind(NodesSystemTable.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
