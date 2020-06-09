@@ -48,15 +48,22 @@ public class TimestampDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         DocumentField documentField = hit.getFields().get(path);
-        if (documentField == null) {
-            output.appendNull();
-        }
-        else if (documentField.getValues().size() > 1) {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected single value for column: " + path);
+        Object value = null;
+
+        if (documentField != null) {
+            if (documentField.getValues().size() > 1) {
+                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected single value for column: " + path);
+            }
+            value = documentField.getValue();
         }
         else {
-            Object value = documentField.getValue();
+            value = getter.get();
+        }
 
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
             LocalDateTime timestamp;
             if (value instanceof String) {
                 timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
