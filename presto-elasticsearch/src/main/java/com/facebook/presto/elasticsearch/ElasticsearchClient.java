@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.presto.elasticsearch.AwsSecurityConfig;
 import com.facebook.presto.elasticsearch.ElasticsearchConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -108,9 +114,9 @@ public class ElasticsearchClient
     private final boolean tlsEnabled;
 
     @Inject
-    public ElasticsearchClient(ElasticsearchConfig config)
+    public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
     {
-        client = createClient(config);
+        client = createClient(config, awsSecurityConfig);
 
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
@@ -161,7 +167,7 @@ public class ElasticsearchClient
         }
     }
 
-    private static RestHighLevelClient createClient(ElasticsearchConfig config)
+    private static RestHighLevelClient createClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
     {
         RestClientBuilder builder = RestClient.builder(
                 new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
@@ -171,20 +177,37 @@ public class ElasticsearchClient
                                 .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
                 .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
 
-        if (config.isTlsEnabled()) {
-            builder.setHttpClientConfigCallback(clientBuilder -> {
+        builder.setHttpClientConfigCallback(clientBuilder -> {
+            if (config.isTlsEnabled()) {
                 buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);
 
                 if (config.isVerifyHostnames()) {
                     clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
+            }
 
-                return clientBuilder;
-            });
-        }
+            awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
+                    securityConfig.getRegion(),
+                    getAwsCredentialsProvider(securityConfig))));
+
+            return clientBuilder;
+        });
 
         return new RestHighLevelClient(builder);
+    }
+
+    private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
+    {
+        if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
+            return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
+                    config.getAccessKey().get(),
+                    config.getSecretKey().get()));
+        }
+        if (config.isUseInstanceCredentials()) {
+            return InstanceProfileCredentialsProvider.getInstance();
+        }
+        return DefaultAWSCredentialsProviderChain.getInstance();
     }
 
     private static Optional<SSLContext> buildSslContext(
