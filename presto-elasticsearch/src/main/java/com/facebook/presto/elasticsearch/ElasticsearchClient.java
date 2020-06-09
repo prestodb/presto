@@ -483,11 +483,13 @@ public class ElasticsearchClient
         return new IndexMetadata.ObjectType(result.build());
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields)
+    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query)
                 .size(scrollSize);
+
+        sort.ifPresent(sourceBuilder::sort);
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
