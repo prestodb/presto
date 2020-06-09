@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchNode
 {
     private final String id;
-    private final String address;
+    private final Optional<String> address;
 
-    public ElasticsearchNode(String id, String address)
+    public ElasticsearchNode(String id, Optional<String> address)
     {
         this.id = requireNonNull(id, "id is null");
         this.address = requireNonNull(address, "address is null");
@@ -31,7 +33,7 @@ public class ElasticsearchNode
         return id;
     }
 
-    public String getAddress()
+    public Optional<String> getAddress()
     {
         return address;
     }
@@ -39,6 +41,6 @@ public class ElasticsearchNode
     @Override
     public String toString()
     {
-        return id + "@" + address;
+        return id + "@" + address.orElse("<unknown>");
     }
 }
