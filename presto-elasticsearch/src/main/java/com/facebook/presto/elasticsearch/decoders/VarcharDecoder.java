@@ -22,10 +22,19 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class VarcharDecoder
         implements Decoder
 {
+    private final String path;
+
+    public VarcharDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -37,7 +46,7 @@ public class VarcharDecoder
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a string value for VARCHAR field");
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a string value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }

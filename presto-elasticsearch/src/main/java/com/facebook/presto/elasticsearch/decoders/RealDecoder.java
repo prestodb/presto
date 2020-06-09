@@ -21,10 +21,19 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class RealDecoder
         implements Decoder
 {
+    private final String path;
+
+    public RealDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -36,7 +45,7 @@ public class RealDecoder
             REAL.writeLong(output, Float.floatToRawIntBits(((Number) value).floatValue()));
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a numeric value for REAL field");
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }

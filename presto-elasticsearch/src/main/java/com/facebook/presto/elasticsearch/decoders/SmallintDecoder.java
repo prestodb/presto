@@ -21,10 +21,19 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SmallintDecoder
         implements Decoder
 {
+    private final String path;
+
+    public SmallintDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -36,13 +45,13 @@ public class SmallintDecoder
             long decoded = ((Number) value).longValue();
 
             if (decoded < Short.MIN_VALUE || decoded > Short.MAX_VALUE) {
-                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Value out of range for SMALLINT field");
+                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, decoded));
             }
 
             SMALLINT.writeLong(output, decoded);
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a numeric value for SMALLINT field");
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type SMALLINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }
