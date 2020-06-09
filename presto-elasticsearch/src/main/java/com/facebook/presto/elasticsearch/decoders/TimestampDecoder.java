@@ -19,17 +19,22 @@ import com.facebook.presto.spi.PrestoException;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public class TimestampDecoder
         implements Decoder
 {
+    private static final ZoneId ZULU = ZoneId.of("Z");
+
     private final String path;
     private final ZoneId zoneId;
 
@@ -50,11 +55,27 @@ public class TimestampDecoder
             throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected single value for column: " + path);
         }
         else {
-            TIMESTAMP.writeLong(output,
-                    ISO_DATE_TIME.parse(documentField.getValue(), LocalDateTime::from)
-                            .atZone(zoneId)
-                            .toInstant()
-                            .toEpochMilli());
+            Object value = documentField.getValue();
+
+            LocalDateTime timestamp;
+            if (value instanceof String) {
+                timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
+            }
+            else if (value instanceof Number) {
+                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Unsupported representation for timestamp type: %s [%s]",
+                        value.getClass().getSimpleName(),
+                        value));
+            }
+
+            long epochMillis = timestamp.atZone(zoneId)
+                    .toInstant()
+                    .toEpochMilli();
+
+            TIMESTAMP.writeLong(output, epochMillis);
         }
     }
 }
