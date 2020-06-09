@@ -49,6 +49,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -937,6 +938,37 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testAddRequestedColumnsToLayout()
+    {
+        String tableName = "test_add_requested_columns_to_layout";
+        assertUpdate(format("CREATE TABLE %s(" +
+                "id bigint, " +
+                "a row(d1 bigint, d2 array(bigint), d3 map(bigint, bigint), d4 row(x double, y double)), " +
+                "b varchar )", tableName));
+
+        try {
+            assertPlan(getSession(), format("SELECT b FROM %s", tableName),
+                    anyTree(PlanMatchPattern.tableScan(tableName)),
+                    plan -> assertRequestedColumnsInLayout(plan, tableName, ImmutableSet.of("b")));
+
+            assertPlan(getSession(), format("SELECT id, b FROM %s", tableName),
+                    anyTree(PlanMatchPattern.tableScan(tableName)),
+                    plan -> assertRequestedColumnsInLayout(plan, tableName, ImmutableSet.of("id", "b")));
+
+            assertPlan(getSession(), format("SELECT id, a FROM %s", tableName),
+                    anyTree(PlanMatchPattern.tableScan(tableName)),
+                    plan -> assertRequestedColumnsInLayout(plan, tableName, ImmutableSet.of("id", "a")));
+
+            assertPlan(getSession(), format("SELECT a.d1, a.d4.x FROM %s", tableName),
+                    anyTree(PlanMatchPattern.tableScan(tableName)),
+                    plan -> assertRequestedColumnsInLayout(plan, tableName, ImmutableSet.of("a.d1", "a.d4.x")));
+        }
+        finally {
+            assertUpdate(format("DROP TABLE %s", tableName));
+        }
+    }
+
     private static Set<Subfield> toSubfields(String... subfieldPaths)
     {
         return Arrays.stream(subfieldPaths)
@@ -1043,6 +1075,33 @@ public class TestHiveLogicalPlanner
 
         assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
         assertFalse(layoutHandle.getBucketFilter().isPresent());
+    }
+
+    private void assertRequestedColumnsInLayout(Plan plan, String tableName, Set<String> expectedRequestedColumns)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertTrue(layoutHandle.getRequestedColumns().isPresent());
+        Set<HiveColumnHandle> requestedColumns = layoutHandle.getRequestedColumns().get();
+
+        List<String> actualRequestedColumns = new ArrayList<>();
+        for (HiveColumnHandle column : requestedColumns) {
+            if (!column.getRequiredSubfields().isEmpty()) {
+                column.getRequiredSubfields().stream().map(Subfield::serialize).forEach(actualRequestedColumns::add);
+            }
+            else {
+                actualRequestedColumns.add(column.getName());
+            }
+        }
+
+        Set<String> requestedColumnsSet = ImmutableSet.copyOf(actualRequestedColumns);
+        assertEquals(requestedColumnsSet.size(), actualRequestedColumns.size(), "There should be no duplicates in the requested column list");
+        assertEquals(requestedColumnsSet, expectedRequestedColumns);
     }
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)

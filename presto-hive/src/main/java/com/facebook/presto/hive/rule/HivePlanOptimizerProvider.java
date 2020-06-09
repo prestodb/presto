@@ -45,7 +45,9 @@ public class HivePlanOptimizerProvider
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(partitionManager, "partitionManager is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
-        this.planOptimizers = ImmutableSet.of(new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, functionMetadataManager));
+        this.planOptimizers = ImmutableSet.of(
+                new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, functionMetadataManager),
+                new HiveAddRequestedColumnsToLayout());
     }
 
     @Override

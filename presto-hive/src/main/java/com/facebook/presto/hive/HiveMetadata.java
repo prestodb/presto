@@ -2046,7 +2046,8 @@ public class HiveMetadata
                                 hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter(),
                                 false,
-                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate))),
+                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate),
+                                desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet())))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -2281,7 +2282,8 @@ public class HiveMetadata
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter(),
                 hiveLayoutHandle.isPushdownFilterEnabled(),
-                hiveLayoutHandle.getLayoutString());
+                hiveLayoutHandle.getLayoutString(),
+                hiveLayoutHandle.getRequestedColumns());
     }
 
     @Override

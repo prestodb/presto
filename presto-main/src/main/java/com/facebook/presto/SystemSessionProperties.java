@@ -715,7 +715,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
-                        featuresConfig.isPushdownSubfieldsEnabled(),
+                        true,
                         false),
                 booleanProperty(
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
