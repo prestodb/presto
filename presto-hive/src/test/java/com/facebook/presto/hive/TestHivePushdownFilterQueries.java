@@ -896,6 +896,36 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testUpperCaseStructFields()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_struct_with_uppercase_field(field0) WITH (FORMAT = 'DWRF') AS " +
+                "SELECT CAST((1, 1) AS ROW(SUBFIELDCAP BIGINT, subfieldsmall BIGINT))", 1);
+
+        try {
+            assertQuery("SELECT * FROM test_struct_with_uppercase_field", "SELECT (CAST(1 AS BIGINT), CAST(1 AS BIGINT))");
+            assertQuery("SELECT field0.SUBFIELDCAP FROM test_struct_with_uppercase_field", "SELECT CAST(1 AS BIGINT)");
+            assertQuery("SELECT field0.subfieldcap FROM test_struct_with_uppercase_field", "SELECT CAST(1 AS BIGINT)");
+
+            // delete the file written by Presto and corresponding crc file
+            Path prestoFile = getOnlyPath("test_struct_with_uppercase_field");
+            Files.delete(prestoFile);
+            Files.deleteIfExists(prestoFile.getParent().resolve("." + prestoFile.getFileName() + ".crc"));
+
+            // copy the file written by Spark
+            Path sparkFile = Paths.get(this.getClass().getClassLoader().getResource("struct_with_uppercase_field.dwrf").toURI());
+            Files.copy(sparkFile, prestoFile);
+
+            assertQuery("SELECT * FROM test_struct_with_uppercase_field", "SELECT (CAST(1 AS BIGINT), CAST(1 AS BIGINT))");
+            assertQuery("SELECT field0.SUBFIELDCAP FROM test_struct_with_uppercase_field", "SELECT CAST(1 AS BIGINT)");
+            assertQuery("SELECT field0.subfieldcap FROM test_struct_with_uppercase_field", "SELECT CAST(1 AS BIGINT)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_struct_with_uppercase_field");
+        }
+    }
+
+    @Test
     public void testRcAndTextFormats()
             throws IOException
     {

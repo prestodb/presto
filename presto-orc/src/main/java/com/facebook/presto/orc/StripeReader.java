@@ -536,7 +536,7 @@ public class StripeReader
         for (int i = 0; i < children; ++i) {
             List<Subfield> subfields = ImmutableList.of();
             if (requiredFields.isPresent()) {
-                String fieldName = type.getFieldNames().get(i);
+                String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
                 if (!requiredFields.get().containsKey(fieldName)) {
                     continue;
                 }
