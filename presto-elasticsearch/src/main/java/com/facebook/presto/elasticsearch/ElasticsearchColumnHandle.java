@@ -28,14 +28,17 @@ public final class ElasticsearchColumnHandle
 {
     private final String name;
     private final Type type;
+    private final boolean supportsPredicates;
 
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("supportsPredicates") boolean supportsPredicates)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.supportsPredicates = supportsPredicates;
     }
 
     @JsonProperty
@@ -50,10 +53,16 @@ public final class ElasticsearchColumnHandle
         return type;
     }
 
+    @JsonProperty
+    public boolean isSupportsPredicates()
+    {
+        return supportsPredicates;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(name, type, supportsPredicates);
     }
 
     @Override
@@ -67,7 +76,8 @@ public final class ElasticsearchColumnHandle
         }
 
         ElasticsearchColumnHandle other = (ElasticsearchColumnHandle) obj;
-        return Objects.equals(this.getName(), other.getName()) &&
+        return this.supportsPredicates == other.supportsPredicates &&
+                Objects.equals(this.getName(), other.getName()) &&
                 Objects.equals(this.getType(), other.getType());
     }
 
