@@ -293,34 +293,34 @@ public class ElasticsearchPageSource
     private Decoder createDecoder(ConnectorSession session, String path, Type type)
     {
         if (type.equals(VARCHAR)) {
-            return new VarcharDecoder();
+            return new VarcharDecoder(path);
         }
         else if (type.equals(VARBINARY)) {
-            return new VarbinaryDecoder();
+            return new VarbinaryDecoder(path);
         }
         else if (type.equals(TIMESTAMP)) {
             return new TimestampDecoder(session, path);
         }
         else if (type.equals(BOOLEAN)) {
-            return new BooleanDecoder();
+            return new BooleanDecoder(path);
         }
         else if (type.equals(DOUBLE)) {
-            return new DoubleDecoder();
+            return new DoubleDecoder(path);
         }
         else if (type.equals(REAL)) {
-            return new RealDecoder();
+            return new RealDecoder(path);
         }
         else if (type.equals(TINYINT)) {
-            return new TinyintDecoder();
+            return new TinyintDecoder(path);
         }
         else if (type.equals(SMALLINT)) {
-            return new SmallintDecoder();
+            return new SmallintDecoder(path);
         }
         else if (type.equals(INTEGER)) {
-            return new IntegerDecoder();
+            return new IntegerDecoder(path);
         }
         else if (type.equals(BIGINT)) {
-            return new BigintDecoder();
+            return new BigintDecoder(path);
         }
         else if (type instanceof RowType) {
             RowType rowType = (RowType) type;
@@ -334,12 +334,12 @@ public class ElasticsearchPageSource
                     .map(Optional::get)
                     .collect(toImmutableList());
 
-            return new RowDecoder(fieldNames, decoders);
+            return new RowDecoder(path, fieldNames, decoders);
         }
         else if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
 
-            return new ArrayDecoder(createDecoder(session, path, elementType));
+            return new ArrayDecoder(path, createDecoder(session, path, elementType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);
