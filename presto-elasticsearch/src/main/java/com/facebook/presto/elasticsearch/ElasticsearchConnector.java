@@ -15,14 +15,18 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -37,18 +41,21 @@ public class ElasticsearchConnector
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final NodesSystemTable nodesSystemTable;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
-            ElasticsearchPageSourceProvider pageSourceProvider)
+            ElasticsearchPageSourceProvider pageSourceProvider,
+            NodesSystemTable nodesSystemTable)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
     }
 
     @Override
@@ -74,6 +81,12 @@ public class ElasticsearchConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public Set<SystemTable> getSystemTables()
+    {
+        return ImmutableSet.of(nodesSystemTable);
     }
 
     @Override
