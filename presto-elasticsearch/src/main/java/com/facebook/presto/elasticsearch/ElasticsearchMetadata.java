@@ -226,9 +226,17 @@ public class ElasticsearchMetadata
             return ImmutableList.of();
         }
 
-        return client.getIndexes().stream()
+        ImmutableList.Builder<SchemaTableName> result = ImmutableList.builder();
+
+        client.getIndexes().stream()
                 .map(index -> new SchemaTableName(this.schemaName, index))
-                .collect(toImmutableList());
+                .forEach(result::add);
+
+        client.getAliases().stream()
+                .map(index -> new SchemaTableName(this.schemaName, index))
+                .forEach(result::add);
+
+        return result.build();
     }
 
     @Override
