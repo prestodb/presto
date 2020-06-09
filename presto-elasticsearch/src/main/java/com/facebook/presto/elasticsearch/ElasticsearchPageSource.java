@@ -122,13 +122,23 @@ public class ElasticsearchPageSource
                 .filter(name -> !BuiltinColumns.NAMES.contains(name))
                 .collect(toList());
 
+        // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
+        Optional<String> sort = Optional.of("_doc");
+
+        if (table.getQuery().isPresent()) {
+            // However, if we're using a custom Elasticsearch query, use default sorting.
+            // Documents will be scored and returned based on relevance
+            sort = Optional.empty();
+        }
+
         long start = System.nanoTime();
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
                 buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
-                documentFields);
+                documentFields,
+                sort);
         readTimeNanos += System.nanoTime() - start;
         this.iterator = new SearchHitIterator(client, () -> searchResponse);
     }
