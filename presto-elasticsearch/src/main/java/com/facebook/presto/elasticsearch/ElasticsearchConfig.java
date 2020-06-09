@@ -51,6 +51,7 @@ public class ElasticsearchConfig
     private File trustStorePath;
     private String keystorePassword;
     private String truststorePassword;
+    private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
     private Security security;
 
@@ -265,6 +266,18 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setVerifyHostnames(boolean verify)
     {
         this.verifyHostnames = verify;
+        return this;
+    }
+
+    public boolean isIgnorePublishAddress()
+    {
+        return ignorePublishAddress;
+    }
+
+    @Config("elasticsearch.ignore-publish-address")
+    public ElasticsearchConfig setIgnorePublishAddress(boolean ignorePublishAddress)
+    {
+        this.ignorePublishAddress = ignorePublishAddress;
         return this;
     }
 
