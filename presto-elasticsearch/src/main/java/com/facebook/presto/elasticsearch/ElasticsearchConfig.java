@@ -30,6 +30,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ElasticsearchConfig
 {
+    public enum Security
+    {
+        AWS
+    }
+
     private String host;
     private int port = 9200;
     private String defaultSchema = "default";
@@ -47,6 +52,7 @@ public class ElasticsearchConfig
     private String keystorePassword;
     private String truststorePassword;
     private boolean verifyHostnames = true;
+    private Security security;
 
     @NotNull
     public String getHost()
@@ -259,6 +265,19 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setVerifyHostnames(boolean verify)
     {
         this.verifyHostnames = verify;
+        return this;
+    }
+
+    @NotNull
+    public Optional<Security> getSecurity()
+    {
+        return Optional.ofNullable(security);
+    }
+
+    @Config("elasticsearch.security")
+    public ElasticsearchConfig setSecurity(Security security)
+    {
+        this.security = security;
         return this;
     }
 }
