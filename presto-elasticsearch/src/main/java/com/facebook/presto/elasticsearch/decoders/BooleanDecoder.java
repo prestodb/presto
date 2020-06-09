@@ -21,10 +21,19 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class BooleanDecoder
         implements Decoder
 {
+    private final String path;
+
+    public BooleanDecoder(String path)
+    {
+        this.path = requireNonNull(path, "path is null");
+    }
+
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -36,7 +45,7 @@ public class BooleanDecoder
             BOOLEAN.writeBoolean(output, (Boolean) value);
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a boolean value for BOOLEAN field");
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }
