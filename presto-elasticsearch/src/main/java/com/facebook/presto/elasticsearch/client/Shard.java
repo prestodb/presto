@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class Shard
 {
     private final int id;
-    private final String address;
+    private final Optional<String> address;
 
-    public Shard(int id, String address)
+    public Shard(int id, Optional<String> address)
     {
         this.id = id;
         this.address = requireNonNull(address, "address is null");
@@ -31,8 +33,14 @@ public class Shard
         return id;
     }
 
-    public String getAddress()
+    public Optional<String> getAddress()
     {
         return address;
+    }
+
+    @Override
+    public String toString()
+    {
+        return id + "@" + address.orElse("<unknown>");
     }
 }
