@@ -190,6 +190,53 @@ Elasticsearch Presto
 (others)      (unsupported)
 ============= =============
 
+
+Array Types
+^^^^^^^^^^^
+
+Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
+, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a Presto-specific structure in
+the `_meta <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ section of the index mapping.
+
+For example, you can have an Elasticsearch index that contains documents with the following structure:
+
+.. code-block:: json
+
+    {
+        "array_string_field": ["presto","is","the","besto"],
+        "long_field": 314159265359,
+        "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
+        "timestamp_field": "1987-09-17T06:22:48.000Z",
+        "object_field": {
+            "array_int_field": [86,75,309],
+            "int_field": 2
+        }
+    }
+
+The array fields of this structure can be defined by using the following command to add the field
+property definition to the ``_meta.presto`` property of the target index mapping.
+
+.. code-block:: shell
+
+    curl --request PUT \
+        --url localhost:9200/doc/_mapping \
+        --header 'content-type: application/json' \
+        --data '
+    {
+        "_meta": {
+            "presto":{
+                "array_string_field":{
+                    "isArray":true
+                },
+                "object_field":{
+                    "array_int_field":{
+                        "isArray":true
+                    }
+                },
+            }
+        }
+    }'
+
 Special Columns
 ---------------
 

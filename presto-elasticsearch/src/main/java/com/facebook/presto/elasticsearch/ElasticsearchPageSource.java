@@ -18,9 +18,11 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
+import com.facebook.presto.elasticsearch.decoders.ArrayDecoder;
 import com.facebook.presto.elasticsearch.decoders.BigintDecoder;
 import com.facebook.presto.elasticsearch.decoders.BooleanDecoder;
 import com.facebook.presto.elasticsearch.decoders.Decoder;
@@ -333,6 +335,11 @@ public class ElasticsearchPageSource
                     .collect(toImmutableList());
 
             return new RowDecoder(fieldNames, decoders);
+        }
+        else if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+
+            return new ArrayDecoder(createDecoder(session, path, elementType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);
