@@ -11,17 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.elasticsearch;
+package com.facebook.presto.elasticsearch.client;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.security.pem.PemReader;
-import com.facebook.presto.elasticsearch.client.ElasticsearchNode;
-import com.facebook.presto.elasticsearch.client.IndexMetadata;
-import com.facebook.presto.elasticsearch.client.NodesResponse;
-import com.facebook.presto.elasticsearch.client.SearchShardsResponse;
-import com.facebook.presto.elasticsearch.client.Shard;
+import com.facebook.presto.elasticsearch.ElasticsearchConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
