@@ -272,7 +272,8 @@ public class HiveFilterPushdown
                                         hivePartitionResult.getBucketHandle(),
                                         hivePartitionResult.getBucketFilter(),
                                         decomposedFilter.getRemainingExpression(),
-                                        domainPredicate))),
+                                        domainPredicate),
+                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()))),
                 TRUE_CONSTANT);
     }
 
