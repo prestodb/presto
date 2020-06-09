@@ -322,6 +322,30 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testMixedCase()
+    {
+        String indexName = "mixed_case";
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("Name", "john")
+                .put("AGE", 32)
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT name, age FROM mixed_case",
+                "VALUES ('john', 32)");
+
+        assertQuery(
+                "SELECT name, age FROM mixed_case WHERE name = 'john'",
+                "VALUES ('john', 32)");
+    }
+
+    @Test
     public void testQueryStringError()
     {
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
