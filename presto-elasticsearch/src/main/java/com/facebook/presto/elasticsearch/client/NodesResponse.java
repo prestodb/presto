@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -43,15 +44,15 @@ public class NodesResponse
     public static class Node
     {
         private final Set<String> roles;
-        private final Http http;
+        private final Optional<Http> http;
 
         @JsonCreator
         public Node(
                 @JsonProperty("roles") Set<String> roles,
-                @JsonProperty("http") Http http)
+                @JsonProperty("http") Optional<Http> http)
         {
             this.roles = ImmutableSet.copyOf(roles);
-            this.http = http;
+            this.http = requireNonNull(http, "http is null");
         }
 
         public Set<String> getRoles()
@@ -59,9 +60,9 @@ public class NodesResponse
             return roles;
         }
 
-        public Http getHttp()
+        public Optional<String> getAddress()
         {
-            return http;
+            return http.map(Http::getAddress);
         }
     }
 
