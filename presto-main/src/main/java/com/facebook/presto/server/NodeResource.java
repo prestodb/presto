@@ -16,15 +16,18 @@ package com.facebook.presto.server;
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.google.common.collect.Maps;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
 import java.util.Collection;
 
+import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.google.common.base.Predicates.in;
 
 @Path("/v1/node")
+@RolesAllowed(INTERNAL)
 public class NodeResource
 {
     private final HeartbeatFailureDetector failureDetector;
