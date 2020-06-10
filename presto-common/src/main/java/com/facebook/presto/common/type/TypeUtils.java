@@ -87,7 +87,7 @@ public final class TypeUtils
         }
     }
 
-    static long hashPosition(Type type, Block block, int position)
+    public static long hashPosition(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
             return NULL_HASH_CODE;

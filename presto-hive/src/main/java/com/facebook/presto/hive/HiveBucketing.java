@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeUtils.hashPosition;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -76,6 +77,11 @@ public final class HiveBucketing
         return (hashBytes(0, utf8Slice(path.toString())) & Integer.MAX_VALUE) % bucketCount;
     }
 
+    public static int getBucket(int bucketCount, List<Type> types, Page page, int position)
+    {
+        return (getHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+    }
+
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
         return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
@@ -84,6 +90,17 @@ public final class HiveBucketing
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
     {
         return (getBucketHashCode(types, values) & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    private static int getHashCode(List<Type> types, Page page, int position)
+    {
+        checkArgument(types.size() == page.getChannelCount());
+        int result = 0;
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            int fieldHash = (int) hashPosition(types.get(i), page.getBlock(i), position);
+            result = result * 31 + fieldHash;
+        }
+        return result;
     }
 
     private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
