@@ -139,6 +139,8 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveAnalyzeProperties.getPartitionList;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
@@ -159,6 +161,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
+import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcCompressionCodec;
@@ -206,7 +210,6 @@ import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
-import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypeForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypesForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
@@ -859,7 +862,30 @@ public class HiveMetadata
                         Sets.difference(ImmutableSet.copyOf(partitioning.getPartitionColumns()), allColumns)));
             }
             HivePartitioningHandle partitioningHandle = (HivePartitioningHandle) partitioning.getPartitioningHandle();
-            return new HiveBucketProperty(partitioning.getPartitionColumns(), partitioningHandle.getBucketCount(), ImmutableList.of());
+            List<String> partitionColumns = partitioning.getPartitionColumns();
+            BucketFunctionType bucketFunctionType = partitioningHandle.getBucketFunctionType();
+            switch (bucketFunctionType) {
+                case HIVE_COMPATIBLE:
+                    return new HiveBucketProperty(
+                            partitionColumns,
+                            partitioningHandle.getBucketCount(),
+                            ImmutableList.of(),
+                            HIVE_COMPATIBLE,
+                            Optional.empty());
+                case PRESTO_NATIVE:
+                    Map<String, Type> columnNameToTypeMap = columns.stream()
+                            .collect(toMap(ColumnMetadata::getName, ColumnMetadata::getType));
+                    return new HiveBucketProperty(
+                            partitionColumns,
+                            partitioningHandle.getBucketCount(),
+                            ImmutableList.of(),
+                            PRESTO_NATIVE,
+                            Optional.of(partitionColumns.stream()
+                                    .map(columnNameToTypeMap::get)
+                                    .collect(toImmutableList())));
+                default:
+                    throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
+            }
         });
 
         // PAGEFILE format doesn't require translation to hive type,
@@ -2074,16 +2100,48 @@ public class HiveMetadata
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         boolean bucketExecutionEnabled = table.getTableType().equals(TEMPORARY_TABLE) || isBucketExecutionEnabled(session);
         if (bucketExecutionEnabled && hiveLayoutHandle.getBucketHandle().isPresent()) {
-            tablePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
-                    new HivePartitioningHandle(
-                            hiveBucketHandle.getReadBucketCount(),
-                            hiveBucketHandle.getColumns().stream()
-                                    .map(HiveColumnHandle::getHiveType)
-                                    .collect(Collectors.toList()),
-                            OptionalInt.empty()),
+            HiveBucketHandle hiveBucketHandle = hiveLayoutHandle.getBucketHandle().get();
+            HivePartitioningHandle partitioningHandle;
+            int bucketCount = hiveBucketHandle.getReadBucketCount();
+            OptionalInt maxCompatibleBucketCount = OptionalInt.empty();
+
+            // Virtually bucketed table does not have table bucket property
+            if (hiveBucketHandle.isVirtuallyBucketed()) {
+                partitioningHandle = createHiveCompatiblePartitioningHandle(
+                        bucketCount,
+                        hiveBucketHandle.getColumns().stream()
+                                .map(HiveColumnHandle::getHiveType)
+                                .collect(toImmutableList()),
+                        maxCompatibleBucketCount);
+            }
+            else {
+                HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
+                        .orElseThrow(() -> new IllegalArgumentException("bucketProperty is expected to be present"));
+                switch (bucketProperty.getBucketFunctionType()) {
+                    case HIVE_COMPATIBLE:
+                        partitioningHandle = createHiveCompatiblePartitioningHandle(
+                                bucketCount,
+                                hiveBucketHandle.getColumns().stream()
+                                        .map(HiveColumnHandle::getHiveType)
+                                        .collect(toImmutableList()),
+                                maxCompatibleBucketCount);
+                        break;
+                    case PRESTO_NATIVE:
+                        partitioningHandle = createPrestoNativePartitioningHandle(
+                                bucketCount,
+                                bucketProperty.getTypes().get(),
+                                maxCompatibleBucketCount);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
+                }
+            }
+
+            tablePartitioning = Optional.of(new ConnectorTablePartitioning(
+                    partitioningHandle,
                     hiveBucketHandle.getColumns().stream()
                             .map(ColumnHandle.class::cast)
-                            .collect(toList())));
+                            .collect(toImmutableList())));
         }
 
         TupleDomain<ColumnHandle> predicate;
@@ -2114,7 +2172,9 @@ public class HiveMetadata
         HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
         HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
 
-        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+        if (!leftHandle.getBucketFunctionType().equals(rightHandle.getBucketFunctionType()) ||
+                !leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes()) ||
+                !leftHandle.getTypes().equals(rightHandle.getTypes())) {
             return Optional.empty();
         }
         if (leftHandle.getBucketCount() == rightHandle.getBucketCount()) {
@@ -2144,8 +2204,10 @@ public class HiveMetadata
 
         return Optional.of(new HivePartitioningHandle(
                 smallerBucketCount,
+                maxCompatibleBucketCount,
+                leftHandle.getBucketFunctionType(),
                 leftHandle.getHiveTypes(),
-                maxCompatibleBucketCount));
+                leftHandle.getTypes()));
     }
 
     @Override
@@ -2153,8 +2215,9 @@ public class HiveMetadata
     {
         HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
         HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
-
-        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+        if (!leftHandle.getBucketFunctionType().equals(rightHandle.getBucketFunctionType()) ||
+                !leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes()) ||
+                !leftHandle.getTypes().equals(rightHandle.getTypes())) {
             return false;
         }
 
@@ -2187,10 +2250,15 @@ public class HiveMetadata
         checkArgument(hiveLayoutHandle.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
         HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().get();
         ImmutableList<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
+        Optional<List<HiveType>> hiveTypes = hivePartitioningHandle.getHiveTypes();
         checkArgument(
-                hivePartitioningHandle.getHiveTypes().equals(bucketTypes),
+                hivePartitioningHandle.getBucketFunctionType().equals(HIVE_COMPATIBLE),
+                "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
+                hivePartitioningHandle.getBucketFunctionType());
+        checkArgument(
+                hiveTypes.get().equals(bucketTypes),
                 "Types from the new PartitioningHandle (%s) does not match the TableLayoutHandle (%s)",
-                hivePartitioningHandle.getHiveTypes(),
+                hiveTypes.get(),
                 bucketTypes);
         int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
         int smallerBucketCount = Math.min(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
@@ -2217,14 +2285,7 @@ public class HiveMetadata
     @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
-        return new HivePartitioningHandle(
-                partitionCount,
-                partitionTypes.stream()
-                        .map(type -> toHiveType(
-                                typeTranslator,
-                                translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
-                        .collect(toImmutableList()),
-                OptionalInt.empty());
+        return createPrestoNativePartitioningHandle(partitionCount, partitionTypes, OptionalInt.empty());
     }
 
     @VisibleForTesting
@@ -2297,12 +2358,28 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
-        HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
-                hiveBucketHandle.get().getTableBucketCount(),
-                hiveBucketHandle.get().getColumns().stream()
-                        .map(HiveColumnHandle::getHiveType)
-                        .collect(Collectors.toList()),
-                OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()));
+        HivePartitioningHandle partitioningHandle;
+        int bucketCount = hiveBucketHandle.get().getTableBucketCount();
+        OptionalInt maxCompatibleBucketCount = OptionalInt.of(bucketCount);
+        switch (bucketProperty.getBucketFunctionType()) {
+            case HIVE_COMPATIBLE:
+                partitioningHandle = createHiveCompatiblePartitioningHandle(
+                        bucketCount,
+                        hiveBucketHandle.get().getColumns().stream()
+                                .map(HiveColumnHandle::getHiveType)
+                                .collect(toImmutableList()),
+                        maxCompatibleBucketCount);
+                break;
+            case PRESTO_NATIVE:
+                partitioningHandle = createPrestoNativePartitioningHandle(
+                        bucketCount,
+                        bucketProperty.getTypes().get(),
+                        maxCompatibleBucketCount);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
+        }
+
         List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(Collectors.toList());
@@ -2329,7 +2406,7 @@ public class HiveMetadata
         }
 
         // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
-        HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
+        HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
                 SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
                 table.getPartitionColumns().stream()
                         .map(Column::getType)
@@ -2351,6 +2428,9 @@ public class HiveMetadata
         if (!bucketProperty.isPresent()) {
             return Optional.empty();
         }
+        checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
+                "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
+                bucketProperty.get().getBucketFunctionType());
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
@@ -2358,12 +2438,13 @@ public class HiveMetadata
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
+
         return Optional.of(new ConnectorNewTableLayout(
-                new HivePartitioningHandle(
+                createHiveCompatiblePartitioningHandle(
                         bucketProperty.get().getBucketCount(),
                         bucketedBy.stream()
                                 .map(hiveTypeMap::get)
-                                .collect(toList()),
+                                .collect(toImmutableList()),
                         OptionalInt.of(bucketProperty.get().getBucketCount())),
                 bucketedBy));
     }
@@ -2393,7 +2474,7 @@ public class HiveMetadata
                 .collect(toList());
 
         // TODO: the shuffle partitioning could use a better hash function (instead of Hive bucket function)
-        HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
+        HivePartitioningHandle partitioningHandle = createHiveCompatiblePartitioningHandle(
                 SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
                 partitionColumns.stream()
                         .map(Column::getType)
