@@ -35,18 +35,20 @@ public class TestAlluxioCacheConfig
                 .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setMetricsCollectionEnabled(true)
                 .setMetricsDomain("com.facebook.alluxio")
-                .setJmxClass("alluxio.metrics.sink.JmxSink"));
+                .setJmxClass("alluxio.metrics.sink.JmxSink")
+                .setConfigValidationEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("cache.alluxio.async-write.enabled", "true")
+                .put("cache.alluxio.async-write-enabled", "true")
                 .put("cache.alluxio.max-cache-size", "42MB")
-                .put("cache.alluxio.metrics.enabled", "false")
-                .put("cache.alluxio.metrics.domain", "test.alluxio")
-                .put("cache.alluxio.jmx.class", "test.TestJmxSink")
+                .put("cache.alluxio.metrics-enabled", "false")
+                .put("cache.alluxio.metrics-domain", "test.alluxio")
+                .put("cache.alluxio.jmx-class", "test.TestJmxSink")
+                .put("cache.alluxio.config-validation-enabled", "true")
                 .build();
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
@@ -54,7 +56,8 @@ public class TestAlluxioCacheConfig
                 .setMaxCacheSize(new DataSize(42, MEGABYTE))
                 .setMetricsCollectionEnabled(false)
                 .setMetricsDomain("test.alluxio")
-                .setJmxClass("test.TestJmxSink");
+                .setJmxClass("test.TestJmxSink")
+                .setConfigValidationEnabled(true);
 
         assertFullMapping(properties, expected);
     }

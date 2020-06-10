@@ -26,13 +26,15 @@ public class AlluxioCacheConfig
     private String jmxClass = "alluxio.metrics.sink.JmxSink";
     private String metricsDomain = "com.facebook.alluxio";
     private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
+    private boolean configValidationEnabled;
 
     public boolean isMetricsCollectionEnabled()
     {
         return metricsCollectionEnabled;
     }
 
-    @Config("cache.alluxio.metrics.enabled")
+    @Config("cache.alluxio.metrics-enabled")
+    @ConfigDescription("If metrics for alluxio caching are enabled")
     public AlluxioCacheConfig setMetricsCollectionEnabled(boolean metricsCollectionEnabled)
     {
         this.metricsCollectionEnabled = metricsCollectionEnabled;
@@ -44,7 +46,8 @@ public class AlluxioCacheConfig
         return jmxClass;
     }
 
-    @Config("cache.alluxio.jmx.class")
+    @Config("cache.alluxio.jmx-class")
+    @ConfigDescription("JMX class name used by the alluxio caching for metrics")
     public AlluxioCacheConfig setJmxClass(String jmxClass)
     {
         this.jmxClass = jmxClass;
@@ -56,7 +59,8 @@ public class AlluxioCacheConfig
         return metricsDomain;
     }
 
-    @Config("cache.alluxio.metrics.domain")
+    @Config("cache.alluxio.metrics-domain")
+    @ConfigDescription("Metrics domain name used by the alluxio caching")
     public AlluxioCacheConfig setMetricsDomain(String metricsDomain)
     {
         this.metricsDomain = metricsDomain;
@@ -68,7 +72,8 @@ public class AlluxioCacheConfig
         return asyncWriteEnabled;
     }
 
-    @Config("cache.alluxio.async-write.enabled")
+    @Config("cache.alluxio.async-write-enabled")
+    @ConfigDescription("If alluxio caching should write to cache asynchronously")
     public AlluxioCacheConfig setAsyncWriteEnabled(boolean asyncWriteEnabled)
     {
         this.asyncWriteEnabled = asyncWriteEnabled;
@@ -81,10 +86,23 @@ public class AlluxioCacheConfig
     }
 
     @Config("cache.alluxio.max-cache-size")
-    @ConfigDescription("The maximum cache size")
+    @ConfigDescription("The maximum cache size available for alluxio cache")
     public AlluxioCacheConfig setMaxCacheSize(DataSize maxCacheSize)
     {
         this.maxCacheSize = maxCacheSize;
         return this;
+    }
+
+    @Config("cache.alluxio.config-validation-enabled")
+    @ConfigDescription("If the alluxio caching should validate the provided configuration")
+    public AlluxioCacheConfig setConfigValidationEnabled(boolean configValidationEnabled)
+    {
+        this.configValidationEnabled = configValidationEnabled;
+        return this;
+    }
+
+    public boolean isConfigValidationEnabled()
+    {
+        return configValidationEnabled;
     }
 }
