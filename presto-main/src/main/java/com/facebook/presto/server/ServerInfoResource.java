@@ -19,6 +19,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -31,6 +32,7 @@ import javax.ws.rs.core.Response;
 
 import java.util.Optional;
 
+import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static io.airlift.units.Duration.nanosSince;
@@ -72,6 +74,7 @@ public class ServerInfoResource
     @Path("state")
     @Consumes(APPLICATION_JSON)
     @Produces(TEXT_PLAIN)
+    @RolesAllowed(ADMIN)
     public Response updateState(NodeState state)
             throws WebApplicationException
     {
@@ -98,6 +101,7 @@ public class ServerInfoResource
     @GET
     @Path("state")
     @Produces(APPLICATION_JSON)
+    @RolesAllowed(ADMIN)
     public NodeState getServerState()
     {
         if (shutdownHandler.isShutdownRequested()) {
@@ -111,6 +115,7 @@ public class ServerInfoResource
     @GET
     @Path("coordinator")
     @Produces(TEXT_PLAIN)
+    @RolesAllowed(ADMIN)
     public Response getServerCoordinator()
     {
         if (coordinator) {
