@@ -47,7 +47,8 @@ public class TaskStatus
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
 
-    private final String taskInstanceId;
+    private final long taskInstanceIdLeastSignificantBits;
+    private final long taskInstanceIdMostSignificantBits;
     private final long version;
     private final TaskState state;
     private final URI self;
@@ -70,7 +71,8 @@ public class TaskStatus
 
     @JsonCreator
     public TaskStatus(
-            @JsonProperty("taskInstanceId") String taskInstanceId,
+            @JsonProperty("taskInstanceIdLeastSignificantBits") long taskInstanceIdLeastSignificantBits,
+            @JsonProperty("taskInstanceIdMostSignificantBits") long taskInstanceIdMostSignificantBits,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
@@ -86,8 +88,8 @@ public class TaskStatus
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
-
+        this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
+        this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
         checkState(version >= MIN_VERSION, "version must be >= MIN_VERSION");
         this.version = version;
         this.state = requireNonNull(state, "state is null");
@@ -115,9 +117,15 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public String getTaskInstanceId()
+    public long getTaskInstanceIdLeastSignificantBits()
     {
-        return taskInstanceId;
+        return taskInstanceIdLeastSignificantBits;
+    }
+
+    @JsonProperty
+    public long getTaskInstanceIdMostSignificantBits()
+    {
+        return taskInstanceIdMostSignificantBits;
     }
 
     @JsonProperty
@@ -215,7 +223,8 @@ public class TaskStatus
     public static TaskStatus initialTaskStatus(URI location)
     {
         return new TaskStatus(
-                "",
+                0L,
+                0L,
                 MIN_VERSION,
                 PLANNED,
                 location,
@@ -235,7 +244,8 @@ public class TaskStatus
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
     {
         return new TaskStatus(
-                taskStatus.getTaskInstanceId(),
+                taskStatus.getTaskInstanceIdLeastSignificantBits(),
+                taskStatus.getTaskInstanceIdMostSignificantBits(),
                 MAX_VERSION,
                 state,
                 taskStatus.getSelf(),

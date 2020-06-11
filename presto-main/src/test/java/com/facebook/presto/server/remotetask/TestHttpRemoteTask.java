@@ -83,6 +83,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -342,8 +343,8 @@ public class TestHttpRemoteTask
     @Path("/task/{nodeId}")
     public static class TestingTaskResource
     {
-        private static final String INITIAL_TASK_INSTANCE_ID = "task-instance-id";
-        private static final String NEW_TASK_INSTANCE_ID = "task-instance-id-x";
+        private static final UUID INITIAL_TASK_INSTANCE_ID = UUID.randomUUID();
+        private static final UUID NEW_TASK_INSTANCE_ID = UUID.randomUUID();
 
         private final AtomicLong lastActivityNanos;
         private final FailureScenario failureScenario;
@@ -354,7 +355,8 @@ public class TestHttpRemoteTask
         private TaskStatus initialTaskStatus;
         private long version;
         private TaskState taskState;
-        private String taskInstanceId = INITIAL_TASK_INSTANCE_ID;
+        private long taskInstanceIdLeastSignificantBits = INITIAL_TASK_INSTANCE_ID.getLeastSignificantBits();
+        private long taskInstanceIdMostSignificantBits = INITIAL_TASK_INSTANCE_ID.getMostSignificantBits();
 
         private long statusFetchCounter;
 
@@ -480,7 +482,8 @@ public class TestHttpRemoteTask
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     if (statusFetchCounter == 10) {
-                        taskInstanceId = NEW_TASK_INSTANCE_ID;
+                        taskInstanceIdLeastSignificantBits = NEW_TASK_INSTANCE_ID.getLeastSignificantBits();
+                        taskInstanceIdMostSignificantBits = NEW_TASK_INSTANCE_ID.getMostSignificantBits();
                         version = 0;
                     }
                     break;
@@ -497,7 +500,8 @@ public class TestHttpRemoteTask
             }
 
             return new TaskStatus(
-                    taskInstanceId,
+                    taskInstanceIdLeastSignificantBits,
+                    taskInstanceIdMostSignificantBits,
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
