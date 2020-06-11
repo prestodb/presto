@@ -122,9 +122,9 @@ public class SqlParser
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
     }
 
-    public Return createRoutineBody(String routineBody, ParsingOptions parsingOptions)
+    public Return createReturn(String routineBody, ParsingOptions parsingOptions)
     {
-        return (Return) invokeParser("routineBody", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions);
+        return (Return) invokeParser("return", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions);
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)

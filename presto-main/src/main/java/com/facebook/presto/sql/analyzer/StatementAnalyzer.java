@@ -107,6 +107,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
@@ -588,14 +589,17 @@ class StatementAnalyzer
             Scope functionScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
-            Type bodyType = analyzeExpression(node.getBody().getExpression(), functionScope).getExpressionTypes().get(NodeRef.of(node.getBody().getExpression()));
-            if (!bodyType.equals(returnType)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
+            if (node.getBody() instanceof Return) {
+                Expression returnExpression = ((Return) node.getBody()).getExpression();
+                Type bodyType = analyzeExpression(returnExpression, functionScope).getExpressionTypes().get(NodeRef.of(returnExpression));
+                if (!bodyType.equals(returnType)) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
+                }
+
+                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), returnExpression, "CREATE FUNCTION body");
+
+                // TODO: Check body contains no SQL invoked functions
             }
-
-            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), node.getBody().getExpression(), "CREATE FUNCTION body");
-
-            // TODO: Check body contains no SQL invoked functions
 
             return createAndAssignScope(node, scope);
         }
