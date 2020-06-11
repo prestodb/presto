@@ -80,4 +80,11 @@ public class BlackHoleNodePartitioningProvider
             return (int) (hash % bucketCount);
         };
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        // create one bucket per node
+        return nodeManager.getRequiredWorkerNodes().size();
+    }
 }

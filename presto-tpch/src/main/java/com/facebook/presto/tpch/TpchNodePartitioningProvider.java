@@ -70,4 +70,10 @@ public class TpchNodePartitioningProvider
         checkArgument(partitionChannelTypes.equals(ImmutableList.of(BIGINT)), "Expected one BIGINT parameter");
         return new TpchBucketFunction(bucketCount, rowsPerBucket);
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return nodeManager.getRequiredWorkerNodes().size() * splitsPerNode;
+    }
 }

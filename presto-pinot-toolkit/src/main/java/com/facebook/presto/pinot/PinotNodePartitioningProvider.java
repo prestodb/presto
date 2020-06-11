@@ -58,4 +58,10 @@ public class PinotNodePartitioningProvider
     {
         return null;
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return 1;
+    }
 }

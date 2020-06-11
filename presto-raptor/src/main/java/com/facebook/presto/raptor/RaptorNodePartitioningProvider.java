@@ -77,4 +77,11 @@ public class RaptorNodePartitioningProvider
     {
         return new RaptorBucketFunction(bucketCount, partitionChannelTypes);
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioningHandle;
+        return handle.getBucketToNode().size();
+    }
 }
