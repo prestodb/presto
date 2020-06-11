@@ -14,6 +14,7 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorManager;
@@ -99,14 +100,19 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PrestoSparkQueryRunner
         implements QueryRunner
 {
+    private static final Logger log = Logger.get(PrestoSparkQueryRunner.class);
+
     private static final int NODE_COUNT = 4;
 
     private static final Map<String, PrestoSparkQueryRunner> instances = new ConcurrentHashMap<>();
@@ -149,8 +155,43 @@ public class PrestoSparkQueryRunner
         if (!metastore.getDatabase("tpch").isPresent()) {
             metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
+            copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
         return queryRunner;
+    }
+
+    public static void copyTpchTablesBucketed(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables)
+    {
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
+        }
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+    }
+
+    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    {
+        long start = System.nanoTime();
+        String tableName = table.getObjectName() + "_bucketed";
+        log.info("Running import for %s", tableName);
+        String sql;
+        switch (tableName) {
+            case "lineitem_bucketed":
+            case "orders_bucketed":
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", tableName, table);
+                break;
+            default:
+                log.info("Skipping %s", tableName);
+                return;
+        }
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+        log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public PrestoSparkQueryRunner(String defaultCatalog)
@@ -192,12 +233,7 @@ public class PrestoSparkQueryRunner
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
-        connectorManager.createConnection(
-                "tpch",
-                "tpch",
-                ImmutableMap.of(
-                        // TODO: partitioned sources are not supported by Presto on Spark yet
-                        "tpch.partitioning-enabled", "false"));
+        connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
 
         // Install Hive Plugin
         File baseDir;
