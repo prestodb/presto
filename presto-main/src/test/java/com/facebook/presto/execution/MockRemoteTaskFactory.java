@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -92,7 +93,7 @@ import static java.util.Objects.requireNonNull;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final UUID TASK_INSTANCE_ID = UUID.randomUUID();
     private final Executor executor;
     private final ScheduledExecutorService scheduledExecutor;
 
@@ -210,7 +211,7 @@ public class MockRemoteTaskFactory
 
             this.outputBuffer = new LazyOutputBuffer(
                     taskId,
-                    TASK_INSTANCE_ID,
+                    TASK_INSTANCE_ID.toString(),
                     executor,
                     new DataSize(1, BYTE),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
@@ -247,7 +248,8 @@ public class MockRemoteTaskFactory
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
                     new TaskStatus(
-                            TASK_INSTANCE_ID,
+                            TASK_INSTANCE_ID.getLeastSignificantBits(),
+                            TASK_INSTANCE_ID.getMostSignificantBits(),
                             nextTaskInfoVersion.getAndIncrement(),
                             state,
                             location,
@@ -279,7 +281,9 @@ public class MockRemoteTaskFactory
         public TaskStatus getTaskStatus()
         {
             TaskStats stats = taskContext.getTaskStats();
-            return new TaskStatus(TASK_INSTANCE_ID,
+            return new TaskStatus(
+                    TASK_INSTANCE_ID.getLeastSignificantBits(),
+                    TASK_INSTANCE_ID.getMostSignificantBits(),
                     nextTaskInfoVersion.get(),
                     taskStateMachine.getState(),
                     location,
