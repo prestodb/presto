@@ -31,14 +31,17 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskSourceRdd;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ArrayListMultimap;
@@ -66,6 +69,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -99,16 +103,19 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkRddFactory
 {
     private final SplitManager splitManager;
+    private final PartitioningProviderManager partitioningProviderManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskSource> taskSourceJsonCodec;
 
     @Inject
     public PrestoSparkRddFactory(
             SplitManager splitManager,
+            PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
     }
@@ -126,11 +133,6 @@ public class PrestoSparkRddFactory
         checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution(), "unexpected grouped execution fragment: %s", fragment.getId());
 
         PartitioningHandle partitioning = fragment.getPartitioning();
-
-        if (!(partitioning.getConnectorHandle() instanceof SystemPartitioningHandle)) {
-            // TODO: add support for bucketed table
-            throw new PrestoException(NOT_SUPPORTED, "Partitioned (bucketed) tables are not yet supported by Presto on Spark");
-        }
 
         if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
             throw new PrestoException(NOT_SUPPORTED, "Automatic writers scaling is not supported by Presto on Spark");
@@ -158,7 +160,10 @@ public class PrestoSparkRddFactory
         // set the number of output partitions
         fragment = configureOutputPartitioning(session, fragment);
 
-        if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
+        if (partitioning.equals(SINGLE_DISTRIBUTION) ||
+                partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
+                partitioning.equals(SOURCE_DISTRIBUTION) ||
+                partitioning.getConnectorId().isPresent()) {
             for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
                 if (remoteSource.isEnsureSourceOrdering() || remoteSource.getOrderingScheme().isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, format(
@@ -193,6 +198,10 @@ public class PrestoSparkRddFactory
             int hashPartitionCount = getHashPartitionCount(session);
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
         }
+        if (outputPartitioningHandle.getConnectorId().isPresent()) {
+            int connectorPartitionCount = getPartitionCount(session, outputPartitioningHandle);
+            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, connectorPartitionCount).toArray()));
+        }
         return fragment;
     }
 
@@ -204,6 +213,10 @@ public class PrestoSparkRddFactory
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             int hashPartitionCount = getHashPartitionCount(session);
             return new IntegerIdentityPartitioner(hashPartitionCount);
+        }
+        if (partitioning.getConnectorId().isPresent()) {
+            int connectorPartitionCount = getPartitionCount(session, partitioning);
+            return new IntegerIdentityPartitioner(connectorPartitionCount);
         }
         throw new IllegalArgumentException(format("Unexpected fragment partitioning %s", partitioning));
     }
@@ -342,7 +355,8 @@ public class PrestoSparkRddFactory
         if (partitioning.equals(SOURCE_DISTRIBUTION)) {
             return assignSourceDistributionSplits(session, splits);
         }
-        throw new IllegalArgumentException("Unexpected partitioning: " + partitioning);
+        // splits from bucketed table
+        return assignPartitionedSplits(session, partitioning, splits);
     }
 
     private static SetMultimap<Integer, ScheduledSplit> assignSourceDistributionSplits(Session session, List<ScheduledSplit> splits)
@@ -364,7 +378,43 @@ public class PrestoSparkRddFactory
                 .map(SerializedPrestoSparkTaskSource::new)
                 .collect(toImmutableList());
     }
-    
+
+    private SetMultimap<Integer, ScheduledSplit> assignPartitionedSplits(Session session, PartitioningHandle partitioning, List<ScheduledSplit> splits)
+    {
+        ToIntFunction<ConnectorSplit> splitBucketFunction = getSplitBucketFunction(session, partitioning);
+        ImmutableSetMultimap.Builder<Integer, ScheduledSplit> result = ImmutableSetMultimap.builder();
+        for (ScheduledSplit scheduledSplit : splits) {
+            int partitionId = splitBucketFunction.applyAsInt(scheduledSplit.getSplit().getConnectorSplit());
+            result.put(partitionId, scheduledSplit);
+        }
+        return result.build();
+    }
+
+    private ToIntFunction<ConnectorSplit> getSplitBucketFunction(Session session, PartitioningHandle partitioning)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning);
+        return partitioningProvider.getSplitBucketFunction(
+                partitioning.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioning.getConnectorHandle());
+    }
+
+    private int getPartitionCount(Session session, PartitioningHandle partitioning)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning);
+        return partitioningProvider.getBucketCount(
+                partitioning.getTransactionHandle().orElse(null),
+                session.toConnectorSession(),
+                partitioning.getConnectorHandle());
+    }
+
+    private ConnectorNodePartitioningProvider getPartitioningProvider(PartitioningHandle partitioning)
+    {
+        ConnectorId connectorId = partitioning.getConnectorId()
+                .orElseThrow(() -> new IllegalArgumentException("Unexpected partitioning: " + partitioning));
+        return partitioningProviderManager.getPartitioningProvider(connectorId);
+    }
+
     private static List<TableScanNode> findTableScanNodes(PlanNode node)
     {
         return searchFrom(node)
