@@ -19,51 +19,55 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Return
+public class ExternalBodyReference
         extends RoutineBody
 {
-    private final Expression expression;
+    private final Optional<Identifier> identifier;
 
-    public Return(Expression expression)
+    public ExternalBodyReference()
     {
-        this(Optional.empty(), expression);
+        this(Optional.empty(), Optional.empty());
     }
 
-    public Return(NodeLocation location, Expression expression)
+    public ExternalBodyReference(Identifier identifier)
     {
-        this(Optional.of(location), expression);
+        this(Optional.empty(), Optional.of(identifier));
     }
 
-    private Return(Optional<NodeLocation> location, Expression expression)
+    private ExternalBodyReference(Optional<NodeLocation> location, Optional<Identifier> identifier)
     {
         super(location);
-        this.expression = requireNonNull(expression, "Expression is null");
+        this.identifier = requireNonNull(identifier, "identifier is null");
     }
 
-    public Expression getExpression()
+    public Optional<Identifier> getIdentifier()
     {
-        return expression;
+        return identifier;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitReturn(this, context);
+        return visitor.visitExternalBodyReference(this, context);
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.of(expression);
+        if (identifier.isPresent()) {
+            return ImmutableList.of(identifier.get());
+        }
+        return ImmutableList.of();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression);
+        return Objects.hash(identifier);
     }
 
     @Override
@@ -75,15 +79,15 @@ public class Return
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        Return o = (Return) obj;
-        return Objects.equals(expression, o.expression);
+        ExternalBodyReference o = (ExternalBodyReference) obj;
+        return Objects.equals(identifier, o.identifier);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("expression", expression)
-                .toString();
+        ToStringHelper helper = toStringHelper(this);
+        identifier.ifPresent(value -> helper.add("identifier", value));
+        return helper.toString();
     }
 }

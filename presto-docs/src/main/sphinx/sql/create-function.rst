@@ -14,10 +14,10 @@ Synopsis
     )
     RETURNS return_type
     [ COMMENT function_description ]
-    [ LANGUAGE SQL ]
+    [ LANGUAGE [ SQL | identifier] ]
     [ DETERMINISTIC | NOT DETERMINISTIC ]
     [ RETURNS NULL ON NULL INPUT | CALLED ON NULL INPUT ]
-    [ RETURN expression ]
+    [ RETURN expression | EXTERNAL [ NAME identifier ] ]
 
 
 Description

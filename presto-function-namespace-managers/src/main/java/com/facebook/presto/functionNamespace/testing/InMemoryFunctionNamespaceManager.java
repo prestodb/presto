@@ -53,6 +53,7 @@ public class InMemoryFunctionNamespaceManager
     @Override
     public synchronized void createFunction(SqlInvokedFunction function, boolean replace)
     {
+        checkFunctionLanguageSupported(function);
         SqlFunctionId functionId = function.getFunctionId();
         if (!replace && latestFunctions.containsKey(function.getFunctionId())) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' already exists", functionId.getId()));

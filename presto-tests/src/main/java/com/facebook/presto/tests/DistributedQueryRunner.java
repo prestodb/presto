@@ -357,12 +357,15 @@ public class DistributedQueryRunner
      * <p>
      * TODO: Remove when there is a generic way of creating function namespaces as if creating schemas.
      */
-    public void enableTestFunctionNamespaces(List<String> catalogNames)
+    public void enableTestFunctionNamespaces(List<String> catalogNames, Map<String, String> additionalProperties)
     {
         checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
 
         String databaseName = String.valueOf(nanoTime());
-        Map<String, String> properties = ImmutableMap.of("database-name", databaseName);
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("database-name", databaseName)
+                .putAll(additionalProperties)
+                .build();
         installPlugin(new H2FunctionNamespaceManagerPlugin());
         for (String catalogName : catalogNames) {
             loadFunctionNamespaceManager("h2", catalogName, properties);
