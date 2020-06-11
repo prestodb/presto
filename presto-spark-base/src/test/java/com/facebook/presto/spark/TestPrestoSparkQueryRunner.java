@@ -142,4 +142,19 @@ public class TestPrestoSparkQueryRunner
                         "WHERE custkey / (orderkey - orderkey) = 0 )",
                 "/ by zero");
     }
+
+    @Test
+    public void testSelectFromEmptyTable()
+    {
+        assertUpdate(
+                "CREATE TABLE hive.hive_test.empty_orders AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders " +
+                        "WITH NO DATA",
+                0);
+
+        assertQuery(
+                "SELECT count(*) FROM hive.hive_test.empty_orders",
+                "SELECT 0");
+    }
 }
