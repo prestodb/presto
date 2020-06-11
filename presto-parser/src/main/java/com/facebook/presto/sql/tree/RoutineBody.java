@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
+package com.facebook.presto.sql.tree;
 
-public enum FunctionImplementationType
+import java.util.Optional;
+
+public abstract class RoutineBody
+        extends Node
 {
-    BUILTIN,
-    SQL,
-    THRIFT
+    public RoutineBody(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
 }

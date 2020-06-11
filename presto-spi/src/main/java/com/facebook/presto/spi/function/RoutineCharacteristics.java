@@ -15,6 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -28,9 +29,48 @@ import static java.util.Objects.requireNonNull;
 
 public class RoutineCharacteristics
 {
-    public enum Language
+    public static class Language
     {
-        SQL;
+        public static final Language SQL = new Language("SQL");
+
+        private final String language;
+
+        @JsonCreator
+        public Language(String language)
+        {
+            this.language = requireNonNull(language.toUpperCase());
+        }
+
+        @JsonValue
+        public String getLanguage()
+        {
+            return language;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(language);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Language that = (Language) o;
+            return Objects.equals(language, that.language);
+        }
+
+        @Override
+        public String toString()
+        {
+            return language;
+        }
     }
 
     public enum Determinism
@@ -108,7 +148,7 @@ public class RoutineCharacteristics
             return false;
         }
         RoutineCharacteristics that = (RoutineCharacteristics) o;
-        return language == that.language
+        return Objects.equals(language, that.language)
                 && determinism == that.determinism
                 && nullCallClause == that.nullCallClause;
     }
