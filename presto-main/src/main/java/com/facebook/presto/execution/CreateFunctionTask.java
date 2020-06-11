@@ -90,7 +90,7 @@ public class CreateFunctionTask
         TypeSignature returnType = parseTypeSignature(statement.getReturnType());
         String description = statement.getComment().orElse("");
         RoutineCharacteristics routineCharacteristics = RoutineCharacteristics.builder()
-                .setLanguage(RoutineCharacteristics.Language.valueOf(statement.getCharacteristics().getLanguage().name()))
+                .setLanguage(new RoutineCharacteristics.Language(statement.getCharacteristics().getLanguage().getLanguage()))
                 .setDeterminism(RoutineCharacteristics.Determinism.valueOf(statement.getCharacteristics().getDeterminism().name()))
                 .setNullCallClause(RoutineCharacteristics.NullCallClause.valueOf(statement.getCharacteristics().getNullCallClause().name()))
                 .build();

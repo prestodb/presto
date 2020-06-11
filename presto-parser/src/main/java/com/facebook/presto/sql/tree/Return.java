@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class Return
-        extends Statement
+        extends RoutineBody
 {
     private final Expression expression;
 

@@ -132,6 +132,7 @@ public class MySqlFunctionNamespaceManager
     public void createFunction(SqlInvokedFunction function, boolean replace)
     {
         checkCatalog(function);
+        checkFunctionLanguageSupported(function);
         checkArgument(!function.getVersion().isPresent(), "function '%s' is already versioned", function);
 
         QualifiedFunctionName functionName = function.getFunctionId().getFunctionName();

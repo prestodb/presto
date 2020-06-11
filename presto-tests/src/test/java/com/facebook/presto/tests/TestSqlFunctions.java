@@ -50,7 +50,7 @@ public class TestSqlFunctions
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                     .setCoordinatorProperties(ImmutableMap.of("list-built-in-functions-only", "false"))
                     .build();
-            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"));
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"), ImmutableMap.of("supported-function-languages", "sql, java"));
             queryRunner.createTestFunctionNamespace("testing", "common");
             queryRunner.createTestFunctionNamespace("testing", "test");
             queryRunner.createTestFunctionNamespace("example", "example");
@@ -95,6 +95,18 @@ public class TestSqlFunctions
         assertQueryFails(
                 "CREATE FUNCTION testing.default.tan (x double) RETURNS double COMMENT 'tangent trigonometric function' RETURN sum(x)",
                 ".*CREATE FUNCTION body cannot contain aggregations, window functions or grouping operations:.*");
+    }
+
+    @Test
+    public void testCreateFunctionExternal()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x int) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME foo_from_another_library");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x bigint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME \"foo.from.another.library\"");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x smallint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME 'foo.from.another.library'");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x double) RETURNS double LANGUAGE \"JAVA\" EXTERNAL");
+
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE UNSUPPORTED EXTERNAL", "Catalog testing does not support functions implemented in language UNSUPPORTED");
     }
 
     @Test
