@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -224,6 +225,21 @@ public class TestJdbcConnection
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
         assertEquals(prestoConnection.getExtraCredentials(), credentials);
         assertEquals(listExtraCredentials(connection), credentials);
+    }
+
+    @Test
+    public void testTargetResultSize()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("targetResultSize=100MB")) {
+            assertTrue(connection instanceof PrestoConnection);
+            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
+            assertEquals(prestoConnection.getTargetResultSize(), DataSize.valueOf("100MB"));
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 123");
+            }
+        }
     }
 
     private Connection createConnection()

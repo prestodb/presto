@@ -22,6 +22,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
@@ -79,7 +80,7 @@ public class TestFinalQueryInfo
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     null,
-                    new Duration(2, MINUTES));
+                    new Duration(2, MINUTES), DataSize.valueOf("1MB"));
 
             // start query
             StatementClient client = newStatementClient(httpClient, clientSession, sql);

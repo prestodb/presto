@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import io.airlift.units.DataSize;
+
 import java.io.File;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
@@ -152,6 +154,8 @@ abstract class AbstractConnectionProperty<T>
         }
         throw new IllegalArgumentException("value must be 'true' or 'false'");
     };
+
+    protected static final Converter<DataSize> DATA_SIZE_CONVERTER = DataSize::valueOf;
 
     protected interface CheckedPredicate<T>
     {

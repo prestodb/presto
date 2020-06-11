@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -99,7 +100,7 @@ public class TestQueryRunner
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         null,
-                        new Duration(2, MINUTES)));
+                        new Duration(2, MINUTES), DataSize.valueOf("1MB")));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
         }

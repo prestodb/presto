@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -103,6 +104,11 @@ public class TestPrestoDriverUri
 
         // empty extra credentials
         assertInvalid("presto://localhost:8080?extraCredentials=", "Connection property 'extraCredentials' value is empty");
+
+        // empty target result size
+        assertInvalid("presto://localhost:8080?targetResultSize=", "Connection property 'targetResultSize' value is empty");
+        // invalid units for target result size
+        assertInvalid("presto://localhost:8080?targetResultSize=1zt", "Connection property 'targetResultSize' value is invalid: 1zt");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
@@ -233,6 +239,14 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + extraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
+    }
+
+    @Test
+    public void testUriWithTargetResultSize()
+            throws SQLException
+    {
+        PrestoDriverUri driverUri = createDriverUri("presto://localhost:8080?targetResultSize=200MB");
+        assertEquals(driverUri.getTargetResultSize(), DataSize.valueOf("200MB"));
     }
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)

@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -51,6 +52,7 @@ public class ClientSession
     private final Map<String, String> extraCredentials;
     private final String transactionId;
     private final Duration clientRequestTimeout;
+    private final DataSize targetResultSize;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -81,7 +83,8 @@ public class ClientSession
             Map<String, SelectedRole> roles,
             Map<String, String> extraCredentials,
             String transactionId,
-            Duration clientRequestTimeout)
+            Duration clientRequestTimeout,
+            DataSize targetResultSize)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -100,6 +103,7 @@ public class ClientSession
         this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
+        this.targetResultSize = requireNonNull(targetResultSize, "targetResultSize is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -223,6 +227,11 @@ public class ClientSession
         return clientRequestTimeout;
     }
 
+    public DataSize getTargetResultSize()
+    {
+        return targetResultSize;
+    }
+
     @Override
     public String toString()
     {
@@ -261,6 +270,7 @@ public class ClientSession
         private Map<String, String> credentials;
         private String transactionId;
         private Duration clientRequestTimeout;
+        private DataSize targetResultSize;
 
         private Builder(ClientSession clientSession)
         {
@@ -282,6 +292,7 @@ public class ClientSession
             credentials = clientSession.getExtraCredentials();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
+            targetResultSize = clientSession.getTargetResultSize();
         }
 
         public Builder withCatalog(String catalog)
@@ -332,6 +343,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder withTargetResultSize(DataSize targetResultSize)
+        {
+            this.targetResultSize = requireNonNull(targetResultSize, "targetResultSize is null");
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -351,7 +368,8 @@ public class ClientSession
                     roles,
                     credentials,
                     transactionId,
-                    clientRequestTimeout);
+                    clientRequestTimeout,
+                    targetResultSize);
         }
     }
 }

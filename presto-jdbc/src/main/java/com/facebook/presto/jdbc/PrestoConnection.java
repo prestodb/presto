@@ -22,6 +22,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -86,6 +87,7 @@ public class PrestoConnection
     private final String user;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
+    private final DataSize targetResultSize;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -104,6 +106,7 @@ public class PrestoConnection
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
+        this.targetResultSize = uri.getTargetResultSize();
 
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -633,6 +636,12 @@ public class PrestoConnection
         return ImmutableMap.copyOf(extraCredentials);
     }
 
+    @VisibleForTesting
+    DataSize getTargetResultSize()
+    {
+        return targetResultSize;
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -703,7 +712,8 @@ public class PrestoConnection
                 ImmutableMap.copyOf(roles),
                 extraCredentials,
                 transactionId.get(),
-                timeout);
+                timeout,
+                targetResultSize);
 
         return queryExecutor.startQuery(session, sql);
     }

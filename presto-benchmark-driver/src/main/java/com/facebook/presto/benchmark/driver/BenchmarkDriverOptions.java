@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -104,7 +105,8 @@ public class BenchmarkDriverOptions
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                DataSize.valueOf("1MB"));
     }
 
     private static URI parseServer(String server)

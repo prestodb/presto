@@ -1674,21 +1674,21 @@ public class TestPrestoDriver
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:presto://%s?targetResultSize=20MB", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s", server.getAddress(), catalog);
+        String url = format("jdbc:presto://%s/%s?targetResultSize=20MB", server.getAddress(), catalog);
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = format("jdbc:presto://%s/%s/%s?targetResultSize=20MB", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
     }
 

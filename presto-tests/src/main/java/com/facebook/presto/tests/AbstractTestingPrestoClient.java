@@ -29,6 +29,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
@@ -155,7 +156,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getIdentity().getRoles(),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout);
+                clientRequestTimeout, DataSize.valueOf("1MB"));
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

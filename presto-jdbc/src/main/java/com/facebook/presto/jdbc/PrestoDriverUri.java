@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.DataSize;
 import okhttp3.OkHttpClient;
 
 import java.io.File;
@@ -56,6 +57,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWO
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.TARGET_RESULT_SIZE;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -143,6 +145,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public DataSize getTargetResultSize()
+            throws SQLException
+    {
+        return TARGET_RESULT_SIZE.getValue(properties).orElse(DataSize.valueOf("1MB"));
     }
 
     public void setupClient(OkHttpClient.Builder builder)

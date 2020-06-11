@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.DataSize;
 
 import java.io.File;
 import java.util.List;
@@ -54,6 +55,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<DataSize> TARGET_RESULT_SIZE = new TargetResultSize();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -74,6 +76,7 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(TARGET_RESULT_SIZE)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -313,6 +316,15 @@ final class ConnectionProperties
             checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not printable ASCII: %s", name);
             checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains spaces or is not printable ASCII: %s", name);
             return nameValue;
+        }
+    }
+
+    private static class TargetResultSize
+            extends AbstractConnectionProperty<DataSize>
+    {
+        public TargetResultSize()
+        {
+            super("targetResultSize", NOT_REQUIRED, ALLOWED, DATA_SIZE_CONVERTER);
         }
     }
 }

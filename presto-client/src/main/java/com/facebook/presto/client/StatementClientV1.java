@@ -22,6 +22,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
@@ -35,6 +36,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.List;
@@ -106,6 +108,7 @@ class StatementClientV1
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
+    private final DataSize targetResultSize;
     private final String user;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
@@ -121,6 +124,7 @@ class StatementClientV1
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
+        this.targetResultSize = session.getTargetResultSize();
 
         Request request = buildQueryRequest(session, query);
 
@@ -331,6 +335,9 @@ class StatementClientV1
             state.compareAndSet(State.RUNNING, State.FINISHED);
             return false;
         }
+        else {
+            nextUri = addQueryParam(nextUri, "targetResultSize", targetResultSize.toString());
+        }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
 
@@ -385,6 +392,23 @@ class StatementClientV1
                 state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                 throw requestFailedException("fetching next", request, response);
             }
+        }
+    }
+
+    private URI addQueryParam(URI nextUri, String queryParam, String queryParamValue)
+    {
+        String query = nextUri.getQuery();
+        if (query == null) {
+            query = format("%s=%s", queryParam, queryParamValue);
+        }
+        else {
+            query = format("%s&%s=%s", query, queryParam, queryParamValue);
+        }
+        try {
+            return new URI(nextUri.getScheme(), nextUri.getAuthority(), nextUri.getPath(), query, nextUri.getFragment());
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
     }
 

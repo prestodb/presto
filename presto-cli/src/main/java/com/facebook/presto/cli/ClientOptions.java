@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -140,6 +141,9 @@ public class ClientOptions
     @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
+    @Option(name = "--target-result-size", title = "target result size", description = "Target size of page data to send back to client")
+    public DataSize targetResultSize;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -170,7 +174,8 @@ public class ClientOptions
                 emptyMap(),
                 toExtraCredentials(extraCredentials),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                targetResultSize);
     }
 
     public static URI parseServer(String server)
