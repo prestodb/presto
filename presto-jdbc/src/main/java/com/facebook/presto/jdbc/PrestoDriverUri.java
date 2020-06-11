@@ -50,6 +50,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
@@ -143,6 +144,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Map<String, String> getSessionProperties()
+            throws SQLException
+    {
+        return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
     }
 
     public void setupClient(OkHttpClient.Builder builder)
