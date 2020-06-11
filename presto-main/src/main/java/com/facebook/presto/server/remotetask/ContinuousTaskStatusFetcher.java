@@ -48,7 +48,6 @@ import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFu
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -230,7 +229,10 @@ class ContinuousTaskStatusFetcher
         AtomicBoolean taskMismatch = new AtomicBoolean();
         taskStatus.setIf(newValue, oldValue -> {
             // did the task instance id change
-            if (!isNullOrEmpty(oldValue.getTaskInstanceId()) && !oldValue.getTaskInstanceId().equals(newValue.getTaskInstanceId())) {
+            boolean isEmpty = oldValue.getTaskInstanceIdLeastSignificantBits() == 0 && oldValue.getTaskInstanceIdMostSignificantBits() == 0;
+            if (!isEmpty &&
+                    !(oldValue.getTaskInstanceIdLeastSignificantBits() == newValue.getTaskInstanceIdLeastSignificantBits() &&
+                            oldValue.getTaskInstanceIdMostSignificantBits() == newValue.getTaskInstanceIdMostSignificantBits())) {
                 taskMismatch.set(true);
                 return false;
             }
