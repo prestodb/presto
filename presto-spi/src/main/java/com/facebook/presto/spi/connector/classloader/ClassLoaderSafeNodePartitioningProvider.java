@@ -78,4 +78,12 @@ public final class ClassLoaderSafeNodePartitioningProvider
             return delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle);
         }
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getBucketCount(transactionHandle, session, partitioningHandle);
+        }
+    }
 }

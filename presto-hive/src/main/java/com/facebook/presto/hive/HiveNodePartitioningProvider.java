@@ -81,6 +81,13 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        return handle.getBucketCount();
+    }
+
+    @Override
     public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;

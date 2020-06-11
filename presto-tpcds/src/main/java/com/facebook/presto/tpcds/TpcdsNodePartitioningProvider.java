@@ -70,4 +70,12 @@ public class TpcdsNodePartitioningProvider
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
+        checkState(!nodes.isEmpty(), "No TPCDS nodes available");
+        return nodes.size() * splitsPerNode;
+    }
 }
