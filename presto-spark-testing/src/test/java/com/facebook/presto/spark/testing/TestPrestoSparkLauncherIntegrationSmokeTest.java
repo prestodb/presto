@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
@@ -63,6 +64,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.net.NetUtils.addStaticResolution;
 import static org.testng.Assert.assertEquals;
 
@@ -135,6 +137,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         // it may take some time for the docker container to start
         ensureHiveIsRunning(localQueryRunner, new Duration(10, MINUTES));
         importTables(localQueryRunner, "lineitem", "orders");
+        importTablesBucketed(localQueryRunner, ImmutableList.of("orderkey"), "lineitem", "orders");
 
         File projectRoot = resolveProjectRoot();
         prestoLauncher = resolveFile(new File(projectRoot, "presto-spark-launcher/target"), Pattern.compile("presto-spark-launcher-[\\d\\.]+(-SNAPSHOT)?\\.jar"));
@@ -196,6 +199,19 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     {
         for (String table : tables) {
             localQueryRunner.execute(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.%s", table, table));
+        }
+    }
+
+    private static void importTablesBucketed(LocalQueryRunner localQueryRunner, List<String> bucketedBy, String... tables)
+    {
+        for (String table : tables) {
+            localQueryRunner.execute(format(
+                    "CREATE TABLE %s_bucketed WITH (bucketed_by=array[%s], bucket_count=11) AS SELECT * FROM tpch.tiny.%s",
+                    table,
+                    bucketedBy.stream()
+                            .map(value -> "'" + value + "'")
+                            .collect(joining(",")),
+                    table));
         }
     }
 
@@ -337,6 +353,17 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketedAggregation()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey, count(*) c " +
+                "FROM lineitem_bucketed " +
+                "WHERE partkey % 10 = 1 " +
+                "GROUP BY orderkey");
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
@@ -344,6 +371,18 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "SELECT l.orderkey, l.linenumber, o.orderstatus " +
                 "FROM lineitem l " +
                 "JOIN orders o " +
+                "ON l.orderkey = o.orderkey " +
+                "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
+    }
+
+    @Test
+    public void testBucketedJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT l.orderkey, l.linenumber, o.orderstatus " +
+                "FROM lineitem_bucketed l " +
+                "JOIN orders_bucketed o " +
                 "ON l.orderkey = o.orderkey " +
                 "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
     }
@@ -408,6 +447,19 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                         "GROUP BY orderkey) t " +
                         "JOIN orders o " +
                         "ON (o.orderkey = t.orderkey)");
+    }
+
+    @Test
+    public void testBucketedTableWrite()
+            throws Exception
+    {
+        executeOnSpark("CREATE TABLE test_orders_bucketed " +
+                "WITH (bucketed_by=array['orderkey'], bucket_count=11) " +
+                "AS SELECT * FROM orders_bucketed");
+        MaterializedResult actual = localQueryRunner.execute("SELECT * FROM test_orders_bucketed");
+        MaterializedResult expected = localQueryRunner.execute("SELECT * FROM orders_bucketed");
+        assertEqualsIgnoreOrder(actual, expected);
+        dropTable("test_orders_bucketed");
     }
 
     private void assertQuery(String query)
