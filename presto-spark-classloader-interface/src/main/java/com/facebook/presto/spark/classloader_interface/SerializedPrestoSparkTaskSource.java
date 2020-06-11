@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import org.apache.spark.util.CollectionAccumulator;
+import java.io.Serializable;
 
-import java.util.Iterator;
+import static java.util.Objects.requireNonNull;
 
-public interface IPrestoSparkTaskExecutorFactory
+public class SerializedPrestoSparkTaskSource
+        implements Serializable
 {
-    IPrestoSparkTaskExecutor create(
-            int partitionId,
-            int attemptNumber,
-            SerializedPrestoSparkTaskDescriptor taskDescriptor,
-            Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
-            PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector);
+    private final byte[] bytes;
+
+    public SerializedPrestoSparkTaskSource(byte[] bytes)
+    {
+        this.bytes = requireNonNull(bytes, "bytes is null");
+    }
+
+    public byte[] getBytes()
+    {
+        return bytes;
+    }
 }

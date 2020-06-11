@@ -111,6 +111,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -436,7 +437,6 @@ public class PrestoSparkQueryExecutionFactory
                         session.toSessionRepresentation(),
                         session.getIdentity().getExtraCredentials(),
                         rootFragment,
-                        ImmutableList.of(),
                         tableWriteInfo);
                 SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(sparkTaskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
@@ -457,6 +457,7 @@ public class PrestoSparkQueryExecutionFactory
                         0,
                         0,
                         serializedTaskDescriptor,
+                        emptyIterator(),
                         new PrestoSparkTaskInputs(inputs, ImmutableMap.of()),
                         taskStatsCollector));
             }
