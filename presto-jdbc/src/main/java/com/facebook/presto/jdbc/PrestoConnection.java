@@ -85,9 +85,9 @@ public class PrestoConnection
     private final URI httpUri;
     private final String user;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> sessionProperties;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
-    private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, SelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
@@ -106,6 +106,7 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
 
         this.extraCredentials = uri.getExtraCredentials();
+        this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
         timeZoneId.set(TimeZone.getDefault().getID());
@@ -631,6 +632,11 @@ public class PrestoConnection
     Map<String, String> getExtraCredentials()
     {
         return ImmutableMap.copyOf(extraCredentials);
+    }
+
+    Map<String, String> getSessionProperties()
+    {
+        return ImmutableMap.copyOf(sessionProperties);
     }
 
     ServerInfo getServerInfo()

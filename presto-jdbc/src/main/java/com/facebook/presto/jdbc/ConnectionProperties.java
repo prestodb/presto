@@ -50,6 +50,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -70,6 +71,7 @@ final class ConnectionProperties
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
+            .add(SESSION_PROPERTIES)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -284,6 +286,15 @@ final class ConnectionProperties
         public ExtraCredentials()
         {
             super("extraCredentials", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
+        }
+    }
+
+    private static class SessionProperties
+            extends AbstractConnectionProperty<Map<String, String>>
+    {
+        public SessionProperties()
+        {
+            super("sessionProperties", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
         }
     }
 }
