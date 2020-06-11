@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.StringMapConverter.STRING_MAP_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -285,34 +281,9 @@ final class ConnectionProperties
     private static class ExtraCredentials
             extends AbstractConnectionProperty<Map<String, String>>
     {
-        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
-
         public ExtraCredentials()
         {
-            super("extraCredentials", NOT_REQUIRED, ALLOWED, ExtraCredentials::parseExtraCredentials);
-        }
-
-        // Extra credentials consists of a list of credential name value pairs.
-        // E.g., `jdbc:presto://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
-        public static Map<String, String> parseExtraCredentials(String extraCredentialString)
-        {
-            return Splitter.on(';').splitToList(extraCredentialString).stream()
-                    .map(ExtraCredentials::parseSingleCredential)
-                    .collect(toImmutableMap(entry -> entry.get(0), entry -> entry.get(1)));
-        }
-
-        public static List<String> parseSingleCredential(String credential)
-        {
-            List<String> nameValue = Splitter.on(':').splitToList(credential);
-            checkArgument(nameValue.size() == 2, "Malformed credential: %s", credential);
-            String name = nameValue.get(0);
-            String value = nameValue.get(1);
-            checkArgument(!name.isEmpty(), "Credential name is empty");
-            checkArgument(!value.isEmpty(), "Credential value is empty");
-
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not printable ASCII: %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains spaces or is not printable ASCII: %s", name);
-            return nameValue;
+            super("extraCredentials", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
         }
     }
 }
