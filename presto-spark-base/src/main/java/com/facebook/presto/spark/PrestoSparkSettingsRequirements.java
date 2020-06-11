@@ -23,12 +23,12 @@ import org.apache.spark.SparkContext;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
-import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
@@ -52,7 +52,7 @@ public class PrestoSparkSettingsRequirements
                         !isGroupedExecutionForAggregationEnabled(session) &&
                         !isRecoverableGroupedExecutionEnabled(session) &&
                         !isDynamicScheduleForGroupedExecution(session) &&
-                        !isColocatedJoinEnabled(session),
+                        !isGroupedExecutionForJoinEnabled(session),
                 "grouped execution is not supported");
         verify(!isRedistributeWrites(session), "redistribute writes is not supported");
         verify(!isScaleWriters(session), "scale writes is not supported");
@@ -91,9 +91,10 @@ public class PrestoSparkSettingsRequirements
         config.setDistributedSortEnabled(false);
         config.setGroupedExecutionForEligibleTableScansEnabled(false);
         config.setGroupedExecutionForAggregationEnabled(false);
+        config.setGroupedExecutionForJoinEnabled(false);
         config.setRecoverableGroupedExecutionEnabled(false);
         config.setDynamicScheduleForGroupedExecutionEnabled(false);
-        config.setColocatedJoinsEnabled(false);
+        config.setColocatedJoinsEnabled(true);
         config.setRedistributeWrites(false);
         config.setScaleWriters(false);
         config.setPreferDistributedUnion(false);
