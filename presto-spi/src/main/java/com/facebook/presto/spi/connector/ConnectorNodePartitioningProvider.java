@@ -51,4 +51,9 @@ public interface ConnectorNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle,
             List<Type> partitionChannelTypes,
             int bucketCount);
+
+    int getBucketCount(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle);
 }
