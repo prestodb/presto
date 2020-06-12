@@ -15,36 +15,66 @@ package com.facebook.presto.cache.alluxio;
 
 import alluxio.client.file.FileInStream;
 import alluxio.exception.ExceptionMessage;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
+
+import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class AlluxioCachingHdfsFileInputStream
         extends InputStream
         implements Seekable, PositionedReadable
 {
     private final FileInStream inputStream;
+    private final Optional<FSDataInputStream> dataTierInputStream;
+    private final boolean cacheValidationEnabled;
 
     public AlluxioCachingHdfsFileInputStream(FileInStream inputStream)
     {
-        this.inputStream = inputStream;
+        this(inputStream, Optional.empty(), false);
+    }
+
+    public AlluxioCachingHdfsFileInputStream(
+            FileInStream inputStream,
+            Optional<FSDataInputStream> dataTierInputStream,
+            boolean cacheValidationEnabled)
+    {
+        this.inputStream = requireNonNull(inputStream);
+        this.dataTierInputStream = requireNonNull(dataTierInputStream);
+        verify(!cacheValidationEnabled || dataTierInputStream.isPresent(), "data tier input need to be non-null for data validation.");
+        this.cacheValidationEnabled = cacheValidationEnabled;
     }
 
     @Override
     public int read()
             throws IOException
     {
-        return inputStream.read();
+        int outByte = inputStream.read();
+        if (cacheValidationEnabled) {
+            verify(dataTierInputStream.get().read() == outByte, "corrupted buffer at position " + getPos());
+        }
+        return outByte;
     }
 
     @Override
     public int read(long position, byte[] buffer, int offset, int length)
             throws IOException
     {
-        return inputStream.positionedRead(position, buffer, offset, length);
+        int bytes = inputStream.positionedRead(position, buffer, offset, length);
+        if (cacheValidationEnabled) {
+            byte[] validationBuffer = new byte[bytes];
+            dataTierInputStream.get().read(position, validationBuffer, 0, bytes);
+            for (int i = 0; i < bytes; i++) {
+                verify(buffer[offset + i] == validationBuffer[i], "corrupted buffer at position " + i);
+            }
+        }
+        return bytes;
     }
 
     @Override
@@ -77,6 +107,9 @@ public class AlluxioCachingHdfsFileInputStream
             throws IOException
     {
         inputStream.seek(position);
+        if (cacheValidationEnabled) {
+            dataTierInputStream.get().seek(position);
+        }
     }
 
     @Override
