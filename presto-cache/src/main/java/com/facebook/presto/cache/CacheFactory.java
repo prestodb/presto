@@ -50,7 +50,7 @@ public class CacheFactory
                         fileSystem,
                         validationEnabled);
             case ALLUXIO:
-                ExtendedFileSystem cachingFileSystem = new AlluxioCachingFileSystem(fileSystem, factoryUri);
+                ExtendedFileSystem cachingFileSystem = new AlluxioCachingFileSystem(fileSystem, factoryUri, validationEnabled);
                 cachingFileSystem.initialize(factoryUri, factoryConfig);
                 return cachingFileSystem;
             default:

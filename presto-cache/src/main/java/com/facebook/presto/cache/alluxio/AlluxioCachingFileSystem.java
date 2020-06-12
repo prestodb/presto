@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -45,18 +46,25 @@ import static java.util.Objects.requireNonNull;
 public class AlluxioCachingFileSystem
         extends CachingFileSystem
 {
+    private final boolean cacheValidationEnabled;
     private AlluxioCachingFileSystemInternal cachingFileSystem;
 
     public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri)
     {
+        this(dataTier, uri, false);
+    }
+
+    public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri, boolean cacheValidationEnabled)
+    {
         super(dataTier, uri);
+        this.cacheValidationEnabled = cacheValidationEnabled;
     }
 
     @Override
     public synchronized void initialize(URI uri, Configuration configuration)
             throws IOException
     {
-        this.cachingFileSystem = new AlluxioCachingFileSystemInternal(uri, dataTier);
+        this.cachingFileSystem = new AlluxioCachingFileSystemInternal(uri, dataTier, cacheValidationEnabled);
         cachingFileSystem.initialize(uri, configuration);
     }
 
@@ -76,11 +84,13 @@ public class AlluxioCachingFileSystem
         // The filesystem to query on cache miss
         private final URI uri;
         private final ExtendedFileSystem fileSystem;
+        private final boolean cacheValidationEnabled;
 
-        AlluxioCachingFileSystemInternal(URI uri, ExtendedFileSystem fileSystem)
+        AlluxioCachingFileSystemInternal(URI uri, ExtendedFileSystem fileSystem, boolean cacheValidationEnabled)
         {
             this.uri = requireNonNull(uri, "uri is null");
             this.fileSystem = requireNonNull(fileSystem, "filesystem is null");
+            this.cacheValidationEnabled = cacheValidationEnabled;
         }
 
         @Override
@@ -117,7 +127,9 @@ public class AlluxioCachingFileSystem
             URIStatus uriStatus = mFileSystem.getStatus(getAlluxioPath(path));
             AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(uriStatus.getFileInfo(), hiveFileContext);
             FileInStream fileInStream = mFileSystem.openFile(alluxioURIStatus, OpenFilePOptions.getDefaultInstance());
-            return new FSDataInputStream(new AlluxioCachingHdfsFileInputStream(fileInStream));
+            return new FSDataInputStream(new AlluxioCachingHdfsFileInputStream(fileInStream,
+                    (cacheValidationEnabled ? Optional.of(fileSystem.openFile(path, hiveFileContext)) : Optional.empty()),
+                    cacheValidationEnabled));
         }
 
         @Override
