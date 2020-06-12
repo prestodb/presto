@@ -57,6 +57,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -72,6 +73,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -507,14 +509,18 @@ class Query
 
     private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
     {
-        return uriInfo.getBaseUriBuilder()
+        UriBuilder uri = uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
                 .path(String.valueOf(nextToken))
                 .replaceQuery("")
-                .queryParam("slug", slug)
-                .build();
+                .queryParam("slug", this.slug);
+        Optional<DataSize> targetResultSize = getTargetResultSize(session);
+        if (targetResultSize.isPresent()) {
+            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+        }
+        return uri.build();
     }
 
     private static StatementStats toStatementStats(QueryInfo queryInfo)
