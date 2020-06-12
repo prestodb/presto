@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -88,6 +90,21 @@ public class TestMapBlock
     {
         assertLazyHashTableBuildOverBlockRegion(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
         assertLazyHashTableBuildOverBlockRegion(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    @Test
+    public void testSeekKey()
+    {
+        Block keyBlock = createStringsBlock("k");
+        Block valueBlock = createStringsBlock("v");
+        Block mapBlock = mapType(VARCHAR, VARCHAR).createBlockFromKeyValue(1, Optional.empty(), IntStream.range(0, 2).toArray(), keyBlock, valueBlock);
+        SingleMapBlock singleMapBlock = (SingleMapBlock) mapBlock.getBlock(0);
+        // Testing not found case. The key to seek should be longer than AbstractVariableWidthType#EXPECTED_BYTES_PER_ENTRY(32) and has same hash code as the key in keyBlock.
+        // This is because the default capacity of the slice of the keyBlock for 1 single character key is EXPECTED_BYTES_PER_ENTRY. We want to make the seeked key out of boundary
+        // to make sure no exception is thrown.
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou"))), -1);
+        // Testing found case.
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k")), 1);
     }
 
     private void assertLazyHashTableBuildOverBlockRegion(Map<String, Long>[] testValues)

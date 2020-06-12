@@ -352,7 +352,14 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = mapBlock.getRawKeyBlock().bytesEqual(offset / 2 + keyPosition, 0, nativeValue, 0, nativeValue.length());
+                Block rawKeyBlock = mapBlock.getRawKeyBlock();
+
+                if (rawKeyBlock.getSliceLength(offset / 2 + keyPosition) != nativeValue.length()) {
+                    match = false;
+                }
+                else {
+                    match = rawKeyBlock.bytesEqual(offset / 2 + keyPosition, 0, nativeValue, 0, nativeValue.length());
+                }
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
