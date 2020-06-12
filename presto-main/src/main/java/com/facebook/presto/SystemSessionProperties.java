@@ -157,6 +157,7 @@ public final class SystemSessionProperties
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
+    public static final String TARGET_RESULT_SIZE = "target_result_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -806,7 +807,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_NULLS_IN_JOINS,
                         "Filter nulls from inner side of join",
                         featuresConfig.isOptimizeNullsInJoin(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        TARGET_RESULT_SIZE,
+                        "Target result size for results being streamed from coordinator",
+                        VARCHAR,
+                        DataSize.class,
+                        null,
+                        false,
+                        value -> value != null ? DataSize.valueOf((String) value) : null,
+                        value -> value != null ? value.toString() : null));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1361,5 +1371,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeNullsInJoin(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
+    }
+
+    public static Optional<DataSize> getTargetResultSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
     }
 }
