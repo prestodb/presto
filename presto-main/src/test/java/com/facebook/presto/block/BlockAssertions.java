@@ -40,6 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
@@ -135,7 +136,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, (int) StreamSupport.stream(values.spliterator(), false).count());
 
         for (String value : values) {
             if (value == null) {
