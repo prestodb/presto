@@ -15,7 +15,19 @@ package com.facebook.presto.spi.function;
 
 public enum FunctionImplementationType
 {
-    BUILTIN,
-    SQL,
-    THRIFT
+    BUILTIN(false),
+    SQL(false),
+    THRIFT(true);
+
+    private final boolean external;
+
+    FunctionImplementationType(boolean external)
+    {
+        this.external = external;
+    }
+
+    public boolean isExternal()
+    {
+        return external;
+    }
 }
