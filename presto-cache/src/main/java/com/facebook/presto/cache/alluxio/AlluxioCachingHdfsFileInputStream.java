@@ -45,8 +45,8 @@ public class AlluxioCachingHdfsFileInputStream
             Optional<FSDataInputStream> dataTierInputStream,
             boolean cacheValidationEnabled)
     {
-        this.inputStream = requireNonNull(inputStream);
-        this.dataTierInputStream = requireNonNull(dataTierInputStream);
+        this.inputStream = requireNonNull(inputStream, "InputStream is null");
+        this.dataTierInputStream = requireNonNull(dataTierInputStream, "DataTierInputStream is null");
         verify(!cacheValidationEnabled || dataTierInputStream.isPresent(), "data tier input need to be non-null for data validation.");
         this.cacheValidationEnabled = cacheValidationEnabled;
     }

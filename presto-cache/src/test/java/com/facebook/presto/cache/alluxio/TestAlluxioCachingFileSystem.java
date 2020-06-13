@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cache.alluxio;
 
-import alluxio.exception.ExceptionMessage;
 import alluxio.metrics.MetricKey;
 import alluxio.metrics.MetricsSystem;
 import alluxio.util.io.FileUtils;
@@ -26,8 +25,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PositionedReadable;
-import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.AfterClass;
@@ -35,10 +32,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -91,13 +85,27 @@ public class TestAlluxioCachingFileSystem
     }
 
     @Test(timeOut = 30_000)
-    public void testBasic()
+    public void testBasicWithValidationEnabled()
+            throws Exception
+    {
+        testBasic(true);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBasicWithValidationDisabled()
+            throws Exception
+    {
+        testBasic(false);
+    }
+
+    private void testBasic(boolean validationEnabled)
             throws Exception
     {
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory);
+                .setBaseDirectory(cacheDirectory)
+                .setValidationEnabled(validationEnabled);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         AlluxioCachingFileSystem fileSystem = cachingFileSystem(cacheConfig, alluxioCacheConfig);
         byte[] buffer = new byte[PAGE_SIZE * 2];
@@ -318,89 +326,6 @@ public class TestAlluxioCachingFileSystem
             public ByteArrayDataInputStream(byte[] bytes)
             {
                 super(new ByteArraySeekableStream(bytes));
-            }
-        }
-
-        private static class ByteArraySeekableStream
-                extends InputStream
-                implements Seekable, PositionedReadable
-        {
-            private final ByteArrayInputStream inputStream;
-            private final int length;
-
-            public ByteArraySeekableStream(byte[] bytes)
-            {
-                inputStream = new ByteArrayInputStream(bytes);
-                length = bytes.length;
-            }
-
-            @Override
-            public int read()
-            {
-                return inputStream.read();
-            }
-
-            @Override
-            public int read(long position, byte[] buffer, int offset, int length)
-                    throws IOException
-            {
-                return read(buffer, 0, buffer.length);
-            }
-
-            @Override
-            public void readFully(long position, byte[] buffer, int offset, int length)
-                    throws IOException
-            {
-                int totalBytesRead = 0;
-                while (totalBytesRead < length) {
-                    int bytesRead = read(position + totalBytesRead, buffer, offset + totalBytesRead, length - totalBytesRead);
-                    if (bytesRead == -1) {
-                        throw new EOFException();
-                    }
-                    totalBytesRead += bytesRead;
-                }
-            }
-
-            @Override
-            public void readFully(long position, byte[] buffer)
-                    throws IOException
-            {
-                readFully(position, buffer, 0, buffer.length);
-            }
-
-            @Override
-            public void seek(long position)
-                    throws IOException
-            {
-                try {
-                    inputStream.reset();
-                    inputStream.skip(position);
-                }
-                catch (IllegalArgumentException e) {
-                    // convert back to IOException
-                    throw new IOException(e);
-                }
-            }
-
-            @Override
-            public long getPos()
-            {
-                return length - inputStream.available();
-            }
-
-            @Override
-            public boolean seekToNewSource(long targetPosition)
-                    throws IOException
-            {
-                throw new IOException(ExceptionMessage.NOT_SUPPORTED.getMessage());
-            }
-
-            @Override
-            public void close()
-                    throws IOException
-            {
-                inputStream.close();
-                super.close();
             }
         }
     }

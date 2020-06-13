@@ -127,7 +127,8 @@ public class AlluxioCachingFileSystem
             URIStatus uriStatus = mFileSystem.getStatus(getAlluxioPath(path));
             AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(uriStatus.getFileInfo(), hiveFileContext);
             FileInStream fileInStream = mFileSystem.openFile(alluxioURIStatus, OpenFilePOptions.getDefaultInstance());
-            return new FSDataInputStream(new AlluxioCachingHdfsFileInputStream(fileInStream,
+            return new FSDataInputStream(new AlluxioCachingHdfsFileInputStream(
+                    fileInStream,
                     (cacheValidationEnabled ? Optional.of(fileSystem.openFile(path, hiveFileContext)) : Optional.empty()),
                     cacheValidationEnabled));
         }
