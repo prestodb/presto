@@ -780,14 +780,16 @@ public class PlanPrinter
                 arguments.add(formatter.apply(filterNode.get().getPredicate()));
             }
 
+            if (projectNode.isPresent()) {
+                operatorName += "Project";
+                formatString += "projectLocality = %s, ";
+                arguments.add(projectNode.get().getLocality());
+            }
+
             if (formatString.length() > 1) {
                 formatString = formatString.substring(0, formatString.length() - 2);
             }
             formatString += "]";
-
-            if (projectNode.isPresent()) {
-                operatorName += "Project";
-            }
 
             List<PlanNodeId> allNodes = Stream.of(scanNode, filterNode, projectNode)
                     .filter(Optional::isPresent)

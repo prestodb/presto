@@ -70,6 +70,7 @@ public final class PlanChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
                         new VerifyNoOriginalExpression(),
+                        new VerifyProjectionLocality(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig))
                 .build();
     }
