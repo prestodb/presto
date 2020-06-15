@@ -253,6 +253,7 @@ public class MapBlockEncodingBuffer
     public String toString()
     {
         return toStringHelper(this)
+                .add("super", super.toString())
                 .add("hashTablesBufferCapacity", hashTablesBuffer == null ? 0 : hashTablesBuffer.length)
                 .add("hashTableBufferIndex", hashTableBufferIndex)
                 .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
