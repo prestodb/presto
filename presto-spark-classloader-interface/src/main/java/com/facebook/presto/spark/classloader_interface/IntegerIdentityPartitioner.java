@@ -37,7 +37,9 @@ public class IntegerIdentityPartitioner
     @Override
     public int getPartition(Object key)
     {
-        int partition = requireNonNull((Integer) key, "key is null");
+        requireNonNull(key, "key is null");
+        MutablePartitionId mutablePartitionId = (MutablePartitionId) key;
+        int partition = mutablePartitionId.getPartition();
         if (!(partition >= 0 && partition < numPartitions)) {
             throw new IllegalArgumentException(format("Unexpected partition: %s. Total number of partitions: %s.", partition, numPartitions));
         }
