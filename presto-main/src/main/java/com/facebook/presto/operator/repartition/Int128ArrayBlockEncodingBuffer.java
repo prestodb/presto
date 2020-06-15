@@ -37,6 +37,7 @@ import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setLongUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_LONG_INDEX_SCALE;
@@ -130,10 +131,10 @@ public class Int128ArrayBlockEncodingBuffer
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
-        sb.append("valuesBufferCapacity=").append(valuesBuffer == null ? 0 : valuesBuffer.length).append(",");
-        sb.append("valuesBufferIndex=").append(valuesBufferIndex).append("}");
-        return sb.toString();
+        return toStringHelper(this)
+                .add("valuesBufferCapacity", valuesBuffer == null ? 0 : valuesBuffer.length)
+                .add("valuesBufferIndex", valuesBufferIndex)
+                .toString();
     }
 
     @Override
