@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.AbstractIterator;
@@ -38,7 +38,7 @@ public class PrestoSparkUtils
 {
     private PrestoSparkUtils() {}
 
-    public static Iterator<Page> transformRowsToPages(Iterator<PrestoSparkRow> rows, List<Type> types)
+    public static Iterator<Page> transformRowsToPages(Iterator<PrestoSparkMutableRow> rows, List<Type> types)
     {
         return new AbstractIterator<Page>()
         {
@@ -50,7 +50,7 @@ public class PrestoSparkUtils
                 }
                 PageBuilder pageBuilder = new PageBuilder(types);
                 while (rows.hasNext() && !pageBuilder.isFull()) {
-                    PrestoSparkRow row = rows.next();
+                    PrestoSparkMutableRow row = rows.next();
                     SliceInput sliceInput = new BasicSliceInput(wrappedBuffer(row.getBytes(), 0, row.getLength()));
                     pageBuilder.declarePosition();
                     for (int channel = 0; channel < types.size(); channel++) {

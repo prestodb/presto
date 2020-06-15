@@ -22,8 +22,8 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskProcessor;
@@ -121,11 +121,11 @@ public class PrestoSparkRddFactory
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
     }
 
-    public JavaPairRDD<MutablePartitionId, PrestoSparkRow> createSparkRdd(
+    public JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> createSparkRdd(
             JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> rddInputs,
+            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
@@ -174,7 +174,7 @@ public class PrestoSparkRddFactory
                 }
             }
 
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> partitionedInputs = rddInputs.entrySet().stream()
+            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> partitionedInputs = rddInputs.entrySet().stream()
                     .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().partitionBy(createPartitioner(session, partitioning))));
 
             return createRdd(
@@ -222,14 +222,14 @@ public class PrestoSparkRddFactory
         throw new IllegalArgumentException(format("Unexpected fragment partitioning %s", partitioning));
     }
 
-    private JavaPairRDD<MutablePartitionId, PrestoSparkRow> createRdd(
+    private JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> createRdd(
             JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
             TableWriteInfo tableWriteInfo,
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> rddInputs,
+            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
@@ -243,9 +243,9 @@ public class PrestoSparkRddFactory
                 taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 
         Optional<Integer> numberOfShufflePartitions = Optional.empty();
-        Map<String, RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRddMap = new HashMap<>();
-        for (Map.Entry<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> input : rddInputs.entrySet()) {
-            RDD<Tuple2<MutablePartitionId, PrestoSparkRow>> rdd = input.getValue().rdd();
+        Map<String, RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputRddMap = new HashMap<>();
+        for (Map.Entry<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> input : rddInputs.entrySet()) {
+            RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rdd = input.getValue().rdd();
             shuffleInputRddMap.put(input.getKey().toString(), rdd);
             if (!numberOfShufflePartitions.isPresent()) {
                 numberOfShufflePartitions = Optional.of(rdd.getNumPartitions());
@@ -286,7 +286,7 @@ public class PrestoSparkRddFactory
         return JavaPairRDD.fromRDD(
                 PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor),
                 classTag(MutablePartitionId.class),
-                classTag(PrestoSparkRow.class));
+                classTag(PrestoSparkMutableRow.class));
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(
@@ -431,7 +431,7 @@ public class PrestoSparkRddFactory
 
     private static void checkInputs(
             List<RemoteSourceNode> remoteSources,
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> rddInputs,
+            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
     {
         Set<PlanFragmentId> expectedInputs = remoteSources.stream()

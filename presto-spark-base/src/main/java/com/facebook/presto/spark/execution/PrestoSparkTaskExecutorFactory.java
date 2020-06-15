@@ -39,7 +39,7 @@ import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
@@ -282,13 +282,13 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor);
         PrestoSparkRowBuffer rowBuffer = new PrestoSparkRowBuffer(memoryManager);
 
-        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkRow>> shuffleInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-            List<Iterator<PrestoSparkRow>> shuffleRemoteSourceInputs = new ArrayList<>();
+            List<Iterator<PrestoSparkMutableRow>> shuffleRemoteSourceInputs = new ArrayList<>();
             List<Iterator<PrestoSparkSerializedPage>> broadcastRemoteSourceInputs = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
                 Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
                 checkArgument(shuffleInput != null || broadcastInput != null, "Input not found for sourceFragmentId: %s", sourceFragmentId);
                 checkArgument(shuffleInput == null || broadcastInput == null, "Single remote source cannot accept both, broadcast and shuffle inputs");
@@ -352,7 +352,7 @@ public class PrestoSparkTaskExecutorFactory
     }
 
     private static class PrestoSparkTaskExecutor
-            extends AbstractIterator<Tuple2<MutablePartitionId, PrestoSparkRow>>
+            extends AbstractIterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>
             implements IPrestoSparkTaskExecutor
     {
         private final TaskContext taskContext;
@@ -363,7 +363,7 @@ public class PrestoSparkTaskExecutorFactory
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
         private final MutablePartitionId mutablePartitionId = new MutablePartitionId();
-        private List<PrestoSparkRow> currentRowBatch;
+        private List<PrestoSparkMutableRow> currentRowBatch;
         private int indexInBatch;
 
         private PrestoSparkTaskExecutor(
@@ -383,7 +383,7 @@ public class PrestoSparkTaskExecutorFactory
         }
 
         @Override
-        protected Tuple2<MutablePartitionId, PrestoSparkRow> computeNext()
+        protected Tuple2<MutablePartitionId, PrestoSparkMutableRow> computeNext()
         {
             try {
                 return doComputeNext();
@@ -398,10 +398,10 @@ public class PrestoSparkTaskExecutorFactory
             }
         }
 
-        private Tuple2<MutablePartitionId, PrestoSparkRow> doComputeNext()
+        private Tuple2<MutablePartitionId, PrestoSparkMutableRow> doComputeNext()
                 throws InterruptedException
         {
-            PrestoSparkRow row = getNextRow();
+            PrestoSparkMutableRow row = getNextRow();
             if (row != null) {
                 mutablePartitionId.setPartition(row.getPartition());
                 return new Tuple2<>(mutablePartitionId, row);
@@ -427,7 +427,7 @@ public class PrestoSparkTaskExecutorFactory
             throw new RuntimeException(failure);
         }
 
-        private PrestoSparkRow getNextRow()
+        private PrestoSparkMutableRow getNextRow()
                 throws InterruptedException
         {
             if (currentRowBatch == null || indexInBatch >= currentRowBatch.size()) {
@@ -437,7 +437,7 @@ public class PrestoSparkTaskExecutorFactory
                     return null;
                 }
             }
-            PrestoSparkRow row = currentRowBatch.get(indexInBatch);
+            PrestoSparkMutableRow row = currentRowBatch.get(indexInBatch);
             indexInBatch++;
             return row;
         }

@@ -25,7 +25,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.execution.PrestoSparkRowBuffer.BufferedRows;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -193,7 +193,7 @@ public class PrestoSparkOutputOperator
     private final boolean replicateNullsAndAny;
     private final OptionalInt nullChannel;
 
-    private ImmutableList.Builder<PrestoSparkRow> currentBatch;
+    private ImmutableList.Builder<PrestoSparkMutableRow> currentBatch;
     private long currentBatchSize;
 
     private boolean finished;
@@ -259,19 +259,19 @@ public class PrestoSparkOutputOperator
             byte[] rowBytes = output.size() == 0 ? new byte[0] : output.getUnderlyingSlice().byteArray();
             if (shouldReplicate) {
                 for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                    appendRow(new PrestoSparkRow(i, output.size(), rowBytes));
+                    appendRow(new PrestoSparkMutableRow(i, output.size(), rowBytes));
                 }
                 hasAnyRowBeenReplicated = true;
             }
             else {
                 int partition = getPartition(partitionFunctionArguments, position);
-                appendRow(new PrestoSparkRow(partition, output.size(), rowBytes));
+                appendRow(new PrestoSparkMutableRow(partition, output.size(), rowBytes));
             }
         }
         updateMemoryContext();
     }
 
-    private void appendRow(PrestoSparkRow row)
+    private void appendRow(PrestoSparkMutableRow row)
     {
         long rowSize = row.getRetainedSize();
         if (currentBatchSize + rowSize > BATCH_SIZE) {
@@ -324,7 +324,7 @@ public class PrestoSparkOutputOperator
             verify(currentBatch != null);
             // Uses currentBatch internally. Must be called before currentBatch is set to null.
             int rowsListRetainedSize = getCurrentBatchRetainedBytes();
-            List<PrestoSparkRow> rowsList = currentBatch.build();
+            List<PrestoSparkMutableRow> rowsList = currentBatch.build();
             BufferedRows bufferedRows = new BufferedRows(rowsList, rowsListRetainedSize);
             rowBuffer.enqueue(bufferedRows);
             currentBatch = null;
