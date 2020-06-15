@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
@@ -316,9 +317,9 @@ public class PinotBrokerPageSource
             // Pinot is known to return exceptions with benign errorcodes like 200
             // so we treat any exception as an error
             throw new PinotException(
-                    PINOT_EXCEPTION,
-                    Optional.of(pql),
-                    String.format("Query %s encountered exception %s", pql, exceptions.get(0)));
+                PinotSessionProperties.isMarkDataFetchExceptionsAsRetriable(session) ? PINOT_DATA_FETCH_EXCEPTION : PINOT_EXCEPTION,
+                Optional.of(pql),
+                String.format("Query %s encountered exception %s", pql, exceptions.get(0)));
         }
 
         JsonNode aggregationResults = jsonBody.get("aggregationResults");

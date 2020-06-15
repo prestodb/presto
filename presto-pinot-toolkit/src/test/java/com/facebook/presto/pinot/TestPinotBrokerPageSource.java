@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -214,7 +215,12 @@ public class TestPinotBrokerPageSource
                 false);
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
                 pinotConfig,
-                new TestingConnectorSession(ImmutableList.of()),
+                new TestingConnectorSession(ImmutableList.of(
+                    booleanProperty(
+                        "mark_data_fetch_exceptions_as_retriable",
+                        "Retry Pinot query on data fetch exceptions",
+                        pinotConfig.isMarkDataFetchExceptionsAsRetriable(),
+                        false))),
                 generatedPql,
                 actualHandles,
                 expectedColumnHandles,
