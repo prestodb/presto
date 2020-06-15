@@ -14,15 +14,11 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.execution.buffer.OutputBufferMemoryManager;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayDeque;
-import java.util.List;
 import java.util.Queue;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +29,7 @@ public class PrestoSparkRowBuffer
 
     private final Object monitor = new Object();
     @GuardedBy("monitor")
-    private final Queue<BufferedRows> buffer = new ArrayDeque<>();
+    private final Queue<PrestoSparkRowBatch> buffer = new ArrayDeque<>();
     @GuardedBy("monitor")
     private boolean finished;
 
@@ -47,7 +43,7 @@ public class PrestoSparkRowBuffer
         return memoryManager.getBufferBlockedFuture();
     }
 
-    public void enqueue(BufferedRows rows)
+    public void enqueue(PrestoSparkRowBatch rows)
     {
         requireNonNull(rows, "rows is null");
         synchronized (monitor) {
@@ -66,48 +62,23 @@ public class PrestoSparkRowBuffer
         }
     }
 
-    public List<PrestoSparkMutableRow> get()
+    public PrestoSparkRowBatch get()
             throws InterruptedException
     {
-        BufferedRows bufferedRows = null;
+        PrestoSparkRowBatch rowBatch = null;
         synchronized (monitor) {
             while (buffer.isEmpty() && !finished) {
                 monitor.wait();
             }
             if (!buffer.isEmpty()) {
-                bufferedRows = buffer.poll();
+                rowBatch = buffer.poll();
             }
-            if (bufferedRows != null) {
-                memoryManager.updateMemoryUsage(-bufferedRows.getRetainedSizeInBytes());
+            if (rowBatch != null) {
+                // It is intended that we reduce the memory accounting eagerly when the rowBatch is polled.
+                // But at most one single row batch will be under counted with about ~1MB so it's a good enough approximation.
+                memoryManager.updateMemoryUsage(-rowBatch.getRetainedSizeInBytes());
             }
         }
-        if (bufferedRows == null) {
-            return null;
-        }
-        return bufferedRows.getRows();
-    }
-
-    public static class BufferedRows
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedRows.class).instanceSize();
-
-        private final List<PrestoSparkMutableRow> rowsList;
-        private final int rowsListRetainedSize;
-
-        public BufferedRows(List<PrestoSparkMutableRow> rowsList, int rowsListRetainedSize)
-        {
-            this.rowsList = ImmutableList.copyOf(requireNonNull(rowsList, "rowsList is null"));
-            this.rowsListRetainedSize = rowsListRetainedSize;
-        }
-
-        public List<PrestoSparkMutableRow> getRows()
-        {
-            return rowsList;
-        }
-
-        public int getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE + rowsListRetainedSize;
-        }
+        return rowBatch;
     }
 }
