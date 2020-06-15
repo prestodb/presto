@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import scala.Tuple2;
+import java.io.Serializable;
 
-import java.util.Iterator;
-
-public interface IPrestoSparkTaskExecutor
-        extends Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>>
+public class MutablePartitionId
+        implements Serializable
 {
+    private int partition;
+
+    public int getPartition()
+    {
+        return partition;
+    }
+
+    public void setPartition(int partition)
+    {
+        this.partition = partition;
+    }
 }
