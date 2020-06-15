@@ -22,7 +22,6 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
-import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -34,15 +33,15 @@ public class PrestoSparkRemoteSourceOperator
 {
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
-    private final Iterator<Page> iterator;
+    private final PrestoSparkPageInput pageInput;
 
     private boolean finished;
 
-    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, Iterator<Page> iterator)
+    public PrestoSparkRemoteSourceOperator(PlanNodeId sourceId, OperatorContext operatorContext, PrestoSparkPageInput pageInput)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.iterator = requireNonNull(iterator, "iterator is null");
+        this.pageInput = requireNonNull(pageInput, "pageInput is null");
     }
 
     @Override
@@ -70,13 +69,12 @@ public class PrestoSparkRemoteSourceOperator
             return null;
         }
 
-        synchronized (iterator) {
-            if (!iterator.hasNext()) {
-                finished = true;
-                return null;
-            }
-            return iterator.next();
+        Page page = pageInput.getNextPage();
+        if (page == null) {
+            finished = true;
+            return null;
         }
+        return page;
     }
 
     @Override
@@ -114,15 +112,15 @@ public class PrestoSparkRemoteSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Iterator<Page> iterator;
+        private final PrestoSparkPageInput pageInput;
 
         private boolean closed;
 
-        public SparkRemoteSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, Iterator<Page> iterator)
+        public SparkRemoteSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, PrestoSparkPageInput pageInput)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.iterator = requireNonNull(iterator, "iterator is null");
+            this.pageInput = requireNonNull(pageInput, "pageInput is null");
         }
 
         @Override
@@ -138,7 +136,7 @@ public class PrestoSparkRemoteSourceOperator
             return new PrestoSparkRemoteSourceOperator(
                     planNodeId,
                     driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRemoteSourceOperator.class.getSimpleName()),
-                    iterator);
+                    pageInput);
         }
 
         @Override

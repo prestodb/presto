@@ -18,7 +18,6 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMaterializedRow;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.AbstractIterator;
@@ -51,36 +50,6 @@ public class PrestoSparkUtils
                 while (rows.hasNext() && !pageBuilder.isFull()) {
                     PrestoSparkMaterializedRow row = rows.next();
                     SliceInput sliceInput = Slices.wrappedBuffer(row.getData()).getInput();
-                    pageBuilder.declarePosition();
-                    for (int channel = 0; channel < types.size(); channel++) {
-                        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
-                        blockBuilder.readPositionFrom(sliceInput);
-                    }
-                    sliceInput.close();
-                }
-                verify(!pageBuilder.isEmpty());
-                return pageBuilder.build();
-            }
-        };
-    }
-
-    /**
-     * TODO: Transitional method. Will be removed in the next commit.
-     */
-    public static Iterator<Page> transformMutableRowsToPages(Iterator<PrestoSparkMutableRow> rows, List<Type> types)
-    {
-        return new AbstractIterator<Page>()
-        {
-            @Override
-            protected Page computeNext()
-            {
-                if (!rows.hasNext()) {
-                    return endOfData();
-                }
-                PageBuilder pageBuilder = new PageBuilder(types);
-                while (rows.hasNext() && !pageBuilder.isFull()) {
-                    PrestoSparkMutableRow row = rows.next();
-                    SliceInput sliceInput = Slices.wrappedBuffer(row.getBuffer()).getInput();
                     pageBuilder.declarePosition();
                     for (int channel = 0; channel < types.size(); channel++) {
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
