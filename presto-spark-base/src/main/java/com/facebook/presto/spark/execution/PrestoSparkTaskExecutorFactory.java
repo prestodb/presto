@@ -38,6 +38,7 @@ import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
@@ -287,7 +288,7 @@ public class PrestoSparkTaskExecutorFactory
             List<Iterator<PrestoSparkRow>> shuffleRemoteSourceInputs = new ArrayList<>();
             List<Iterator<PrestoSparkSerializedPage>> broadcastRemoteSourceInputs = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<Integer, PrestoSparkRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
                 Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
                 checkArgument(shuffleInput != null || broadcastInput != null, "Input not found for sourceFragmentId: %s", sourceFragmentId);
                 checkArgument(shuffleInput == null || broadcastInput == null, "Single remote source cannot accept both, broadcast and shuffle inputs");
@@ -351,7 +352,7 @@ public class PrestoSparkTaskExecutorFactory
     }
 
     private static class PrestoSparkTaskExecutor
-            extends AbstractIterator<Tuple2<Integer, PrestoSparkRow>>
+            extends AbstractIterator<Tuple2<MutablePartitionId, PrestoSparkRow>>
             implements IPrestoSparkTaskExecutor
     {
         private final TaskContext taskContext;
@@ -361,6 +362,7 @@ public class PrestoSparkTaskExecutorFactory
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
+        private final MutablePartitionId mutablePartitionId = new MutablePartitionId();
         private List<PrestoSparkRow> currentRowBatch;
         private int indexInBatch;
 
@@ -381,7 +383,7 @@ public class PrestoSparkTaskExecutorFactory
         }
 
         @Override
-        protected Tuple2<Integer, PrestoSparkRow> computeNext()
+        protected Tuple2<MutablePartitionId, PrestoSparkRow> computeNext()
         {
             try {
                 return doComputeNext();
@@ -396,12 +398,13 @@ public class PrestoSparkTaskExecutorFactory
             }
         }
 
-        private Tuple2<Integer, PrestoSparkRow> doComputeNext()
+        private Tuple2<MutablePartitionId, PrestoSparkRow> doComputeNext()
                 throws InterruptedException
         {
             PrestoSparkRow row = getNextRow();
             if (row != null) {
-                return new Tuple2<>(row.getPartition(), row);
+                mutablePartitionId.setPartition(row.getPartition());
+                return new Tuple2<>(mutablePartitionId, row);
             }
 
             //  TODO: Implement task stats collection

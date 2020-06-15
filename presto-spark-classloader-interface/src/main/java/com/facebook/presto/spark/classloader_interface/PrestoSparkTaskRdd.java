@@ -57,10 +57,10 @@ import static scala.collection.JavaConversions.seqAsJavaList;
  * The broadcast inputs are encapsulated in taskProcessor.
  */
 public class PrestoSparkTaskRdd
-        extends ZippedPartitionsBaseRDD<Tuple2<Integer, PrestoSparkRow>>
+        extends ZippedPartitionsBaseRDD<Tuple2<MutablePartitionId, PrestoSparkRow>>
 {
     private List<String> shuffleInputFragmentIds;
-    private List<RDD<Tuple2<Integer, PrestoSparkRow>>> shuffleInputRdds;
+    private List<RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRdds;
     private PrestoSparkTaskSourceRdd taskSourceRdd;
     private PrestoSparkTaskProcessor taskProcessor;
 
@@ -68,7 +68,7 @@ public class PrestoSparkTaskRdd
             SparkContext context,
             Optional<PrestoSparkTaskSourceRdd> taskSourceRdd,
             // fragmentId -> RDD
-            Map<String, RDD<Tuple2<Integer, PrestoSparkRow>>> shuffleInputRddMap,
+            Map<String, RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRddMap,
             PrestoSparkTaskProcessor taskProcessor)
     {
         requireNonNull(context, "context is null");
@@ -76,8 +76,8 @@ public class PrestoSparkTaskRdd
         requireNonNull(shuffleInputRddMap, "shuffleInputRdds is null");
         requireNonNull(taskProcessor, "taskProcessor is null");
         List<String> shuffleInputFragmentIds = new ArrayList<>();
-        List<RDD<Tuple2<Integer, PrestoSparkRow>>> shuffleInputRdds = new ArrayList<>();
-        for (Map.Entry<String, RDD<Tuple2<Integer, PrestoSparkRow>>> entry : shuffleInputRddMap.entrySet()) {
+        List<RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRdds = new ArrayList<>();
+        for (Map.Entry<String, RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> entry : shuffleInputRddMap.entrySet()) {
             shuffleInputFragmentIds.add(entry.getKey());
             shuffleInputRdds.add(entry.getValue());
         }
@@ -88,7 +88,7 @@ public class PrestoSparkTaskRdd
             SparkContext context,
             Optional<PrestoSparkTaskSourceRdd> taskSourceRdd,
             List<String> shuffleInputFragmentIds,
-            List<RDD<Tuple2<Integer, PrestoSparkRow>>> shuffleInputRdds,
+            List<RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRdds,
             PrestoSparkTaskProcessor taskProcessor)
     {
         super(context, getRDDSequence(taskSourceRdd, shuffleInputRdds), false, fakeClassTag());
@@ -99,7 +99,7 @@ public class PrestoSparkTaskRdd
         this.taskProcessor = context.clean(taskProcessor, true);
     }
 
-    private static Seq<RDD<?>> getRDDSequence(Optional<PrestoSparkTaskSourceRdd> taskSourceRdd, List<RDD<Tuple2<Integer, PrestoSparkRow>>> shuffleInputRdds)
+    private static Seq<RDD<?>> getRDDSequence(Optional<PrestoSparkTaskSourceRdd> taskSourceRdd, List<RDD<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputRdds)
     {
         List<RDD<?>> list = new ArrayList<>(shuffleInputRdds);
         taskSourceRdd.ifPresent(list::add);
@@ -112,7 +112,7 @@ public class PrestoSparkTaskRdd
     }
 
     @Override
-    public scala.collection.Iterator<Tuple2<Integer, PrestoSparkRow>> compute(Partition split, TaskContext context)
+    public scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>> compute(Partition split, TaskContext context)
     {
         List<Partition> partitions = seqAsJavaList(((ZippedPartitionsPartition) split).partitions());
         int expectedPartitionsSize = (taskSourceRdd != null ? 1 : 0) + shuffleInputRdds.size();
@@ -120,7 +120,7 @@ public class PrestoSparkTaskRdd
             throw new IllegalArgumentException(format("Unexpected partitions size. Expected: %s. Actual: %s.", expectedPartitionsSize, partitions.size()));
         }
 
-        Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> shuffleInputIterators = new HashMap<>();
+        Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputIterators = new HashMap<>();
         for (int inputIndex = 0; inputIndex < shuffleInputRdds.size(); inputIndex++) {
             shuffleInputIterators.put(
                     shuffleInputFragmentIds.get(inputIndex),
