@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
@@ -302,6 +305,15 @@ public class TestPrestoSparkQueryRunner
         assertQuery(
                 "SELECT count(*) FROM (SELECT orderkey, count(*) FROM hive.hive_test.empty_orders_bucketed GROUP BY orderkey)",
                 "SELECT 0");
+    }
+
+    @Test
+    public void testLimit()
+    {
+        MaterializedResult actual = computeActual("SELECT * FROM orders LIMIT 10");
+        assertEquals(actual.getRowCount(), 10);
+        actual = computeActual("SELECT 'a' FROM orders LIMIT 10");
+        assertEquals(actual.getRowCount(), 10);
     }
 
     private void assertBucketedQuery(String sql)
