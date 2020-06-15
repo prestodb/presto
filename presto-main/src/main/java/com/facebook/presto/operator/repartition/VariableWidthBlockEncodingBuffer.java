@@ -178,8 +178,10 @@ public class VariableWidthBlockEncodingBuffer
     {
         return toStringHelper(this)
                 .add("super", super.toString())
+                .add("estimatedSliceBufferMaxCapacity", estimatedSliceBufferMaxCapacity)
                 .add("sliceBufferCapacity", sliceBuffer == null ? 0 : sliceBuffer.length)
                 .add("sliceBufferIndex", sliceBufferIndex)
+                .add("estimatedOffsetBufferMaxCapacity", estimatedOffsetBufferMaxCapacity)
                 .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
                 .add("offsetsBufferIndex", offsetsBufferIndex)
                 .toString();

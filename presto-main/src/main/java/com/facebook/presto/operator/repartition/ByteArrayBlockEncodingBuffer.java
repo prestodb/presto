@@ -140,6 +140,7 @@ public class ByteArrayBlockEncodingBuffer
     {
         return toStringHelper(this)
                 .add("super", super.toString())
+                .add("estimatedValueBufferMaxCapacity", estimatedValueBufferMaxCapacity)
                 .add("valuesBufferCapacity", valuesBuffer == null ? 0 : valuesBuffer.length)
                 .add("valuesBufferIndex", valuesBufferIndex)
                 .toString();
