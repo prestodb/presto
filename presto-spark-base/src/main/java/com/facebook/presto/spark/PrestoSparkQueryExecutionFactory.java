@@ -38,13 +38,16 @@ import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMaterializedRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkToMaterializedRowFunction;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
@@ -71,7 +74,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkContext;
@@ -98,7 +100,7 @@ import java.util.concurrent.Future;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.transformRowsToPages;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.transformMaterializedRowsToPages;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -361,7 +363,7 @@ public class PrestoSparkQueryExecutionFactory
         @Override
         public List<List<Object>> execute()
         {
-            List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rddResults;
+            List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>> rddResults;
             try {
                 rddResults = doExecute(plan);
                 commit(session, transactionManager);
@@ -404,9 +406,9 @@ public class PrestoSparkQueryExecutionFactory
             ConnectorSession connectorSession = session.toConnectorSession();
             List<Type> types = plan.getFragment().getTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
-            for (Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple : rddResults) {
-                PrestoSparkMutableRow row = tuple._2;
-                SliceInput sliceInput = new BasicSliceInput(Slices.wrappedBuffer(row.getBytes(), 0, row.getLength()));
+            for (Tuple2<MutablePartitionId, PrestoSparkMaterializedRow> tuple : rddResults) {
+                PrestoSparkMaterializedRow row = tuple._2;
+                SliceInput sliceInput = Slices.wrappedBuffer(row.getData()).getInput();
                 List<Object> columns = new ArrayList<>();
                 for (Type type : types) {
                     BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
@@ -428,7 +430,7 @@ public class PrestoSparkQueryExecutionFactory
             return updateType;
         }
 
-        private List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> doExecute(SubPlan root)
+        private List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>> doExecute(SubPlan root)
                 throws SparkException
         {
             PlanFragment rootFragment = root.getFragment();
@@ -444,23 +446,30 @@ public class PrestoSparkQueryExecutionFactory
                 Map<PlanFragmentId, RddAndMore> inputRdds = root.getChildren().stream()
                         .collect(toImmutableMap(child -> child.getFragment().getId(), this::createRdd));
 
-                Map<String, Future<List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> inputFutures = inputRdds.entrySet().stream()
+                Map<String, Future<List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>>>> inputFutures = inputRdds.entrySet().stream()
                         .collect(toImmutableMap(
                                 entry -> entry.getKey().toString(),
-                                entry -> entry.getValue().getRdd().collectAsync()));
+                                entry -> entry.getValue().getRdd()
+                                        .mapValues(new PrestoSparkToMaterializedRowFunction())
+                                        .collectAsync()));
 
                 waitFor(inputFutures.values());
 
                 Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> inputs = inputFutures.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> getUnchecked(entry.getValue()).iterator()));
+                        .collect(toImmutableMap(
+                                Map.Entry::getKey,
+                                entry -> transform(
+                                        getUnchecked(entry.getValue()).iterator(),
+                                        tuple -> new Tuple2<>(tuple._1, tuple._2.toPrestoSparkMutableRow()))));
 
-                return ImmutableList.copyOf(executorFactoryProvider.get(SparkProcessType.DRIVER).create(
+                IPrestoSparkTaskExecutor prestoSparkTaskExecutor = executorFactoryProvider.get(SparkProcessType.DRIVER).create(
                         0,
                         0,
                         serializedTaskDescriptor,
                         emptyIterator(),
                         new PrestoSparkTaskInputs(inputs, ImmutableMap.of()),
-                        taskStatsCollector));
+                        taskStatsCollector);
+                return ImmutableList.copyOf(transform(prestoSparkTaskExecutor, tuple -> new Tuple2<>(tuple._1, tuple._2.toMaterializedRow())));
             }
 
             RddAndMore rootRdd = createRdd(root);
@@ -477,11 +486,11 @@ public class PrestoSparkQueryExecutionFactory
                 PlanFragment childFragment = child.getFragment();
                 RddAndMore childRdd = createRdd(child);
                 if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                    List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> broadcastRows = childRdd.collectAndDestroyDependencies();
+                    List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>> broadcastRows = childRdd.collectAndDestroyDependencies();
                     // TODO: Transform rows to pages on executors (using `RDD#map` function)
                     // TODO: Transforming it on coordinator results in 2x memory utilization as both,
                     // TODO: rows and pages have to be kept in memory all at the same time
-                    Iterator<Page> pagesIterator = transformRowsToPages(transform(broadcastRows.iterator(), Tuple2::_2), childFragment.getTypes());
+                    Iterator<Page> pagesIterator = transformMaterializedRowsToPages(transform(broadcastRows.iterator(), Tuple2::_2), childFragment.getTypes());
                     Iterator<PrestoSparkSerializedPage> serializedPagesIterator = transform(transform(pagesIterator, pagesSerde::serialize), PrestoSparkUtils::toPrestoSparkSerializedPage);
                     List<PrestoSparkSerializedPage> serializedPages = new ArrayList<>();
                     serializedPagesIterator.forEachRemaining(serializedPages::add);
@@ -566,11 +575,13 @@ public class PrestoSparkQueryExecutionFactory
             this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
         }
 
-        public List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> collectAndDestroyDependencies()
+        public List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>> collectAndDestroyDependencies()
         {
             checkState(!collected, "already collected");
             collected = true;
-            List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> result = rdd.collect();
+            List<Tuple2<MutablePartitionId, PrestoSparkMaterializedRow>> result = rdd
+                    .mapValues(new PrestoSparkToMaterializedRowFunction())
+                    .collect();
             broadcastDependencies.forEach(Broadcast::destroy);
             return result;
         }

@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -259,13 +260,19 @@ public class PrestoSparkOutputOperator
             byte[] rowBytes = output.size() == 0 ? new byte[0] : output.getUnderlyingSlice().byteArray();
             if (shouldReplicate) {
                 for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
-                    appendRow(new PrestoSparkMutableRow(i, output.size(), rowBytes));
+                    PrestoSparkMutableRow row = new PrestoSparkMutableRow();
+                    row.setPartition(i);
+                    row.setBuffer(ByteBuffer.wrap(rowBytes, 0, output.size()));
+                    appendRow(row);
                 }
                 hasAnyRowBeenReplicated = true;
             }
             else {
                 int partition = getPartition(partitionFunctionArguments, position);
-                appendRow(new PrestoSparkMutableRow(partition, output.size(), rowBytes));
+                PrestoSparkMutableRow row = new PrestoSparkMutableRow();
+                row.setPartition(partition);
+                row.setBuffer(ByteBuffer.wrap(rowBytes, 0, output.size()));
+                appendRow(row);
             }
         }
         updateMemoryContext();
