@@ -26,18 +26,7 @@ import java.nio.ByteBuffer;
 public class PrestoSparkMutableRow
         implements Externalizable, KryoSerializable
 {
-    private int partition;
     private ByteBuffer buffer;
-
-    public int getPartition()
-    {
-        return partition;
-    }
-
-    public void setPartition(int partition)
-    {
-        this.partition = partition;
-    }
 
     public ByteBuffer getBuffer()
     {
@@ -47,14 +36,6 @@ public class PrestoSparkMutableRow
     public void setBuffer(ByteBuffer buffer)
     {
         this.buffer = buffer;
-    }
-
-    /**
-     * TODO: Transitional method. Will be removed in the next commit.
-     */
-    public int getRetainedSize()
-    {
-        return Integer.SIZE + buffer.remaining();
     }
 
     public PrestoSparkMaterializedRow toMaterializedRow()

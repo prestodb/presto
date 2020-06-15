@@ -362,9 +362,7 @@ public class PrestoSparkTaskExecutorFactory
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
-        private final MutablePartitionId mutablePartitionId = new MutablePartitionId();
-        private List<PrestoSparkMutableRow> currentRowBatch;
-        private int indexInBatch;
+        private Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> currentRowBatchIterator;
 
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
@@ -401,10 +399,9 @@ public class PrestoSparkTaskExecutorFactory
         private Tuple2<MutablePartitionId, PrestoSparkMutableRow> doComputeNext()
                 throws InterruptedException
         {
-            PrestoSparkMutableRow row = getNextRow();
+            Tuple2<MutablePartitionId, PrestoSparkMutableRow> row = getNextRow();
             if (row != null) {
-                mutablePartitionId.setPartition(row.getPartition());
-                return new Tuple2<>(mutablePartitionId, row);
+                return row;
             }
 
             //  TODO: Implement task stats collection
@@ -427,19 +424,20 @@ public class PrestoSparkTaskExecutorFactory
             throw new RuntimeException(failure);
         }
 
-        private PrestoSparkMutableRow getNextRow()
+        private Tuple2<MutablePartitionId, PrestoSparkMutableRow> getNextRow()
                 throws InterruptedException
         {
-            if (currentRowBatch == null || indexInBatch >= currentRowBatch.size()) {
-                currentRowBatch = rowBuffer.get();
-                indexInBatch = 0;
-                if (currentRowBatch == null || currentRowBatch.isEmpty()) {
+            if (currentRowBatchIterator == null || !currentRowBatchIterator.hasNext()) {
+                PrestoSparkRowBatch rowBatch = rowBuffer.get();
+                if (rowBatch == null) {
+                    return null;
+                }
+                this.currentRowBatchIterator = rowBatch.createRowTupleIterator();
+                if (!currentRowBatchIterator.hasNext()) {
                     return null;
                 }
             }
-            PrestoSparkMutableRow row = currentRowBatch.get(indexInBatch);
-            indexInBatch++;
-            return row;
+            return currentRowBatchIterator.next();
         }
     }
 }
