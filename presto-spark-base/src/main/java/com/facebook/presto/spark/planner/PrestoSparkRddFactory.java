@@ -25,6 +25,7 @@ import com.facebook.presto.spark.classloader_interface.IntegerIdentityPartitione
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskProcessor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
@@ -55,6 +56,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 import scala.reflect.ClassTag;
@@ -175,7 +177,7 @@ public class PrestoSparkRddFactory
             }
 
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> partitionedInputs = rddInputs.entrySet().stream()
-                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().partitionBy(createPartitioner(session, partitioning))));
+                    .collect(toImmutableMap(Entry::getKey, entry -> partitionBy(entry.getValue(), createPartitioner(session, partitioning))));
 
             return createRdd(
                     sparkContext,
@@ -204,6 +206,17 @@ public class PrestoSparkRddFactory
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, connectorPartitionCount).toArray()));
         }
         return fragment;
+    }
+
+    private static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd, Partitioner partitioner)
+    {
+        JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> javaPairRdd = rdd.partitionBy(partitioner);
+        ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow> shuffledRdd = (ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow>) javaPairRdd.rdd();
+        shuffledRdd.setSerializer(new PrestoSparkShuffleSerializer());
+        return JavaPairRDD.fromRDD(
+                shuffledRdd,
+                classTag(MutablePartitionId.class),
+                classTag(PrestoSparkMutableRow.class));
     }
 
     private Partitioner createPartitioner(Session session, PartitioningHandle partitioning)

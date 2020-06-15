@@ -13,48 +13,87 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import java.io.Serializable;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
-import static java.util.Objects.requireNonNull;
+import java.io.Externalizable;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
 
 public class PrestoSparkMutableRow
-        implements Serializable
+        implements Externalizable, KryoSerializable
 {
-    private static final int INSTANCE_SIZE = Long.BYTES * 2 /* headers */
-            + Integer.BYTES /* partition */
-            + Integer.BYTES /* length */
-            + Long.BYTES /* bytes pointer */
-            + Long.BYTES * 2 /* bytes headers */
-            + Integer.BYTES /* bytes length */;
-
-    private final int partition;
-    private final int length;
-    private final byte[] bytes;
-
-    public PrestoSparkMutableRow(int partition, int length, byte[] bytes)
-    {
-        this.partition = partition;
-        this.length = length;
-        this.bytes = requireNonNull(bytes, "bytes is null");
-    }
+    private int partition;
+    private ByteBuffer buffer;
 
     public int getPartition()
     {
         return partition;
     }
 
-    public int getLength()
+    public void setPartition(int partition)
     {
-        return length;
+        this.partition = partition;
     }
 
-    public byte[] getBytes()
+    public ByteBuffer getBuffer()
     {
-        return bytes;
+        return buffer;
     }
 
-    public long getRetainedSize()
+    public void setBuffer(ByteBuffer buffer)
     {
-        return INSTANCE_SIZE + bytes.length;
+        this.buffer = buffer;
+    }
+
+    /**
+     * TODO: Transitional method. Will be removed in the next commit.
+     */
+    public int getRetainedSize()
+    {
+        return Integer.SIZE + buffer.remaining();
+    }
+
+    public PrestoSparkMaterializedRow toMaterializedRow()
+    {
+        byte[] copy = new byte[buffer.remaining()];
+        System.arraycopy(buffer.array(), buffer.arrayOffset() + buffer.position(), copy, 0, buffer.remaining());
+        return new PrestoSparkMaterializedRow(copy);
+    }
+
+    @Override
+    public void write(Kryo kryo, Output output)
+    {
+        throw serializationNotSupportedException();
+    }
+
+    @Override
+    public void read(Kryo kryo, Input input)
+    {
+        throw serializationNotSupportedException();
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput output)
+    {
+        throw serializationNotSupportedException();
+    }
+
+    @Override
+    public void readExternal(ObjectInput input)
+    {
+        throw serializationNotSupportedException();
+    }
+
+    private static RuntimeException serializationNotSupportedException()
+    {
+        // PrestoSparkUnsafeRow is expected to be serialized only during shuffle.
+        // Shuffle rows are always serialized with PrestoSparkShuffleSerializer.
+        // PrestoSparkUnsafeRow must be converted to PrestoSparkMaterializedRow before
+        // calling RDD#collect as RDD#collect implementation uses Kryo serialization.
+        return new UnsupportedOperationException("PrestoSparkUnsafeRow is not expected to be serialized with Kryo or standard Java serialization");
     }
 }
