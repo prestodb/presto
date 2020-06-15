@@ -39,6 +39,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
@@ -194,13 +195,13 @@ public class ArrayBlockEncodingBuffer
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
-        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
-        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append(",");
-        sb.append("offsetsCapacity=").append(offsets == null ? 0 : offsets.length).append(",");
-        sb.append("lastOffset=").append(lastOffset).append(",");
-        sb.append("valuesBuffers=").append(valuesBuffers.toString()).append("}");
-        return sb.toString();
+        return toStringHelper(this)
+                .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
+                .add("offsetsBufferIndex", offsetsBufferIndex)
+                .add("offsetsCapacity", offsets == null ? 0 : offsets.length)
+                .add("lastOffset", lastOffset)
+                .add("valueBuffers", valuesBuffers)
+                .toString();
     }
 
     @Override
