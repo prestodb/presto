@@ -177,6 +177,7 @@ public class VariableWidthBlockEncodingBuffer
     public String toString()
     {
         return toStringHelper(this)
+                .add("super", super.toString())
                 .add("sliceBufferCapacity", sliceBuffer == null ? 0 : sliceBuffer.length)
                 .add("sliceBufferIndex", sliceBufferIndex)
                 .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)

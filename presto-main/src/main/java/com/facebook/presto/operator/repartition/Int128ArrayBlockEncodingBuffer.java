@@ -132,6 +132,7 @@ public class Int128ArrayBlockEncodingBuffer
     public String toString()
     {
         return toStringHelper(this)
+                .add("super", super.toString())
                 .add("valuesBufferCapacity", valuesBuffer == null ? 0 : valuesBuffer.length)
                 .add("valuesBufferIndex", valuesBufferIndex)
                 .toString();
