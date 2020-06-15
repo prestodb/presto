@@ -18,6 +18,6 @@ import scala.Tuple2;
 import java.util.Iterator;
 
 public interface IPrestoSparkTaskExecutor
-        extends Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>>
+        extends Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>
 {
 }

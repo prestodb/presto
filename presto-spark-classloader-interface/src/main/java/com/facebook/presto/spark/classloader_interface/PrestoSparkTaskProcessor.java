@@ -47,10 +47,10 @@ public class PrestoSparkTaskProcessor
         this.broadcastInputs = new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null"));
     }
 
-    public Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>> process(
+    public Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> process(
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             // fragmentId -> Iterator<[partitionId, page]>
-            Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>>> shuffleInputs)
+            Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs)
     {
         int partitionId = TaskContext.get().partitionId();
         int attemptNumber = TaskContext.get().attemptNumber();

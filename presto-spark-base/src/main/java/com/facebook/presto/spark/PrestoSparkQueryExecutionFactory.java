@@ -40,7 +40,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
@@ -361,7 +361,7 @@ public class PrestoSparkQueryExecutionFactory
         @Override
         public List<List<Object>> execute()
         {
-            List<Tuple2<MutablePartitionId, PrestoSparkRow>> rddResults;
+            List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rddResults;
             try {
                 rddResults = doExecute(plan);
                 commit(session, transactionManager);
@@ -404,8 +404,8 @@ public class PrestoSparkQueryExecutionFactory
             ConnectorSession connectorSession = session.toConnectorSession();
             List<Type> types = plan.getFragment().getTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
-            for (Tuple2<MutablePartitionId, PrestoSparkRow> tuple : rddResults) {
-                PrestoSparkRow row = tuple._2;
+            for (Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple : rddResults) {
+                PrestoSparkMutableRow row = tuple._2;
                 SliceInput sliceInput = new BasicSliceInput(Slices.wrappedBuffer(row.getBytes(), 0, row.getLength()));
                 List<Object> columns = new ArrayList<>();
                 for (Type type : types) {
@@ -428,7 +428,7 @@ public class PrestoSparkQueryExecutionFactory
             return updateType;
         }
 
-        private List<Tuple2<MutablePartitionId, PrestoSparkRow>> doExecute(SubPlan root)
+        private List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> doExecute(SubPlan root)
                 throws SparkException
         {
             PlanFragment rootFragment = root.getFragment();
@@ -444,14 +444,14 @@ public class PrestoSparkQueryExecutionFactory
                 Map<PlanFragmentId, RddAndMore> inputRdds = root.getChildren().stream()
                         .collect(toImmutableMap(child -> child.getFragment().getId(), this::createRdd));
 
-                Map<String, Future<List<Tuple2<MutablePartitionId, PrestoSparkRow>>>> inputFutures = inputRdds.entrySet().stream()
+                Map<String, Future<List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> inputFutures = inputRdds.entrySet().stream()
                         .collect(toImmutableMap(
                                 entry -> entry.getKey().toString(),
                                 entry -> entry.getValue().getRdd().collectAsync()));
 
                 waitFor(inputFutures.values());
 
-                Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkRow>>> inputs = inputFutures.entrySet().stream()
+                Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> inputs = inputFutures.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> getUnchecked(entry.getValue()).iterator()));
 
                 return ImmutableList.copyOf(executorFactoryProvider.get(SparkProcessType.DRIVER).create(
@@ -469,7 +469,7 @@ public class PrestoSparkQueryExecutionFactory
 
         private RddAndMore createRdd(SubPlan subPlan)
         {
-            ImmutableMap.Builder<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkRow>> rddInputs = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs = ImmutableMap.builder();
             ImmutableMap.Builder<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs = ImmutableMap.builder();
             ImmutableList.Builder<Broadcast<?>> broadcastDependencies = ImmutableList.builder();
 
@@ -477,7 +477,7 @@ public class PrestoSparkQueryExecutionFactory
                 PlanFragment childFragment = child.getFragment();
                 RddAndMore childRdd = createRdd(child);
                 if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                    List<Tuple2<MutablePartitionId, PrestoSparkRow>> broadcastRows = childRdd.collectAndDestroyDependencies();
+                    List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> broadcastRows = childRdd.collectAndDestroyDependencies();
                     // TODO: Transform rows to pages on executors (using `RDD#map` function)
                     // TODO: Transforming it on coordinator results in 2x memory utilization as both,
                     // TODO: rows and pages have to be kept in memory all at the same time
@@ -494,7 +494,7 @@ public class PrestoSparkQueryExecutionFactory
                     broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
                 }
             }
-            JavaPairRDD<MutablePartitionId, PrestoSparkRow> rdd = rddFactory.createSparkRdd(
+            JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd = rddFactory.createSparkRdd(
                     sparkContext,
                     session,
                     subPlan.getFragment(),
@@ -555,27 +555,27 @@ public class PrestoSparkQueryExecutionFactory
 
     private static class RddAndMore
     {
-        private final JavaPairRDD<MutablePartitionId, PrestoSparkRow> rdd;
+        private final JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd;
         private final List<Broadcast<?>> broadcastDependencies;
 
         private boolean collected;
 
-        private RddAndMore(JavaPairRDD<MutablePartitionId, PrestoSparkRow> rdd, List<Broadcast<?>> broadcastDependencies)
+        private RddAndMore(JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd, List<Broadcast<?>> broadcastDependencies)
         {
             this.rdd = requireNonNull(rdd, "rdd is null");
             this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
         }
 
-        public List<Tuple2<MutablePartitionId, PrestoSparkRow>> collectAndDestroyDependencies()
+        public List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> collectAndDestroyDependencies()
         {
             checkState(!collected, "already collected");
             collected = true;
-            List<Tuple2<MutablePartitionId, PrestoSparkRow>> result = rdd.collect();
+            List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> result = rdd.collect();
             broadcastDependencies.forEach(Broadcast::destroy);
             return result;
         }
 
-        public JavaPairRDD<MutablePartitionId, PrestoSparkRow> getRdd()
+        public JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> getRdd()
         {
             return rdd;
         }
