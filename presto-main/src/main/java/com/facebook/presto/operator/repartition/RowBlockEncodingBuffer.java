@@ -229,6 +229,7 @@ public class RowBlockEncodingBuffer
     public String toString()
     {
         ToStringHelper stringHelper = toStringHelper(this)
+                .add("super", super.toString())
                 .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
                 .add("offsetsBufferIndex", offsetsBufferIndex)
                 .add("offsetsCapacity", offsets == null ? 0 : offsets.length)

@@ -196,6 +196,7 @@ public class ArrayBlockEncodingBuffer
     public String toString()
     {
         return toStringHelper(this)
+                .add("super", super.toString())
                 .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
                 .add("offsetsBufferIndex", offsetsBufferIndex)
                 .add("offsetsCapacity", offsets == null ? 0 : offsets.length)

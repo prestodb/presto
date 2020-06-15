@@ -55,6 +55,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.fill;
 import static com.facebook.presto.operator.UncheckedByteArrays.setByteUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.String.format;
@@ -215,6 +216,28 @@ public abstract class AbstractBlockEncodingBuffer
         this.positionsOffset = positionsOffset;
         this.batchSize = batchSize;
         this.flushed = false;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("isNested", isNested)
+                .add("decodedBlock", mappedPositions == null ? "null" : decodedBlock)
+                .add("positionCount", positionCount)
+                .add("batchSize", batchSize)
+                .add("positionsOffset", positionsOffset)
+                .add("bufferedPositionCount", bufferedPositionCount)
+                .add("positionsMapped", positionsMapped)
+                .add("flushed", flushed)
+                .add("positionsCapacity", positions == null ? 0 : positions.length)
+                .add("mappedPositionsCapacity", mappedPositions == null ? 0 : mappedPositions.length)
+                .add("estimatedNullsBufferMaxCapacity", estimatedNullsBufferMaxCapacity)
+                .add("nullsBufferCapacity", nullsBuffer == null ? 0 : nullsBuffer.length)
+                .add("nullsBufferIndex", nullsBufferIndex)
+                .add("remainingNullsCount", remainingNullsCount)
+                .add("hasEncodedNulls", hasEncodedNulls)
+                .toString();
     }
 
     protected void setEstimatedNullsBufferMaxCapacity(int estimatedNullsBufferMaxCapacity)
