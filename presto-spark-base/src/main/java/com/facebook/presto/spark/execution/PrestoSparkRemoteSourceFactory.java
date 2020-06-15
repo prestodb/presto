@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -39,12 +39,12 @@ public class PrestoSparkRemoteSourceFactory
         implements RemoteSourceFactory
 {
     private final PagesSerde pagesSerde;
-    private final Map<PlanNodeId, Iterator<PrestoSparkRow>> shuffleInputs;
+    private final Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs;
     private final Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs;
 
     public PrestoSparkRemoteSourceFactory(
             PagesSerde pagesSerde,
-            Map<PlanNodeId, Iterator<PrestoSparkRow>> shuffleInputs,
+            Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs,
             Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs)
     {
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
@@ -55,7 +55,7 @@ public class PrestoSparkRemoteSourceFactory
     @Override
     public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        Iterator<PrestoSparkRow> shuffleInput = shuffleInputs.get(planNodeId);
+        Iterator<PrestoSparkMutableRow> shuffleInput = shuffleInputs.get(planNodeId);
         Iterator<PrestoSparkSerializedPage> broadcastInput = broadcastInputs.get(planNodeId);
         checkArgument(shuffleInput != null || broadcastInput != null, "input not found for plan node with id %s", planNodeId);
         checkArgument(shuffleInput == null || broadcastInput == null, "single remote source cannot accept both, broadcast and shuffle inputs");

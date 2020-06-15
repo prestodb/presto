@@ -17,7 +17,7 @@ import java.io.Serializable;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkRow
+public class PrestoSparkMutableRow
         implements Serializable
 {
     private static final int INSTANCE_SIZE = Long.BYTES * 2 /* headers */
@@ -31,7 +31,7 @@ public class PrestoSparkRow
     private final int length;
     private final byte[] bytes;
 
-    public PrestoSparkRow(int partition, int length, byte[] bytes)
+    public PrestoSparkMutableRow(int partition, int length, byte[] bytes)
     {
         this.partition = partition;
         this.length = length;
