@@ -142,6 +142,26 @@ public class TestProxyServer
         }
     }
 
+    @Test
+    public void testSetSession()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            assertFalse(statement.execute("SET SESSION query_max_stage_count = 10"));
+            try (ResultSet rs = statement.executeQuery("SELECT row_number() OVER () n FROM tpch.tiny.orders")) {
+                long count = 0;
+                long sum = 0;
+                while (rs.next()) {
+                    count++;
+                    sum += rs.getLong("n");
+                }
+                assertEquals(count, 15000);
+                assertEquals(sum, (count / 2) * (1 + count));
+            }
+        }
+    }
+
     @Test(timeOut = 10_000)
     public void testCancel()
             throws Exception
