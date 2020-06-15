@@ -14,7 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.execution.buffer.OutputBufferMemoryManager;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.openjdk.jol.info.ClassLayout;
@@ -66,7 +66,7 @@ public class PrestoSparkRowBuffer
         }
     }
 
-    public List<PrestoSparkRow> get()
+    public List<PrestoSparkMutableRow> get()
             throws InterruptedException
     {
         BufferedRows bufferedRows = null;
@@ -91,16 +91,16 @@ public class PrestoSparkRowBuffer
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedRows.class).instanceSize();
 
-        private final List<PrestoSparkRow> rowsList;
+        private final List<PrestoSparkMutableRow> rowsList;
         private final int rowsListRetainedSize;
 
-        public BufferedRows(List<PrestoSparkRow> rowsList, int rowsListRetainedSize)
+        public BufferedRows(List<PrestoSparkMutableRow> rowsList, int rowsListRetainedSize)
         {
             this.rowsList = ImmutableList.copyOf(requireNonNull(rowsList, "rowsList is null"));
             this.rowsListRetainedSize = rowsListRetainedSize;
         }
 
-        public List<PrestoSparkRow> getRows()
+        public List<PrestoSparkMutableRow> getRows()
         {
             return rowsList;
         }
