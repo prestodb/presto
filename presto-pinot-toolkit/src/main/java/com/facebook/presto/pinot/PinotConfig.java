@@ -78,6 +78,7 @@ public class PinotConfig
     private boolean forbidSegmentQueries;
     private boolean inferDateTypeInSchema;
     private boolean inferTimestampTypeInSchema;
+    private boolean markDataFetchExceptionsAsRetriable;
     private int numSegmentsPerSplit = 1;
     private boolean ignoreEmptyResponses;
     private int fetchRetryCount = 2;
@@ -440,6 +441,18 @@ public class PinotConfig
     public PinotConfig setInferTimestampTypeInSchema(boolean inferTimestampTypeInSchema)
     {
         this.inferTimestampTypeInSchema = inferTimestampTypeInSchema;
+        return this;
+    }
+
+    public boolean isMarkDataFetchExceptionsAsRetriable()
+    {
+        return markDataFetchExceptionsAsRetriable;
+    }
+
+    @Config("pinot.mark-data-fetch-exceptions-as-retriable")
+    public PinotConfig setMarkDataFetchExceptionsAsRetriable(boolean markDataFetchExceptionsAsRetriable)
+    {
+        this.markDataFetchExceptionsAsRetriable = markDataFetchExceptionsAsRetriable;
         return this;
     }
 }

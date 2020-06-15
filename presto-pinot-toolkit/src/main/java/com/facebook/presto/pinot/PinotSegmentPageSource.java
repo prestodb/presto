@@ -40,6 +40,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
@@ -94,7 +95,7 @@ public class PinotSegmentPageSource
                 .collect(Collectors.toList());
     }
 
-    private static void checkExceptions(DataTable dataTable, PinotSplit split)
+    private static void checkExceptions(DataTable dataTable, PinotSplit split, boolean markDataFetchExceptionsAsRetriable)
     {
         Map<String, String> metadata = dataTable.getMetadata();
         List<String> exceptions = new ArrayList<>();
@@ -105,9 +106,9 @@ public class PinotSegmentPageSource
         });
         if (!exceptions.isEmpty()) {
             throw new PinotException(
-                    PINOT_EXCEPTION,
-                    split.getSegmentPql(),
-                    String.format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, exceptions));
+                markDataFetchExceptionsAsRetriable ? PINOT_DATA_FETCH_EXCEPTION : PINOT_EXCEPTION,
+                split.getSegmentPql(),
+                String.format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, exceptions));
         }
         int numColumnsExpected = split.getExpectedColumnHandles().size();
         int numColumnsActual = dataTable.getDataSchema().size();
@@ -211,7 +212,7 @@ public class PinotSegmentPageSource
                     .filter(table -> table != null && table.getNumberOfRows() > 0)
                     .forEach(dataTable ->
                     {
-                        checkExceptions(dataTable, split);
+                        checkExceptions(dataTable, split, PinotSessionProperties.isMarkDataFetchExceptionsAsRetriable(session));
                         // Store each dataTable which will later be constructed into Pages.
                         // Also update estimatedMemoryUsage, mostly represented by the size of all dataTables, using numberOfRows and fieldTypes combined as an estimate
                         int estimatedTableSizeInBytes = IntStream.rangeClosed(0, dataTable.getDataSchema().size() - 1)
