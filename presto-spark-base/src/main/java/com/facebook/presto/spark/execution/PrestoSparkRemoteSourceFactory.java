@@ -29,10 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.transformMutableRowsToPages;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterators.transform;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRemoteSourceFactory
@@ -64,13 +61,13 @@ public class PrestoSparkRemoteSourceFactory
             return new SparkRemoteSourceOperatorFactory(
                     operatorId,
                     planNodeId,
-                    transform(broadcastInput, sparkSerializedPage -> pagesSerde.deserialize(toSerializedPage(sparkSerializedPage))));
+                    new PrestoSparkSerializedPageInput(pagesSerde, broadcastInput));
         }
 
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,
                 planNodeId,
-                transformMutableRowsToPages(shuffleInput, types));
+                new PrestoSparkMutableRowPageInput(types, shuffleInput));
     }
 
     @Override
