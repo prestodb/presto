@@ -14,6 +14,7 @@
 package com.facebook.presto.proxy;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -23,6 +24,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestProxyConfig
 {
@@ -31,7 +33,8 @@ public class TestProxyConfig
     {
         assertRecordedDefaults(recordDefaults(ProxyConfig.class)
                 .setUri(null)
-                .setSharedSecretFile(null));
+                .setSharedSecretFile(null)
+                .setAsyncTimeout(new Duration(2, MINUTES)));
     }
 
     @Test
@@ -40,11 +43,13 @@ public class TestProxyConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("proxy.uri", "http://example.net/")
                 .put("proxy.shared-secret-file", "test.secret")
+                .put("proxy.async-timeout", "10m")
                 .build();
 
         ProxyConfig expected = new ProxyConfig()
                 .setUri(URI.create("http://example.net/"))
-                .setSharedSecretFile(new File("test.secret"));
+                .setSharedSecretFile(new File("test.secret"))
+                .setAsyncTimeout(new Duration(10, MINUTES));
 
         assertFullMapping(properties, expected);
     }
