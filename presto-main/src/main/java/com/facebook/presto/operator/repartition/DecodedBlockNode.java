@@ -43,7 +43,6 @@ class DecodedBlockNode
     private final List<DecodedBlockNode> children;
     private final long retainedSizeInBytes;
     private final long estimatedSerializedSizeInBytes;
-    private final long childrenEstimatedSerializedSizeInBytes;
 
     public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children)
     {
@@ -73,12 +72,6 @@ class DecodedBlockNode
 
         retainedSizeInBytes = retainedSize;
         estimatedSerializedSizeInBytes = estimatedSerializedSize;
-
-        long childrenEstimatedSerializedSize = 0;
-        for (int i = 0; i < children.size(); i++) {
-            childrenEstimatedSerializedSize += children.get(i).getEstimatedSerializedSizeInBytes();
-        }
-        childrenEstimatedSerializedSizeInBytes = childrenEstimatedSerializedSize;
     }
 
     public Object getDecodedBlock()
@@ -89,11 +82,6 @@ class DecodedBlockNode
     public List<DecodedBlockNode> getChildren()
     {
         return children;
-    }
-
-    public long getChildrenEstimatedSerializedSizeInBytes()
-    {
-        return childrenEstimatedSerializedSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()
