@@ -18,7 +18,7 @@ import java.io.Serializable;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkSerializedPage
-        implements Serializable
+        implements Serializable, PrestoSparkTaskOutput
 {
     private final byte[] bytes;
     private final int positionCount;

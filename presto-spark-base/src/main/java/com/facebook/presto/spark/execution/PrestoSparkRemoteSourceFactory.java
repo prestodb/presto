@@ -36,38 +36,38 @@ public class PrestoSparkRemoteSourceFactory
         implements RemoteSourceFactory
 {
     private final PagesSerde pagesSerde;
-    private final Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs;
-    private final Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs;
+    private final Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> rowInputs;
+    private final Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> pageInputs;
 
     public PrestoSparkRemoteSourceFactory(
             PagesSerde pagesSerde,
-            Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs,
-            Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs)
+            Map<PlanNodeId, Iterator<PrestoSparkMutableRow>> rowInputs,
+            Map<PlanNodeId, Iterator<PrestoSparkSerializedPage>> pageInputs)
     {
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
-        this.shuffleInputs = ImmutableMap.copyOf(requireNonNull(shuffleInputs, "shuffleInputs is null"));
-        this.broadcastInputs = ImmutableMap.copyOf(requireNonNull(broadcastInputs, "broadcastInputs is null"));
+        this.rowInputs = ImmutableMap.copyOf(requireNonNull(rowInputs, "rowInputs is null"));
+        this.pageInputs = ImmutableMap.copyOf(requireNonNull(pageInputs, "pageInputs is null"));
     }
 
     @Override
     public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        Iterator<PrestoSparkMutableRow> shuffleInput = shuffleInputs.get(planNodeId);
-        Iterator<PrestoSparkSerializedPage> broadcastInput = broadcastInputs.get(planNodeId);
-        checkArgument(shuffleInput != null || broadcastInput != null, "input not found for plan node with id %s", planNodeId);
-        checkArgument(shuffleInput == null || broadcastInput == null, "single remote source cannot accept both, broadcast and shuffle inputs");
+        Iterator<PrestoSparkMutableRow> rowInput = rowInputs.get(planNodeId);
+        Iterator<PrestoSparkSerializedPage> pageInput = pageInputs.get(planNodeId);
+        checkArgument(rowInput != null || pageInput != null, "input not found for plan node with id %s", planNodeId);
+        checkArgument(rowInput == null || pageInput == null, "single remote source cannot accept both, row and page inputs");
 
-        if (broadcastInput != null) {
+        if (pageInput != null) {
             return new SparkRemoteSourceOperatorFactory(
                     operatorId,
                     planNodeId,
-                    new PrestoSparkSerializedPageInput(pagesSerde, broadcastInput));
+                    new PrestoSparkSerializedPageInput(pagesSerde, pageInput));
         }
 
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,
                 planNodeId,
-                new PrestoSparkMutableRowPageInput(types, shuffleInput));
+                new PrestoSparkMutableRowPageInput(types, rowInput));
     }
 
     @Override

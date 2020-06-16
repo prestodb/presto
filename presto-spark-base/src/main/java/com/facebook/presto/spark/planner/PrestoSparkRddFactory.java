@@ -27,6 +27,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskProcessor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskSourceRdd;
@@ -123,7 +124,7 @@ public class PrestoSparkRddFactory
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
     }
 
-    public JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> createSparkRdd(
+    public <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createSparkRdd(
             JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
@@ -131,7 +132,8 @@ public class PrestoSparkRddFactory
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Class<T> outputType)
     {
         checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution(), "unexpected grouped execution fragment: %s", fragment.getId());
 
@@ -187,7 +189,8 @@ public class PrestoSparkRddFactory
                     taskStatsCollector,
                     tableWriteInfo,
                     partitionedInputs,
-                    broadcastInputs);
+                    broadcastInputs,
+                    outputType);
         }
         else {
             throw new IllegalArgumentException(format("Unexpected fragment partitioning %s, fragmentId: %s", partitioning, fragment.getId()));
@@ -235,7 +238,7 @@ public class PrestoSparkRddFactory
         throw new IllegalArgumentException(format("Unexpected fragment partitioning %s", partitioning));
     }
 
-    private JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> createRdd(
+    private <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createRdd(
             JavaSparkContext sparkContext,
             Session session,
             PlanFragment fragment,
@@ -243,7 +246,8 @@ public class PrestoSparkRddFactory
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Class<T> outputType)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
 
@@ -272,11 +276,12 @@ public class PrestoSparkRddFactory
             }
         }
 
-        PrestoSparkTaskProcessor taskProcessor = new PrestoSparkTaskProcessor(
+        PrestoSparkTaskProcessor<T> taskProcessor = new PrestoSparkTaskProcessor<>(
                 executorFactoryProvider,
                 serializedTaskDescriptor,
                 taskStatsCollector,
-                toTaskProcessorBroadcastInputs(broadcastInputs));
+                toTaskProcessorBroadcastInputs(broadcastInputs),
+                outputType);
 
         Optional<PrestoSparkTaskSourceRdd> taskSourceRdd;
         List<TableScanNode> tableScans = findTableScanNodes(fragment.getRoot());
@@ -299,7 +304,7 @@ public class PrestoSparkRddFactory
         return JavaPairRDD.fromRDD(
                 PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor),
                 classTag(MutablePartitionId.class),
-                classTag(PrestoSparkMutableRow.class));
+                classTag(outputType));
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(
