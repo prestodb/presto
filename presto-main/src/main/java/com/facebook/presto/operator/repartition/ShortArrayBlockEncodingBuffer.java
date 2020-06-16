@@ -148,7 +148,7 @@ public class ShortArrayBlockEncodingBuffer
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
         if (decodedBlock.mayHaveNull()) {
             setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Byte.BYTES / POSITION_SIZE);
+            estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Short.BYTES / POSITION_SIZE);
         }
         else {
             estimatedValueBufferMaxCapacity = (int) targetBufferSize;

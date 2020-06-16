@@ -252,7 +252,19 @@ public class RowBlockEncodingBuffer
         ColumnarRow columnarRow = (ColumnarRow) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarRow.getNullCheckBlock();
 
-        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
+        populateNestedPositions(columnarRow);
+
+        long estimatedSerializedSizeInBytes = decodedBlockNode.getEstimatedSerializedSizeInBytes();
+        long childrenEstimatedSerializedSizeInBytes = 0;
+
+        for (int i = 0; i < fieldBuffers.length; i++) {
+            DecodedBlockNode childDecodedBlockNode = decodedBlockNode.getChildren().get(i);
+            long childEstimatedSerializedSizeInBytes = childDecodedBlockNode.getEstimatedSerializedSizeInBytes();
+            childrenEstimatedSerializedSizeInBytes += childEstimatedSerializedSizeInBytes;
+            fieldBuffers[i].setupDecodedBlockAndMapPositions(childDecodedBlockNode, partitionBufferCapacity, decodedBlockPageSizeFraction * childEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
+        }
+
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction * (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
         if (decodedBlock.mayHaveNull()) {
             setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
@@ -260,12 +272,6 @@ public class RowBlockEncodingBuffer
         }
         else {
             estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
-
-        populateNestedPositions(columnarRow);
-
-        for (int i = 0; i < fieldBuffers.length; i++) {
-            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i), partitionBufferCapacity, decodedBlockPageSizeFraction);
         }
     }
 
