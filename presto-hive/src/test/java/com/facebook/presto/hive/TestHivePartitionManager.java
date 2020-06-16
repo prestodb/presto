@@ -36,6 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -61,7 +62,17 @@ public class TestHivePartitionManager
             TABLE_NAME,
             USER_NAME,
             PrestoTableType.MANAGED_TABLE,
-            new Storage(fromHiveStorageFormat(ORC), LOCATION, Optional.of(new HiveBucketProperty(ImmutableList.of(BUCKET_COLUMN.getName()), 100, ImmutableList.of())), false, ImmutableMap.of(), ImmutableMap.of()),
+            new Storage(fromHiveStorageFormat(ORC),
+                    LOCATION,
+                    Optional.of(new HiveBucketProperty(
+                            ImmutableList.of(BUCKET_COLUMN.getName()),
+                            100,
+                            ImmutableList.of(),
+                            HIVE_COMPATIBLE,
+                            Optional.empty())),
+                    false,
+                    ImmutableMap.of(),
+                    ImmutableMap.of()),
             ImmutableList.of(BUCKET_COLUMN),
             ImmutableList.of(PARTITION_COLUMN),
             ImmutableMap.of(),

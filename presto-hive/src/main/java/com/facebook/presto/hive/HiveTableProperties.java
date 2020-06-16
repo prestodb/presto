@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
@@ -190,7 +191,7 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty()));
     }
 
     @SuppressWarnings("unchecked")
