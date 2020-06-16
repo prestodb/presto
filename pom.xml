@@ -52,7 +52,7 @@
         <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
-        <dep.drift.version>1.24</dep.drift.version>
+        <dep.drift.version>1.25</dep.drift.version>
         <dep.joda.version>2.10.5</dep.joda.version>
         <dep.tempto.version>1.50</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
