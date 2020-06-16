@@ -32,8 +32,13 @@ public final class DoubleSumAggregation
     @InputFunction
     public static void sum(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        state.setNull(false);
-        state.setDouble(state.getDouble() + value);
+        if (state.isNull()) {
+            state.setNull(false);
+            state.setDouble(value);
+        }
+        else {
+            state.setDouble(state.getDouble() + value);
+        }
     }
 
     @CombineFunction
