@@ -23,17 +23,17 @@ import java.util.Queue;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkRowBuffer
+public class PrestoSparkOutputBuffer<T extends PrestoSparkBufferedResult>
 {
     private final OutputBufferMemoryManager memoryManager;
 
     private final Object monitor = new Object();
     @GuardedBy("monitor")
-    private final Queue<PrestoSparkRowBatch> buffer = new ArrayDeque<>();
+    private final Queue<T> buffer = new ArrayDeque<>();
     @GuardedBy("monitor")
     private boolean finished;
 
-    public PrestoSparkRowBuffer(OutputBufferMemoryManager memoryManager)
+    public PrestoSparkOutputBuffer(OutputBufferMemoryManager memoryManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
@@ -43,7 +43,7 @@ public class PrestoSparkRowBuffer
         return memoryManager.getBufferBlockedFuture();
     }
 
-    public void enqueue(PrestoSparkRowBatch rows)
+    public void enqueue(T rows)
     {
         requireNonNull(rows, "rows is null");
         synchronized (monitor) {
@@ -62,10 +62,10 @@ public class PrestoSparkRowBuffer
         }
     }
 
-    public PrestoSparkRowBatch get()
+    public T get()
             throws InterruptedException
     {
-        PrestoSparkRowBatch rowBatch = null;
+        T rowBatch = null;
         synchronized (monitor) {
             while (buffer.isEmpty() && !finished) {
                 monitor.wait();

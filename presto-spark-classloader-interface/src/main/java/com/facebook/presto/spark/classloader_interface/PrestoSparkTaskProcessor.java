@@ -24,9 +24,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkTaskProcessor
+public class PrestoSparkTaskProcessor<T>
         implements Serializable
 {
     private final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
@@ -34,20 +35,23 @@ public class PrestoSparkTaskProcessor
     private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
     // fragmentId -> Broadcast
     private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    private final Class<T> outputType;
 
     public PrestoSparkTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Class<T> outputType)
     {
         this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
         this.serializedTaskDescriptor = requireNonNull(serializedTaskDescriptor, "serializedTaskDescriptor is null");
         this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
         this.broadcastInputs = new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null"));
+        this.outputType = requireNonNull(outputType, "outputType is null");
     }
 
-    public Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> process(
+    public Iterator<Tuple2<MutablePartitionId, T>> process(
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             // fragmentId -> Iterator<[partitionId, page]>
             Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs)
@@ -59,7 +63,8 @@ public class PrestoSparkTaskProcessor
                 attemptNumber,
                 serializedTaskDescriptor,
                 serializedTaskSources,
-                new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs),
-                taskStatsCollector);
+                new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
+                taskStatsCollector,
+                outputType);
     }
 }

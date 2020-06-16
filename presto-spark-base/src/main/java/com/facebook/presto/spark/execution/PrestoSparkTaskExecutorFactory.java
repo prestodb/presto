@@ -32,6 +32,7 @@ import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
@@ -45,7 +46,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
-import com.facebook.presto.spark.execution.PrestoSparkOutputOperator.PrestoSparkOutputFactory;
+import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
+import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -77,6 +79,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -204,29 +207,31 @@ public class PrestoSparkTaskExecutorFactory
     }
 
     @Override
-    public IPrestoSparkTaskExecutor create(
+    public <T> IPrestoSparkTaskExecutor<T> create(
             int partitionId,
             int attemptNumber,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Class<T> outputType)
     {
         try {
-            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskStatsCollector);
+            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskStatsCollector, outputType);
         }
         catch (RuntimeException e) {
             throw executionExceptionFactory.toPrestoSparkExecutionException(e);
         }
     }
 
-    public IPrestoSparkTaskExecutor doCreate(
+    public <T> IPrestoSparkTaskExecutor<T> doCreate(
             int partitionId,
             int attemptNumber,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector)
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Class<T> outputType)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
         ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
@@ -276,40 +281,55 @@ public class PrestoSparkTaskExecutorFactory
                 allocationTrackingEnabled,
                 false);
 
+        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkMutableRow>> rowInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkSerializedPage>> pageInputs = ImmutableMap.builder();
+        for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
+            List<Iterator<PrestoSparkMutableRow>> remoteSourceRowInputs = new ArrayList<>();
+            List<Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
+            for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
+                List<PrestoSparkSerializedPage> localInput = inputs.getLocalInputs().get(sourceFragmentId.toString());
+
+                if (shuffleInput != null) {
+                    checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
+                    checkArgument(localInput == null, "single remote source is not expected to accept different kind of inputs");
+                    remoteSourceRowInputs.add(Iterators.transform(shuffleInput, tuple -> tuple._2));
+                    continue;
+                }
+
+                if (broadcastInput != null) {
+                    checkArgument(localInput == null, "single remote source is not expected to accept different kind of inputs");
+                    // TODO: Enable NullifyingIterator once migrated to one task per JVM model
+                    // NullifyingIterator removes element from the list upon return
+                    // This allows GC to gradually reclaim memory
+                    // remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
+                    remoteSourcePageInputs.add(broadcastInput.value().iterator());
+                    continue;
+                }
+
+                if (localInput != null) {
+                    remoteSourcePageInputs.add(localInput.iterator());
+                    continue;
+                }
+
+                throw new IllegalArgumentException("Input not found for sourceFragmentId: " + sourceFragmentId);
+            }
+            if (!remoteSourceRowInputs.isEmpty()) {
+                rowInputs.put(remoteSource.getId(), Iterators.concat(remoteSourceRowInputs.iterator()));
+            }
+            if (!remoteSourcePageInputs.isEmpty()) {
+                pageInputs.put(remoteSource.getId(), Iterators.concat(remoteSourcePageInputs.iterator()));
+            }
+        }
+
         OutputBufferMemoryManager memoryManager = new OutputBufferMemoryManager(
                 sinkMaxBufferSize.toBytes(),
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 notificationExecutor);
-        PrestoSparkRowBuffer rowBuffer = new PrestoSparkRowBuffer(memoryManager);
-
-        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkMutableRow>> shuffleInputs = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkSerializedPage>> broadcastInputs = ImmutableMap.builder();
-        for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-            List<Iterator<PrestoSparkMutableRow>> shuffleRemoteSourceInputs = new ArrayList<>();
-            List<Iterator<PrestoSparkSerializedPage>> broadcastRemoteSourceInputs = new ArrayList<>();
-            for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
-                Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
-                checkArgument(shuffleInput != null || broadcastInput != null, "Input not found for sourceFragmentId: %s", sourceFragmentId);
-                checkArgument(shuffleInput == null || broadcastInput == null, "Single remote source cannot accept both, broadcast and shuffle inputs");
-                if (shuffleInput != null) {
-                    shuffleRemoteSourceInputs.add(Iterators.transform(shuffleInput, tuple -> tuple._2));
-                }
-                if (broadcastInput != null) {
-                    // TODO: Enable NullifyingIterator once migrated to one task per JVM model
-                    // NullifyingIterator removes element from the list upon return
-                    // This allows GC to gradually reclaim memory
-                    // broadcastRemoteSourceInputs.add(getNullifyingIterator(broadcastInput.value()));
-                    broadcastRemoteSourceInputs.add(broadcastInput.value().iterator());
-                }
-            }
-            if (!shuffleRemoteSourceInputs.isEmpty()) {
-                shuffleInputs.put(remoteSource.getId(), Iterators.concat(shuffleRemoteSourceInputs.iterator()));
-            }
-            if (!broadcastRemoteSourceInputs.isEmpty()) {
-                broadcastInputs.put(remoteSource.getId(), Iterators.concat(broadcastRemoteSourceInputs.iterator()));
-            }
-        }
+        PagesSerde pagesSerde = new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty());
+        Output<T> output = configureOutput(outputType, pagesSerde, memoryManager);
+        PrestoSparkOutputBuffer<?> outputBuffer = output.getOutputBuffer();
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
                 taskContext,
@@ -317,18 +337,18 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getPartitioningScheme(),
                 fragment.getStageExecutionDescriptor(),
                 fragment.getTableScanSchedulingOrder(),
-                new PrestoSparkOutputFactory(rowBuffer),
+                output.getOutputFactory(),
                 new PrestoSparkRemoteSourceFactory(
-                        new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
-                        shuffleInputs.build(),
-                        broadcastInputs.build()),
+                        pagesSerde,
+                        rowInputs.build(),
+                        pageInputs.build()),
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
         TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
-                rowBuffer.setNoMoreRows();
+                outputBuffer.setNoMoreRows();
             }
         });
 
@@ -342,46 +362,67 @@ public class PrestoSparkTaskExecutorFactory
 
         taskExecution.start(taskSources);
 
-        return new PrestoSparkTaskExecutor(
+        return new PrestoSparkTaskExecutor<>(
                 taskContext,
                 taskStateMachine,
-                rowBuffer,
+                output.getOutputSupplier(),
                 taskStatsJsonCodec,
                 taskStatsCollector,
                 executionExceptionFactory);
     }
 
-    private static class PrestoSparkTaskExecutor
-            extends AbstractIterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>
-            implements IPrestoSparkTaskExecutor
+    @SuppressWarnings("unchecked")
+    private static <T> Output<T> configureOutput(
+            Class<T> outputType,
+            PagesSerde pagesSerde,
+            OutputBufferMemoryManager memoryManager)
+    {
+        if (outputType.equals(PrestoSparkMutableRow.class)) {
+            PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
+            OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer);
+            OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new RowOutputSupplier(outputBuffer);
+            return new Output<>(outputBuffer, outputFactory, outputSupplier);
+        }
+        else if (outputType.equals(PrestoSparkSerializedPage.class)) {
+            PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
+            OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, pagesSerde);
+            OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new PageOutputSupplier(outputBuffer);
+            return new Output<>(outputBuffer, outputFactory, outputSupplier);
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected output type: " + outputType.getName());
+        }
+    }
+
+    private static class PrestoSparkTaskExecutor<T>
+            extends AbstractIterator<Tuple2<MutablePartitionId, T>>
+            implements IPrestoSparkTaskExecutor<T>
     {
         private final TaskContext taskContext;
         private final TaskStateMachine taskStateMachine;
-        private final PrestoSparkRowBuffer rowBuffer;
+        private final OutputSupplier<T> outputSupplier;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
-        private Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> currentRowBatchIterator;
-
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
-                PrestoSparkRowBuffer rowBuffer,
+                OutputSupplier<T> outputSupplier,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
                 CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
-            this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
+            this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         }
 
         @Override
-        protected Tuple2<MutablePartitionId, PrestoSparkMutableRow> computeNext()
+        protected Tuple2<MutablePartitionId, T> computeNext()
         {
             try {
                 return doComputeNext();
@@ -396,12 +437,12 @@ public class PrestoSparkTaskExecutorFactory
             }
         }
 
-        private Tuple2<MutablePartitionId, PrestoSparkMutableRow> doComputeNext()
+        private Tuple2<MutablePartitionId, T> doComputeNext()
                 throws InterruptedException
         {
-            Tuple2<MutablePartitionId, PrestoSparkMutableRow> row = getNextRow();
-            if (row != null) {
-                return row;
+            Tuple2<MutablePartitionId, T> output = outputSupplier.getNext();
+            if (output != null) {
+                return output;
             }
 
             //  TODO: Implement task stats collection
@@ -423,21 +464,96 @@ public class PrestoSparkTaskExecutorFactory
             propagateIfPossible(failure, InterruptedException.class);
             throw new RuntimeException(failure);
         }
+    }
 
-        private Tuple2<MutablePartitionId, PrestoSparkMutableRow> getNextRow()
+    private static class Output<T>
+    {
+        private final PrestoSparkOutputBuffer<?> outputBuffer;
+        private final OutputFactory outputFactory;
+        private final OutputSupplier<T> outputSupplier;
+
+        private Output(
+                PrestoSparkOutputBuffer<?> outputBuffer,
+                OutputFactory outputFactory,
+                OutputSupplier<T> outputSupplier)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.outputFactory = requireNonNull(outputFactory, "outputFactory is null");
+            this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
+        }
+
+        public PrestoSparkOutputBuffer<?> getOutputBuffer()
+        {
+            return outputBuffer;
+        }
+
+        public OutputFactory getOutputFactory()
+        {
+            return outputFactory;
+        }
+
+        public OutputSupplier<T> getOutputSupplier()
+        {
+            return outputSupplier;
+        }
+    }
+
+    private interface OutputSupplier<T>
+    {
+        Tuple2<MutablePartitionId, T> getNext()
+                throws InterruptedException;
+    }
+
+    private static class RowOutputSupplier
+            implements OutputSupplier<PrestoSparkMutableRow>
+    {
+        private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
+        private Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rowBatchIterator;
+
+        private RowOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        }
+
+        @Override
+        public Tuple2<MutablePartitionId, PrestoSparkMutableRow> getNext()
                 throws InterruptedException
         {
-            if (currentRowBatchIterator == null || !currentRowBatchIterator.hasNext()) {
-                PrestoSparkRowBatch rowBatch = rowBuffer.get();
+            if (rowBatchIterator == null || !rowBatchIterator.hasNext()) {
+                PrestoSparkRowBatch rowBatch = outputBuffer.get();
                 if (rowBatch == null) {
                     return null;
                 }
-                this.currentRowBatchIterator = rowBatch.createRowTupleIterator();
-                if (!currentRowBatchIterator.hasNext()) {
+                this.rowBatchIterator = rowBatch.createRowTupleIterator();
+                if (!rowBatchIterator.hasNext()) {
                     return null;
                 }
             }
-            return currentRowBatchIterator.next();
+            return rowBatchIterator.next();
+        }
+    }
+
+    private static class PageOutputSupplier
+            implements OutputSupplier<PrestoSparkSerializedPage>
+    {
+        private static final MutablePartitionId DEFAULT_PARTITION = new MutablePartitionId();
+
+        private final PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer;
+
+        private PageOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        }
+
+        @Override
+        public Tuple2<MutablePartitionId, PrestoSparkSerializedPage> getNext()
+                throws InterruptedException
+        {
+            PrestoSparkBufferedSerializedPage page = outputBuffer.get();
+            if (page == null) {
+                return null;
+            }
+            return new Tuple2<>(DEFAULT_PARTITION, toPrestoSparkSerializedPage(page.getSerializedPage()));
         }
     }
 }

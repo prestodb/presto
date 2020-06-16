@@ -19,11 +19,12 @@ import java.util.Iterator;
 
 public interface IPrestoSparkTaskExecutorFactory
 {
-    IPrestoSparkTaskExecutor create(
+    <T> IPrestoSparkTaskExecutor<T> create(
             int partitionId,
             int attemptNumber,
             SerializedPrestoSparkTaskDescriptor taskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector);
+            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            Class<T> outputType);
 }

@@ -56,20 +56,20 @@ import static scala.collection.JavaConversions.seqAsJavaList;
  * <p>
  * The broadcast inputs are encapsulated in taskProcessor.
  */
-public class PrestoSparkTaskRdd
-        extends ZippedPartitionsBaseRDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>
+public class PrestoSparkTaskRdd<T>
+        extends ZippedPartitionsBaseRDD<Tuple2<MutablePartitionId, T>>
 {
     private List<String> shuffleInputFragmentIds;
     private List<RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputRdds;
     private PrestoSparkTaskSourceRdd taskSourceRdd;
-    private PrestoSparkTaskProcessor taskProcessor;
+    private PrestoSparkTaskProcessor<T> taskProcessor;
 
-    public static PrestoSparkTaskRdd create(
+    public static <T> PrestoSparkTaskRdd<T> create(
             SparkContext context,
             Optional<PrestoSparkTaskSourceRdd> taskSourceRdd,
             // fragmentId -> RDD
             Map<String, RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputRddMap,
-            PrestoSparkTaskProcessor taskProcessor)
+            PrestoSparkTaskProcessor<T> taskProcessor)
     {
         requireNonNull(context, "context is null");
         requireNonNull(taskSourceRdd, "taskSourceRdd is null");
@@ -81,7 +81,7 @@ public class PrestoSparkTaskRdd
             shuffleInputFragmentIds.add(entry.getKey());
             shuffleInputRdds.add(entry.getValue());
         }
-        return new PrestoSparkTaskRdd(context, taskSourceRdd, shuffleInputFragmentIds, shuffleInputRdds, taskProcessor);
+        return new PrestoSparkTaskRdd<>(context, taskSourceRdd, shuffleInputFragmentIds, shuffleInputRdds, taskProcessor);
     }
 
     private PrestoSparkTaskRdd(
@@ -89,7 +89,7 @@ public class PrestoSparkTaskRdd
             Optional<PrestoSparkTaskSourceRdd> taskSourceRdd,
             List<String> shuffleInputFragmentIds,
             List<RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputRdds,
-            PrestoSparkTaskProcessor taskProcessor)
+            PrestoSparkTaskProcessor<T> taskProcessor)
     {
         super(context, getRDDSequence(taskSourceRdd, shuffleInputRdds), false, fakeClassTag());
         this.shuffleInputFragmentIds = shuffleInputFragmentIds;
@@ -112,7 +112,7 @@ public class PrestoSparkTaskRdd
     }
 
     @Override
-    public scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> compute(Partition split, TaskContext context)
+    public scala.collection.Iterator<Tuple2<MutablePartitionId, T>> compute(Partition split, TaskContext context)
     {
         List<Partition> partitions = seqAsJavaList(((ZippedPartitionsPartition) split).partitions());
         int expectedPartitionsSize = (taskSourceRdd != null ? 1 : 0) + shuffleInputRdds.size();

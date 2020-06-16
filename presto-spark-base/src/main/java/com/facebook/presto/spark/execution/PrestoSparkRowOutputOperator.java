@@ -41,10 +41,10 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkOutputOperator
+public class PrestoSparkRowOutputOperator
         implements Operator
 {
-    public static class PrestoSparkOutputFactory
+    public static class PrestoSparkRowOutputFactory
             implements OutputFactory
     {
         private static final OutputPartitioning SINGLE_PARTITION = new OutputPartitioning(
@@ -54,11 +54,11 @@ public class PrestoSparkOutputOperator
                 false,
                 OptionalInt.empty());
 
-        private final PrestoSparkRowBuffer rowBuffer;
+        private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
 
-        public PrestoSparkOutputFactory(PrestoSparkRowBuffer rowBuffer)
+        public PrestoSparkRowOutputFactory(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer)
         {
-            this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         }
 
         @Override
@@ -71,10 +71,10 @@ public class PrestoSparkOutputOperator
                 PagesSerdeFactory serdeFactory)
         {
             OutputPartitioning partitioning = outputPartitioning.orElse(SINGLE_PARTITION);
-            return new PrestoSparkOutputOperatorFactory(
+            return new PrestoSparkRowOutputOperatorFactory(
                     operatorId,
                     planNodeId,
-                    rowBuffer,
+                    outputBuffer,
                     pagePreprocessor,
                     partitioning.getPartitionFunction(),
                     partitioning.getPartitionChannels(),
@@ -102,12 +102,12 @@ public class PrestoSparkOutputOperator
         }
     }
 
-    public static class PrestoSparkOutputOperatorFactory
+    public static class PrestoSparkRowOutputOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final PrestoSparkRowBuffer rowBuffer;
+        private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
         private final Function<Page, Page> pagePreprocessor;
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
@@ -115,10 +115,10 @@ public class PrestoSparkOutputOperator
         private final boolean replicateNullsAndAny;
         private final OptionalInt nullChannel;
 
-        public PrestoSparkOutputOperatorFactory(
+        public PrestoSparkRowOutputOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                PrestoSparkRowBuffer rowBuffer,
+                PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer,
                 Function<Page, Page> pagePreprocessor,
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
@@ -128,7 +128,7 @@ public class PrestoSparkOutputOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -140,11 +140,11 @@ public class PrestoSparkOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkOutputOperator.class.getSimpleName());
-            return new PrestoSparkOutputOperator(
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PrestoSparkRowOutputOperator.class.getSimpleName());
+            return new PrestoSparkRowOutputOperator(
                     operatorContext,
-                    operatorContext.newLocalSystemMemoryContext(PrestoSparkOutputOperator.class.getSimpleName()),
-                    rowBuffer,
+                    operatorContext.newLocalSystemMemoryContext(PrestoSparkRowOutputOperator.class.getSimpleName()),
+                    outputBuffer,
                     pagePreprocessor,
                     partitionFunction,
                     partitionChannels,
@@ -161,10 +161,10 @@ public class PrestoSparkOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PrestoSparkOutputOperatorFactory(
+            return new PrestoSparkRowOutputOperatorFactory(
                     operatorId,
                     planNodeId,
-                    rowBuffer,
+                    outputBuffer,
                     pagePreprocessor,
                     partitionFunction,
                     partitionChannels,
@@ -176,7 +176,7 @@ public class PrestoSparkOutputOperator
 
     private final OperatorContext operatorContext;
     private final LocalMemoryContext systemMemoryContext;
-    private final PrestoSparkRowBuffer rowBuffer;
+    private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
     private final Function<Page, Page> pagePreprocessor;
     private final PartitionFunction partitionFunction;
     private final List<Integer> partitionChannels;
@@ -189,10 +189,10 @@ public class PrestoSparkOutputOperator
     private boolean finished;
     private boolean hasAnyRowBeenReplicated;
 
-    public PrestoSparkOutputOperator(
+    public PrestoSparkRowOutputOperator(
             OperatorContext operatorContext,
             LocalMemoryContext systemMemoryContext,
-            PrestoSparkRowBuffer rowBuffer,
+            PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer,
             Function<Page, Page> pagePreprocessor,
             PartitionFunction partitionFunction,
             List<Integer> partitionChannels,
@@ -202,7 +202,7 @@ public class PrestoSparkOutputOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.rowBuffer = requireNonNull(rowBuffer, "rowBuffer is null");
+        this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -220,7 +220,7 @@ public class PrestoSparkOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return rowBuffer.isFull();
+        return outputBuffer.isFull();
     }
 
     @Override
@@ -248,7 +248,7 @@ public class PrestoSparkOutputOperator
         int partitionCount = partitionFunction.getPartitionCount();
         for (int position = 0; position < positionCount; position++) {
             if (rowBatchBuilder.isFull()) {
-                rowBuffer.enqueue(rowBatchBuilder.build());
+                outputBuffer.enqueue(rowBatchBuilder.build());
                 rowBatchBuilder = PrestoSparkRowBatch.builder();
             }
 
@@ -301,7 +301,7 @@ public class PrestoSparkOutputOperator
     public void finish()
     {
         if (rowBatchBuilder != null && !rowBatchBuilder.isEmpty()) {
-            rowBuffer.enqueue(rowBatchBuilder.build());
+            outputBuffer.enqueue(rowBatchBuilder.build());
             rowBatchBuilder = null;
         }
         updateMemoryContext();

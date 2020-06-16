@@ -29,13 +29,16 @@ public class PrestoSparkTaskInputs
     // fragmentId -> Iterator<[partitionId, page]>
     private final Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs;
     private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    private final Map<String, List<PrestoSparkSerializedPage>> localInputs;
 
     public PrestoSparkTaskInputs(
             Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs,
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<String, List<PrestoSparkSerializedPage>> localInputs)
     {
         this.shuffleInputs = unmodifiableMap(new HashMap<>(requireNonNull(shuffleInputs, "shuffleInputs is null")));
         this.broadcastInputs = unmodifiableMap(new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null")));
+        this.localInputs = unmodifiableMap(new HashMap<>(requireNonNull(localInputs, "localInputs is null")));
     }
 
     public Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> getShuffleInputs()
@@ -46,5 +49,10 @@ public class PrestoSparkTaskInputs
     public Map<String, Broadcast<List<PrestoSparkSerializedPage>>> getBroadcastInputs()
     {
         return broadcastInputs;
+    }
+
+    public Map<String, List<PrestoSparkSerializedPage>> getLocalInputs()
+    {
+        return localInputs;
     }
 }

@@ -38,13 +38,6 @@ public class PrestoSparkMutableRow
         this.buffer = buffer;
     }
 
-    public PrestoSparkMaterializedRow toMaterializedRow()
-    {
-        byte[] copy = new byte[buffer.remaining()];
-        System.arraycopy(buffer.array(), buffer.arrayOffset() + buffer.position(), copy, 0, buffer.remaining());
-        return new PrestoSparkMaterializedRow(copy);
-    }
-
     @Override
     public void write(Kryo kryo, Output output)
     {

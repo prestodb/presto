@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.spark.util;
 
-import com.facebook.presto.common.Page;
-import com.facebook.presto.common.PageBuilder;
-import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkMaterializedRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 
 import java.util.Iterator;
@@ -30,38 +24,10 @@ import java.util.List;
 
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 
 public class PrestoSparkUtils
 {
     private PrestoSparkUtils() {}
-
-    public static Iterator<Page> transformMaterializedRowsToPages(Iterator<PrestoSparkMaterializedRow> rows, List<Type> types)
-    {
-        return new AbstractIterator<Page>()
-        {
-            @Override
-            protected Page computeNext()
-            {
-                if (!rows.hasNext()) {
-                    return endOfData();
-                }
-                PageBuilder pageBuilder = new PageBuilder(types);
-                while (rows.hasNext() && !pageBuilder.isFull()) {
-                    PrestoSparkMaterializedRow row = rows.next();
-                    SliceInput sliceInput = Slices.wrappedBuffer(row.getData()).getInput();
-                    pageBuilder.declarePosition();
-                    for (int channel = 0; channel < types.size(); channel++) {
-                        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
-                        blockBuilder.readPositionFrom(sliceInput);
-                    }
-                    sliceInput.close();
-                }
-                verify(!pageBuilder.isEmpty());
-                return pageBuilder.build();
-            }
-        };
-    }
 
     public static PrestoSparkSerializedPage toPrestoSparkSerializedPage(SerializedPage serializedPage)
     {
