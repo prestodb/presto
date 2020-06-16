@@ -41,14 +41,6 @@ public class HiveBucketProperty
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
 
-    public HiveBucketProperty(
-            List<String> bucketedBy,
-            int bucketCount,
-            List<SortingColumn> sortedBy)
-    {
-        this(bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty());
-    }
-
     @JsonCreator
     public HiveBucketProperty(
             @JsonProperty("bucketedBy") List<String> bucketedBy,
@@ -88,7 +80,12 @@ public class HiveBucketProperty
                     .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
                     .collect(toImmutableList());
         }
-        return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets(), sortedBy));
+        return Optional.of(new HiveBucketProperty(
+                storageDescriptor.getBucketCols(),
+                storageDescriptor.getNumBuckets(),
+                sortedBy,
+                HIVE_COMPATIBLE,
+                Optional.empty()));
     }
 
     @JsonProperty

@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
@@ -67,7 +68,12 @@ public class TestRecordingHiveMetastore
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             "location",
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(
+                    ImmutableList.of("column"),
+                    10,
+                    ImmutableList.of(new SortingColumn("column", Order.ASCENDING)),
+                    HIVE_COMPATIBLE,
+                    Optional.empty())),
             true,
             ImmutableMap.of("param", "value2"),
             ImmutableMap.of());

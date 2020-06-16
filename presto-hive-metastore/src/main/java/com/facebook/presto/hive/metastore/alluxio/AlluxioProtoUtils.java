@@ -51,6 +51,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
@@ -262,7 +263,7 @@ public class AlluxioProtoUtils
             return Optional.empty();
         }
         List<SortingColumn> sortedBy = property.getSortedByList().stream().map(AlluxioProtoUtils::fromProto).collect(toImmutableList());
-        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), (int) property.getBucketCount(), sortedBy));
+        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), (int) property.getBucketCount(), sortedBy, HIVE_COMPATIBLE, Optional.empty()));
     }
 
     private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
