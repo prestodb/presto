@@ -205,7 +205,7 @@ public abstract class AbstractBlockEncodingBuffer
         this.positionsOffset = 0;
         this.positionsMapped = false;
 
-        double decodedBlockPageSizeFraction = (decodedBlockNode.getEstimatedSerializedSizeInBytes() - decodedBlockNode.getChildrenEstimatedSerializedSizeInBytes()) / ((double) estimatedSerializedPageSize);
+        double decodedBlockPageSizeFraction = (decodedBlockNode.getEstimatedSerializedSizeInBytes()) / ((double) estimatedSerializedPageSize);
 
         setupDecodedBlockAndMapPositions(decodedBlockNode, partitionBufferCapacity, decodedBlockPageSizeFraction);
     }
