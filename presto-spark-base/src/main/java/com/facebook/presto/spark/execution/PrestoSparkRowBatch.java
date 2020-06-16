@@ -31,6 +31,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRowBatch
+        implements PrestoSparkBufferedResult
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkRowBatch.class).instanceSize();
 

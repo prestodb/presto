@@ -24,7 +24,7 @@ import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
 
 public class PrestoSparkMutableRow
-        implements Externalizable, KryoSerializable
+        implements Externalizable, KryoSerializable, PrestoSparkTaskOutput
 {
     private ByteBuffer buffer;
 
@@ -36,13 +36,6 @@ public class PrestoSparkMutableRow
     public void setBuffer(ByteBuffer buffer)
     {
         this.buffer = buffer;
-    }
-
-    public PrestoSparkMaterializedRow toMaterializedRow()
-    {
-        byte[] copy = new byte[buffer.remaining()];
-        System.arraycopy(buffer.array(), buffer.arrayOffset() + buffer.position(), copy, 0, buffer.remaining());
-        return new PrestoSparkMaterializedRow(copy);
     }
 
     @Override

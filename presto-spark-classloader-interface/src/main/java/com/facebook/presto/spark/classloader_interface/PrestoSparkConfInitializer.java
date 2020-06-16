@@ -36,7 +36,6 @@ public class PrestoSparkConfInitializer
         sparkConf.registerKryoClasses(new Class[] {
                 MutablePartitionId.class,
                 PrestoSparkMutableRow.class,
-                PrestoSparkMaterializedRow.class,
                 PrestoSparkSerializedPage.class,
                 SerializedPrestoSparkTaskDescriptor.class,
                 SerializedTaskStats.class
