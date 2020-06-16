@@ -11,16 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.spark.execution;
 
-import org.apache.spark.api.java.function.Function;
-
-public class PrestoSparkToMaterializedRowFunction
-        implements Function<PrestoSparkMutableRow, PrestoSparkMaterializedRow>
+public interface PrestoSparkBufferedResult
 {
-    @Override
-    public PrestoSparkMaterializedRow call(PrestoSparkMutableRow row)
-    {
-        return row.toMaterializedRow();
-    }
+    long getRetainedSizeInBytes();
 }
