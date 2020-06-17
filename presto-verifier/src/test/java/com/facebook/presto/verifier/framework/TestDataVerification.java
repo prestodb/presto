@@ -472,5 +472,6 @@ public class TestDataVerification
         assertNotNull(queryInfo.getCpuTimeSecs());
         assertNotNull(queryInfo.getWallTimeSecs());
         assertNotNull(queryInfo.getPeakTotalMemoryBytes());
+        assertNotNull(queryInfo.getPeakTaskTotalMemoryBytes());
     }
 }

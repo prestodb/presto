@@ -333,7 +333,8 @@ public abstract class AbstractVerification
                 checksumQueryContext.getChecksumQuery(),
                 millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getCpuTimeMillis)),
                 millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes));
+                queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes),
+                queryContext.getMainQueryStats().map(QueryStats::getPeakTaskTotalMemoryBytes));
     }
 
     protected static String formatSql(Statement statement)
