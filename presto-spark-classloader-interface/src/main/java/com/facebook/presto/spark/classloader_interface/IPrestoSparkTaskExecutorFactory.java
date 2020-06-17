@@ -14,8 +14,7 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.util.CollectionAccumulator;
-
-import java.util.Iterator;
+import scala.collection.Iterator;
 
 public interface IPrestoSparkTaskExecutorFactory
 {

@@ -17,7 +17,10 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PagesSerde;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.Iterator;
+import java.util.List;
 
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static java.util.Objects.requireNonNull;
@@ -26,23 +29,34 @@ public class PrestoSparkSerializedPageInput
         implements PrestoSparkPageInput
 {
     private final PagesSerde pagesSerde;
-    private final Iterator<PrestoSparkSerializedPage> serializedPageIterator;
+    @GuardedBy("this")
+    private final List<Iterator<PrestoSparkSerializedPage>> serializedPageIterators;
+    @GuardedBy("this")
+    private int currentIteratorIndex;
 
-    public PrestoSparkSerializedPageInput(PagesSerde pagesSerde, Iterator<PrestoSparkSerializedPage> serializedPageIterator)
+    public PrestoSparkSerializedPageInput(PagesSerde pagesSerde, List<Iterator<PrestoSparkSerializedPage>> serializedPageIterators)
     {
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
-        this.serializedPageIterator = requireNonNull(serializedPageIterator, "serializedPageIterator is null");
+        this.serializedPageIterators = requireNonNull(serializedPageIterators, "serializedPageIterator is null");
     }
 
     @Override
     public Page getNextPage()
     {
-        PrestoSparkSerializedPage prestoSparkSerializedPage;
-        synchronized (serializedPageIterator) {
-            if (!serializedPageIterator.hasNext()) {
-                return null;
+        PrestoSparkSerializedPage prestoSparkSerializedPage = null;
+        synchronized (this) {
+            while (prestoSparkSerializedPage == null) {
+                if (currentIteratorIndex >= serializedPageIterators.size()) {
+                    return null;
+                }
+                Iterator<PrestoSparkSerializedPage> currentIterator = serializedPageIterators.get(currentIteratorIndex);
+                if (currentIterator.hasNext()) {
+                    prestoSparkSerializedPage = currentIterator.next();
+                }
+                else {
+                    currentIteratorIndex++;
+                }
             }
-            prestoSparkSerializedPage = serializedPageIterator.next();
         }
         return pagesSerde.deserialize(toSerializedPage(prestoSparkSerializedPage));
     }
