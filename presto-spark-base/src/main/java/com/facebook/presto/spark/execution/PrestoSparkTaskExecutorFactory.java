@@ -48,6 +48,7 @@ import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTask
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
 import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
+import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -60,20 +61,21 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
+import scala.collection.AbstractIterator;
+import scala.collection.Iterator;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -84,9 +86,7 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSeria
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskExecutorFactory
@@ -247,10 +247,7 @@ public class PrestoSparkTaskExecutorFactory
         // TODO: include attemptId in taskId
         TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
 
-        List<TaskSource> taskSources = stream(serializedTaskSources)
-                .map(SerializedPrestoSparkTaskSource::getBytes)
-                .map(taskSourceJsonCodec::fromJson)
-                .collect(toImmutableList());
+        List<TaskSource> taskSources = getTaskSources(serializedTaskSources);
 
         log.info("Task [%s] received %d splits.",
                 taskId,
@@ -282,11 +279,11 @@ public class PrestoSparkTaskExecutorFactory
                 allocationTrackingEnabled,
                 false);
 
-        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkMutableRow>> rowInputs = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, Iterator<PrestoSparkSerializedPage>> pageInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> rowInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-            List<Iterator<PrestoSparkMutableRow>> remoteSourceRowInputs = new ArrayList<>();
-            List<Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
+            List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> remoteSourceRowInputs = new ArrayList<>();
+            List<java.util.Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
                 Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
                 Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
@@ -295,7 +292,7 @@ public class PrestoSparkTaskExecutorFactory
                 if (shuffleInput != null) {
                     checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
                     checkArgument(inMemoryInput == null, "single remote source is not expected to accept different kind of inputs");
-                    remoteSourceRowInputs.add(Iterators.transform(shuffleInput, tuple -> tuple._2));
+                    remoteSourceRowInputs.add(shuffleInput);
                     continue;
                 }
 
@@ -317,10 +314,10 @@ public class PrestoSparkTaskExecutorFactory
                 throw new IllegalArgumentException("Input not found for sourceFragmentId: " + sourceFragmentId);
             }
             if (!remoteSourceRowInputs.isEmpty()) {
-                rowInputs.put(remoteSource.getId(), Iterators.concat(remoteSourceRowInputs.iterator()));
+                rowInputs.put(remoteSource.getId(), remoteSourceRowInputs);
             }
             if (!remoteSourcePageInputs.isEmpty()) {
-                pageInputs.put(remoteSource.getId(), Iterators.concat(remoteSourcePageInputs.iterator()));
+                pageInputs.put(remoteSource.getId(), remoteSourcePageInputs);
             }
         }
 
@@ -372,6 +369,16 @@ public class PrestoSparkTaskExecutorFactory
                 executionExceptionFactory);
     }
 
+    private List<TaskSource> getTaskSources(Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources)
+    {
+        ImmutableList.Builder<TaskSource> result = ImmutableList.builder();
+        while (serializedTaskSources.hasNext()) {
+            SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
+            result.add(taskSourceJsonCodec.fromJson(serializedTaskSource.getBytes()));
+        }
+        return result.build();
+    }
+
     @SuppressWarnings("unchecked")
     private static <T extends PrestoSparkTaskOutput> Output<T> configureOutput(
             Class<T> outputType,
@@ -406,6 +413,8 @@ public class PrestoSparkTaskExecutorFactory
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
+        private Tuple2<MutablePartitionId, T> next;
+
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
@@ -423,6 +432,28 @@ public class PrestoSparkTaskExecutorFactory
         }
 
         @Override
+        public boolean hasNext()
+        {
+            if (next == null) {
+                next = computeNext();
+            }
+            return next != null;
+        }
+
+        @Override
+        public Tuple2<MutablePartitionId, T> next()
+        {
+            if (next == null) {
+                next = computeNext();
+            }
+            if (next == null) {
+                throw new NoSuchElementException();
+            }
+            Tuple2<MutablePartitionId, T> result = next;
+            next = null;
+            return result;
+        }
+
         protected Tuple2<MutablePartitionId, T> computeNext()
         {
             try {
@@ -456,7 +487,7 @@ public class PrestoSparkTaskExecutorFactory
             checkState(taskState.isDone(), "task is expected to be done");
             LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
             if (failures.isEmpty()) {
-                return endOfData();
+                return null;
             }
 
             Throwable failure = getFirst(failures, null);
@@ -509,7 +540,7 @@ public class PrestoSparkTaskExecutorFactory
             implements OutputSupplier<PrestoSparkMutableRow>
     {
         private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
-        private Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> rowBatchIterator;
+        private RowTupleSupplier currentRowTupleSupplier;
 
         private RowOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer)
         {
@@ -520,17 +551,21 @@ public class PrestoSparkTaskExecutorFactory
         public Tuple2<MutablePartitionId, PrestoSparkMutableRow> getNext()
                 throws InterruptedException
         {
-            if (rowBatchIterator == null || !rowBatchIterator.hasNext()) {
-                PrestoSparkRowBatch rowBatch = outputBuffer.get();
-                if (rowBatch == null) {
-                    return null;
+            Tuple2<MutablePartitionId, PrestoSparkMutableRow> next = null;
+            while (next == null) {
+                if (currentRowTupleSupplier == null) {
+                    PrestoSparkRowBatch rowBatch = outputBuffer.get();
+                    if (rowBatch == null) {
+                        return null;
+                    }
+                    currentRowTupleSupplier = rowBatch.createRowTupleSupplier();
                 }
-                this.rowBatchIterator = rowBatch.createRowTupleIterator();
-                if (!rowBatchIterator.hasNext()) {
-                    return null;
+                next = currentRowTupleSupplier.getNext();
+                if (next == null) {
+                    currentRowTupleSupplier = null;
                 }
             }
-            return rowBatchIterator.next();
+            return next;
         }
     }
 

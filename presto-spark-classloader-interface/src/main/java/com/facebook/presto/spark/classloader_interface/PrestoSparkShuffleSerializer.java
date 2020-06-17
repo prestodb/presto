@@ -18,6 +18,7 @@ import org.apache.spark.serializer.SerializationStream;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.serializer.SerializerInstance;
 import scala.Tuple2;
+import scala.collection.AbstractIterator;
 import scala.collection.Iterator;
 import scala.reflect.ClassTag;
 
@@ -33,7 +34,6 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import static java.util.Objects.requireNonNull;
-import static scala.collection.JavaConversions.asScalaIterator;
 
 public class PrestoSparkShuffleSerializer
         extends Serializer
@@ -173,7 +173,7 @@ public class PrestoSparkShuffleSerializer
         @Override
         public Iterator<Tuple2<Object, Object>> asKeyValueIterator()
         {
-            return asScalaIterator(new java.util.Iterator<Tuple2<Object, Object>>()
+            return new AbstractIterator<Tuple2<Object, Object>>()
             {
                 private Tuple2<Object, Object> next;
 
@@ -231,7 +231,7 @@ public class PrestoSparkShuffleSerializer
                     row.setBuffer(buffer);
                     return tuple;
                 }
-            });
+            };
         }
 
         @Override

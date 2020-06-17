@@ -16,18 +16,17 @@ package com.facebook.presto.spark.execution;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.PrestoSparkRowBatchBuilder;
+import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SliceOutput;
 import org.testng.annotations.Test;
 import scala.Tuple2;
 
 import java.nio.ByteBuffer;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -168,11 +167,16 @@ public class TestPrestoSparkRowBatch
 
     private static void assertContains(PrestoSparkRowBatch rowBatch, List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> expected)
     {
-        Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> iterator = rowBatch.createRowTupleIterator();
-        List<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> actual = stream(iterator)
-                .map(TestPrestoSparkRowBatch::copy)
-                .collect(toImmutableList());
-        assertTupleEquals(actual, expected);
+        RowTupleSupplier rowTupleSupplier = rowBatch.createRowTupleSupplier();
+        ImmutableList.Builder<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> actual = ImmutableList.builder();
+        while (true) {
+            Tuple2<MutablePartitionId, PrestoSparkMutableRow> next = rowTupleSupplier.getNext();
+            if (next == null) {
+                break;
+            }
+            actual.add(copy(next));
+        }
+        assertTupleEquals(actual.build(), expected);
     }
 
     private static void assertTupleEquals(

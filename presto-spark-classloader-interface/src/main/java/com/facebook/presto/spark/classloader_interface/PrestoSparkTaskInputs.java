@@ -15,9 +15,9 @@ package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
+import scala.collection.Iterator;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
