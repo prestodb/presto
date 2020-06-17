@@ -20,23 +20,21 @@ import org.apache.spark.rdd.RDD;
 import org.apache.spark.rdd.ZippedPartitionsBaseRDD;
 import org.apache.spark.rdd.ZippedPartitionsPartition;
 import scala.Tuple2;
+import scala.collection.Iterator;
 import scala.collection.Seq;
 import scala.reflect.ClassTag;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
 import static java.lang.String.format;
-import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-import static scala.collection.JavaConversions.asJavaIterator;
 import static scala.collection.JavaConversions.asScalaBuffer;
-import static scala.collection.JavaConversions.asScalaIterator;
 import static scala.collection.JavaConversions.seqAsJavaList;
 
 /**
@@ -112,7 +110,7 @@ public class PrestoSparkTaskRdd<T extends PrestoSparkTaskOutput>
     }
 
     @Override
-    public scala.collection.Iterator<Tuple2<MutablePartitionId, T>> compute(Partition split, TaskContext context)
+    public Iterator<Tuple2<MutablePartitionId, T>> compute(Partition split, TaskContext context)
     {
         List<Partition> partitions = seqAsJavaList(((ZippedPartitionsPartition) split).partitions());
         int expectedPartitionsSize = (taskSourceRdd != null ? 1 : 0) + shuffleInputRdds.size();
@@ -124,15 +122,18 @@ public class PrestoSparkTaskRdd<T extends PrestoSparkTaskOutput>
         for (int inputIndex = 0; inputIndex < shuffleInputRdds.size(); inputIndex++) {
             shuffleInputIterators.put(
                     shuffleInputFragmentIds.get(inputIndex),
-                    asJavaIterator(shuffleInputRdds.get(inputIndex).iterator(partitions.get(inputIndex), context)));
+                    shuffleInputRdds.get(inputIndex).iterator(partitions.get(inputIndex), context));
         }
 
-        Iterator<SerializedPrestoSparkTaskSource> taskSourceIterator = emptyIterator();
+        Iterator<SerializedPrestoSparkTaskSource> taskSourceIterator;
         if (taskSourceRdd != null) {
-            taskSourceIterator = asJavaIterator(taskSourceRdd.iterator(partitions.get(partitions.size() - 1), context));
+            taskSourceIterator = taskSourceRdd.iterator(partitions.get(partitions.size() - 1), context);
+        }
+        else {
+            taskSourceIterator = emptyScalaIterator();
         }
 
-        return asScalaIterator(taskProcessor.process(taskSourceIterator, unmodifiableMap(shuffleInputIterators)));
+        return taskProcessor.process(taskSourceIterator, unmodifiableMap(shuffleInputIterators));
     }
 
     @Override

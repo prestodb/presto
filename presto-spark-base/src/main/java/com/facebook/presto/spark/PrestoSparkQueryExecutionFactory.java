@@ -94,6 +94,8 @@ import java.util.concurrent.Future;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
+import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
+import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
@@ -108,7 +110,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
-import static java.util.Collections.emptyIterator;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -455,11 +456,11 @@ public class PrestoSparkQueryExecutionFactory
                         0,
                         0,
                         serializedTaskDescriptor,
-                        emptyIterator(),
+                        emptyScalaIterator(),
                         new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs),
                         taskStatsCollector,
                         PrestoSparkSerializedPage.class);
-                return ImmutableList.copyOf(prestoSparkTaskExecutor);
+                return collectScalaIterator(prestoSparkTaskExecutor);
             }
 
             RddAndMore<PrestoSparkSerializedPage> rootRdd = createRdd(root, PrestoSparkSerializedPage.class);

@@ -14,8 +14,7 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import scala.Tuple2;
-
-import java.util.Iterator;
+import scala.collection.Iterator;
 
 public interface IPrestoSparkTaskExecutor<T>
         extends Iterator<Tuple2<MutablePartitionId, T>>

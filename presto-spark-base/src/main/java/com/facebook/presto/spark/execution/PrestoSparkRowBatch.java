@@ -15,15 +15,15 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
-import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 import scala.Tuple2;
 
+import javax.annotation.Nullable;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,9 +59,9 @@ public class PrestoSparkRowBatch
                 + sizeOf(rowSizes);
     }
 
-    public Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> createRowTupleIterator()
+    public RowTupleSupplier createRowTupleSupplier()
     {
-        return new RowTupleIterator(partitionCount, rowCount, rowData, rowPartitions, rowSizes);
+        return new RowTupleSupplier(partitionCount, rowCount, rowData, rowPartitions, rowSizes);
     }
 
     public long getRetainedSizeInBytes()
@@ -165,8 +165,7 @@ public class PrestoSparkRowBatch
         }
     }
 
-    private static class RowTupleIterator
-            extends AbstractIterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>
+    public static class RowTupleSupplier
     {
         private final int partitionCount;
         private final int rowCount;
@@ -180,7 +179,7 @@ public class PrestoSparkRowBatch
         private final MutablePartitionId mutablePartitionId;
         private final Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple;
 
-        private RowTupleIterator(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowSizes)
+        private RowTupleSupplier(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowSizes)
         {
             this.partitionCount = partitionCount;
             this.rowCount = rowCount;
@@ -194,11 +193,11 @@ public class PrestoSparkRowBatch
             tuple = new Tuple2<>(mutablePartitionId, row);
         }
 
-        @Override
-        protected Tuple2<MutablePartitionId, PrestoSparkMutableRow> computeNext()
+        @Nullable
+        public Tuple2<MutablePartitionId, PrestoSparkMutableRow> getNext()
         {
             if (currentRow >= rowCount) {
-                return endOfData();
+                return null;
             }
 
             int rowSize = rowSizes[currentRow];
