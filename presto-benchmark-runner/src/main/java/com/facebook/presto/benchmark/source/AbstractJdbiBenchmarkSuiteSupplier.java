@@ -15,40 +15,36 @@ package com.facebook.presto.benchmark.source;
 
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
 import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
-import com.google.inject.Inject;
-import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import static java.util.Objects.requireNonNull;
 
-public class DbBenchmarkSuiteSupplier
+public abstract class AbstractJdbiBenchmarkSuiteSupplier
         implements BenchmarkSuiteSupplier
 {
-    public static final String BENCHMARK_SUITE_SUPPLIER = "mysql";
-
     private final Jdbi jdbi;
     private final String suitesTableName;
     private final String queriesTableName;
     private final String suite;
 
-    @Inject
-    public DbBenchmarkSuiteSupplier(Jdbi jdbi, BenchmarkSuiteConfig config)
+    public AbstractJdbiBenchmarkSuiteSupplier(Jdbi jdbi, BenchmarkSuiteConfig config)
     {
         this.jdbi = requireNonNull(jdbi, "jdbi is null");
-        this.suitesTableName = requireNonNull(config.getSuitesTableName(), "suites-table-name is null");
-        this.queriesTableName = requireNonNull(config.getQueriesTableName(), "queries-table-name is null");
-        this.suite = requireNonNull(config.getSuite(), "suite name is null");
+        this.suitesTableName = requireNonNull(config.getSuitesTableName(), "suitesTableName is null");
+        this.queriesTableName = requireNonNull(config.getQueriesTableName(), "queriesTableName is null");
+        this.suite = requireNonNull(config.getSuite(), "suite is null");
     }
 
     @Override
     public BenchmarkSuite get()
     {
-        BenchmarkSuite benchmarkSuite;
-        try (Handle handle = jdbi.open()) {
-            BenchmarkSuiteDao benchmarkDao = handle.attach(BenchmarkSuiteDao.class);
-            BenchmarkSuiteInfo benchmarkSuiteInfo = benchmarkDao.getBenchmarkSuiteInfo(suitesTableName, suite);
-            benchmarkSuite = new BenchmarkSuite(suite, benchmarkSuiteInfo, benchmarkDao.getBenchmarkQueries(queriesTableName, benchmarkSuiteInfo.getQuerySet()));
-        }
-        return benchmarkSuite;
+        return jdbi.inTransaction(handle -> {
+            BenchmarkSuiteDao dao = handle.attach(BenchmarkSuiteDao.class);
+            BenchmarkSuiteInfo suiteInfo = dao.getBenchmarkSuiteInfo(suitesTableName, suite);
+            return new BenchmarkSuite(
+                    suite,
+                    suiteInfo,
+                    dao.getBenchmarkQueries(queriesTableName, suiteInfo.getQuerySet()));
+        });
     }
 }
