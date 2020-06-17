@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -154,6 +155,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
+    public static final String DISTINCTLIMIT_OPERATOR_THRESHOLD = "distinctlimit_operator_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -784,7 +786,12 @@ public final class SystemSessionProperties
                         warningCollectorConfig.getWarningHandlingLevel(),
                         false,
                         value -> WarningHandlingLevel.valueOf(((String) value).toUpperCase()),
-                        WarningHandlingLevel::name));
+                        WarningHandlingLevel::name),
+                longProperty(
+                        DISTINCTLIMIT_OPERATOR_THRESHOLD,
+                        "Threshold allowed for distinctLimit Operator",
+                        featuresConfig.getAllowedDistrinctLimitThreshold(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1324,5 +1331,10 @@ public final class SystemSessionProperties
     public static WarningHandlingLevel getWarningHandlingLevel(Session session)
     {
         return session.getSystemProperty(WARNING_HANDLING, WarningHandlingLevel.class);
+    }
+
+    public static long getDistinctLimitOperatorThreshold(Session session)
+    {
+        return session.getSystemProperty(DISTINCTLIMIT_OPERATOR_THRESHOLD, Long.class);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ConnectorId;
@@ -28,6 +29,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -48,20 +51,42 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
+    private static LocalQueryRunner localQueryRunner;
+
     public TestLocalQueries()
     {
         super(TestLocalQueries::createLocalQueryRunner);
     }
 
+    @AfterClass
+    public void destroy()
+    {
+        if (localQueryRunner != null) {
+            localQueryRunner.close();
+        }
+    }
+
+    public MaterializedResult run(String sql)
+    {
+        MaterializedResult result = localQueryRunner.execute(sql);
+        System.out.println(result.toString());
+        return result;
+    }
+
     public static LocalQueryRunner createLocalQueryRunner()
+    {
+        return createLocalQueryRunner(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true");
+    }
+
+    public static LocalQueryRunner createLocalQueryRunner(String key, String value)
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
+                .setSystemProperty(key, value)
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        localQueryRunner = new LocalQueryRunner(defaultSession);
 
         // add the tpch catalog
         // local queries run directly against the generator
@@ -141,5 +166,20 @@ public class TestLocalQueries
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
+    }
+
+    @Test
+    public void testDistinctLimit()
+    {
+        String sql = "SELECT DISTINCT CUSTKEY FROM (SELECT CUSTKEY FROM CUSTOMER) LIMIT 1";
+        localQueryRunner = createLocalQueryRunner(SystemSessionProperties.DISTINCTLIMIT_OPERATOR_THRESHOLD, "10");
+        String result = run("explain " + sql).toString();
+        String verify = "DistinctLimit[1]";
+        Assert.assertTrue(result.contains(verify));
+
+        sql = "SELECT DISTINCT CUSTKEY FROM (SELECT CUSTKEY FROM CUSTOMER) LIMIT 1000";
+        result = run("explain " + sql).toString();
+        verify = "Limit[1000]";
+        Assert.assertTrue(result.contains(verify));
     }
 }

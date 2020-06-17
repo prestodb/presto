@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -34,6 +36,7 @@ public class MergeLimitWithDistinct
     private static final Pattern<LimitNode> PATTERN = limit()
             .with(source().matching(aggregation().capturedAs(CHILD)
                     .matching(MergeLimitWithDistinct::isDistinct)));
+    private static long allowedLimitThreshold;
 
     /**
      * Whether this node corresponds to a DISTINCT operation in SQL
@@ -54,6 +57,10 @@ public class MergeLimitWithDistinct
     @Override
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
+        if (parent.getCount() > allowedLimitThreshold) {
+            return Result.empty();
+        }
+
         AggregationNode child = captures.get(CHILD);
 
         return Result.ofPlanNode(
@@ -64,5 +71,12 @@ public class MergeLimitWithDistinct
                         false,
                         child.getGroupingKeys(),
                         child.getHashVariable()));
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        allowedLimitThreshold = SystemSessionProperties.getDistinctLimitOperatorThreshold(session);
+        return true;
     }
 }

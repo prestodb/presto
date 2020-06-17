@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -44,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 public class LimitPushDown
         implements PlanOptimizer
 {
+    private static long allowedDistinctLimitThreshold;
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -53,6 +56,7 @@ public class LimitPushDown
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
+        allowedDistinctLimitThreshold = SystemSessionProperties.getDistinctLimitOperatorThreshold(session);
         return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
@@ -136,6 +140,7 @@ public class LimitPushDown
             LimitContext limit = context.get();
 
             if (limit != null &&
+                    limit.getCount() < allowedDistinctLimitThreshold &&
                     node.getAggregations().isEmpty() &&
                     node.getOutputVariables().size() == node.getGroupingKeys().size() &&
                     node.getOutputVariables().containsAll(node.getGroupingKeys())) {

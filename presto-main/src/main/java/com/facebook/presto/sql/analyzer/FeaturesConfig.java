@@ -153,6 +153,9 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
 
+    private long allowedDistrinctLimitThreshold = 1000000;
+    private boolean enableDistinctLimit = true;
+
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
     public enum PartitioningPrecisionStrategy
@@ -1248,6 +1251,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreferDistributedUnion(boolean preferDistributedUnion)
     {
         this.preferDistributedUnion = preferDistributedUnion;
+        return this;
+    }
+
+    public long getAllowedDistrinctLimitThreshold()
+    {
+        return allowedDistrinctLimitThreshold;
+    }
+
+    @Config("allowed-distinct-limit-threshold")
+    public FeaturesConfig setAllowedDistinctLimitThrehold(long allowedDistinctLimitThrehold)
+    {
+        this.allowedDistrinctLimitThreshold = allowedDistinctLimitThrehold;
         return this;
     }
 }
