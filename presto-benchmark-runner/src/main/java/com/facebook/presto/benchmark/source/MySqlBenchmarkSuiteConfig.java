@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.benchmark.framework;
+package com.facebook.presto.benchmark.source;
 
 import com.facebook.airlift.configuration.Config;
 
