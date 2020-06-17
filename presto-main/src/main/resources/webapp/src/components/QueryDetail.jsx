@@ -115,10 +115,10 @@ class TaskList extends React.Component {
             }
 
             return (
-                <Tr key={task.taskStatus.taskId}>
-                    <Td column="id" value={task.taskStatus.taskId}>
+                <Tr key={task.taskId}>
+                    <Td column="id" value={task.taskId}>
                         <a href={task.taskStatus.self + "?pretty"}>
-                            {getTaskIdSuffix(task.taskStatus.taskId)}
+                            {getTaskIdSuffix(task.taskId)}
                         </a>
                     </Td>
                     <Td column="host" value={getHostname(task.taskStatus.self)}>
@@ -308,7 +308,7 @@ class StageSummary extends React.Component {
         const numTasks = stage.latestAttemptExecutionInfo.tasks.length;
 
         // sort the x-axis
-        stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId));
+        stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId));
 
         const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
         const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTime));
