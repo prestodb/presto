@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -55,14 +56,14 @@ public class TestFileSingleStreamSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
     private final ListeningExecutorService executor = listeningDecorator(newCachedThreadPool());
-    private final File spillPath = Files.createTempDir();
+    private final File tempDirectory = Files.createTempDir();
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
         executor.shutdown();
-        deleteRecursively(spillPath.toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDirectory.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -97,6 +98,7 @@ public class TestFileSingleStreamSpiller
     private void assertSpill(boolean compression, boolean encryption)
             throws Exception
     {
+        File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(new TypeRegistry()),
