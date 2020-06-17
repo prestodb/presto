@@ -155,6 +155,11 @@ public class SpillableHashAggregationBuilder
     public ListenableFuture<?> startMemoryRevoke()
     {
         checkState(spillInProgress.isDone());
+        if (hashAggregationBuilder.hasBuiltFinalResult()) {
+            // If the hashAggregationBuilder has already completed, decline memory revoking. At this point, buildResult has already been called
+            // on InMemoryHashAggregationBuilder and it is no longer accepting any input so no point in spilling.
+            return spillInProgress;
+        }
         spillToDisk();
         return spillInProgress;
     }
@@ -162,6 +167,10 @@ public class SpillableHashAggregationBuilder
     @Override
     public void finishMemoryRevoke()
     {
+        if (hashAggregationBuilder.hasBuiltFinalResult()) {
+            // Do not update memory if we never spilt during startMemoryRevoke if hashAggregationBuilder has already built it's final result
+            return;
+        }
         updateMemory();
     }
 
