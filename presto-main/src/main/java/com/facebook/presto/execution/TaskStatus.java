@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,12 +26,14 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskStatus
 {
     /**
@@ -46,6 +52,7 @@ public class TaskStatus
      * a final local task that is always newer than any remote task.
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
+    private static final JsonCodec<List<ExecutionFailureInfo>> LIST_EXECUTION_FAILURE_INFO_CODEC = listJsonCodec(ExecutionFailureInfo.class);
 
     private final String taskInstanceId;
     private final long version;
@@ -114,22 +121,67 @@ public class TaskStatus
         this.fullGcTimeInMillis = fullGcTimeInMillis;
     }
 
+    @ThriftConstructor
+    public TaskStatus(
+            String taskInstanceId,
+            long version,
+            TaskState state,
+            String self,
+            Set<Lifespan> completedDriverGroups,
+            String failures,
+            int queuedPartitionedDrivers,
+            int runningPartitionedDrivers,
+            double outputBufferUtilization,
+            boolean outputBufferOverutilized,
+            long physicalWrittenDataSizeInBytes,
+            long memoryReservationInBytes,
+            long systemMemoryReservationInBytes,
+            long fullGcCount,
+            long fullGcTimeInMillis)
+    {
+        this(
+                taskInstanceId,
+                version,
+                state,
+                URI.create(self),
+                completedDriverGroups,
+                LIST_EXECUTION_FAILURE_INFO_CODEC.fromJson(failures),
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                outputBufferUtilization,
+                outputBufferOverutilized,
+                physicalWrittenDataSizeInBytes,
+                memoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                fullGcCount,
+                fullGcTimeInMillis);
+    }
+
+    @ThriftField(1)
     @JsonProperty
     public String getTaskInstanceId()
     {
         return taskInstanceId;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public long getVersion()
     {
         return version;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public TaskState getState()
     {
         return state;
+    }
+
+    @ThriftField(value = 4, name = "self")
+    public String getSelfString()
+    {
+        return self.toString();
     }
 
     @JsonProperty
@@ -138,10 +190,17 @@ public class TaskStatus
         return self;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Set<Lifespan> getCompletedDriverGroups()
     {
         return completedDriverGroups;
+    }
+
+    @ThriftField(value = 6, name = "failures")
+    public String getFailuresJson()
+    {
+        return LIST_EXECUTION_FAILURE_INFO_CODEC.toJson(failures);
     }
 
     @JsonProperty
@@ -150,54 +209,63 @@ public class TaskStatus
         return failures;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public int getQueuedPartitionedDrivers()
     {
         return queuedPartitionedDrivers;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public double getOutputBufferUtilization()
     {
         return outputBufferUtilization;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public boolean isOutputBufferOverutilized()
     {
         return outputBufferOverutilized;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public long getPhysicalWrittenDataSizeInBytes()
     {
         return physicalWrittenDataSizeInBytes;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public long getMemoryReservationInBytes()
     {
         return memoryReservationInBytes;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public long getSystemMemoryReservationInBytes()
     {
         return systemMemoryReservationInBytes;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public long getFullGcCount()
     {
         return fullGcCount;
     }
 
+    @ThriftField(15)
     @JsonProperty
     public long getFullGcTimeInMillis()
     {

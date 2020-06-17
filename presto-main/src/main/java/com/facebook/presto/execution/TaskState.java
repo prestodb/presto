@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@ThriftEnum
 public enum TaskState
 {
     /**
@@ -63,5 +67,11 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return ordinal();
     }
 }

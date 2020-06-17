@@ -213,6 +213,11 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
