@@ -34,5 +34,6 @@ public interface AccumulatorFactoryBinder
             boolean distinct,
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
             Session session);
 }
