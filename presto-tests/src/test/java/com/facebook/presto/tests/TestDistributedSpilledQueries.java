@@ -40,6 +40,7 @@ public class TestDistributedSpilledQueries
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
+                .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()

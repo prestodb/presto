@@ -2704,7 +2704,8 @@ public class LocalExecutionPlanner
 
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation)
+                Aggregation aggregation,
+                boolean spillEnabled)
         {
             FunctionManager functionManager = metadata.getFunctionManager();
             InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
@@ -2752,6 +2753,7 @@ public class LocalExecutionPlanner
                     aggregation.isDistinct(),
                     joinCompiler,
                     lambdaProviders,
+                    spillEnabled,
                     session);
         }
 
@@ -2785,7 +2787,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, false));
                 outputMappings.put(variable, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -2848,7 +2850,7 @@ public class LocalExecutionPlanner
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, !isStreamable && spillEnabled));
                 aggregationOutputVariables.add(variable);
             }
 
