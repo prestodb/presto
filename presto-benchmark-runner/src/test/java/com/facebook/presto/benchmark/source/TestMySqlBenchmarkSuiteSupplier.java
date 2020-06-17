@@ -22,6 +22,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.benchmark.BenchmarkTestUtil.XDB;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuiteObject;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuitePhases;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuiteSessionProperties;
@@ -34,7 +35,7 @@ import static com.facebook.presto.benchmark.source.StringToStringMapColumnMapper
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
-public class TestDbBenchmarkSuiteSupplier
+public class TestMySqlBenchmarkSuiteSupplier
 {
     private static final String SUITE = "test_suite";
     private static final String QUERY_SET = "test_set";
@@ -73,6 +74,8 @@ public class TestDbBenchmarkSuiteSupplier
 
         insertBenchmarkSuite(handle, SUITE, QUERY_SET, PHASE_SPECIFICATION_LIST_CODEC.toJson(getBenchmarkSuitePhases()), MAP_CODEC.toJson(getBenchmarkSuiteSessionProperties()));
 
-        assertEquals(new DbBenchmarkSuiteSupplier(jdbi, new BenchmarkSuiteConfig().setSuite(SUITE)).get(), getBenchmarkSuiteObject(SUITE, QUERY_SET));
+        assertEquals(new MySqlBenchmarkSuiteSupplier(
+                new MySqlBenchmarkSuiteConfig().setDatabaseUrl(mySqlServer.getJdbcUrl(XDB)),
+                new BenchmarkSuiteConfig().setSuite(SUITE)).get(), getBenchmarkSuiteObject(SUITE, QUERY_SET));
     }
 }

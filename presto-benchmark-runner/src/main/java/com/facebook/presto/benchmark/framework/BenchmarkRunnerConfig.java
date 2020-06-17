@@ -23,12 +23,12 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.benchmark.source.DbBenchmarkSuiteSupplier.BENCHMARK_SUITE_SUPPLIER;
+import static com.facebook.presto.benchmark.source.MySqlBenchmarkSuiteSupplier.MYSQL_BENCHMARK_SUITE_SUPPLIER;
 
 public class BenchmarkRunnerConfig
 {
     private String testId;
-    private String benchmarkSuiteSupplier = BENCHMARK_SUITE_SUPPLIER;
+    private String benchmarkSuiteSupplier = MYSQL_BENCHMARK_SUITE_SUPPLIER;
     private Set<String> eventClients = ImmutableSet.of("json");
     private Optional<String> jsonEventLogFile = Optional.empty();
     private boolean continueOnFailure;
