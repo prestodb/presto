@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -221,11 +222,7 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Optional<HiveBucketProperty> hiveBucketProperty = Optional.empty();
-        if (bucketHandle.isPresent() && !bucketHandle.get().isVirtuallyBucketed()) {
-            hiveBucketProperty = bucketHandle.map(HiveBucketHandle::toTableBucketProperty);
-        }
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session);
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle, session);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -314,7 +311,7 @@ public class HiveSplitManager
             Table table,
             SchemaTableName tableName,
             List<HivePartition> hivePartitions,
-            Optional<HiveBucketProperty> bucketProperty,
+            Optional<HiveBucketHandle> hiveBucketHandle,
             ConnectorSession session)
     {
         if (hivePartitions.isEmpty()) {
@@ -408,7 +405,7 @@ public class HiveSplitManager
                     }
                 }
 
-                if (bucketProperty.isPresent()) {
+                if (hiveBucketHandle.isPresent() && !hiveBucketHandle.get().isVirtuallyBucketed()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
                     if (!partitionBucketProperty.isPresent()) {
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
@@ -416,9 +413,11 @@ public class HiveSplitManager
                                 hivePartition.getTableName(),
                                 hivePartition.getPartitionId()));
                     }
-                    int tableBucketCount = bucketProperty.get().getBucketCount();
+                    int tableBucketCount = hiveBucketHandle.get().getTableBucketCount();
                     int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
-                    List<String> tableBucketColumns = bucketProperty.get().getBucketedBy();
+                    List<String> tableBucketColumns = hiveBucketHandle.get().getColumns().stream()
+                            .map(HiveColumnHandle::getName)
+                            .collect(toImmutableList());
                     List<String> partitionBucketColumns = partitionBucketProperty.get().getBucketedBy();
                     if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
