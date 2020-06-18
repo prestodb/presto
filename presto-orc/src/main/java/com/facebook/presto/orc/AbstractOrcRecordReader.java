@@ -44,8 +44,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -57,6 +60,7 @@ import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges
 import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -218,12 +222,12 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newOrcAggregatedMemoryContext();
 
+        Set<Integer> includedOrcColumns = getIncludedOrcColumns(types, this.presentColumns, requireNonNull(requiredSubfields, "requiredSubfields is null"));
         stripeReader = new StripeReader(
                 orcDataSource,
                 decompressor,
                 types,
-                this.presentColumns,
-                requiredSubfields,
+                includedOrcColumns,
                 rowsInRowGroup,
                 predicate,
                 hiveWriterVersion,
@@ -253,6 +257,63 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         else {
             nextBatchSize = initialBatchSize;
         }
+    }
+
+    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns, Map<Integer, List<Subfield>> requiredSubfields)
+    {
+        Set<Integer> includes = new LinkedHashSet<>();
+
+        OrcType root = types.get(0);
+        for (int includedColumn : includedColumns) {
+            List<Subfield> subfields = Optional.ofNullable(requiredSubfields.get(includedColumn)).orElse(ImmutableList.of());
+            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn), subfields);
+        }
+
+        return includes;
+    }
+
+    private static void includeOrcColumnsRecursive(List<OrcType> types, Set<Integer> result, int typeId, List<Subfield> requiredSubfields)
+    {
+        result.add(typeId);
+        OrcType type = types.get(typeId);
+
+        Optional<Map<String, List<Subfield>>> requiredFields = Optional.empty();
+        if (type.getOrcTypeKind() == STRUCT) {
+            requiredFields = getRequiredFields(requiredSubfields);
+        }
+
+        int children = type.getFieldCount();
+        for (int i = 0; i < children; ++i) {
+            List<Subfield> subfields = ImmutableList.of();
+            if (requiredFields.isPresent()) {
+                String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
+                if (!requiredFields.get().containsKey(fieldName)) {
+                    continue;
+                }
+                subfields = requiredFields.get().get(fieldName);
+            }
+
+            includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i), subfields);
+        }
+    }
+
+    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
+    {
+        if (requiredSubfields.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<String, List<Subfield>> fields = new HashMap<>();
+        for (Subfield subfield : requiredSubfields) {
+            List<Subfield.PathElement> path = subfield.getPath();
+            String name = ((Subfield.NestedField) path.get(0)).getName().toLowerCase(Locale.ENGLISH);
+            fields.computeIfAbsent(name, k -> new ArrayList<>());
+            if (path.size() > 1) {
+                fields.get(name).add(new Subfield("c", path.subList(1, path.size())));
+            }
+        }
+
+        return Optional.of(ImmutableMap.copyOf(fields));
     }
 
     private static OptionalInt getFixedWidthRowSize(Set<Integer> columns, Map<Integer, Type> columnTypes)
@@ -566,7 +627,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
     {
         requireNonNull(rootStructType, "rootStructType is null");
-        checkArgument(rootStructType.getOrcTypeKind() == OrcType.OrcTypeKind.STRUCT);
+        checkArgument(rootStructType.getOrcTypeKind() == STRUCT);
         requireNonNull(fileStats, "fileStats is null");
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
@@ -629,7 +690,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
 
         ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
-        if (type.getOrcTypeKind() == OrcType.OrcTypeKind.STRUCT) {
+        if (type.getOrcTypeKind() == STRUCT) {
             for (int i = 0; i < type.getFieldCount(); ++i) {
                 nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
             }
