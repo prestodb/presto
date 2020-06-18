@@ -17,13 +17,13 @@ import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
 import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
+import com.facebook.presto.benchmark.framework.ExecutionStrategy;
 import com.facebook.presto.benchmark.framework.PhaseSpecification;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
