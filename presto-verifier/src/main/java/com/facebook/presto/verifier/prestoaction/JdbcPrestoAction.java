@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -145,7 +146,7 @@ public class JdbcPrestoAction
         }
 
         // configure session properties
-        Map<String, String> sessionProperties = queryStage.isMain()
+        Map<String, String> sessionProperties = queryStage.isMain() || queryStage == DETERMINISM_ANALYSIS_MAIN
                 ? new HashMap<>(queryConfiguration.getSessionProperties())
                 : new HashMap<>();
 
@@ -166,6 +167,11 @@ public class JdbcPrestoAction
         switch (queryStage) {
             case REWRITE:
             case DESCRIBE:
+            case CONTROL_SETUP:
+            case CONTROL_TEARDOWN:
+            case TEST_SETUP:
+            case TEST_TEARDOWN:
+            case DETERMINISM_ANALYSIS_SETUP:
                 return metadataTimeout;
             case CONTROL_CHECKSUM:
             case TEST_CHECKSUM:
