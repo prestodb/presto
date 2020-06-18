@@ -25,6 +25,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
@@ -45,7 +46,7 @@ public class DecimalOutputStream
 
     public DecimalOutputStream(CompressionKind compression, int bufferSize)
     {
-        this.buffer = new OrcOutputBuffer(compression, bufferSize);
+        this.buffer = new OrcOutputBuffer(compression, Optional.empty(), bufferSize);
     }
 
     // todo rewrite without BigInteger

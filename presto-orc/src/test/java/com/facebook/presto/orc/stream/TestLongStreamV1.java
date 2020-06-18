@@ -71,7 +71,7 @@ public class TestLongStreamV1
     @Override
     protected LongOutputStreamV1 createValueOutputStream()
     {
-        return new LongOutputStreamV1(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamV1(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override

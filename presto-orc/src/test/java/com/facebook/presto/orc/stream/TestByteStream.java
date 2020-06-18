@@ -79,7 +79,7 @@ public class TestByteStream
     @Override
     protected ByteOutputStream createValueOutputStream()
     {
-        return new ByteOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new ByteOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
