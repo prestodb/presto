@@ -33,8 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.CONCURRENT;
-import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.STREAM;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class BenchmarkTestUtil
@@ -112,10 +110,10 @@ public class BenchmarkTestUtil
     public static List<PhaseSpecification> getBenchmarkSuitePhases()
     {
         List<List<String>> streams = ImmutableList.of(ImmutableList.of("Q1", "Q2"), ImmutableList.of("Q2", "Q3"));
-        PhaseSpecification streamExecutionPhase = new StreamExecutionPhase("Phase-1", STREAM, streams);
+        PhaseSpecification streamExecutionPhase = new StreamExecutionPhase("Phase-1", streams);
 
         List<String> queries = ImmutableList.of("Q1", "Q2", "Q3");
-        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries, 50);
+        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", queries, 50);
 
         return ImmutableList.of(streamExecutionPhase, concurrentExecutionPhase);
     }
