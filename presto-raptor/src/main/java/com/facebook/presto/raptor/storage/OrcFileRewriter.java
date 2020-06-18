@@ -45,6 +45,7 @@ import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.IntStream;
 
@@ -189,6 +190,8 @@ public final class OrcFileRewriter
                                     writerStorageTypes,
                                     ORC,
                                     compression,
+                                    Optional.empty(),
+                                    NO_ENCRYPTION,
                                     DEFAULT_OPTION,
                                     userMetadata,
                                     DEFAULT_STORAGE_TIMEZONE,

@@ -29,8 +29,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -84,6 +86,8 @@ public class TempFileWriter
                     types,
                     ORC,
                     LZ4,
+                    Optional.empty(),
+                    NO_ENCRYPTION,
                     new OrcWriterOptions()
                             .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
                             .withStripeMinSize(new DataSize(64, MEGABYTE))

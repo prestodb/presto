@@ -85,6 +85,7 @@ import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -577,6 +578,8 @@ public enum FileFormat
                     types,
                     ORC,
                     compressionCodec.getOrcCompressionKind(),
+                    Optional.empty(),
+                    NO_ENCRYPTION,
                     new OrcWriterOptions(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
@@ -614,6 +617,8 @@ public enum FileFormat
                     types,
                     DWRF,
                     compressionCodec.getOrcCompressionKind(),
+                    Optional.empty(),
+                    NO_ENCRYPTION,
                     new OrcWriterOptions(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,

@@ -23,19 +23,19 @@ import static java.util.Objects.requireNonNull;
 public class EncryptingCompressor
         implements Compressor
 {
-    private DwrfEncryptor dwrfEncryptor;
+    private DwrfDataEncryptor dwrfDataEncryptor;
     private Compressor compressor;
 
-    public EncryptingCompressor(DwrfEncryptor dwrfEncryptor, Compressor compressor)
+    public EncryptingCompressor(DwrfDataEncryptor dwrfDataEncryptor, Compressor compressor)
     {
-        this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncrpytor is null");
+        this.dwrfDataEncryptor = requireNonNull(dwrfDataEncryptor, "dwrfEncrpytor is null");
         this.compressor = requireNonNull(compressor, "compressor is null");
     }
 
     @Override
     public int maxCompressedLength(int uncompressedSize)
     {
-        return dwrfEncryptor.maxEncryptedLength(compressor.maxCompressedLength(uncompressedSize));
+        return dwrfDataEncryptor.maxEncryptedLength(compressor.maxCompressedLength(uncompressedSize));
     }
 
     @Override
@@ -43,7 +43,7 @@ public class EncryptingCompressor
     {
         byte[] compressorOutput = new byte[maxOutputLength];
         int compressedSize = compressor.compress(input, inputOffset, inputLength, compressorOutput, 0, maxOutputLength);
-        Slice encryptedSlice = dwrfEncryptor.encrypt(compressorOutput, 0, compressedSize);
+        Slice encryptedSlice = dwrfDataEncryptor.encrypt(compressorOutput, 0, compressedSize);
         ByteBuffer outputBuffer = ByteBuffer.wrap(output, outputOffset, maxOutputLength);
         outputBuffer.put(encryptedSlice.byteArray(), encryptedSlice.byteArrayOffset(), encryptedSlice.length());
         return outputBuffer.position() - outputOffset;

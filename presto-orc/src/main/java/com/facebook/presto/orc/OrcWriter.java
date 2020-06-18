@@ -22,21 +22,31 @@ import com.facebook.presto.orc.OrcWriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.DwrfEncryption;
+import com.facebook.presto.orc.metadata.DwrfMetadataWriter;
+import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.Stream;
+import com.facebook.presto.orc.metadata.StripeEncryptionGroup;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.protobuf.AbstractMessageLite;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -54,22 +64,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
+import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.OrcReader.validateFile;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.facebook.presto.orc.stream.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.max;
@@ -107,6 +124,10 @@ public class OrcWriter
     private final CompressedMetadataWriter metadataWriter;
     private final DateTimeZone hiveStorageTimeZone;
 
+    private final DwrfEncryptionProvider dwrfEncryptionProvider;
+    private final DwrfEncryptionInfo dwrfEncryptionInfo;
+    private final Optional<DwrfWriterEncryption> dwrfWriterEncryption;
+
     private final List<ClosedStripe> closedStripes = new ArrayList<>();
     private final List<OrcType> orcTypes;
 
@@ -129,6 +150,8 @@ public class OrcWriter
             List<Type> types,
             OrcEncoding orcEncoding,
             CompressionKind compression,
+            Optional<DwrfWriterEncryption> encryption,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
@@ -166,6 +189,36 @@ public class OrcWriter
         this.orcTypes = OrcType.createOrcRowType(0, columnNames, types);
         recordValidation(validation -> validation.setColumnNames(columnNames));
 
+        dwrfWriterEncryption = requireNonNull(encryption, "encryption is null");
+        this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null");
+        if (dwrfWriterEncryption.isPresent()) {
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            Map<Integer, Integer> nodeToGroupMap = createNodeToGroupMap(
+                    writerEncryptionGroups
+                            .stream()
+                            .map(WriterEncryptionGroup::getNodes)
+                            .collect(toImmutableList()),
+                    orcTypes);
+            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(dwrfWriterEncryption.get().getKeyProvider());
+            Map<Integer, DwrfDataEncryptor> dwrfEncryptors = IntStream.range(0, writerEncryptionGroups.size())
+                    .boxed()
+                    .collect(toImmutableMap(
+                            groupId -> groupId,
+                            groupId -> new DwrfDataEncryptor(writerEncryptionGroups.get(groupId).getDataKeyMetadata(), encryptionLibrary)));
+
+            List<Slice> encryptedKeyMetadatas = writerEncryptionGroups.stream()
+                    .map(group -> encryptionLibrary.encryptKey(
+                            group.getIntermediateKeyMetadata(),
+                            group.getDataKeyMetadata().getBytes(),
+                            0,
+                            group.getDataKeyMetadata().length()))
+                    .collect(toImmutableList());
+            this.dwrfEncryptionInfo = new DwrfEncryptionInfo(dwrfEncryptors, encryptedKeyMetadatas, nodeToGroupMap);
+        }
+        else {
+            this.dwrfEncryptionInfo = UNENCRYPTED;
+        }
+
         // create column writers
         OrcType rootType = orcTypes.get(0);
         checkArgument(rootType.getFieldCount() == types.size());
@@ -174,7 +227,17 @@ public class OrcWriter
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             int fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
-            ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, maxCompressionBufferSize, orcEncoding, hiveStorageTimeZone, options.getMaxStringStatisticsLimit(), DwrfEncryptionInfo.UNENCRYPTED, orcEncoding.createMetadataWriter());
+            ColumnWriter columnWriter = createColumnWriter(
+                    fieldColumnIndex,
+                    orcTypes,
+                    fieldType,
+                    compression,
+                    maxCompressionBufferSize,
+                    orcEncoding,
+                    hiveStorageTimeZone,
+                    options.getMaxStringStatisticsLimit(),
+                    dwrfEncryptionInfo,
+                    orcEncoding.createMetadataWriter());
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
@@ -378,15 +441,30 @@ public class OrcWriter
         columnWriters.forEach(ColumnWriter::close);
 
         List<DataOutput> outputData = new ArrayList<>();
-        List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 3);
+        List<Stream> unencryptedStreams = new ArrayList<>(columnWriters.size() * 3);
+        Multimap<Integer, Stream> encryptedStreams = ArrayListMultimap.create();
 
         // get index streams
         long indexLength = 0;
+        long offset = 0;
+        int previousEncryptionGroup = -1;
         for (ColumnWriter columnWriter : columnWriters) {
             for (StreamDataOutput indexStream : columnWriter.getIndexStreams()) {
                 // The ordering is critical because the stream only contain a length with no offset.
+                // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
                 outputData.add(indexStream);
-                allStreams.add(indexStream.getStream());
+                Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(indexStream.getStream().getColumn());
+                if (encryptionGroup.isPresent()) {
+                    Stream stream = previousEncryptionGroup == encryptionGroup.get() ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
+                    encryptedStreams.put(encryptionGroup.get(), stream);
+                    previousEncryptionGroup = encryptionGroup.get();
+                }
+                else {
+                    Stream stream = previousEncryptionGroup == -1 ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
+                    unencryptedStreams.add(stream);
+                    previousEncryptionGroup = -1;
+                }
+                offset += indexStream.size();
                 indexLength += indexStream.size();
             }
         }
@@ -405,9 +483,21 @@ public class OrcWriter
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
-            // The ordering is critical because the stream only contain a length with no offset.
+            // The ordering is critical because the stream only contains a length with no offset.
+            // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
             outputData.add(dataStream);
-            allStreams.add(dataStream.getStream());
+            Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(dataStream.getStream().getColumn());
+            if (encryptionGroup.isPresent()) {
+                Stream stream = previousEncryptionGroup == encryptionGroup.get() ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
+                encryptedStreams.put(encryptionGroup.get(), stream);
+                previousEncryptionGroup = encryptionGroup.get();
+            }
+            else {
+                Stream stream = previousEncryptionGroup == -1 ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
+                unencryptedStreams.add(stream);
+                previousEncryptionGroup = -1;
+            }
+            offset += dataStream.size();
         }
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
@@ -420,22 +510,54 @@ public class OrcWriter
         columnEncodings.put(0, new ColumnEncoding(DIRECT, 0));
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
-        // add footer
-        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()), ImmutableList.of());
+        Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
+                .filter(entry -> !dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        int unencryptedColumnSize = orcTypes.size() - dwrfEncryptionInfo.getNumberOfEncryptedNodes();
+
+        Map<Integer, ColumnEncoding> encryptedColumnEncodings = columnEncodings.entrySet().stream()
+                .filter(entry -> dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        List<Slice> encryptedGroups = createEncryptedGroups(encryptedStreams, encryptedColumnEncodings);
+
+        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, toDenseList(unencryptedColumnEncodings, unencryptedColumnSize), encryptedGroups);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
 
         // create final stripe statistics
         StripeStatistics statistics = new StripeStatistics(toDenseList(columnStatistics, orcTypes.size()));
+
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
-        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length(), ImmutableList.of());
+
+        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length(), dwrfEncryptionInfo.getEncryptedKeyMetadatas());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
+
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
 
         return outputData;
+    }
+
+    private List<Slice> createEncryptedGroups(Multimap<Integer, Stream> encryptedStreams, Map<Integer, ColumnEncoding> encryptedColumnEncodings)
+    {
+        ImmutableList.Builder<Slice> encryptedGroups = ImmutableList.builder();
+        for (int i = 0; i < encryptedStreams.keySet().size(); i++) {
+            int groupId = i;
+            Map<Integer, ColumnEncoding> groupColumnEncodings = encryptedColumnEncodings.entrySet().stream()
+                    .filter(entry -> dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).orElseThrow(() -> new VerifyError("missing group for encryptedColumn")) == groupId)
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+            byte[] serializedEncryptionGroup = toStripeEncryptionGroup(
+                    new StripeEncryptionGroup(
+                            ImmutableList.copyOf(encryptedStreams.get(i)),
+                            toDenseList(groupColumnEncodings, dwrfEncryptionInfo.getNumberOfNodesInGroup(i))))
+                    .toByteArray();
+            Slice encryptedStripeEncryptionGroup = dwrfEncryptionInfo.getEncryptorByGroupId(i).encrypt(serializedEncryptionGroup, 0, serializedEncryptionGroup.length);
+            encryptedGroups.add(encryptedStripeEncryptionGroup);
+        }
+        return encryptedGroups.build();
     }
 
     @Override
@@ -483,6 +605,47 @@ public class OrcWriter
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
+        ImmutableList.Builder<ColumnStatistics> unencryptedStatsBuilder = ImmutableList.builder();
+        ImmutableListMultimap.Builder<Integer, ColumnStatistics> encryptedStatsBuilder = ImmutableListMultimap.builder();
+        for (int i = 0; i < fileStats.size(); i++) {
+            if (dwrfEncryptionInfo.getGroupByNodeId(i).isPresent()) {
+                encryptedStatsBuilder.put(dwrfEncryptionInfo.getGroupByNodeId(i).get(), fileStats.get(i));
+            }
+            else {
+                unencryptedStatsBuilder.add(fileStats.get(i));
+            }
+        }
+        List<ColumnStatistics> unencryptedStats = unencryptedStatsBuilder.build();
+        ListMultimap<Integer, ColumnStatistics> encryptedStats = encryptedStatsBuilder.build();
+        Optional<DwrfEncryption> dwrfEncryption;
+        if (dwrfWriterEncryption.isPresent()) {
+            ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            for (int i = 0; i < writerEncryptionGroups.size(); i++) {
+                WriterEncryptionGroup group = writerEncryptionGroups.get(i);
+                List<byte[]> columnStatistics = encryptedStats.get(i)
+                        .stream()
+                        .map(DwrfMetadataWriter::toColumnStatistics)
+                        .map(AbstractMessageLite::toByteArray)
+                        .collect(toImmutableList());
+
+                DwrfProto.FileStatistics fileStatistics = toFileStatistics(encryptedStats.get(i));
+                byte[] serializedStats = fileStatistics.toByteArray();
+                encryptionGroupBuilder.add(
+                        new EncryptionGroup(
+                                group.getNodes(),
+                                Optional.empty(), // reader will just use key metadata from the stripe
+                                dwrfEncryptionInfo.getEncryptorByGroupId(i).encrypt(serializedStats, 0, serializedStats.length)));
+            }
+            dwrfEncryption = Optional.of(
+                    new DwrfEncryption(
+                            dwrfWriterEncryption.get().getKeyProvider(),
+                            encryptionGroupBuilder.build()));
+        }
+        else {
+            dwrfEncryption = Optional.empty();
+        }
+
         Footer footer = new Footer(
                 numberOfRows,
                 rowGroupMaxRowCount,
@@ -490,9 +653,9 @@ public class OrcWriter
                         .map(ClosedStripe::getStripeInformation)
                         .collect(toList()),
                 orcTypes,
-                fileStats,
+                unencryptedStats,
                 userMetadata,
-                Optional.empty());
+                dwrfEncryption);
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;
@@ -518,6 +681,15 @@ public class OrcWriter
             throws OrcCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
+        ImmutableMap.Builder<Integer, Slice> intermediateKeyMetadata = ImmutableMap.builder();
+        if (dwrfWriterEncryption.isPresent()) {
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            for (int i = 0; i < writerEncryptionGroups.size(); i++) {
+                for (Integer node : writerEncryptionGroups.get(i).getNodes()) {
+                    intermediateKeyMetadata.put(node, writerEncryptionGroups.get(i).getIntermediateKeyMetadata());
+                }
+            }
+        }
 
         validateFile(
                 validationBuilder.build(),
@@ -526,8 +698,8 @@ public class OrcWriter
                 hiveStorageTimeZone,
                 orcEncoding,
                 new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
-                ImmutableMap.of(),
-                NO_ENCRYPTION);
+                intermediateKeyMetadata.build(),
+                dwrfEncryptionProvider);
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)
@@ -541,9 +713,14 @@ public class OrcWriter
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
     {
         checkArgument(data.size() == expectedSize);
+        if (expectedSize == 0) {
+            return ImmutableList.of();
+        }
         ArrayList<T> list = new ArrayList<>(expectedSize);
-        for (int i = 0; i < expectedSize; i++) {
-            list.add(data.get(i));
+        TreeSet<Integer> sortedKeys = new TreeSet<>();
+        sortedKeys.addAll(data.keySet());
+        for (Integer key : sortedKeys) {
+            list.add(data.get(key));
         }
         return ImmutableList.copyOf(list);
     }

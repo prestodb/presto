@@ -227,6 +227,7 @@ public class TestStructBatchStreamReader
                 ORC,
                 NONE,
                 Optional.empty(),
+                NO_ENCRYPTION,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))
