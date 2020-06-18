@@ -623,7 +623,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encodings)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);

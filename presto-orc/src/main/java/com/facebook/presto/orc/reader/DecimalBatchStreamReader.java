@@ -34,7 +34,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -196,7 +196,7 @@ public class DecimalBatchStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         decimalStreamSource = missingStreamSource(DecimalInputStream.class);

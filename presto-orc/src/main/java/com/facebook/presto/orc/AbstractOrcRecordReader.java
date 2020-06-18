@@ -537,7 +537,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
-            List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
+            Map<Integer, ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
                     column.startStripe(dictionaryStreamSources, columnEncodings);
