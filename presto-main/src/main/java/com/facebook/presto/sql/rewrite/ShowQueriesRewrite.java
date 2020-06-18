@@ -522,7 +522,7 @@ final class ShowQueriesRewrite
                         node.getName(),
                         false,
                         sqlFunction.getParameters().stream()
-                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName(), true), parameter.getType().toString()))
+                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
                         sqlFunction.getSignature().getReturnType().toString(),
                         Optional.of(sqlFunction.getDescription()),
