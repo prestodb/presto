@@ -234,8 +234,8 @@ public class TestSqlFunctions
                 "RETURNS double\n" +
                 "RETURN rand()";
         String createFunctionIntFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
-                "   \"a\" ARRAY(integer),\n" +
-                "   \"x\" integer\n" +
+                "   a ARRAY(integer),\n" +
+                "   x integer\n" +
                 ")\n" +
                 "RETURNS ARRAY(integer)\n" +
                 "COMMENT ''\n" +
@@ -244,8 +244,8 @@ public class TestSqlFunctions
                 "CALLED ON NULL INPUT\n" +
                 "RETURN \"concat\"(a, ARRAY[x])";
         String createFunctionDoubleFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
-                "   \"a\" ARRAY(double),\n" +
-                "   \"x\" double\n" +
+                "   a ARRAY(double),\n" +
+                "   x double\n" +
                 ")\n" +
                 "RETURNS ARRAY(double)\n" +
                 "COMMENT ''\n" +
@@ -283,5 +283,27 @@ public class TestSqlFunctions
 
         assertQueryFails("SHOW CREATE FUNCTION array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
         assertQueryFails("SHOW CREATE FUNCTION presto.default.array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
+    }
+
+    @Test
+    void testParameterCaseInsensitive()
+    {
+        @Language("SQL") String createFunctionInt = "CREATE FUNCTION testing.common.array_append(input array<int>, x int)\n" +
+                "RETURNS array<int>\n" +
+                "RETURN concat(inPut, array[x])";
+        @Language("SQL") String createFunctionDouble = "CREATE FUNCTION testing.common.array_append(inPut array<bigint>, x bigint)\n" +
+                "RETURNS array<bigint>\n" +
+                "RETURN concat(input, array[x])";
+        @Language("SQL") String createFunctionArraySum = "CREATE FUNCTION testing.common.array_sum(INPUT array<bigint>)\n" +
+                "RETURNS bigint\n" +
+                "RETURN reduce(input, 0, (s, x) -> s + x, s -> s)";
+        assertQuerySucceeds(createFunctionInt);
+        assertQuerySucceeds(createFunctionDouble);
+        assertQuerySucceeds(createFunctionArraySum);
+
+        assertQuery("SELECT testing.common.array_append(array[1, 2, 3], 4)", "VALUES array[1, 2, 3, 4]");
+        assertQuery("SELECT testing.common.array_append(array[bigint'1', bigint'2', bigint'3'], bigint'4')", "VALUES array[1L, 2L, 3L, 4L]");
+        assertQuery("SELECT testing.common.ARRAY_APPEND(Array, ITEM) FROM (VALUES (array[1, 2, 3], 4), (array[2, 3, 4], 5)) t(array, item)", "VALUES array[1, 2, 3, 4], array[2, 3, 4, 5]");
+        assertQuery("SELECT testing.common.array_sum(Array) FROM (VALUES (array[1, 2, 3]), (array[4, 5, 6])) t(array)", "VALUES 6L, 15L");
     }
 }
