@@ -47,6 +47,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
@@ -307,7 +308,8 @@ public class TestOrcReaderPositions
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

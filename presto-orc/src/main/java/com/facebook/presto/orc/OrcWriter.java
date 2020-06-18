@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcReader.validateFile;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
@@ -524,7 +525,9 @@ public class OrcWriter
                 types,
                 hiveStorageTimeZone,
                 orcEncoding,
-                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false));
+                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
+                ImmutableMap.of(),
+                NO_ENCRYPTION);
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)

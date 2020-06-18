@@ -56,12 +56,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.orc.AbstractOrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.DwrfEncryptionInfo.createDwrfEncryptionInfo;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -81,6 +83,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final long splitLength;
     private final Set<Integer> presentColumns;
     private final long maxBlockBytes;
+    private final Optional<EncryptionLibrary> encryptionLibrary;
+    private final Map<Integer, Integer> dwrfEncryptionGroupMap;
+    private final Map<Integer, Slice> intermediateKeyMetadata;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
@@ -91,6 +96,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final StripeReader stripeReader;
     private int currentStripe = -1;
     private OrcAggregatedMemoryContext currentStripeSystemMemoryContext;
+    private Optional<DwrfEncryptionInfo> dwrfEncryptionInfo = Optional.empty();
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -128,6 +134,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             long splitLength,
             List<OrcType> types,
             Optional<OrcDecompressor> decompressor,
+            Optional<EncryptionLibrary> encryptionLibrary,
+            Map<Integer, Integer> dwrfEncryptionGroupMap,
+            Map<Integer, Slice> columnToIntermediateKeyMap,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             PostScript.HiveWriterVersion hiveWriterVersion,
@@ -149,6 +158,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(types, "types is null");
         requireNonNull(decompressor, "decompressor is null");
+        requireNonNull(encryptionLibrary, "encryptionLibrary is null");
+        requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null");
+        requireNonNull(columnToIntermediateKeyMap, "columnToIntermediateKeyMap is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
@@ -223,6 +235,11 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newOrcAggregatedMemoryContext();
 
         Set<Integer> includedOrcColumns = getIncludedOrcColumns(types, this.presentColumns, requireNonNull(requiredSubfields, "requiredSubfields is null"));
+        this.encryptionLibrary = encryptionLibrary;
+        this.dwrfEncryptionGroupMap = ImmutableMap.copyOf(dwrfEncryptionGroupMap);
+        this.intermediateKeyMetadata = createIntermediateKeysMap(columnToIntermediateKeyMap, dwrfEncryptionGroupMap, orcDataSource.getId());
+        checkPermissionsForEncryptedColumns(includedOrcColumns, dwrfEncryptionGroupMap, intermediateKeyMetadata);
+
         stripeReader = new StripeReader(
                 orcDataSource,
                 decompressor,
@@ -234,7 +251,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 metadataReader,
                 writeValidation,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                this.dwrfEncryptionGroupMap);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -314,6 +332,32 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
 
         return Optional.of(ImmutableMap.copyOf(fields));
+    }
+
+    private static Map<Integer, Slice> createIntermediateKeysMap(
+            Map<Integer, Slice> columnsToKeys,
+            Map<Integer, Integer> dwrfEncryptionGroupMap,
+            OrcDataSourceId dataSourceId)
+    {
+        Map<Integer, Slice> intermediateKeys = new HashMap<>(dwrfEncryptionGroupMap.values().size());
+        for (Map.Entry<Integer, Slice> entry : columnsToKeys.entrySet()) {
+            Slice key = entry.getValue();
+            int group = dwrfEncryptionGroupMap.get(entry.getKey());
+            Slice previous = intermediateKeys.putIfAbsent(group, key);
+            if (previous != null && !key.equals(previous)) {
+                throw new OrcCorruptionException(dataSourceId, "intermediate keys mapping does not match encryption groups");
+            }
+        }
+        return ImmutableMap.copyOf(intermediateKeys);
+    }
+
+    private void checkPermissionsForEncryptedColumns(Set<Integer> includedOrcColumns, Map<Integer, Integer> dwrfEncryptionGroupMap, Map<Integer, Slice> intermediateKeyMetadata)
+    {
+        for (Integer column : includedOrcColumns) {
+            if (dwrfEncryptionGroupMap.containsKey(column) && !intermediateKeyMetadata.containsKey(dwrfEncryptionGroupMap.get(column))) {
+                throw new OrcPermissionsException(orcDataSource.getId(), "No IEK provided to Decrypt column number %s", column);
+            }
+        }
     }
 
     private static OptionalInt getFixedWidthRowSize(Set<Integer> columns, Map<Integer, Type> columnTypes)
@@ -593,8 +637,18 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
+        List<Slice> stripeDecryptionKeyMetadata = getDecryptionKeyMetadata(currentStripe, stripes);
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        // if there are encrypted columns and dwrfEncryptionInfo hasn't been set yet
+        // or it has been set, but we have new decryption keys,
+        // set dwrfEncryptionInfo
+        if ((!stripeDecryptionKeyMetadata.isEmpty() && !dwrfEncryptionInfo.isPresent())
+                || (dwrfEncryptionInfo.isPresent() && !stripeDecryptionKeyMetadata.equals(dwrfEncryptionInfo.get().getEncryptedKeyMetadatas()))) {
+            verify(encryptionLibrary.isPresent(), "encryptionLibrary is absent");
+            dwrfEncryptionInfo = Optional.of(createDwrfEncryptionInfo(encryptionLibrary.get(), stripeDecryptionKeyMetadata, intermediateKeyMetadata, dwrfEncryptionGroupMap));
+        }
+
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -607,6 +661,21 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+    }
+
+    @VisibleForTesting
+    public static List<Slice> getDecryptionKeyMetadata(int currentStripe, List<StripeInformation> stripes)
+    {
+        // if this stripe has encryption keys, then those are used
+        // otherwise look at nearest prior stripe that specifies encryption keys
+        // if the first stripe has no encryption information, then there are no encrypted columns;
+        for (int i = currentStripe; i >= 0; i--) {
+            if (!stripes.get(i).getKeyMetadata().isEmpty()) {
+                return stripes.get(i).getKeyMetadata();
+            }
+        }
+
+        return ImmutableList.of();
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)

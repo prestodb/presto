@@ -44,6 +44,7 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcBatchRecordReader.wrapWithCacheIfTinyStripes;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -215,7 +216,8 @@ public class TestCachingOrcDataSource
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE), false),
-                false);
+                false,
+                NO_ENCRYPTION);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -229,7 +231,8 @@ public class TestCachingOrcDataSource
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                ImmutableMap.of());
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();
