@@ -14,30 +14,22 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
+import java.io.Serializable;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class StripeFooter
+public class StripeEncryptionGroup
+        implements Serializable
 {
     private final List<Stream> streams;
     private final List<ColumnEncoding> columnEncodings;
 
-    // encrypted StripeEncryptionGroups
-    private final List<Slice> stripeEncryptionGroups;
-
-    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings, List<Slice> stripeEncryptionGroups)
+    public StripeEncryptionGroup(List<Stream> streams, List<ColumnEncoding> columnEncodings)
     {
-        this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
-        this.columnEncodings = ImmutableList.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
-        this.stripeEncryptionGroups = ImmutableList.copyOf(requireNonNull(stripeEncryptionGroups, "stripeEncryptionGroups is null"));
-    }
-
-    public List<ColumnEncoding> getColumnEncodings()
-    {
-        return columnEncodings;
+        this.streams = requireNonNull(ImmutableList.copyOf(streams), "streams is null");
+        this.columnEncodings = requireNonNull(ImmutableList.copyOf(columnEncodings), "columnEncodings is null");
     }
 
     public List<Stream> getStreams()
@@ -45,8 +37,8 @@ public class StripeFooter
         return streams;
     }
 
-    public List<Slice> getStripeEncryptionGroups()
+    public List<ColumnEncoding> getColumnEncodings()
     {
-        return stripeEncryptionGroups;
+        return columnEncodings;
     }
 }
