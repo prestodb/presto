@@ -41,7 +41,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
@@ -85,7 +84,7 @@ public class CreateFunctionTask
     {
         QualifiedFunctionName functionName = qualifyFunctionName(statement.getFunctionName());
         List<Parameter> parameters = statement.getParameters().stream()
-                .map(parameter -> new Parameter(parameter.getName().toString().toLowerCase(ENGLISH), parseTypeSignature(parameter.getType())))
+                .map(parameter -> new Parameter(parameter.getName().toString(), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());
         TypeSignature returnType = parseTypeSignature(statement.getReturnType());
         String description = statement.getComment().orElse("");
