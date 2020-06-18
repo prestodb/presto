@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeUtils.hashPosition;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -304,7 +305,13 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getStorage().getBucketProperty().isPresent()) {
+        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
+        if (!hiveBucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+
+        if (!hiveBucketProperty.get().getBucketFunctionType().equals(HIVE_COMPATIBLE)) {
+            // bucket filtering is only supported for tables bucketed with HIVE_COMPATIBLE hash function
             return Optional.empty();
         }
 
@@ -341,7 +348,14 @@ public final class HiveBucketing
 
     private static Optional<Set<Integer>> getHiveBuckets(Table table, Map<ColumnHandle, Set<NullableValue>> bindings)
     {
-        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
+        if (bindings.isEmpty()) {
+            return Optional.empty();
+        }
+        HiveBucketProperty hiveBucketProperty = table.getStorage().getBucketProperty().get();
+        checkArgument(hiveBucketProperty.getBucketFunctionType().equals(HIVE_COMPATIBLE),
+                "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
+                hiveBucketProperty.getBucketFunctionType());
+        List<String> bucketColumns = hiveBucketProperty.getBucketedBy();
         if (bucketColumns.isEmpty()) {
             return Optional.empty();
         }
