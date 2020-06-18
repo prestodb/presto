@@ -581,7 +581,7 @@ public abstract class AbstractTestOrcReader
         return values;
     }
 
-    private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
+    public static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
         return ContiguousSet.create(Range.closedOpen(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }

@@ -841,7 +841,56 @@ public class OrcTester
             Map<Integer, List<Subfield>> requiredSubfields)
             throws IOException
     {
-        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(file, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, filters.orElse(ImmutableMap.of()), filterFunctions, filterFunctionInputMapping, requiredSubfields)) {
+        Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Function.identity(), types::get));
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        assertFileContentsPresto(
+                types,
+                file,
+                expectedValues,
+                orcEncoding,
+                orcPredicate,
+                filters,
+                filterFunctions,
+                filterFunctionInputMapping,
+                requiredSubfields,
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns);
+    }
+
+    public static void assertFileContentsPresto(
+            List<Type> types,
+            File file,
+            List<List<?>> expectedValues,
+            OrcEncoding orcEncoding,
+            OrcPredicate orcPredicate,
+            Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
+            List<FilterFunction> filterFunctions,
+            Map<Integer, Integer> filterFunctionInputMapping,
+            Map<Integer, List<Subfield>> requiredSubfields,
+            Map<Integer, Slice> intermediateEncryptionKeys,
+            Map<Integer, Type> includedColumns,
+            List<Integer> outputColumns)
+            throws IOException
+    {
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                file,
+                orcEncoding,
+                orcPredicate,
+                types,
+                MAX_BATCH_SIZE,
+                filters.orElse(ImmutableMap.of()),
+                filterFunctions,
+                filterFunctionInputMapping,
+                requiredSubfields,
+                intermediateEncryptionKeys,
+                includedColumns,
+                outputColumns)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -859,8 +908,8 @@ public class OrcTester
 
                 assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount);
 
-                for (int i = 0; i < types.size(); i++) {
-                    Type type = types.get(i);
+                for (int i = 0; i < outputColumns.size(); i++) {
+                    Type type = types.get(outputColumns.get(i));
                     Block block = page.getBlock(i);
                     assertEquals(block.getPositionCount(), positionCount);
                     checkNullValues(type, block);
@@ -913,8 +962,29 @@ public class OrcTester
             throws IOException
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
+
+        Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Function.identity(), types::get));
+
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
         if (useSelectiveOrcReader) {
-            assertFileContentsPresto(types, tempFile.getFile(), expectedValues, orcEncoding, orcPredicate, Optional.empty(), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
+            assertFileContentsPresto(
+                    types,
+                    tempFile.getFile(),
+                    expectedValues,
+                    orcEncoding,
+                    orcPredicate,
+                    Optional.empty(),
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    intermediateEncryptionKeys,
+                    includedColumns,
+                    outputColumns);
             for (OrcReaderSettings entry : settings) {
                 assertTrue(entry.getFilterFunctions().isEmpty(), "Filter functions are not supported yet");
                 assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
@@ -930,7 +1000,16 @@ public class OrcTester
 
                 Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> transformedFilters = Optional.of(orderChecker.map(checker -> addOrderTracking(columnFilters, checker)).orElse(columnFilters));
 
-                assertFileContentsPresto(types, tempFile.getFile(), prunedAndFilteredRows, orcEncoding, orcPredicate, transformedFilters, entry.getFilterFunctions(), entry.getFilterFunctionInputMapping(), entry.getRequiredSubfields());
+                assertFileContentsPresto(
+                        types,
+                        tempFile.getFile(),
+                        prunedAndFilteredRows,
+                        orcEncoding,
+                        orcPredicate,
+                        transformedFilters,
+                        entry.getFilterFunctions(),
+                        entry.getFilterFunctionInputMapping(),
+                        entry.getRequiredSubfields());
 
                 orderChecker.ifPresent(TupleDomainFilterOrderChecker::assertOrder);
             }
@@ -1395,7 +1474,7 @@ public class OrcTester
         writeOrcColumnsPresto(outputFile, format, compression, Optional.empty(), ImmutableList.of(type), ImmutableList.of(values), new OrcWriterStats());
     }
 
-    private static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, OrcWriterStats stats)
+    public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, OrcWriterStats stats)
             throws Exception
     {
         List<String> columnNames = makeColumnNames(types.size());
@@ -1445,7 +1524,7 @@ public class OrcTester
                 UNKNOWN,
                 ImmutableList.of(
                         new WriterEncryptionGroup(
-                                IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
+                                ImmutableList.of(1),
                                 Slices.utf8Slice("intermediateEncryptionKey"),
                                 Slices.utf8Slice("dataEncryptionKey"))));
     }
@@ -1459,7 +1538,10 @@ public class OrcTester
             Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,
-            Map<Integer, List<Subfield>> requiredSubfields)
+            Map<Integer, List<Subfield>> requiredSubfields,
+            Map<Integer, Slice> intermediateEncryptionKeys,
+            Map<Integer, Type> includedColumns,
+            List<Integer> outputColumns)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1480,13 +1562,9 @@ public class OrcTester
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        Map<Integer, Type> columnTypes = IntStream.range(0, types.size())
-                .boxed()
-                .collect(toImmutableMap(Function.identity(), types::get));
-
         return orcReader.createSelectiveRecordReader(
-                columnTypes,
-                IntStream.range(0, types.size()).boxed().collect(toList()),
+                includedColumns,
+                outputColumns,
                 filters,
                 filterFunctions,
                 filterFunctionInputMapping,
@@ -1501,7 +1579,7 @@ public class OrcTester
                 new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
                 initialBatchSize,
-                ImmutableMap.of());
+                intermediateEncryptionKeys);
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
@@ -2165,7 +2243,7 @@ public class OrcTester
         });
     }
 
-    private static List<Object> toHiveStruct(Object input)
+    public static List<Object> toHiveStruct(Object input)
     {
         return asList(input, input, input);
     }
