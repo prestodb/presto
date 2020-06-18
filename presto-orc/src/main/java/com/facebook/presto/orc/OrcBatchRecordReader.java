@@ -41,8 +41,6 @@ public class OrcBatchRecordReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcBatchRecordReader.class).instanceSize();
 
-    private final Map<Integer, Type> includedColumns;
-
     public OrcBatchRecordReader(
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
@@ -102,8 +100,6 @@ public class OrcBatchRecordReader
                 initialBatchSize,
                 stripeMetadataSource,
                 cacheable);
-
-        this.includedColumns = includedColumns;
     }
 
     public int nextBatch()
