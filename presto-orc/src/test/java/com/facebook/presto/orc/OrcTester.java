@@ -137,6 +137,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
@@ -1313,7 +1314,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false),
-                cacheable);
+                cacheable,
+                NO_ENCRYPTION);
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
@@ -1321,7 +1323,7 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize, ImmutableMap.of());
     }
 
     public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
@@ -1396,7 +1398,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false),
-                false);
+                false,
+                NO_ENCRYPTION);
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
@@ -1421,7 +1424,8 @@ public class OrcTester
                 LEGACY_MAP_SUBSCRIPT,
                 new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
-                initialBatchSize);
+                initialBatchSize,
+                ImmutableMap.of());
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
