@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -24,6 +25,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkState;
@@ -42,14 +44,14 @@ public class ByteArrayOutputStream
 
     private boolean closed;
 
-    public ByteArrayOutputStream(CompressionKind compression, int bufferSize)
+    public ByteArrayOutputStream(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize)
     {
-        this(compression, bufferSize, DATA);
+        this(compression, dwrfEncryptor, bufferSize, DATA);
     }
 
-    public ByteArrayOutputStream(CompressionKind compression, int bufferSize, StreamKind streamKind)
+    public ByteArrayOutputStream(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, StreamKind streamKind)
     {
-        this.buffer = new OrcOutputBuffer(compression, bufferSize);
+        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
         this.streamKind = streamKind;
     }
 

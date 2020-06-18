@@ -55,7 +55,7 @@ public class TestByteArrayStream
     @Override
     protected ByteArrayOutputStream createValueOutputStream()
     {
-        return new ByteArrayOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new ByteArrayOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override

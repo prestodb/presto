@@ -26,6 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
 import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
@@ -91,7 +92,7 @@ public class LongOutputStreamV2
     public LongOutputStreamV2(CompressionKind compression, int bufferSize, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
-        this.buffer = new OrcOutputBuffer(compression, bufferSize);
+        this.buffer = new OrcOutputBuffer(compression, Optional.empty(), bufferSize);
         this.signed = signed;
     }
 

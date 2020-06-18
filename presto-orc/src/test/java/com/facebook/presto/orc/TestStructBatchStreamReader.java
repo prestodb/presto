@@ -226,6 +226,7 @@ public class TestStructBatchStreamReader
                 ImmutableList.of(writerType),
                 ORC,
                 NONE,
+                Optional.empty(),
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))

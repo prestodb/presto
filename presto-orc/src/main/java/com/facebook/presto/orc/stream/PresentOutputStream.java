@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -44,9 +45,9 @@ public class PresentOutputStream
 
     private boolean closed;
 
-    public PresentOutputStream(CompressionKind compression, int bufferSize)
+    public PresentOutputStream(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize)
     {
-        this.buffer = new OrcOutputBuffer(compression, bufferSize);
+        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
     }
 
     public void writeBoolean(boolean value)

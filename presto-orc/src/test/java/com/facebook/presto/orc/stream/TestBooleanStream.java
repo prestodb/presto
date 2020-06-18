@@ -149,7 +149,7 @@ public class TestBooleanStream
     @Override
     protected BooleanOutputStream createValueOutputStream()
     {
-        return new BooleanOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new BooleanOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override

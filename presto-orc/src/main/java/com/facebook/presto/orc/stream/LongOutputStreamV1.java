@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
@@ -25,6 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,10 +57,10 @@ public class LongOutputStreamV1
 
     private boolean closed;
 
-    public LongOutputStreamV1(CompressionKind compression, int bufferSize, boolean signed, StreamKind streamKind)
+    public LongOutputStreamV1(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
-        this.buffer = new OrcOutputBuffer(compression, bufferSize);
+        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
         this.signed = signed;
     }
 
