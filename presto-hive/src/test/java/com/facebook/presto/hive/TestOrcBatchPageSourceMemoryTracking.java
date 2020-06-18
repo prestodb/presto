@@ -512,7 +512,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     DEFAULT_HIVE_FILE_CONTEXT,
                     null,
                     false,
-                    ROW_EXPRESSION_SERVICE)
+                    ROW_EXPRESSION_SERVICE,
+                    Optional.empty())
                     .get();
         }
 

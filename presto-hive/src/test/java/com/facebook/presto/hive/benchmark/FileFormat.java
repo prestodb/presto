@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveCompressionCodec;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
@@ -184,7 +185,14 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, hdfsEnvironment, new FileFormatDataSourceStats(), new StorageOrcFileTailSource(), new StorageStripeMetadataSource());
+            HiveBatchPageSourceFactory pageSourceFactory = new DwrfBatchPageSourceFactory(
+                    TYPE_MANAGER,
+                    HIVE_CLIENT_CONFIG,
+                    hdfsEnvironment,
+                    new FileFormatDataSourceStats(),
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    HiveDwrfEncryptionProvider.NO_ENCRYPTION);
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
         }
 
@@ -471,7 +479,8 @@ public enum FileFormat
                         columnHandles,
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
-                        DEFAULT_HIVE_FILE_CONTEXT)
+                        DEFAULT_HIVE_FILE_CONTEXT,
+                        Optional.empty())
                 .get();
     }
 

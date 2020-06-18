@@ -73,6 +73,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.HiveDwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
@@ -315,7 +316,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
     }
@@ -460,7 +461,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(DWRF)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION));
     }
 
     @Test(dataProvider = "rowCount")
@@ -486,9 +487,9 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
+                .isReadableByPageSource(new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION));
     }
 
     @Test
@@ -763,18 +764,18 @@ public class TestHiveFileFormats
         TestColumn writeColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                            getStandardStructObjectInspector(
-                                    ImmutableList.of("s_int", "s_double"),
-                                    ImmutableList.of(javaIntObjectInspector, javaDoubleObjectInspector))),
+                        getStandardStructObjectInspector(
+                                ImmutableList.of("s_int", "s_double"),
+                                ImmutableList.of(javaIntObjectInspector, javaDoubleObjectInspector))),
                 ImmutableMap.of("test", Arrays.asList(1, 5.0)),
                 mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(INTEGER, DOUBLE)),
                         "test", rowBlockOf(ImmutableList.of(INTEGER, DOUBLE), 1L, 5.0)));
         TestColumn readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                            getStandardStructObjectInspector(
-                                    ImmutableList.of("s_double", "s_int"),  //out of order
-                                    ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
+                        getStandardStructObjectInspector(
+                                ImmutableList.of("s_double", "s_int"),  //out of order
+                                ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
                 ImmutableMap.of("test", Arrays.asList(5.0, 1)),
                 mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)),
                         "test", rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L)));
@@ -807,9 +808,9 @@ public class TestHiveFileFormats
         readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                            getStandardStructObjectInspector(
-                                    ImmutableList.of("s_DOUBLE", "s_INT"),  //out of order
-                                    ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
+                        getStandardStructObjectInspector(
+                                ImmutableList.of("s_DOUBLE", "s_INT"),  //out of order
+                                ImmutableList.of(javaDoubleObjectInspector, javaIntObjectInspector))),
                 ImmutableMap.of("test", Arrays.asList(5.0, 1)),
                 mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(DOUBLE, INTEGER)),
                         "test", rowBlockOf(ImmutableList.of(DOUBLE, INTEGER), 5.0, 1L)));
@@ -824,9 +825,9 @@ public class TestHiveFileFormats
         readColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(
                         javaStringObjectInspector,
-                            getStandardStructObjectInspector(
-                                    ImmutableList.of("s_double", "s_int"),
-                                    ImmutableList.of(javaIntObjectInspector, javaIntObjectInspector))), //re-type a sub-field
+                        getStandardStructObjectInspector(
+                                ImmutableList.of("s_double", "s_int"),
+                                ImmutableList.of(javaIntObjectInspector, javaIntObjectInspector))), //re-type a sub-field
                 ImmutableMap.of("test", Arrays.asList(5, 1)),
                 mapBlockOf(createUnboundedVarcharType(), RowType.anonymous(ImmutableList.of(INTEGER, INTEGER)),
                         "test", rowBlockOf(ImmutableList.of(INTEGER, INTEGER), 5L, 1L)));
@@ -903,7 +904,8 @@ public class TestHiveFileFormats
                 DEFAULT_HIVE_FILE_CONTEXT,
                 TRUE_CONSTANT,
                 false,
-                ROW_EXPRESSION_SERVICE);
+                ROW_EXPRESSION_SERVICE,
+                Optional.empty());
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -965,7 +967,8 @@ public class TestHiveFileFormats
                 DEFAULT_HIVE_FILE_CONTEXT,
                 TRUE_CONSTANT,
                 false,
-                ROW_EXPRESSION_SERVICE);
+                ROW_EXPRESSION_SERVICE,
+                Optional.empty());
 
         assertTrue(pageSource.isPresent());
 
