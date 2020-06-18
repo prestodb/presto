@@ -1457,7 +1457,7 @@ public class OrcTester
                         MAX_BLOCK_SIZE,
                         false),
                 cacheable,
-                new DwrfEncryptionProvider(Optional.empty(), Optional.of(new TestingEncryptionLibrary())));
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
@@ -1490,7 +1490,7 @@ public class OrcTester
                 format.getOrcEncoding(),
                 compression,
                 dwrfWriterEncryption,
-                new DwrfEncryptionProvider(Optional.of(new TestingEncryptionLibrary()), Optional.of(new TestingEncryptionLibrary())),
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 new OrcWriterOptions(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
@@ -1557,7 +1557,7 @@ public class OrcTester
                         MAX_BLOCK_SIZE,
                         false),
                 false,
-                new DwrfEncryptionProvider(Optional.empty(), Optional.of(new TestingEncryptionLibrary())));
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

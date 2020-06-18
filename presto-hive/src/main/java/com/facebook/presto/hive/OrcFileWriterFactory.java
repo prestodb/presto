@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.DataSink;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
@@ -80,6 +81,7 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private final DwrfEncryptionProvider dwrfEncryptionProvider;
 
     @Inject
     public OrcFileWriterFactory(
@@ -89,7 +91,8 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             HiveClientConfig hiveClientConfig,
             FileFormatDataSourceStats readStats,
-            OrcFileWriterConfig config)
+            OrcFileWriterConfig config,
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this(
                 hdfsEnvironment,
@@ -98,7 +101,8 @@ public class OrcFileWriterFactory
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
                 readStats,
-                requireNonNull(config, "config is null").toOrcWriterOptions());
+                requireNonNull(config, "config is null").toOrcWriterOptions(),
+                dwrfEncryptionProvider);
     }
 
     public OrcFileWriterFactory(
@@ -108,7 +112,8 @@ public class OrcFileWriterFactory
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
             FileFormatDataSourceStats readStats,
-            OrcWriterOptions orcWriterOptions)
+            OrcWriterOptions orcWriterOptions,
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.dataSinkFactory = requireNonNull(dataSinkFactory, "dataSinkFactory is null");
@@ -117,6 +122,7 @@ public class OrcFileWriterFactory
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
+        this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
     }
 
     @Managed
@@ -213,7 +219,9 @@ public class OrcFileWriterFactory
                     hiveStorageTimeZone,
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
-                    stats));
+                    stats,
+                    dwrfEncryptionProvider,
+                    Optional.empty()));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
