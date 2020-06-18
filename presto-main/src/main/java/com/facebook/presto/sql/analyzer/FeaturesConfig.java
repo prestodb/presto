@@ -117,6 +117,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
+    private boolean enableStatsCollectionForTemporaryTable;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
@@ -777,10 +778,22 @@ public class FeaturesConfig
         return enableStatsCalculator;
     }
 
+    public boolean isEnableStatsCollectionForTemporaryTable()
+    {
+        return enableStatsCollectionForTemporaryTable;
+    }
+
     @Config("experimental.enable-stats-calculator")
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    @Config("experimental.enable-stats-collection-for-temporary-table")
+    public FeaturesConfig setEnableStatsCollectionForTemporaryTable(boolean enableStatsCollectionForTemporaryTable)
+    {
+        this.enableStatsCollectionForTemporaryTable = enableStatsCollectionForTemporaryTable;
         return this;
     }
 

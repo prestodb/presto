@@ -286,7 +286,7 @@ public class LogicalPlanner
                 targetTable.getConnectorId().getCatalogName(),
                 tableMetadata.getMetadata());
 
-        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build(), true);
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
 
         PlanNode planNode = new StatisticsWriterNode(
@@ -431,7 +431,7 @@ public class LogicalPlanner
             Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
-            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
+            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap, true);
 
             StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
 

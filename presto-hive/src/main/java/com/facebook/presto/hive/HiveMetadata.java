@@ -958,13 +958,25 @@ public class HiveMetadata
                         .setLocation(""))
                 .build();
 
+        List<String> partitionColumnNames = table.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        Map<String, Type> columnTypes = hiveColumnHandles.stream()
+                .filter(columnHandle -> !columnHandle.isHidden())
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+        Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
+                .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(typeManager.getType(column.getTypeSignature())))));
+
         metastore.createTable(
                 session,
                 table,
                 buildInitialPrivilegeSet(table.getOwner()),
                 Optional.empty(),
                 false,
-                new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+                createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
         return new HiveTableHandle(schemaName, tableName);
     }

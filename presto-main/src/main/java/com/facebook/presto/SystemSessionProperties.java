@@ -136,6 +136,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE = "enable_stats_collection_for_temporary_table";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
@@ -673,6 +674,11 @@ public final class SystemSessionProperties
                         ENABLE_STATS_CALCULATOR,
                         "Experimental: Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
+                        false),
+                booleanProperty(
+                        ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE,
+                        "Experimental: Enable statistics collection of temporary tables created for materialized exchange",
+                        featuresConfig.isEnableStatsCollectionForTemporaryTable(),
                         false),
                 integerProperty(
                         MAX_TASKS_PER_STAGE,
@@ -1275,6 +1281,11 @@ public final class SystemSessionProperties
     public static boolean isEnableStatsCalculator(Session session)
     {
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
+    }
+
+    public static boolean isEnableStatsCollectionForTemporaryTable(Session session)
+    {
+        return session.getSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, Boolean.class);
     }
 
     public static boolean isIgnoreStatsCalculatorFailures(Session session)
