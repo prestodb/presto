@@ -17,11 +17,11 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 
 public interface StreamReader
 {
-    void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
             throws IOException;
 
     void startRowGroup(InputStreamSources dataStreamSources)

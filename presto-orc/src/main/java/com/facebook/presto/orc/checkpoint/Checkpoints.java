@@ -62,7 +62,7 @@ public final class Checkpoints
             List<OrcType> columnTypes,
             boolean compressed,
             int rowGroupId,
-            List<ColumnEncoding> columnEncodings,
+            Map<Integer, ColumnEncoding> columnEncodings,
             Map<StreamId, Stream> streams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes)
             throws InvalidCheckpointException

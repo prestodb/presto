@@ -622,7 +622,7 @@ public class StructSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -763,7 +763,7 @@ public class StructSelectiveStreamReader
         }
 
         @Override
-        public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+        public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
         {
         }
 
@@ -833,7 +833,7 @@ public class StructSelectiveStreamReader
         }
 
         @Override
-        public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+        public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
         {
         }
 
