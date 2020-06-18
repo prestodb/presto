@@ -125,7 +125,7 @@ public class StripeReader
 
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
-        List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
+        Map<Integer, ColumnEncoding> columnEncodings = createEncodingsMap(stripeFooter.getColumnEncodings());
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
@@ -259,6 +259,15 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
+    private Map<Integer, ColumnEncoding> createEncodingsMap(List<ColumnEncoding> columnEncodings)
+    {
+        ImmutableMap.Builder<Integer, ColumnEncoding> encodingsBuilder = ImmutableMap.builder();
+        for (int i = 0; i < types.size(); i++) {
+            encodingsBuilder.put(i, columnEncodings.get(i));
+        }
+        return encodingsBuilder.build();
+    }
+
     private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
@@ -278,7 +287,7 @@ public class StripeReader
         return streamsBuilder.build();
     }
 
-    private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
+    private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, Map<Integer, ColumnEncoding> columnEncodings)
     {
         ImmutableMap.Builder<StreamId, ValueInputStream<?>> valueStreams = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
@@ -301,7 +310,7 @@ public class StripeReader
         return valueStreams.build();
     }
 
-    public InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, List<ColumnEncoding> columnEncodings)
+    public InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, Map<Integer, ColumnEncoding> columnEncodings)
     {
         ImmutableMap.Builder<StreamId, InputStreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
@@ -338,7 +347,7 @@ public class StripeReader
             Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes,
             Set<Integer> selectedRowGroups,
-            List<ColumnEncoding> encodings)
+            Map<Integer, ColumnEncoding> encodings)
             throws InvalidCheckpointException
     {
         ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
