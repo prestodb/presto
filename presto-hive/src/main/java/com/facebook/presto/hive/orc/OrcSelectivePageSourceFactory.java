@@ -112,6 +112,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -308,7 +309,15 @@ public class OrcSelectivePageSourceFactory
 
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, systemMemoryUsage, orcReaderOptions, hiveFileContext.isCacheable());
+            OrcReader reader = new OrcReader(
+                    orcDataSource,
+                    orcEncoding,
+                    orcFileTailSource,
+                    stripeMetadataSource,
+                    systemMemoryUsage,
+                    orcReaderOptions,
+                    hiveFileContext.isCacheable(),
+                    NO_ENCRYPTION);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
@@ -376,7 +385,8 @@ public class OrcSelectivePageSourceFactory
                     session.getSqlFunctionProperties().isLegacyMapSubscript(),
                     systemMemoryUsage,
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of());
 
             return new OrcSelectivePageSource(
                     recordReader,

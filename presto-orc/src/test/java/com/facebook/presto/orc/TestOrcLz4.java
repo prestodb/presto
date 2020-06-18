@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -58,7 +59,8 @@ public class TestOrcLz4
                         SIZE,
                         SIZE,
                         false),
-                false);
+                false,
+                NO_ENCRYPTION);
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
@@ -74,7 +76,8 @@ public class TestOrcLz4
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                ImmutableMap.of());
 
         int rows = 0;
         while (true) {

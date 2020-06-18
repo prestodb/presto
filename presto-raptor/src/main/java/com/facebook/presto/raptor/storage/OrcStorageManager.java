@@ -100,6 +100,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
@@ -294,7 +295,8 @@ public class OrcStorageManager
                     stripeMetadataSource,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
-                    hiveFileContext.isCacheable());
+                    hiveFileContext.isCacheable(),
+                    NO_ENCRYPTION);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -325,7 +327,8 @@ public class OrcStorageManager
                     predicate,
                     DEFAULT_STORAGE_TIMEZONE,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of());
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
@@ -387,7 +390,8 @@ public class OrcStorageManager
                             defaultReaderAttributes.getTinyStripeThreshold(),
                             HUGE_MAX_READ_BLOCK_SIZE,
                             defaultReaderAttributes.isZstdJniDecompressionEnabled()),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
 
             if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
@@ -398,7 +402,8 @@ public class OrcStorageManager
                     OrcPredicate.TRUE,
                     DEFAULT_STORAGE_TIMEZONE,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE)) {
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of())) {
                 BitSet bitSet = new BitSet();
                 while (recordReader.nextBatch() > 0) {
                     Block block = recordReader.readBlock(0);
@@ -550,7 +555,8 @@ public class OrcStorageManager
                     stripeMetadataSource,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

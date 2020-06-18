@@ -74,6 +74,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
@@ -505,7 +506,8 @@ public class TestOrcFileRewriter
                 new StorageStripeMetadataSource(),
                 new RaptorOrcAggregatedMemoryContext(),
                 OrcTestingUtil.createDefaultTestConfig(),
-                false);
+                false,
+                NO_ENCRYPTION);
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
