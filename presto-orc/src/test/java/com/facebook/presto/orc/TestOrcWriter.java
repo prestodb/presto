@@ -64,6 +64,8 @@ public class TestOrcWriter
                     ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                     ORC,
                     NONE,
+                    Optional.empty(),
+                    NO_ENCRYPTION,
                     new OrcWriterOptions()
                             .withStripeMinSize(new DataSize(0, MEGABYTE))
                             .withStripeMaxSize(new DataSize(32, MEGABYTE))
@@ -148,6 +150,8 @@ public class TestOrcWriter
                 ImmutableList.of(VARCHAR),
                 ORC,
                 NONE,
+                Optional.empty(),
+                NO_ENCRYPTION,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))
