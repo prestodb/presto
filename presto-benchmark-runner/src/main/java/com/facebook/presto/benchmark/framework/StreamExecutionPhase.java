@@ -20,30 +20,27 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.benchmark.framework.ExecutionStrategy.STREAM;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
 public class StreamExecutionPhase
         extends PhaseSpecification
 {
-    private final ExecutionStrategy executionStrategy;
     private final List<List<String>> streams;
 
     @JsonCreator
-    public StreamExecutionPhase(String name, ExecutionStrategy executionStrategy, List<List<String>> streams)
+    public StreamExecutionPhase(String name, List<List<String>> streams)
     {
         super(name);
-        this.executionStrategy = requireNonNull(executionStrategy, "executionStrategy is null");
         this.streams = streams.stream()
                 .map(ImmutableList::copyOf)
                 .collect(toImmutableList());
     }
 
-    @JsonProperty
     @Override
     public ExecutionStrategy getExecutionStrategy()
     {
-        return executionStrategy;
+        return STREAM;
     }
 
     @JsonProperty
@@ -62,14 +59,13 @@ public class StreamExecutionPhase
             return false;
         }
         StreamExecutionPhase o = (StreamExecutionPhase) obj;
-        return Objects.equals(getExecutionStrategy(), o.getExecutionStrategy()) &&
-                Objects.equals(getName(), o.getName()) &&
+        return Objects.equals(getName(), o.getName()) &&
                 Objects.equals(streams, o.streams);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getExecutionStrategy(), getName(), streams);
+        return Objects.hash(getName(), streams);
     }
 }
