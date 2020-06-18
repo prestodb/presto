@@ -49,7 +49,7 @@ public class TestDoubleStream
     @Override
     protected DoubleOutputStream createValueOutputStream()
     {
-        return new DoubleOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new DoubleOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override

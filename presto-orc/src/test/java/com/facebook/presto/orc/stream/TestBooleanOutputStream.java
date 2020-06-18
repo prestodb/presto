@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static org.testng.Assert.assertEquals;
@@ -41,7 +42,7 @@ public class TestBooleanOutputStream
                 ImmutableList.of(14000, 1, 2));
 
         for (List<Integer> counts : testGroups) {
-            OrcOutputBuffer buffer = new OrcOutputBuffer(NONE, 1024);
+            OrcOutputBuffer buffer = new OrcOutputBuffer(NONE, Optional.empty(), 1024);
             BooleanOutputStream output = new BooleanOutputStream(buffer);
 
             // write multiple booleans together

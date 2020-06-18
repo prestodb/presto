@@ -49,7 +49,7 @@ public class TestFloatStream
     @Override
     protected FloatOutputStream createValueOutputStream()
     {
-        return new FloatOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new FloatOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override

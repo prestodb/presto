@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
@@ -30,7 +31,7 @@ public class TestOrcOutputBuffer
         int size = 1024 * 1024;
         byte[] largeByteArray = new byte[size];
         Arrays.fill(largeByteArray, (byte) 0xA);
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, 256 * 1024);
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, Optional.empty(), 256 * 1024);
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
         sliceOutput.writeBytes(largeByteArray, 10, size - 10);
@@ -48,7 +49,7 @@ public class TestOrcOutputBuffer
     public void testGrowCapacity()
     {
         byte[] largeByteArray = new byte[4096];
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, 3000);
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, Optional.empty(), 3000);
 
         // write some data that can fit the initial capacity = 256
         sliceOutput.writeBytes(largeByteArray, 0, 200);

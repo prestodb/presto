@@ -51,7 +51,7 @@ public class TestLongStreamDwrf
     @Override
     protected LongOutputStreamDwrf createValueOutputStream()
     {
-        return new LongOutputStreamDwrf(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamDwrf(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
