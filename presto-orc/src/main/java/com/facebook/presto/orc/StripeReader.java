@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.common.Subfield;
 import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -47,9 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -95,8 +92,7 @@ public class StripeReader
             OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
             List<OrcType> types,
-            Set<Integer> includedColumns,
-            Map<Integer, List<Subfield>> requiredSubfields,
+            Set<Integer> includedOrcColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
@@ -108,7 +104,7 @@ public class StripeReader
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"), requireNonNull(requiredSubfields, "requiredSubfields is null"));
+        this.includedOrcColumns = requireNonNull(includedOrcColumns, "includedColumns is null");
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
@@ -516,63 +512,6 @@ public class StripeReader
             stripeOffset += streamLength;
         }
         return streamDiskRanges.build();
-    }
-
-    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns, Map<Integer, List<Subfield>> requiredSubfields)
-    {
-        Set<Integer> includes = new LinkedHashSet<>();
-
-        OrcType root = types.get(0);
-        for (int includedColumn : includedColumns) {
-            List<Subfield> subfields = Optional.ofNullable(requiredSubfields.get(includedColumn)).orElse(ImmutableList.of());
-            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn), subfields);
-        }
-
-        return includes;
-    }
-
-    private static void includeOrcColumnsRecursive(List<OrcType> types, Set<Integer> result, int typeId, List<Subfield> requiredSubfields)
-    {
-        result.add(typeId);
-        OrcType type = types.get(typeId);
-
-        Optional<Map<String, List<Subfield>>> requiredFields = Optional.empty();
-        if (type.getOrcTypeKind() == STRUCT) {
-            requiredFields = getRequiredFields(requiredSubfields);
-        }
-
-        int children = type.getFieldCount();
-        for (int i = 0; i < children; ++i) {
-            List<Subfield> subfields = ImmutableList.of();
-            if (requiredFields.isPresent()) {
-                String fieldName = type.getFieldNames().get(i).toLowerCase(Locale.ENGLISH);
-                if (!requiredFields.get().containsKey(fieldName)) {
-                    continue;
-                }
-                subfields = requiredFields.get().get(fieldName);
-            }
-
-            includeOrcColumnsRecursive(types, result, type.getFieldTypeIndex(i), subfields);
-        }
-    }
-
-    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
-    {
-        if (requiredSubfields.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Map<String, List<Subfield>> fields = new HashMap<>();
-        for (Subfield subfield : requiredSubfields) {
-            List<Subfield.PathElement> path = subfield.getPath();
-            String name = ((Subfield.NestedField) path.get(0)).getName().toLowerCase(Locale.ENGLISH);
-            fields.computeIfAbsent(name, k -> new ArrayList<>());
-            if (path.size() > 1) {
-                fields.get(name).add(new Subfield("c", path.subList(1, path.size())));
-            }
-        }
-
-        return Optional.of(ImmutableMap.copyOf(fields));
     }
 
     /**
