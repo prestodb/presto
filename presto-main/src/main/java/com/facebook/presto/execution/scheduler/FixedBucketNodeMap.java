@@ -41,7 +41,10 @@ public class FixedBucketNodeMap
     @Override
     public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
-        return Optional.of(bucketToNode.get(bucketedId));
+        if (bucketToNode.size() > bucketedId) {
+            return Optional.of(bucketToNode.get(bucketedId));
+        }
+        return Optional.empty();
     }
 
     @Override

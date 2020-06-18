@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.google.common.base.Supplier;
 import com.google.common.collect.HashMultimap;
@@ -52,6 +53,7 @@ import java.util.Set;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -300,6 +302,9 @@ public class NodeScheduler
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the bucket to node map
+            if (!bucketNodeMap.getAssignedNode(split).isPresent()) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Error when looking for nodes in bucketNodeMap, bucket count: %s", bucketNodeMap.getBucketCount()));
+            }
             InternalNode node = bucketNodeMap.getAssignedNode(split).get();
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
 
