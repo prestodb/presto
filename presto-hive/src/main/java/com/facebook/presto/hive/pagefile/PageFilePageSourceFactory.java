@@ -15,6 +15,7 @@ package com.facebook.presto.hive.pagefile;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
@@ -72,7 +73,8 @@ public class PageFilePageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!PageInputFormat.class.getSimpleName().equals(storage.getStorageFormat().getInputFormat())) {
             return Optional.empty();

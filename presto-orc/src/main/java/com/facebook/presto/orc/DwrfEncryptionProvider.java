@@ -15,19 +15,17 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.KeyProvider;
 
-import java.util.Optional;
-
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DwrfEncryptionProvider
 {
-    public static final DwrfEncryptionProvider NO_ENCRYPTION = new DwrfEncryptionProvider(Optional.empty(), Optional.empty());
+    public static final DwrfEncryptionProvider NO_ENCRYPTION = new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new UnsupportedEncryptionLibrary());
 
-    private final Optional<EncryptionLibrary> cryptoServiceLibrary;
-    private final Optional<EncryptionLibrary> unknownLibrary;
+    private final EncryptionLibrary cryptoServiceLibrary;
+    private final EncryptionLibrary unknownLibrary;
 
-    public DwrfEncryptionProvider(Optional<EncryptionLibrary> cryptoServiceLibrary, Optional<EncryptionLibrary> unknownLibrary)
+    public DwrfEncryptionProvider(EncryptionLibrary cryptoServiceLibrary, EncryptionLibrary unknownLibrary)
     {
         this.cryptoServiceLibrary = requireNonNull(cryptoServiceLibrary, "cryptoServiceLibrary is null");
         this.unknownLibrary = requireNonNull(unknownLibrary, "unknownLibrary is null");
@@ -37,15 +35,15 @@ public class DwrfEncryptionProvider
     {
         switch (keyProvider) {
             case CRYPTO_SERVICE:
-                if (!cryptoServiceLibrary.isPresent()) {
+                if (cryptoServiceLibrary instanceof UnsupportedEncryptionLibrary) {
                     throw new UnsupportedOperationException("\"crypto_service\" encryption is not configured");
                 }
-                return cryptoServiceLibrary.get();
+                return cryptoServiceLibrary;
             case UNKNOWN:
-                if (!unknownLibrary.isPresent()) {
+                if (unknownLibrary instanceof UnsupportedEncryptionLibrary) {
                     throw new UnsupportedOperationException("\"unknown\" encryption is not configured");
                 }
-                return unknownLibrary.get();
+                return unknownLibrary;
             default:
                 throw new IllegalArgumentException(format("Unknown KeyProvider: %s", keyProvider));
         }
