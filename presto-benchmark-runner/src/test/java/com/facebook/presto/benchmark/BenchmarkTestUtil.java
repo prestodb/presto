@@ -16,7 +16,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
-import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
 import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
 import com.facebook.presto.benchmark.framework.PhaseSpecification;
 import com.facebook.presto.benchmark.framework.StreamExecutionPhase;
@@ -120,7 +119,7 @@ public class BenchmarkTestUtil
 
     public static Map<String, String> getBenchmarkSuiteSessionProperties()
     {
-        Map<String, String> sessionProperties = new HashMap();
+        Map<String, String> sessionProperties = new HashMap<>();
         sessionProperties.put("max", "5");
         return sessionProperties;
     }
@@ -131,7 +130,11 @@ public class BenchmarkTestUtil
         BenchmarkQuery benchmarkQuery2 = new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA);
         BenchmarkQuery benchmarkQuery3 = new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA);
 
-        return new BenchmarkSuite(suite, new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
+        return new BenchmarkSuite(
+                suite,
+                querySet,
+                getBenchmarkSuitePhases(),
+                getBenchmarkSuiteSessionProperties(),
                 ImmutableList.of(benchmarkQuery1, benchmarkQuery2, benchmarkQuery3));
     }
 }
