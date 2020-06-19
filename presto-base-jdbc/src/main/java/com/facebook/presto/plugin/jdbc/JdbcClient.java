@@ -62,7 +62,7 @@ public interface JdbcClient
         // most drivers do not need this
     }
 
-    PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 
     void addColumn(JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column);
