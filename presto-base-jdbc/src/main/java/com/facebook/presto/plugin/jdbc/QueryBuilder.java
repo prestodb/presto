@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -97,6 +98,7 @@ public class QueryBuilder
 
     public PreparedStatement buildSql(
             JdbcClient client,
+            ConnectorSession session,
             Connection connection,
             String catalog,
             String schema,
@@ -144,7 +146,7 @@ public class QueryBuilder
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
-
+        sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
         PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
