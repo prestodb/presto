@@ -49,6 +49,7 @@ public interface BenchmarkSuiteDao
             "  `catalog` varchar(256) NOT NULL,\n" +
             "  `schema` varchar(256) NOT NULL,\n" +
             "  `query` mediumtext NOT NULL,\n" +
+            "  `session_properties` mediumtext DEFAULT NULL,\n" +
             "  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" +
             "  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
             "  PRIMARY KEY (`id`),\n" +
@@ -74,7 +75,8 @@ public interface BenchmarkSuiteDao
             "  `name`,\n" +
             "  `catalog`,\n" +
             "  `schema`,\n" +
-            "  `query`\n" +
+            "  `query`,\n" +
+            "  `session_properties`\n" +
             "FROM\n" +
             "  <table_name>\n" +
             "WHERE\n" +

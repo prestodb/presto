@@ -42,9 +42,9 @@ public class TestConcurrentPhaseExecutor
     private static final String TEST_ID = "test-id";
     private static final String PHASE_NAME = "test=phase";
     private static final List<BenchmarkQuery> ALL_QUERIES = ImmutableList.of(
-            new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA),
-            new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA),
-            new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA));
+            new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA, Optional.empty()),
+            new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA, Optional.empty()),
+            new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA, Optional.empty()));
     private static final List<String> QUERY_NAMES = ImmutableList.of("Q1", "Q2", "Q3");
 
     private static class MockQueryExecutor

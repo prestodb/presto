@@ -123,7 +123,7 @@ public class TestBenchmarkQueryExecutor
         else {
             JdbcPrestoAction jdbcPrestoAction = new JdbcPrestoAction(
                     new PrestoExceptionClassifier(ImmutableSet.of()),
-                    new BenchmarkQuery("Test-Query", "SELECT 1", CATALOG, SCHEMA),
+                    new BenchmarkQuery("Test-Query", "SELECT 1", CATALOG, SCHEMA, Optional.empty()),
                     new PrestoClusterConfig()
                             .setJdbcUrl(queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto")),
                     new HashMap<>(),
@@ -138,7 +138,7 @@ public class TestBenchmarkQueryExecutor
     {
         MockEventClient eventClient = new MockEventClient();
         BenchmarkQueryEvent event = createBenchmarkQueryExecutor(false, eventClient)
-                .run(new BenchmarkQuery(NAME, "SELECT 1", CATALOG, SCHEMA), new HashMap<>());
+                .run(new BenchmarkQuery(NAME, "SELECT 1", CATALOG, SCHEMA, Optional.empty()), new HashMap<>());
         assertNotNull(event);
         assertQueryEvent(event, SUCCEEDED, Optional.empty());
         List<BenchmarkQueryEvent> postedEvents = eventClient.getEvents();
@@ -151,7 +151,7 @@ public class TestBenchmarkQueryExecutor
     {
         MockEventClient eventClient = new MockEventClient();
         BenchmarkQueryEvent event = createBenchmarkQueryExecutor(true, eventClient)
-                .run(new BenchmarkQuery(NAME, "SELECT 1", CATALOG, SCHEMA), new HashMap<>());
+                .run(new BenchmarkQuery(NAME, "SELECT 1", CATALOG, SCHEMA, Optional.empty()), new HashMap<>());
         assertNotNull(event);
         assertQueryEvent(event, FAILED, Optional.of(GENERIC_INTERNAL_ERROR.toString()));
         List<BenchmarkQueryEvent> postedEvents = eventClient.getEvents();
