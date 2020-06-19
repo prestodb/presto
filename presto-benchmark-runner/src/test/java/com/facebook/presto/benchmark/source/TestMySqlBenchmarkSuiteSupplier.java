@@ -80,7 +80,7 @@ public class TestMySqlBenchmarkSuiteSupplier
         Map<String, String> phaseSessionProperties = ImmutableMap.of("b", "2");
         List<PhaseSpecification> phases = ImmutableList.of(
                 new StreamExecutionPhase("Phase-1", ImmutableList.of(ImmutableList.of("Q1", "Q2"), ImmutableList.of("Q2", "Q3"))),
-                new ConcurrentExecutionPhase("Phase-2", ImmutableList.of("Q1", "Q2", "Q3"), 50));
+                new ConcurrentExecutionPhase("Phase-2", ImmutableList.of("Q1", "Q2", "Q3"), Optional.of(50)));
 
         insertBenchmarkQuery(handle, QUERY_SET, "Q1", "SELECT 1", Optional.empty());
         insertBenchmarkQuery(handle, QUERY_SET, "Q2", "SELECT 2", Optional.empty());

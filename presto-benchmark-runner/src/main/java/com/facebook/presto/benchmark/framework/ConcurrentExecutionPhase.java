@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.framework.ExecutionStrategy.CONCURRENT;
 import static java.util.Objects.requireNonNull;
@@ -27,14 +28,14 @@ public class ConcurrentExecutionPhase
         extends PhaseSpecification
 {
     private final List<String> queries;
-    private int maxConcurrency;
+    private Optional<Integer> maxConcurrency;
 
     @JsonCreator
-    public ConcurrentExecutionPhase(String name, List<String> queries, int maxConcurrency)
+    public ConcurrentExecutionPhase(String name, List<String> queries, Optional<Integer> maxConcurrency)
     {
         super(name);
-        this.queries = requireNonNull(ImmutableList.copyOf(queries), "queries is null");
-        this.maxConcurrency = maxConcurrency;
+        this.queries = ImmutableList.copyOf(queries);
+        this.maxConcurrency = requireNonNull(maxConcurrency, "maxConcurrency is null");
     }
 
     @Override
@@ -50,7 +51,7 @@ public class ConcurrentExecutionPhase
     }
 
     @JsonProperty
-    public int getMaxConcurrency()
+    public Optional<Integer> getMaxConcurrency()
     {
         return maxConcurrency;
     }
