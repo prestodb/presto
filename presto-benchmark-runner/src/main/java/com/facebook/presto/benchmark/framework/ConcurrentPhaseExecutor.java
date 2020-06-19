@@ -24,6 +24,7 @@ import com.google.inject.Inject;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -35,14 +36,17 @@ import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.FAI
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.SUCCEEDED;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class ConcurrentPhaseExecutor
         extends AbstractPhaseExecutor<ConcurrentExecutionPhase>
 {
+    private static final int DEFAULT_MAX_CONCURRENCY = 70;
     private static final Logger log = Logger.get(ConcurrentPhaseExecutor.class);
 
     private final boolean continueOnFailure;
+    private final Optional<Integer> maxConcurrency;
 
     @Inject
     public ConcurrentPhaseExecutor(
@@ -54,12 +58,16 @@ public class ConcurrentPhaseExecutor
     {
         super(sqlParser, parsingOptions, prestoActionFactory, eventClients, config.getTestId());
         this.continueOnFailure = config.isContinueOnFailure();
+        this.maxConcurrency = requireNonNull(config.getMaxConcurrency(), "maxConcurrency is null");
     }
 
     @Override
     public BenchmarkPhaseEvent runPhase(ConcurrentExecutionPhase phase, BenchmarkSuite suite)
     {
-        ExecutorService executor = newFixedThreadPool(phase.getMaxConcurrency());
+        int maxConcurrency = this.maxConcurrency.orElseGet(() -> phase.getMaxConcurrency().orElse(DEFAULT_MAX_CONCURRENCY));
+        log.info("Starting concurrent phase '%s' with max concurrency %s", phase.getName(), maxConcurrency);
+
+        ExecutorService executor = newFixedThreadPool(maxConcurrency);
 
         try {
             CompletionService<BenchmarkQueryEvent> completionService = new ExecutorCompletionService<>(executor);

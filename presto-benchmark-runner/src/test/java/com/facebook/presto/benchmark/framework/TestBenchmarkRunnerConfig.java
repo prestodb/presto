@@ -32,7 +32,8 @@ public class TestBenchmarkRunnerConfig
                 .setBenchmarkSuiteSupplier("mysql")
                 .setEventClients("json")
                 .setJsonEventLogFile(null)
-                .setContinueOnFailure(false));
+                .setContinueOnFailure(false)
+                .setMaxConcurrency(null));
     }
 
     @Test
@@ -44,6 +45,7 @@ public class TestBenchmarkRunnerConfig
                 .put("event-clients", "human-readable")
                 .put("json.log-file", "verifier-json.log")
                 .put("continue-on-failure", "true")
+                .put("max-concurrency", "70")
                 .build();
 
         BenchmarkRunnerConfig expected = new BenchmarkRunnerConfig()
@@ -51,7 +53,8 @@ public class TestBenchmarkRunnerConfig
                 .setBenchmarkSuiteSupplier("custom-supplier")
                 .setEventClients("human-readable")
                 .setJsonEventLogFile("verifier-json.log")
-                .setContinueOnFailure(true);
+                .setContinueOnFailure(true)
+                .setMaxConcurrency(70);
 
         assertFullMapping(properties, expected);
     }

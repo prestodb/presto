@@ -55,8 +55,8 @@ public class TestConcurrentExecutor
     private static final BenchmarkQuery QUERY_1 = new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA, Optional.empty());
     private static final BenchmarkQuery QUERY_2 = new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA, Optional.empty());
     private static final BenchmarkQuery QUERY_BAD = new BenchmarkQuery("QBad", "SELECT a", CATALOG, SCHEMA, Optional.empty());
-    private static final ConcurrentExecutionPhase PHASE_GOOD = new ConcurrentExecutionPhase("good", ImmutableList.of("Q1", "Q2", "Q1"), MAX_CONCURRENCY);
-    private static final ConcurrentExecutionPhase PHASE_BAD = new ConcurrentExecutionPhase("bad", ImmutableList.of("Q1", "QBad", "Q2"), MAX_CONCURRENCY);
+    private static final ConcurrentExecutionPhase PHASE_GOOD = new ConcurrentExecutionPhase("good", ImmutableList.of("Q1", "Q2", "Q1"), Optional.of(MAX_CONCURRENCY));
+    private static final ConcurrentExecutionPhase PHASE_BAD = new ConcurrentExecutionPhase("bad", ImmutableList.of("Q1", "QBad", "Q2"), Optional.of(MAX_CONCURRENCY));
     private static final BenchmarkSuite SUITE = new BenchmarkSuite(
             "test-suite",
             "test-query-set",
@@ -82,7 +82,7 @@ public class TestConcurrentExecutor
     @Test
     public void testSucceeded()
     {
-        BenchmarkPhaseEvent phaseEvent = createExecutor().runPhase(PHASE_GOOD, SUITE);
+        BenchmarkPhaseEvent phaseEvent = createExecutor(new BenchmarkRunnerConfig().setMaxConcurrency(10)).runPhase(PHASE_GOOD, SUITE);
 
         // check phase events
         assertEvent(phaseEvent, "good", BenchmarkPhaseEvent.Status.SUCCEEDED);
