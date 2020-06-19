@@ -69,6 +69,30 @@ public class TestParquetDistributedQueries
         }
     }
 
+    @Test
+    public void testSubfieldWithSchemaChanges()
+    {
+        getQueryRunner().execute("CREATE TABLE test_subfield_multilevel_pruning AS " +
+                "SELECT " +
+                "   1 as orderkey," +
+                "   CAST(ROW('N', ROW(5, 7)) AS ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER))) as info ");
+
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning DROP COLUMN info");
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning ADD COLUMN " +
+                "info ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER))");
+
+        getQueryRunner().execute("INSERT INTO test_subfield_multilevel_pruning " +
+                "SELECT 2, cast(row('Y', ROW(5, 7, 2020)) as ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER)))");
+
+        try {
+            assertQuery("SELECT orderkey, info.shipdate.ship_day, info.shipdate.ship_month, info.shipdate.ship_year FROM test_subfield_multilevel_pruning",
+                    "SELECT * from (VALUES(1, 5, 7, null), (2, 5, 7, 2020))");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_subfield_multilevel_pruning");
+        }
+    }
+
     @Override
     protected boolean supportsNotNullColumns()
     {

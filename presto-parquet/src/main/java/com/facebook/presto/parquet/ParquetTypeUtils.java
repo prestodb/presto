@@ -273,15 +273,18 @@ public final class ParquetTypeUtils
 
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
         org.apache.parquet.schema.Type parentType = getParquetTypeByName(subfield.getRootName(), baseType);
+        String rootName = parentType.getName();
 
         for (PathElement field : subfield.getPath()) {
             if (field instanceof NestedField) {
                 NestedField nestedField = (NestedField) field;
                 org.apache.parquet.schema.Type childType = getParquetTypeByName(nestedField.getName(), parentType.asGroupType());
-                if (childType != null) {
-                    typeBuilder.add(childType);
-                    parentType = childType;
+                if (childType == null) {
+                    // the subtree is missing in the file, just return an empty message type as there is nothing to read
+                    return new MessageType(rootName, ImmutableList.of());
                 }
+                typeBuilder.add(childType);
+                parentType = childType;
             }
             else {
                 typeBuilder.add(parentType.asGroupType().getFields().get(0));
@@ -290,14 +293,11 @@ public final class ParquetTypeUtils
         }
 
         List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
-        if (subfieldTypes.isEmpty()) {
-            return new MessageType(subfield.getRootName(), ImmutableList.of());
-        }
         org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
             type = new MessageType(groupType.getName(), ImmutableList.of(type));
         }
-        return new MessageType(subfield.getRootName(), ImmutableList.of(type));
+        return new MessageType(rootName, ImmutableList.of(type));
     }
 }
