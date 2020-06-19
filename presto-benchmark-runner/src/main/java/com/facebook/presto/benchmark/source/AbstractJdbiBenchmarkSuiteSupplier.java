@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark.source;
 
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
-import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
 import org.jdbi.v3.core.Jdbi;
 
 import static java.util.Objects.requireNonNull;
@@ -40,11 +39,8 @@ public abstract class AbstractJdbiBenchmarkSuiteSupplier
     {
         return jdbi.inTransaction(handle -> {
             BenchmarkSuiteDao dao = handle.attach(BenchmarkSuiteDao.class);
-            BenchmarkSuiteInfo suiteInfo = dao.getBenchmarkSuiteInfo(suitesTableName, suite);
-            return new BenchmarkSuite(
-                    suite,
-                    suiteInfo,
-                    dao.getBenchmarkQueries(queriesTableName, suiteInfo.getQuerySet()));
+            BenchmarkSuite.JdbiBuilder suiteBuilder = dao.getBenchmarkSuite(suitesTableName, suite);
+            return suiteBuilder.setQueries(dao.getBenchmarkQueries(queriesTableName, suiteBuilder.getQuerySet())).build();
         });
     }
 }
