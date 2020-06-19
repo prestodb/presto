@@ -54,28 +54,27 @@ public class BenchmarkRunner
     @PostConstruct
     public void start()
     {
-        BenchmarkSuite benchmarkSuite = benchmarkSuiteSupplier.get();
-        BenchmarkSuiteInfo benchmarkSuiteInfo = benchmarkSuite.getSuiteInfo();
-        List<PhaseSpecification> phases = benchmarkSuiteInfo.getPhases();
+        BenchmarkSuite suite = benchmarkSuiteSupplier.get();
+        List<PhaseSpecification> phases = suite.getPhases();
         int successfulPhases = 0;
 
         for (PhaseSpecification phase : phases) {
-            PhaseExecutor phaseExecutor = phaseExecutorFactory.get(phase, benchmarkSuite);
+            PhaseExecutor phaseExecutor = phaseExecutorFactory.get(phase, suite);
             BenchmarkPhaseEvent phaseEvent = phaseExecutor.run(continueOnFailure);
             if (phaseEvent.getEventStatus() == SUCCEEDED) {
                 successfulPhases++;
             }
             else if (phaseEvent.getEventStatus() == FAILED && !continueOnFailure) {
-                postEvent(BenchmarkSuiteEvent.failed(benchmarkSuite.getName()));
+                postEvent(BenchmarkSuiteEvent.failed(suite.getSuite()));
                 break;
             }
         }
 
         if (successfulPhases < phases.size()) {
-            postEvent(BenchmarkSuiteEvent.completedWithFailures(benchmarkSuite.getName()));
+            postEvent(BenchmarkSuiteEvent.completedWithFailures(suite.getSuite()));
         }
         else {
-            postEvent(BenchmarkSuiteEvent.succeeded(benchmarkSuite.getName()));
+            postEvent(BenchmarkSuiteEvent.succeeded(suite.getSuite()));
         }
     }
 

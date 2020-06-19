@@ -47,7 +47,7 @@ public class PhaseExecutorFactory
             case CONCURRENT:
                 ConcurrentExecutionPhase phase = (ConcurrentExecutionPhase) phaseSpecification;
                 List<BenchmarkQuery> queryList = phase.getQueries().stream()
-                        .map(query -> benchmarkSuite.getQueryMap().get(query))
+                        .map(query -> benchmarkSuite.getQueries().get(query))
                         .collect(toImmutableList());
 
                 return new ConcurrentPhaseExecutor(
@@ -55,7 +55,7 @@ public class PhaseExecutorFactory
                         benchmarkQueryExecutor,
                         queryList,
                         eventClients,
-                        benchmarkSuite.getSuiteInfo().getSessionProperties(),
+                        benchmarkSuite.getSessionProperties(),
                         phase.getMaxConcurrency());
 
             default:
