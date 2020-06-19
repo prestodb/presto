@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.benchmark.executor;
+package com.facebook.presto.benchmark.framework;
 
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.benchmark.event.BenchmarkQueryEvent;
-import com.facebook.presto.benchmark.framework.BenchmarkQuery;
-import com.facebook.presto.benchmark.framework.BenchmarkRunnerConfig;
-import com.facebook.presto.benchmark.framework.QueryException;
 import com.facebook.presto.benchmark.prestoaction.PrestoAction;
 import com.facebook.presto.benchmark.prestoaction.PrestoActionFactory;
 import com.facebook.presto.jdbc.QueryStats;
@@ -27,9 +24,10 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.inject.Inject;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -39,49 +37,47 @@ import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.SUC
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.util.Objects.requireNonNull;
 
-public class BenchmarkQueryExecutor
-        implements QueryExecutor
+public abstract class AbstractPhaseExecutor<T extends PhaseSpecification>
+        implements PhaseExecutor<T>
 {
-    private static final Logger log = Logger.get(BenchmarkQueryExecutor.class);
+    private static final Logger log = Logger.get(AbstractPhaseExecutor.class);
 
-    private final PrestoActionFactory prestoActionFactory;
     private final SqlParser sqlParser;
     private final ParsingOptions parsingOptions;
+    private final PrestoActionFactory prestoActionFactory;
     private final Set<EventClient> eventClients;
     private final String testId;
 
-    @Inject
-    public BenchmarkQueryExecutor(
-            PrestoActionFactory prestoActionFactory,
+    protected AbstractPhaseExecutor(
             SqlParser sqlParser,
             ParsingOptions parsingOptions,
+            PrestoActionFactory prestoActionFactory,
             Set<EventClient> eventClients,
-            BenchmarkRunnerConfig benchmarkRunnerConfig)
+            String testId)
     {
-        this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoAction is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
         this.eventClients = requireNonNull(eventClients, "eventClients is null");
-        this.testId = requireNonNull(benchmarkRunnerConfig, "testId is null").getTestId();
+        this.testId = requireNonNull(testId, "testId is null");
     }
 
-    @Override
-    public BenchmarkQueryEvent run(BenchmarkQuery benchmarkQuery, Map<String, String> sessionProperties)
+    protected BenchmarkQueryEvent runQuery(BenchmarkQuery benchmarkQuery)
     {
-        QueryStats queryStats = null;
+        Optional<QueryStats> queryStats = Optional.empty();
         Statement statement = sqlParser.createStatement(benchmarkQuery.getQuery(), parsingOptions);
-        PrestoAction prestoAction = prestoActionFactory.get(benchmarkQuery, sessionProperties);
+        PrestoAction prestoAction = prestoActionFactory.get(benchmarkQuery);
 
         try {
-            queryStats = prestoAction.execute(statement);
-            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty()));
+            queryStats = Optional.of(prestoAction.execute(statement));
+            return buildEvent(benchmarkQuery, queryStats, Optional.empty());
         }
         catch (QueryException e) {
-            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.of(e)));
+            return buildEvent(benchmarkQuery, queryStats, Optional.of(e));
         }
         catch (Throwable t) {
             log.error(t);
-            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty()));
+            return buildEvent(benchmarkQuery, queryStats, Optional.empty());
         }
     }
 
@@ -93,14 +89,14 @@ public class BenchmarkQueryExecutor
         boolean succeeded = queryStats.isPresent();
         Status status = succeeded ? SUCCEEDED : FAILED;
         Optional<String> errorCode = Optional.empty();
-        String errorMessage = null;
-        String stackTrace = null;
+        Optional<String> errorMessage = Optional.empty();
+        Optional<String> stackTrace = Optional.empty();
 
         if (!succeeded && queryException.isPresent()) {
             queryStats = queryException.get().getQueryStats();
             errorCode = queryException.get().getPrestoErrorCode().map(ErrorCodeSupplier::toErrorCode).map(ErrorCode::getName);
-            errorMessage = queryException.get().getMessage();
-            stackTrace = getStackTraceAsString(queryException.get().getCause());
+            errorMessage = Optional.of(queryException.get().getMessage());
+            stackTrace = Optional.of(getStackTraceAsString(queryException.get().getCause()));
         }
 
         return new BenchmarkQueryEvent(
@@ -112,15 +108,28 @@ public class BenchmarkQueryExecutor
                 benchmarkQuery.getQuery(),
                 queryStats,
                 errorCode,
-                Optional.ofNullable(errorMessage),
-                Optional.ofNullable(stackTrace));
+                errorMessage,
+                stackTrace);
     }
 
-    private BenchmarkQueryEvent postEvent(BenchmarkQueryEvent event)
+    protected void postEvent(BenchmarkQueryEvent event)
     {
         for (EventClient eventClient : eventClients) {
             eventClient.post(event);
         }
-        return event;
+    }
+
+    protected static BenchmarkQuery overrideSessionProperties(BenchmarkQuery query, Map<String, String> override)
+    {
+        Map<String, String> sessionProperties = new HashMap<>(query.getSessionProperties());
+        for (Entry<String, String> entry : override.entrySet()) {
+            sessionProperties.put(entry.getKey(), entry.getValue());
+        }
+        return new BenchmarkQuery(
+                query.getName(),
+                query.getQuery(),
+                query.getCatalog(),
+                query.getSchema(),
+                Optional.of(sessionProperties));
     }
 }
