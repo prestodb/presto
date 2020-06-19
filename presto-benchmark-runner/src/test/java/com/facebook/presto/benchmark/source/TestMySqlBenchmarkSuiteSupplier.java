@@ -13,24 +13,33 @@
  */
 package com.facebook.presto.benchmark.source;
 
+import com.facebook.presto.benchmark.framework.BenchmarkQuery;
+import com.facebook.presto.benchmark.framework.BenchmarkSuite;
+import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
+import com.facebook.presto.benchmark.framework.PhaseSpecification;
+import com.facebook.presto.benchmark.framework.StreamExecutionPhase;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.benchmark.BenchmarkTestUtil.CATALOG;
+import static com.facebook.presto.benchmark.BenchmarkTestUtil.SCHEMA;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.XDB;
-import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuiteObject;
-import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuitePhases;
-import static com.facebook.presto.benchmark.BenchmarkTestUtil.getBenchmarkSuiteSessionProperties;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.getJdbi;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.insertBenchmarkQuery;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.insertBenchmarkSuite;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.setupMySql;
-import static com.facebook.presto.benchmark.source.PhaseSpecificationsColumnMapper.PHASE_SPECIFICATION_LIST_CODEC;
+import static com.facebook.presto.benchmark.source.PhaseSpecificationsColumnMapper.PHASE_SPECIFICATIONS_CODEC;
 import static com.facebook.presto.benchmark.source.StringToStringMapColumnMapper.MAP_CODEC;
 import static org.testng.Assert.assertEquals;
 
@@ -39,17 +48,16 @@ public class TestMySqlBenchmarkSuiteSupplier
 {
     private static final String SUITE = "test_suite";
     private static final String QUERY_SET = "test_set";
-    private static TestingMySqlServer mySqlServer;
-    private static Handle handle;
-    private static Jdbi jdbi;
+
+    private TestingMySqlServer mySqlServer;
+    private Handle handle;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
         mySqlServer = setupMySql();
-        jdbi = getJdbi(mySqlServer);
-        handle = jdbi.open();
+        handle = getJdbi(mySqlServer).open();
     }
 
     @AfterClass(alwaysRun = true)
@@ -68,14 +76,30 @@ public class TestMySqlBenchmarkSuiteSupplier
     @Test
     public void testSupplySuite()
     {
-        insertBenchmarkQuery(handle, QUERY_SET, "Q1", "SELECT 1");
-        insertBenchmarkQuery(handle, QUERY_SET, "Q2", "SELECT 2");
-        insertBenchmarkQuery(handle, QUERY_SET, "Q3", "SELECT 3");
+        Map<String, String> suiteSessionProperties = ImmutableMap.of("a", "1");
+        Map<String, String> phaseSessionProperties = ImmutableMap.of("b", "2");
+        List<PhaseSpecification> phases = ImmutableList.of(
+                new StreamExecutionPhase("Phase-1", ImmutableList.of(ImmutableList.of("Q1", "Q2"), ImmutableList.of("Q2", "Q3"))),
+                new ConcurrentExecutionPhase("Phase-2", ImmutableList.of("Q1", "Q2", "Q3"), 50));
 
-        insertBenchmarkSuite(handle, SUITE, QUERY_SET, PHASE_SPECIFICATION_LIST_CODEC.toJson(getBenchmarkSuitePhases()), MAP_CODEC.toJson(getBenchmarkSuiteSessionProperties()));
+        insertBenchmarkQuery(handle, QUERY_SET, "Q1", "SELECT 1", Optional.empty());
+        insertBenchmarkQuery(handle, QUERY_SET, "Q2", "SELECT 2", Optional.empty());
+        insertBenchmarkQuery(handle, QUERY_SET, "Q3", "SELECT 3", Optional.of(phaseSessionProperties));
+        insertBenchmarkSuite(handle, SUITE, QUERY_SET, PHASE_SPECIFICATIONS_CODEC.toJson(phases), MAP_CODEC.toJson(suiteSessionProperties));
 
-        assertEquals(new MySqlBenchmarkSuiteSupplier(
+        BenchmarkSuite actual = new MySqlBenchmarkSuiteSupplier(
                 new MySqlBenchmarkSuiteConfig().setDatabaseUrl(mySqlServer.getJdbcUrl(XDB)),
-                new BenchmarkSuiteConfig().setSuite(SUITE)).get(), getBenchmarkSuiteObject(SUITE, QUERY_SET));
+                new BenchmarkSuiteConfig().setSuite(SUITE)).get();
+        BenchmarkSuite expected = new BenchmarkSuite(
+                SUITE,
+                QUERY_SET,
+                phases,
+                suiteSessionProperties,
+                ImmutableList.of(
+                        new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA, Optional.empty()),
+                        new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA, Optional.empty()),
+                        new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA, Optional.of(phaseSessionProperties))));
+
+        assertEquals(expected, actual);
     }
 }

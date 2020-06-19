@@ -27,6 +27,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.CATALOG;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.SCHEMA;
@@ -59,7 +60,7 @@ public class TestJdbcPrestoAction
     {
         prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of()),
-                new BenchmarkQuery("Test-Query", "SELECT 1", CATALOG, SCHEMA),
+                new BenchmarkQuery("Test-Query", "SELECT 1", CATALOG, SCHEMA, Optional.empty()),
                 new PrestoClusterConfig()
                         .setJdbcUrl(queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto")),
                 new HashMap<>(),
