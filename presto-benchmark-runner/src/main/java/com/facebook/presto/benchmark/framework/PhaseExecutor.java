@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.benchmark.executor;
+package com.facebook.presto.benchmark.framework;
 
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 
-public interface PhaseExecutor
+public interface PhaseExecutor<T extends PhaseSpecification>
 {
-    BenchmarkPhaseEvent run(boolean continueOnFailure);
+    BenchmarkPhaseEvent runPhase(T phase, BenchmarkSuite suite);
 }

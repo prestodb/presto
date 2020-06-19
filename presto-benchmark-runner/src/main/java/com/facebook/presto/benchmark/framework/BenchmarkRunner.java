@@ -16,72 +16,78 @@ package com.facebook.presto.benchmark.framework;
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 import com.facebook.presto.benchmark.event.BenchmarkSuiteEvent;
-import com.facebook.presto.benchmark.executor.PhaseExecutor;
-import com.facebook.presto.benchmark.executor.PhaseExecutorFactory;
 import com.facebook.presto.benchmark.source.BenchmarkSuiteSupplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import javax.annotation.PostConstruct;
 
-import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.FAILED;
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.SUCCEEDED;
+import static com.facebook.presto.benchmark.framework.ExecutionStrategy.CONCURRENT;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkRunner
 {
     private final BenchmarkSuiteSupplier benchmarkSuiteSupplier;
-    private final PhaseExecutorFactory phaseExecutorFactory;
+    private final ConcurrentPhaseExecutor concurrentPhaseExecutor;
     private final Set<EventClient> eventClients;
     private final boolean continueOnFailure;
 
     @Inject
     public BenchmarkRunner(
             BenchmarkSuiteSupplier benchmarkSuiteSupplier,
-            PhaseExecutorFactory phaseExecutorFactory,
+            ConcurrentPhaseExecutor concurrentPhaseExecutor,
             Set<EventClient> eventClients,
-            BenchmarkRunnerConfig benchmarkRunnerConfig)
+            BenchmarkRunnerConfig config)
     {
         this.benchmarkSuiteSupplier = requireNonNull(benchmarkSuiteSupplier, "benchmarkSuiteSupplier is null");
-        this.phaseExecutorFactory = requireNonNull(phaseExecutorFactory, "phaseExecutorFactory is null");
+        this.concurrentPhaseExecutor = requireNonNull(concurrentPhaseExecutor, "concurrentPhaseExecutor is null");
         this.eventClients = ImmutableSet.copyOf(requireNonNull(eventClients, "eventClients is null"));
-        this.continueOnFailure = requireNonNull(benchmarkRunnerConfig, "benchmarkRunnerConfig is null").isContinueOnFailure();
+        this.continueOnFailure = config.isContinueOnFailure();
     }
 
     @PostConstruct
     public void start()
     {
-        BenchmarkSuite suite = benchmarkSuiteSupplier.get();
-        List<PhaseSpecification> phases = suite.getPhases();
+        BenchmarkSuiteEvent suiteEvent = runSuite(benchmarkSuiteSupplier.get());
+        eventClients.forEach(client -> client.post(suiteEvent));
+    }
+
+    private BenchmarkSuiteEvent runSuite(BenchmarkSuite suite)
+    {
         int successfulPhases = 0;
 
-        for (PhaseSpecification phase : phases) {
-            PhaseExecutor phaseExecutor = phaseExecutorFactory.get(phase, suite);
-            BenchmarkPhaseEvent phaseEvent = phaseExecutor.run(continueOnFailure);
+        for (PhaseSpecification phase : suite.getPhases()) {
+            BenchmarkPhaseEvent phaseEvent = getPhaseExecutor(phase).runPhase(phase, suite);
+            eventClients.forEach(client -> client.post(phaseEvent));
+
             if (phaseEvent.getEventStatus() == SUCCEEDED) {
                 successfulPhases++;
             }
             else if (phaseEvent.getEventStatus() == FAILED && !continueOnFailure) {
-                postEvent(BenchmarkSuiteEvent.failed(suite.getSuite()));
-                break;
+                return BenchmarkSuiteEvent.failed(suite.getSuite());
             }
         }
 
-        if (successfulPhases < phases.size()) {
-            postEvent(BenchmarkSuiteEvent.completedWithFailures(suite.getSuite()));
+        if (successfulPhases < suite.getPhases().size()) {
+            return BenchmarkSuiteEvent.completedWithFailures(suite.getSuite());
         }
         else {
-            postEvent(BenchmarkSuiteEvent.succeeded(suite.getSuite()));
+            return BenchmarkSuiteEvent.succeeded(suite.getSuite());
         }
     }
 
-    private void postEvent(BenchmarkSuiteEvent event)
+    @SuppressWarnings("unchecked")
+    private <T extends PhaseSpecification> PhaseExecutor<T> getPhaseExecutor(T phase)
     {
-        for (EventClient eventClient : eventClients) {
-            eventClient.post(event);
+        if (phase.getExecutionStrategy() == CONCURRENT) {
+            return (PhaseExecutor<T>) concurrentPhaseExecutor;
         }
+
+        throw new IllegalArgumentException(format("Unsupported execution strategy: %s", phase.getExecutionStrategy()));
     }
 }

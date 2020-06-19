@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.benchmark.executor;
+package com.facebook.presto.benchmark.framework;
 
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 import com.facebook.presto.benchmark.event.BenchmarkQueryEvent;
-import com.facebook.presto.benchmark.framework.BenchmarkQuery;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.benchmark.prestoaction.PrestoActionFactory;
+import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.google.inject.Inject;
 
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
@@ -35,67 +35,65 @@ import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.FAI
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.SUCCEEDED;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class ConcurrentPhaseExecutor
-        implements PhaseExecutor
+        extends AbstractPhaseExecutor<ConcurrentExecutionPhase>
 {
     private static final Logger log = Logger.get(ConcurrentPhaseExecutor.class);
 
-    private final String phaseName;
-    private final QueryExecutor queryExecutor;
-    private final List<BenchmarkQuery> queries;
-    private final Set<EventClient> eventClients;
-    private final Map<String, String> sessionProperties;
-    private final int maxConcurrency;
+    private final boolean continueOnFailure;
 
-    private ExecutorService executor;
-    private CompletionService<BenchmarkQueryEvent> completionService;
-
+    @Inject
     public ConcurrentPhaseExecutor(
-            String phaseName,
-            QueryExecutor queryExecutor,
-            List<BenchmarkQuery> queries,
+            SqlParser sqlParser,
+            ParsingOptions parsingOptions,
+            PrestoActionFactory prestoActionFactory,
             Set<EventClient> eventClients,
-            Map<String, String> sessionProperties,
-            int maxConcurrency)
+            BenchmarkRunnerConfig config)
     {
-        this.phaseName = requireNonNull(phaseName, "phaseName is null");
-        this.queryExecutor = requireNonNull(queryExecutor, "benchmarkQueryExecutor is null");
-        this.queries = ImmutableList.copyOf(requireNonNull(queries, "queries is null"));
-        this.eventClients = requireNonNull(eventClients, "eventClients is null");
-        this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
-        this.maxConcurrency = maxConcurrency;
+        super(sqlParser, parsingOptions, prestoActionFactory, eventClients, config.getTestId());
+        this.continueOnFailure = config.isContinueOnFailure();
     }
 
     @Override
-    public BenchmarkPhaseEvent run(boolean continueOnFailure)
+    public BenchmarkPhaseEvent runPhase(ConcurrentExecutionPhase phase, BenchmarkSuite suite)
     {
-        this.executor = newFixedThreadPool(maxConcurrency);
-        this.completionService = new ExecutorCompletionService<>(executor);
+        ExecutorService executor = newFixedThreadPool(phase.getMaxConcurrency());
 
-        for (BenchmarkQuery query : queries) {
-            completionService.submit(() -> queryExecutor.run(query, sessionProperties));
+        try {
+            CompletionService<BenchmarkQueryEvent> completionService = new ExecutorCompletionService<>(executor);
+
+            for (String queryName : phase.getQueries()) {
+                BenchmarkQuery benchmarkQuery = overrideSessionProperties(suite.getQueries().get(queryName), suite.getSessionProperties());
+                completionService.submit(() -> runQuery(benchmarkQuery));
+            }
+
+            return reportProgressUntilFinished(phase, completionService);
         }
-
-        return reportProgressUntilFinished(queries.size(), continueOnFailure);
+        finally {
+            executor.shutdownNow();
+        }
     }
 
-    private BenchmarkPhaseEvent reportProgressUntilFinished(int queriesSubmitted, boolean continueOnFailure)
+    private BenchmarkPhaseEvent reportProgressUntilFinished(
+            ConcurrentExecutionPhase phase,
+            CompletionService<BenchmarkQueryEvent> completionService)
     {
+        String phaseName = phase.getName();
         int completed = 0;
         double lastProgress = 0;
+        int queriesSubmitted = phase.getQueries().size();
         Map<Status, Integer> statusCount = new EnumMap<>(Status.class);
 
         while (completed < queriesSubmitted) {
             try {
                 BenchmarkQueryEvent event = completionService.take().get();
+                postEvent(event);
                 completed++;
                 statusCount.compute(event.getEventStatus(), (status, count) -> count == null ? 1 : count + 1);
                 if (event.getEventStatus() == FAILED && !continueOnFailure) {
-                    executor.shutdownNow();
-                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, event.getErrorMessage()));
+                    return BenchmarkPhaseEvent.failed(phaseName, event.getErrorMessage());
                 }
 
                 double progress = ((double) completed) / queriesSubmitted * 100;
@@ -111,30 +109,19 @@ public class ConcurrentPhaseExecutor
             catch (InterruptedException e) {
                 currentThread().interrupt();
                 if (!continueOnFailure) {
-                    executor.shutdownNow();
-                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                    return BenchmarkPhaseEvent.failed(phaseName, e.toString());
                 }
             }
             catch (ExecutionException e) {
-                executor.shutdownNow();
                 if (!continueOnFailure) {
-                    executor.shutdownNow();
-                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                    return BenchmarkPhaseEvent.failed(phaseName, e.toString());
                 }
             }
         }
         if (statusCount.getOrDefault(FAILED, 0) > 0) {
-            return postEvent(BenchmarkPhaseEvent.completedWithFailures(phaseName, format("%s out of %s submitted queries failed", statusCount.get(FAILED), queriesSubmitted)));
+            return BenchmarkPhaseEvent.completedWithFailures(phaseName, format("%s out of %s submitted queries failed", statusCount.get(FAILED), queriesSubmitted));
         }
 
-        return postEvent(BenchmarkPhaseEvent.succeeded(phaseName));
-    }
-
-    private BenchmarkPhaseEvent postEvent(BenchmarkPhaseEvent event)
-    {
-        for (EventClient eventClient : eventClients) {
-            eventClient.post(event);
-        }
-        return event;
+        return BenchmarkPhaseEvent.succeeded(phaseName);
     }
 }
