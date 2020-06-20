@@ -8488,6 +8488,14 @@ public abstract class AbstractTestQueries
                 "select count(distinct orderdate) from orders");
     }
 
+    @Test
+    public void testRedundantLambda()
+    {
+        assertQuery(
+                "SELECT x, reduce(x, 0, (s, x) -> s + x, s -> s), reduce(x, 0, (s, x) -> s + x, s -> s) FROM (VALUES (array[1, 2, 3])) t(x)",
+                "SELECT array[1, 2, 3], 6, 6");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
