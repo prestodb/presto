@@ -62,6 +62,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneMarkDistinctColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.PruneOutputColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneProjectColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneRedundantProjectionAssignments;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
@@ -436,7 +437,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
                 new PushdownSubfields(metadata));
 
         builder.add(rowExpressionPredicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
