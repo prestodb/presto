@@ -29,6 +29,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -39,6 +40,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
@@ -128,6 +130,57 @@ public class TestBingTileFunctions
 
         // Invalid calls: zoom level out of range
         assertInvalidFunction("bing_tile(2, 7, 37)", "Zoom level must be <= 23");
+    }
+
+    @Test
+    public void testBingTileChildren()
+    {
+        assertBingTileChildren("0", OptionalInt.empty(), ImmutableList.of("00", "01", "02", "03"));
+        assertBingTileChildren("0", OptionalInt.of(3), ImmutableList.of(
+                "000", "001", "002", "003",
+                "010", "011", "012", "013",
+                "020", "021", "022", "023",
+                "030", "031", "032", "033"));
+        assertInvalidFunction("bing_tile_children(bing_tile('0'), 0)", "newZoom must be greater than or equal to current zoom 1: 0");
+        assertInvalidFunction(format("bing_tile_children(bing_tile('0'), %s)", MAX_ZOOM_LEVEL + 1), format("newZoom must be less than or equal to %s: %s", MAX_ZOOM_LEVEL, MAX_ZOOM_LEVEL + 1));
+    }
+
+    private void assertBingTileChildren(String quadkey, OptionalInt newZoom, List<String> childQuadkeys)
+    {
+        String children;
+        if (newZoom.isPresent()) {
+            children = format("bing_tile_children(bing_tile('%s'), %s)", quadkey, newZoom.getAsInt());
+        }
+        else {
+            children = format("bing_tile_children(bing_tile('%s'))", quadkey);
+        }
+
+        assertFunction(
+                format("array_sort(transform(%s, x -> bing_tile_quadkey(x)))", children),
+                new ArrayType(VARCHAR),
+                ImmutableList.sortedCopyOf(childQuadkeys));
+    }
+
+    @Test
+    public void testBingTileParent()
+    {
+        assertBingTileParent("03", OptionalInt.empty(), "0");
+        assertBingTileParent("0123", OptionalInt.of(2), "01");
+        assertInvalidFunction("bing_tile_parent(bing_tile('0'), 2)", "newZoom must be less than or equal to current zoom 1: 2");
+        assertInvalidFunction(format("bing_tile_parent(bing_tile('0'), %s)", -1), "newZoom must be greater than or equal to 0: -1");
+    }
+
+    private void assertBingTileParent(String quadkey, OptionalInt newZoom, String parentQuadkey)
+    {
+        String parent;
+        if (newZoom.isPresent()) {
+            parent = format("bing_tile_parent(bing_tile('%s'), %s)", quadkey, newZoom.getAsInt());
+        }
+        else {
+            parent = format("bing_tile_parent(bing_tile('%s'))", quadkey);
+        }
+
+        assertFunction(format("bing_tile_quadkey(%s)", parent), VARCHAR, parentQuadkey);
     }
 
     @Test
