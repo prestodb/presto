@@ -497,6 +497,28 @@ represent a valid tile will raise an exception.
 
     Creates a Bing tile object from a quadkey.
 
+.. function:: bing_tile_parent(tile) -> BingTile
+
+    Returns the parent of the Bing tile at one lower zoom level.
+    Throws an exception if tile is at zoom level 0.
+
+.. function:: bing_tile_parent(tile, newZoom) -> BingTile
+
+    Returns the parent of the Bing tile at the specified lower zoom level.
+    Throws an exception if newZoom is less than 0, or newZoom is greater than
+    the tile's zoom.
+
+.. function:: bing_tile_children(tile) -> array(BingTile)
+
+    Returns the children of the Bing tile at one higher zoom level.
+    Throws an exception if tile is at max zoom level.
+
+.. function:: bing_tile_children(tile, newZoom) -> array(BingTile)
+
+    Returns the children of the Bing tile at the specified higher zoom level.
+    Throws an exception if newZoom is greater than the max zoom level, or
+    newZoom is less than the tile's zoom.
+
 .. function:: bing_tile_at(latitude, longitude, zoom_level) -> BingTile
 
     Returns a Bing tile at a given zoom level containing a point at a given latitude

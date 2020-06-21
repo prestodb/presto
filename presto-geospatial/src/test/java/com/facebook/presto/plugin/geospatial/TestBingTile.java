@@ -15,7 +15,10 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
@@ -25,6 +28,9 @@ import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileXToLongitude;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileYToLatitude;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestBingTile
@@ -89,5 +95,56 @@ public class TestBingTile
             assertEquals(tileYToLatitude(1 << (zoom - 1), zoom), 0.0);
             assertEquals(tileYToLatitude(1 << zoom, zoom), MIN_LATITUDE, delta);
         }
+    }
+
+    @Test
+    public void testFindChildren()
+    {
+        assertEquals(
+                toSortedQuadkeys(BingTile.fromQuadKey("").findChildren()),
+                ImmutableList.of("0", "1", "2", "3"));
+
+        assertEquals(
+                toSortedQuadkeys(BingTile.fromQuadKey("0123").findChildren()),
+                ImmutableList.of("01230", "01231", "01232", "01233"));
+
+        assertEquals(
+                toSortedQuadkeys(BingTile.fromQuadKey("").findChildren(2)),
+                ImmutableList.of("00", "01", "02", "03", "10", "11", "12", "13", "20", "21", "22", "23", "30", "31", "32", "33"));
+
+        assertThatThrownBy(() -> BingTile.fromCoordinates(0, 0, MAX_ZOOM_LEVEL).findChildren())
+                .hasMessage(format("newZoom must be less than or equal to %s: %s", MAX_ZOOM_LEVEL, MAX_ZOOM_LEVEL + 1));
+
+        assertThatThrownBy(() -> BingTile.fromCoordinates(0, 0, 13).findChildren(MAX_ZOOM_LEVEL + 1))
+                .hasMessage(format("newZoom must be less than or equal to %s: %s", MAX_ZOOM_LEVEL, MAX_ZOOM_LEVEL + 1));
+
+        assertThatThrownBy(() -> BingTile.fromCoordinates(0, 0, 13).findChildren(12))
+                .hasMessage(format("newZoom must be greater than or equal to current zoom %s: %s", 13, 12));
+    }
+
+    private List<String> toSortedQuadkeys(List<BingTile> tiles)
+    {
+        return tiles.stream()
+                .map(BingTile::toQuadKey)
+                .sorted()
+                .collect(toImmutableList());
+    }
+
+    @Test
+    public void testFindParent()
+    {
+        assertEquals(BingTile.fromQuadKey("0123").findParent().toQuadKey(), "012");
+        assertEquals(BingTile.fromQuadKey("1").findParent().toQuadKey(), "");
+        assertEquals(BingTile.fromQuadKey("0123").findParent(1).toQuadKey(), "0");
+        assertEquals(BingTile.fromQuadKey("0123").findParent(4).toQuadKey(), "0123");
+
+        assertThatThrownBy(() -> BingTile.fromQuadKey("0123").findParent(5))
+                .hasMessage(format("newZoom must be less than or equal to current zoom %s: %s", 4, 5));
+
+        assertThatThrownBy(() -> BingTile.fromQuadKey("").findParent())
+                .hasMessage(format("newZoom must be greater than or equal to 0: %s", -1));
+
+        assertThatThrownBy(() -> BingTile.fromQuadKey("12").findParent(-1))
+                .hasMessage(format("newZoom must be greater than or equal to 0: %s", -1));
     }
 }
