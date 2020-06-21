@@ -75,22 +75,41 @@ public class BingTileUtils
         }
     }
 
+    /**
+     * Return the longitude (in degrees) of the west edge of the tile.
+     */
+    public static double tileXToLongitude(int tileX, int zoomLevel)
+    {
+        int mapTileSize = 1 << zoomLevel;
+        double x = (clip(tileX, 0, mapTileSize) / mapTileSize) - 0.5;
+        return 360 * x;
+    }
+
+    /**
+     * Return the latitude (in degrees) of the north edge of the tile.
+     */
+    public static double tileYToLatitude(int tileY, int zoomLevel)
+    {
+        int mapTileSize = 1 << zoomLevel;
+        double y = 0.5 - (clip(tileY, 0, mapTileSize) / mapTileSize);
+        return 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
+    }
+
+    /**
+     * Return the Point in the Northwest corner of the tile.
+     */
     static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
-        long mapSize = mapSize(zoomLevel);
-        double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
-        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
-
-        double latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
-        double longitude = 360 * x;
-        return new Point(longitude, latitude);
+        return new Point(tileXToLongitude(tileX, zoomLevel), tileYToLatitude(tileY, zoomLevel));
     }
 
     static Envelope tileToEnvelope(BingTile tile)
     {
-        Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
-        Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
-        return new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY());
+        double minX = tileXToLongitude(tile.getX(), tile.getZoomLevel());
+        double maxX = tileXToLongitude(tile.getX() + 1, tile.getZoomLevel());
+        double minY = tileYToLatitude(tile.getY(), tile.getZoomLevel());
+        double maxY = tileYToLatitude(tile.getY() + 1, tile.getZoomLevel());
+        return new Envelope(minX, minY, maxX, maxY);
     }
 
     static double clip(double n, double minValue, double maxValue)
