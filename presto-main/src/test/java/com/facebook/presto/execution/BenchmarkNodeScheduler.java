@@ -57,6 +57,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -272,7 +273,7 @@ public class BenchmarkNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
             return hosts;
         }

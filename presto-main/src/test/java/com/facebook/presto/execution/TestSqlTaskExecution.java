@@ -69,6 +69,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1343,7 +1344,7 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
             return ImmutableList.of();
         }

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
+import java.util.Collection;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -39,7 +40,7 @@ public class IndexSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
     {
         throw new UnsupportedOperationException();
     }

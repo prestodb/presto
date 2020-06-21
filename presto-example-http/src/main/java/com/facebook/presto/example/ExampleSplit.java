@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -86,7 +87,7 @@ public class ExampleSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
     {
         return addresses;
     }

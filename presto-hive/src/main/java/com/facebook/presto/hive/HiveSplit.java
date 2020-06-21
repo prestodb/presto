@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.consistentHash.ConsistentHash;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -24,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -181,20 +183,16 @@ public class HiveSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
     {
-        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
+        if (candidates == null || candidates.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "candidates is null or empty for HiveSplit");
         }
 
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
-            int size = sortedCandidates.size();
-            int mod = path.hashCode() % size;
-            int position = mod < 0 ? mod + size : mod;
-            return ImmutableList.of(
-                    sortedCandidates.get(position),
-                    sortedCandidates.get((position + 1) % size));
+            ConsistentHash<HostAddress> consistentHash = new ConsistentHash<>(candidates);
+            Optional<List<HostAddress>> choosenNodes = consistentHash.get(path, 2);
+            return choosenNodes.orElse(addresses);
         }
         return addresses;
     }

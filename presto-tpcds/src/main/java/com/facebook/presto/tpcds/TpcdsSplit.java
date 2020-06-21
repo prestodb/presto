@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -95,7 +96,7 @@ public class TpcdsSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
     {
         return addresses;
     }

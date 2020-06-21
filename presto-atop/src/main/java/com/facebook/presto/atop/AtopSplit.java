@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
@@ -85,7 +86,7 @@ public class AtopSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
     {
         // discard the port number
         return ImmutableList.of(HostAddress.fromString(host.getHostText()));

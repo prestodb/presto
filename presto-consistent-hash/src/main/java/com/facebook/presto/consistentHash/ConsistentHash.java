@@ -44,7 +44,8 @@ public class ConsistentHash<T>
      * @param count specifies how many nodes to look for
      * @return
      */
-    public Optional<List<T>> get(Object key, int count) {
+    public Optional<List<T>> get(Object key, int count)
+    {
         if (circle.isEmpty() || key == null) {
             return Optional.empty();
         }

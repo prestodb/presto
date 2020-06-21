@@ -24,7 +24,6 @@ import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.google.common.base.Function;
@@ -48,7 +47,6 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistri
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionUtils.sortedNodes;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
@@ -129,17 +127,16 @@ public class SimpleNodeSelector
         boolean splitWaitingForAnyNode = false;
 
         // todo identify if sorting will cause bottleneck
-        List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
             List<InternalNode> candidateNodes;
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeMap.getHostAndAddress()), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeMap.getHostAndAddress()), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder().addAll(candidateNodes).addAll(randomNodeSelection.pickNodes(split)).build();
                     break;

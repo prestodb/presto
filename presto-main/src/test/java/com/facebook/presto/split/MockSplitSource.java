@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -171,7 +172,7 @@ public class MockSplitSource
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
             return ImmutableList.of();
         }

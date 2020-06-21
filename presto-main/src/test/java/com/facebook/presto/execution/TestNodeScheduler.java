@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.consistentHash.ConsistentHash;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
@@ -47,6 +48,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -333,24 +335,21 @@ public class TestNodeScheduler
         Set<Split> splits = new HashSet<>();
 
         // Adding one more split (1 % 3 = 1), 1 splits will be distributed to 1 nodes
-        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(1)));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(100)));
         SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
         Set<InternalNode> internalNodes = splitPlacementResult.getAssignments().keySet();
         assertEquals(internalNodes.size(), 1);
 
-        // Adding one more split (2 % 3 = 2), 2 splits will be distributed to 2 nodes
-        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(2)));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(300)));
         splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
         Set<InternalNode> internalNodesSecondCall = splitPlacementResult.getAssignments().keySet();
         assertEquals(internalNodesSecondCall.size(), 2);
 
-        // adding one more split(4 % 3 = 1) that will fall into the same slots, 3 splits will be distributed to 2 nodes still
-        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(4)));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(600)));
         splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 2);
 
-        // adding one more split(3 % 3 = 0) that will fall into different slots, 3 splits will be distributed to 3 nodes
-        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(3)));
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(-500)));
         splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
     }
@@ -619,7 +618,7 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
             return ImmutableList.of(HostAddress.fromString("127.0.0.1:11"));
         }
@@ -653,7 +652,7 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
             return hosts;
         }
@@ -683,9 +682,10 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
-            return ImmutableList.of(sortedCandidates.get(scheduleIdentifierId % sortedCandidates.size()));
+            ConsistentHash<HostAddress> consistentHash = new ConsistentHash<>(candidates);
+            return consistentHash.get(scheduleIdentifierId, 2).orElse(ImmutableList.of());
         }
     }
 
@@ -704,9 +704,10 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(Collection<HostAddress> candidates)
         {
-            return ImmutableList.of(sortedCandidates.get(new Random().nextInt(sortedCandidates.size())));
+            ConsistentHash<HostAddress> consistentHash = new ConsistentHash<>(candidates);
+            return consistentHash.get(new Random().nextInt(candidates.size()), 2).orElse(ImmutableList.of());
         }
     }
 

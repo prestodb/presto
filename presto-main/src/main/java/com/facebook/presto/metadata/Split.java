@@ -23,6 +23,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -94,7 +95,7 @@ public final class Split
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(Collection<HostAddress> sortedCandidates)
     {
         return connectorSplit.getPreferredNodes(sortedCandidates);
     }
