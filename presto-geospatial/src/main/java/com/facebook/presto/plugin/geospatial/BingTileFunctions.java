@@ -29,6 +29,8 @@ import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -64,6 +66,7 @@ import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileToEnvelope
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileXYToLatitudeLongitude;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -373,6 +376,68 @@ public class BingTileFunctions
         BingTile tile = BingTile.decode(input);
 
         return serialize(tileToEnvelope(tile));
+    }
+
+    @Description("Return the parent for a Bing tile")
+    @ScalarFunction("bing_tile_parent")
+    @SqlType(BingTileType.NAME)
+    public static long bingTileParent(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        try {
+            return tile.findParent().encode();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    @Description("Return the parent for the given zoom level for a Bing tile")
+    @ScalarFunction("bing_tile_parent")
+    @SqlType(BingTileType.NAME)
+    public static long bingTileParent(@SqlType(BingTileType.NAME) long input, @SqlType(StandardTypes.INTEGER) long newZoom)
+    {
+        BingTile tile = BingTile.decode(input);
+        try {
+            return tile.findParent(toIntExact(newZoom)).encode();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    @Description("Return the children for a Bing tile")
+    @ScalarFunction("bing_tile_children")
+    @SqlType("array(" + BingTileType.NAME + ")")
+    public static Block bingTileChildren(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        try {
+            List<BingTile> children = tile.findChildren();
+            BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, children.size());
+            children.stream().forEach(child -> BIGINT.writeLong(blockBuilder, child.encode()));
+            return blockBuilder.build();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    @Description("Return the children for the given zoom level for a Bing tile")
+    @ScalarFunction("bing_tile_children")
+    @SqlType("array(" + BingTileType.NAME + ")")
+    public static Block bingTileChildren(@SqlType(BingTileType.NAME) long input, @SqlType(StandardTypes.INTEGER) long newZoom)
+    {
+        BingTile tile = BingTile.decode(input);
+        try {
+            List<BingTile> children = tile.findChildren(toIntExact(newZoom));
+            BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, children.size());
+            children.stream().forEach(child -> BIGINT.writeLong(blockBuilder, child.encode()));
+            return blockBuilder.build();
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 
     @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
