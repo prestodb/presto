@@ -194,34 +194,58 @@ public class OptimizedPartitionedOutputOperator
         blockLeaseCloser.register(lease::close);
         Block decodedBlock = lease.get();
 
+        long estimatedSizeInBytes = decodedBlock.getLogicalSizeInBytes();
+
         if (decodedBlock instanceof ArrayBlock) {
             ColumnarArray columnarArray = ColumnarArray.toColumnarArray(decodedBlock);
-            return new DecodedBlockNode(columnarArray, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, columnarArray.getElementsBlock())));
+            Block childBlock = columnarArray.getElementsBlock();
+            return new DecodedBlockNode(
+                    columnarArray,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, childBlock)),
+                    columnarArray.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof MapBlock) {
             ColumnarMap columnarMap = ColumnarMap.toColumnarMap(decodedBlock);
-            return new DecodedBlockNode(columnarMap, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, columnarMap.getKeysBlock()), decodeBlock(flattener, blockLeaseCloser, columnarMap.getValuesBlock())));
+            Block keyBlock = columnarMap.getKeysBlock();
+            Block valueBlock = columnarMap.getValuesBlock();
+            return new DecodedBlockNode(
+                    columnarMap,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, keyBlock), decodeBlock(flattener, blockLeaseCloser, valueBlock)),
+                    columnarMap.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof RowBlock) {
             ColumnarRow columnarRow = ColumnarRow.toColumnarRow(decodedBlock);
             ImmutableList.Builder<DecodedBlockNode> children = ImmutableList.builder();
             for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-                children.add(decodeBlock(flattener, blockLeaseCloser, columnarRow.getField(i)));
+                Block childBlock = columnarRow.getField(i);
+                children.add(decodeBlock(flattener, blockLeaseCloser, childBlock));
             }
-            return new DecodedBlockNode(columnarRow, children.build());
+            return new DecodedBlockNode(columnarRow, children.build(), columnarRow.getRetainedSizeInBytes(), estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof DictionaryBlock) {
-            return new DecodedBlockNode(decodedBlock, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, ((DictionaryBlock) decodedBlock).getDictionary())));
+            Block dictionary = ((DictionaryBlock) decodedBlock).getDictionary();
+            return new DecodedBlockNode(
+                    decodedBlock,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, dictionary)),
+                    decodedBlock.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof RunLengthEncodedBlock) {
-            return new DecodedBlockNode(decodedBlock, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, ((RunLengthEncodedBlock) decodedBlock).getValue())));
+            Block childBlock = ((RunLengthEncodedBlock) decodedBlock).getValue();
+            return new DecodedBlockNode(
+                    decodedBlock,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, childBlock)),
+                    decodedBlock.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
-        return new DecodedBlockNode(decodedBlock, ImmutableList.of());
+        return new DecodedBlockNode(decodedBlock, ImmutableList.of(), block.getRetainedSizeInBytes(), estimatedSizeInBytes);
     }
 
     public static class OptimizedPartitionedOutputFactory
