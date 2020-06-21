@@ -87,6 +87,7 @@
         <module>presto-spi</module>
         <module>presto-array</module>
         <module>presto-cache</module>
+        <module>presto-consistent-hash</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
         <module>presto-kafka</module>
@@ -370,6 +371,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cache</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-consistent-hash</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
