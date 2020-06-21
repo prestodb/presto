@@ -19,6 +19,12 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileXToLongitude;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileYToLatitude;
 import static org.testng.Assert.assertEquals;
 
 public class TestBingTile
@@ -52,5 +58,36 @@ public class TestBingTile
         BingTile expected = BingTile.fromCoordinates(x, y, zoom);
         BingTile actual = BingTile.decode(expected.encode());
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTileXToLongitude()
+    {
+        assertEquals(tileXToLongitude(0, 0), MIN_LONGITUDE);
+        assertEquals(tileXToLongitude(1, 0), MAX_LONGITUDE);
+        assertEquals(tileXToLongitude(0, 1), MIN_LONGITUDE);
+        assertEquals(tileXToLongitude(1, 1), 0.0);
+        assertEquals(tileXToLongitude(2, 1), MAX_LONGITUDE);
+        for (int zoom = 2; zoom <= MAX_ZOOM_LEVEL; zoom++) {
+            assertEquals(tileXToLongitude(0, zoom), MIN_LONGITUDE);
+            assertEquals(tileXToLongitude(1 << (zoom - 1), zoom), 0.0);
+            assertEquals(tileXToLongitude(1 << zoom, zoom), MAX_LONGITUDE);
+        }
+    }
+
+    @Test
+    public void testTileYToLatitude()
+    {
+        double delta = 1e-8;
+        assertEquals(tileYToLatitude(0, 0), MAX_LATITUDE, delta);
+        assertEquals(tileYToLatitude(1, 0), MIN_LATITUDE, delta);
+        assertEquals(tileYToLatitude(0, 1), MAX_LATITUDE, delta);
+        assertEquals(tileYToLatitude(1, 1), 0.0);
+        assertEquals(tileYToLatitude(2, 1), MIN_LATITUDE, delta);
+        for (int zoom = 2; zoom <= MAX_ZOOM_LEVEL; zoom++) {
+            assertEquals(tileYToLatitude(0, zoom), MAX_LATITUDE, delta);
+            assertEquals(tileYToLatitude(1 << (zoom - 1), zoom), 0.0);
+            assertEquals(tileYToLatitude(1 << zoom, zoom), MIN_LATITUDE, delta);
+        }
     }
 }
