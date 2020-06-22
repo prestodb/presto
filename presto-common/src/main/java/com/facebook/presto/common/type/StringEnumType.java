@@ -50,4 +50,10 @@ public class StringEnumType
     {
         return VarcharType.VARCHAR;
     }
+
+    @Override
+    public TypeMetadata getTypeMetadata()
+    {
+        return new TypeMetadata(getValueType().getTypeSignature(), this.getEntries());
+    }
 }

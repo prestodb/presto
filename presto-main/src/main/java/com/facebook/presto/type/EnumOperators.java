@@ -77,7 +77,7 @@ public final class EnumOperators
                 .kind(SCALAR)
                 .operatorType(CAST)
                 .argumentTypes(fromType)
-                .returnType(TypeSignature.parseTypeSignature(String.format("enum(%s)", enumType.getTypeSignature().getBase())))
+                .returnType(enumType.getTypeSignature())
                 .build();
         return SqlScalarFunction.builder(EnumOperators.class, CAST)
                 .signature(signature)

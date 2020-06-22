@@ -186,4 +186,12 @@ public interface Type
      * Compare the values in the specified block at the specified positions equal.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Return additional type information relevant to clients
+     */
+    default TypeMetadata getTypeMetadata()
+    {
+        return new TypeMetadata();
+    }
 }
