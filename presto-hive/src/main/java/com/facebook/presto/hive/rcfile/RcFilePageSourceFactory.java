@@ -32,6 +32,7 @@ import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -100,6 +101,7 @@ public class RcFilePageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

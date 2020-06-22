@@ -57,6 +57,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -447,6 +448,8 @@ public enum FileFormat
             columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
 
+        SchemaTableName tableName = new SchemaTableName("hive", "testtable");
+
         return pageSourceFactory
                 .createPageSource(
                         conf,
@@ -462,6 +465,7 @@ public enum FileFormat
                                 false,
                                 ImmutableMap.of(),
                                 ImmutableMap.of()),
+                        tableName,
                         ImmutableMap.of(),
                         columnHandles,
                         TupleDomain.all(),
