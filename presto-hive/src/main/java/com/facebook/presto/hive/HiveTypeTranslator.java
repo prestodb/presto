@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -151,6 +152,10 @@ public class HiveTypeTranslator
                             .map(t -> translate(t, defaultHiveType))
                             .collect(toList()));
         }
+        if (type instanceof EnumType) {
+            return translate(((EnumType) type).getValueType(), defaultHiveType);
+        }
+
         return defaultHiveType
                 .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type)))
                 .getTypeInfo();
