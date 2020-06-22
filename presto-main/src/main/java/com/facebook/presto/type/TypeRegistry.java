@@ -182,6 +182,7 @@ public final class TypeRegistry
     public Type getType(TypeSignature signature)
     {
         Type type = types.get(signature);
+        type = type == null ? functionManager.resolveTypeDynamically(signature) : type;
         if (type == null) {
             try {
                 return parametricTypeCache.getUnchecked(signature);

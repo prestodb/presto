@@ -685,6 +685,16 @@ public class FunctionManager
         return boundVariables.isPresent();
     }
 
+    // Called by TypeRegistry to look up types from FunctionNamespaceManagers
+    public Type resolveTypeDynamically(TypeSignature signature)
+    {
+        return functionNamespaceManagers.values().stream()
+                .map(manager -> manager.getType(signature))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
     private static class ApplicableFunction
     {
         private final Signature declaredSignature;
