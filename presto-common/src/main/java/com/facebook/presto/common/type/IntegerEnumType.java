@@ -60,7 +60,8 @@ public class IntegerEnumType
     }
 
     @Override
-    public Type getValueType() {
+    public Type getValueType()
+    {
         return BigintType.BIGINT;
     }
 
