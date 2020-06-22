@@ -23,12 +23,12 @@ import java.util.Objects;
 
 import static java.util.Collections.singletonList;
 
-public final class VarcharType
+public class VarcharType
         extends AbstractVariableWidthType
 {
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
-    public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
+    public static final VarcharType VARCHAR = createVarcharTypeInternal(UNBOUNDED_LENGTH);
 
     public static VarcharType createUnboundedVarcharType()
     {
@@ -41,7 +41,14 @@ public final class VarcharType
             // Use createUnboundedVarcharType for unbounded VARCHAR.
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
-        return new VarcharType(length);
+        return createVarcharTypeInternal(length);
+    }
+
+    private static VarcharType createVarcharTypeInternal(int length)
+    {
+        return new VarcharType(length, new TypeSignature(
+                StandardTypes.VARCHAR,
+                singletonList(TypeSignatureParameter.of((long) length))));
     }
 
     public static TypeSignature getParametrizedVarcharSignature(String param)
@@ -51,13 +58,9 @@ public final class VarcharType
 
     private final int length;
 
-    private VarcharType(int length)
+    protected VarcharType(int length, TypeSignature typeSignature)
     {
-        super(
-                new TypeSignature(
-                        StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.of((long) length))),
-                Slice.class);
+        super(typeSignature, Slice.class);
 
         if (length < 0) {
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
