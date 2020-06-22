@@ -50,6 +50,7 @@ import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxBucketsForGroupedExecution;
+import static com.facebook.presto.hive.HiveSessionProperties.getMinBucketCountToNotIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
@@ -192,10 +193,8 @@ public class HivePartitionManager
 
         List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
 
-        // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
-        boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
-        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
-        Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
+        Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session);
+        Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate));
 
         if (!queryUsesHiveBucketColumn(effectivePredicate)
                 && hiveBucketHandle.isPresent()
@@ -245,6 +244,26 @@ public class HivePartitionManager
                 enforcedTupleDomain,
                 hiveBucketHandle,
                 bucketFilter);
+    }
+
+    private Optional<HiveBucketHandle> getBucketHandle(Table table, ConnectorSession session)
+    {
+        // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
+        if (table.getTableType().equals(TEMPORARY_TABLE)) {
+            return getHiveBucketHandle(table);
+        }
+
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        if (!hiveBucketHandle.isPresent()) {
+            return Optional.empty();
+        }
+
+        int requiredTableBucketCount = getMinBucketCountToNotIgnoreTableBucketing(session);
+        if (hiveBucketHandle.get().getTableBucketCount() < requiredTableBucketCount) {
+            return Optional.empty();
+        }
+
+        return shouldIgnoreTableBucketing(session) ? Optional.empty() : hiveBucketHandle;
     }
 
     private boolean queryUsesHiveBucketColumn(TupleDomain<ColumnHandle> effectivePredicate)

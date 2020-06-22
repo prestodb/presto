@@ -247,6 +247,60 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     }
 
     @Test
+    public void testIgnoreTableBucketingWhenTableBucketCountIsSmall()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE partitioned_nation\n" +
+                            "WITH (\n" +
+                            "    bucket_count = 17,\n" +
+                            "    bucketed_by = ARRAY['nationkey']\n" +
+                            ") AS\n" +
+                            "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation",
+                    25);
+
+            // test default : not ignore table bucketing
+            assertQuery(
+                    getSession(),
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(1));
+
+            // test ignore table bucketing
+            Session testSession = Session.builder(getSession())
+                    .setCatalogSessionProperty("hive", "min_bucket_count_to_not_ignore_table_bucketing", "20")
+                    .build();
+
+            assertQuery(
+                    testSession,
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(2));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_nation");
+        }
+    }
+
+    @Test
     public void testExplainOfCreateTableAs()
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
