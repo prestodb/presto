@@ -28,6 +28,8 @@ public class IntegerEnumType
     public IntegerEnumType(String name, Map<String, Long> entries)
     {
         super(TypeSignature.parseTypeSignature(name));
+        TypeUtils.assertUniqueValues(entries.values(),
+                String.format("Unsupported enum %s with duplicate values", name));
         this.entries = entries;
     }
 

@@ -24,6 +24,8 @@ public class StringEnumType
     public StringEnumType(String name, Map<String, String> entries)
     {
         super(VarcharType.MAX_LENGTH, TypeSignature.parseTypeSignature(name));
+        TypeUtils.assertUniqueValues(entries.values(),
+                String.format("Unsupported enum %s with duplicate values", name));
         this.entries = entries;
     }
 

@@ -19,6 +19,10 @@ import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
 public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
@@ -99,6 +103,17 @@ public final class TypeUtils
     {
         if (isNull) {
             throw new NotSupportedException(errorMsg);
+        }
+    }
+
+    static <V> void assertUniqueValues(Collection<V> collection, String errorMsg)
+    {
+        Set<V> visited = new HashSet<>();
+        for (V value : collection) {
+            if (visited.contains(value)) {
+                throw new NotSupportedException(errorMsg);
+            }
+            visited.add(value);
         }
     }
 }

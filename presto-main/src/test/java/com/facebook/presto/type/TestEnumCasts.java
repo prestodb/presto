@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.type.IntegerEnumType;
 import com.facebook.presto.common.type.StringEnumType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
@@ -20,6 +21,8 @@ import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertThrows;
 
 public class TestEnumCasts
         extends AbstractTestFunctions
@@ -81,5 +84,15 @@ public class TestEnumCasts
 
         assertInvalidCast("CAST('hello' AS Country)");
         assertUnavailableCast("CAST(1 AS Country)");
+    }
+
+    @Test
+    public void testInvalidEnumWithDuplicates()
+    {
+        assertThrows(NotSupportedException.class,
+                () -> new StringEnumType("my_invalid_enum",
+                        ImmutableMap.of(
+                                "k1", "value",
+                                "k2", "value")));
     }
 }
