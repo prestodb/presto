@@ -69,7 +69,10 @@ final class FixJsonDataUtils
         }
         requireNonNull(columns, "columns is null");
         List<TypeSignature> signatures = columns.stream()
-                .map(column -> parseTypeSignature(column.getType()))
+                .map(column -> {
+                    TypeSignature displayType = column.getTypeMetadata().getDisplayType();
+                    return displayType != null ? displayType : parseTypeSignature(column.getType());
+                })
                 .collect(toList());
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (List<Object> row : data) {
