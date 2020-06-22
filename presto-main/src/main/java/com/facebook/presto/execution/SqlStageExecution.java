@@ -489,7 +489,7 @@ public final class SqlStageExecution
 
         sourceTasks.forEach((planNodeId, task) -> {
             TaskStatus status = task.getTaskStatus();
-            if (status.getState() != TaskState.FINISHED) {
+            if (status.getState() != TaskState.FINISHED.ordinal()) {
                 initialSplits.put(planNodeId, createRemoteSplitFor(taskId, task.getRemoteTaskLocation(), task.getTaskId()));
             }
         });
@@ -553,7 +553,7 @@ public final class SqlStageExecution
                 return;
             }
 
-            TaskState taskState = taskStatus.getState();
+            TaskState taskState = TaskState.values[taskStatus.getState()];
             if (taskState == TaskState.FAILED) {
                 // no matter if it is possible to recover - the task is failed
                 failedTasks.add(taskId);

@@ -50,6 +50,8 @@ public enum TaskState
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
+    public static final TaskState[] values = values();
+
     private final boolean doneState;
 
     TaskState(boolean doneState)

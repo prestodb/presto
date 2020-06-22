@@ -19,6 +19,7 @@ import com.facebook.presto.execution.SqlTask;
 import com.facebook.presto.execution.SqlTaskIoStats;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.QueryId;
@@ -147,7 +148,7 @@ public class GcStatusMonitor
     private List<SqlTask> getActiveSqlTasks()
     {
         return sqlTaskManager.getAllTasks().stream()
-                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
+                .filter(task -> !TaskState.values[task.getTaskInfo().getTaskStatus().getState()].isDone())
                 .collect(toImmutableList());
     }
 
@@ -205,7 +206,7 @@ public class GcStatusMonitor
                         return ImmutableList.of(
                                 task.getQueryContext().getQueryId().toString(),
                                 task.getTaskId().toString(),
-                                taskStatus.getState().toString(),
+                                TaskState.values[taskStatus.getState()].toString(),
                                 taskStats.getCreateTime().toString(),
                                 taskStats.getUserMemoryReservation().toString(),
                                 taskStats.getSystemMemoryReservation().toString(),

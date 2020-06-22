@@ -390,7 +390,7 @@ public class QueryMonitor
             }
         }
         return stageInfo.getLatestAttemptExecutionInfo().getTasks().stream()
-                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
+                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED.ordinal())
                 .findFirst();
     }
 

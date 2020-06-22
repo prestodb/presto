@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskState;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -142,7 +143,7 @@ public class GracefulShutdownHandler
     {
         return sqlTaskManager.getAllTaskInfo()
                 .stream()
-                .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
+                .filter(taskInfo -> !TaskState.values[taskInfo.getTaskStatus().getState()].isDone())
                 .collect(toImmutableList());
     }
 

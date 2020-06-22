@@ -307,7 +307,7 @@ public final class HttpRemoteTask
                     isBinaryTransportEnabled);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
-                TaskState state = newStatus.getState();
+                TaskState state = TaskState.values[newStatus.getState()];
                 if (state.isDone()) {
                     cleanUpTask();
                 }
@@ -370,7 +370,7 @@ public final class HttpRemoteTask
         requireNonNull(splitsBySource, "splitsBySource is null");
 
         // only add pending split if not done
-        if (getTaskStatus().getState().isDone()) {
+        if (TaskState.values[getTaskStatus().getState()].isDone()) {
             return;
         }
 
@@ -424,7 +424,7 @@ public final class HttpRemoteTask
     @Override
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        if (getTaskStatus().getState().isDone()) {
+        if (TaskState.values[getTaskStatus().getState()].isDone()) {
             return;
         }
 
@@ -511,7 +511,7 @@ public final class HttpRemoteTask
     public int getPartitionedSplitCount()
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isDone()) {
+        if (TaskState.values[taskStatus.getState()].isDone()) {
             return 0;
         }
         return getPendingSourceSplitCount() + taskStatus.getQueuedPartitionedDrivers() + taskStatus.getRunningPartitionedDrivers();
@@ -521,7 +521,7 @@ public final class HttpRemoteTask
     public int getQueuedPartitionedSplitCount()
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isDone()) {
+        if (TaskState.values[taskStatus.getState()].isDone()) {
             return 0;
         }
         return getPendingSourceSplitCount() + taskStatus.getQueuedPartitionedDrivers();
@@ -617,7 +617,7 @@ public final class HttpRemoteTask
     {
         TaskStatus taskStatus = getTaskStatus();
         // don't update if the task hasn't been started yet or if it is already finished
-        if (!needsUpdate.get() || taskStatus.getState().isDone()) {
+        if (!needsUpdate.get() || TaskState.values[taskStatus.getState()].isDone()) {
             return;
         }
 
@@ -714,7 +714,7 @@ public final class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             TaskStatus taskStatus = getTaskStatus();
-            if (taskStatus.getState().isDone()) {
+            if (TaskState.values[taskStatus.getState()].isDone()) {
                 return;
             }
 
@@ -729,7 +729,7 @@ public final class HttpRemoteTask
 
     private synchronized void cleanUpTask()
     {
-        checkState(getTaskStatus().getState().isDone(), "attempt to clean up a task that is not done yet");
+        checkState(TaskState.values[getTaskStatus().getState()].isDone(), "attempt to clean up a task that is not done yet");
 
         // clear pending splits to free memory
         pendingSplits.clear();
@@ -761,7 +761,7 @@ public final class HttpRemoteTask
     @Override
     public synchronized void abort()
     {
-        if (getTaskStatus().getState().isDone()) {
+        if (TaskState.values[getTaskStatus().getState()].isDone()) {
             return;
         }
 
@@ -770,7 +770,7 @@ public final class HttpRemoteTask
 
     private synchronized void abort(TaskStatus status)
     {
-        checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
+        checkState(TaskState.values[status.getState()].isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
@@ -813,7 +813,7 @@ public final class HttpRemoteTask
                     updateTaskInfo(result.getValue());
                 }
                 finally {
-                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                    if (!TaskState.values[getTaskInfo().getTaskStatus().getState()].isDone()) {
                         cleanUpLocally();
                     }
                 }
@@ -874,7 +874,7 @@ public final class HttpRemoteTask
     private void failTask(Throwable cause)
     {
         TaskStatus taskStatus = getTaskStatus();
-        if (!taskStatus.getState().isDone()) {
+        if (!TaskState.values[taskStatus.getState()].isDone()) {
             log.debug(cause, "Remote task %s failed with %s", taskStatus.getSelf(), cause);
         }
 
@@ -965,7 +965,7 @@ public final class HttpRemoteTask
 
                     // if task not already done, record error
                     TaskStatus taskStatus = getTaskStatus();
-                    if (!taskStatus.getState().isDone()) {
+                    if (!TaskState.values[taskStatus.getState()].isDone()) {
                         updateErrorTracker.requestFailed(cause);
                     }
                 }

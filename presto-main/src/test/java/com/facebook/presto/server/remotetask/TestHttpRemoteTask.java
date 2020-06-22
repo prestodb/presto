@@ -173,8 +173,8 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
-        poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+        poll(() -> TaskState.values[remoteTask.getTaskStatus().getState()].isDone());
+        poll(() -> TaskState.values[remoteTask.getTaskInfo().getTaskStatus().getState()].isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -194,13 +194,13 @@ public class TestHttpRemoteTask
         waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();
-        assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
+        assertTrue(TaskState.values[remoteTask.getTaskStatus().getState()].isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
-                assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
+                assertTrue(TaskState.values[remoteTask.getTaskInfo().getTaskStatus().getState()].isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
                 assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
                 break;
             case REJECTED_EXECUTION:
@@ -445,7 +445,7 @@ public class TestHttpRemoteTask
         {
             this.initialTaskInfo = initialTaskInfo;
             this.initialTaskStatus = initialTaskInfo.getTaskStatus();
-            this.taskState = initialTaskStatus.getState();
+            this.taskState = TaskState.values[initialTaskStatus.getState()];
             this.version = initialTaskStatus.getVersion();
             switch (failureScenario) {
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
@@ -503,7 +503,7 @@ public class TestHttpRemoteTask
                     taskInstanceIdLeastSignificantBits,
                     taskInstanceIdMostSignificantBits,
                     ++version,
-                    taskState,
+                    taskState.ordinal(),
                     initialTaskStatus.getSelf(),
                     ImmutableSet.of(),
                     initialTaskStatus.getFailures(),

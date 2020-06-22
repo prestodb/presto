@@ -412,7 +412,7 @@ public class QueryStateMachine
             failedTasks = Optional.of(getAllStages(rootStage).stream()
                     .flatMap(stageInfo -> Streams.concat(ImmutableList.of(stageInfo.getLatestAttemptExecutionInfo()).stream(), stageInfo.getPreviousAttemptsExecutionInfos().stream()))
                     .flatMap(execution -> execution.getTasks().stream())
-                    .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
+                    .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED.ordinal())
                     .map(TaskInfo::getTaskId)
                     .collect(toImmutableList()));
         }

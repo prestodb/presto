@@ -96,13 +96,13 @@ public class NodeTaskMap
         {
             if (remoteTasks.add(task)) {
                 task.addStateChangeListener(taskStatus -> {
-                    if (taskStatus.getState().isDone()) {
+                    if (TaskState.values[taskStatus.getState()].isDone()) {
                         remoteTasks.remove(task);
                     }
                 });
 
                 // Check if task state is already done before adding the listener
-                if (task.getTaskStatus().getState().isDone()) {
+                if (TaskState.values[task.getTaskStatus().getState()].isDone()) {
                     remoteTasks.remove(task);
                 }
             }

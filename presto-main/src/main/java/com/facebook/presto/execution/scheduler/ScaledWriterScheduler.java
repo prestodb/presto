@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.metadata.InternalNode;
@@ -97,7 +98,7 @@ public class ScaledWriterScheduler
         }
 
         double fullTasks = sourceTasksProvider.get().stream()
-                .filter(task -> !task.getState().isDone())
+                .filter(task -> !TaskState.values[task.getState()].isDone())
                 .map(TaskStatus::isOutputBufferOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
@@ -112,7 +113,7 @@ public class ScaledWriterScheduler
 
         if (optimizedScaleWriterProducerBuffer) {
             double totalProducerBufferUtilization = sourceTasksProvider.get().stream()
-                    .filter(task -> !task.getState().isDone())
+                    .filter(task -> !TaskState.values[task.getState()].isDone())
                     .mapToDouble(TaskStatus::getOutputBufferUtilization)
                     .sum();
 

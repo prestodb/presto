@@ -68,7 +68,7 @@ public class StageExecutionInfo
 
     public boolean isFinal()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> TaskState.values[taskInfo.getTaskStatus().getState()].isDone());
     }
 
     public static StageExecutionInfo unscheduledExecutionInfo(int stageId, boolean isQueryDone)

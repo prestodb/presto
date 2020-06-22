@@ -259,7 +259,7 @@ public class StageExecutionStateMachine
         long totalAllocation = 0;
 
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
+            TaskState taskState = TaskState.values[taskInfo.getTaskStatus().getState()];
             TaskStats taskStats = taskInfo.getStats();
 
             totalDrivers += taskStats.getTotalDrivers();
@@ -380,7 +380,7 @@ public class StageExecutionStateMachine
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
+            TaskState taskState = TaskState.values[taskInfo.getTaskStatus().getState()];
             if (taskState.isDone()) {
                 completedTasks++;
             }
@@ -405,7 +405,7 @@ public class StageExecutionStateMachine
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
+            if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED.ordinal()) {
                 retriedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);

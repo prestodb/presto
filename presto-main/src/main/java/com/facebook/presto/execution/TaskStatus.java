@@ -50,7 +50,7 @@ public class TaskStatus
     private final long taskInstanceIdLeastSignificantBits;
     private final long taskInstanceIdMostSignificantBits;
     private final long version;
-    private final TaskState state;
+    private final int state;
     private final URI self;
     private final Set<Lifespan> completedDriverGroups;
 
@@ -74,7 +74,7 @@ public class TaskStatus
             @JsonProperty("taskInstanceIdLeastSignificantBits") long taskInstanceIdLeastSignificantBits,
             @JsonProperty("taskInstanceIdMostSignificantBits") long taskInstanceIdMostSignificantBits,
             @JsonProperty("version") long version,
-            @JsonProperty("state") TaskState state,
+            @JsonProperty("state") int state,
             @JsonProperty("self") URI self,
             @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
@@ -92,7 +92,7 @@ public class TaskStatus
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
         checkState(version >= MIN_VERSION, "version must be >= MIN_VERSION");
         this.version = version;
-        this.state = requireNonNull(state, "state is null");
+        this.state = state;
         this.self = requireNonNull(self, "self is null");
         this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
@@ -135,7 +135,7 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public TaskState getState()
+    public int getState()
     {
         return state;
     }
@@ -226,7 +226,7 @@ public class TaskStatus
                 0L,
                 0L,
                 MIN_VERSION,
-                PLANNED,
+                PLANNED.ordinal(),
                 location,
                 ImmutableSet.of(),
                 ImmutableList.of(),
@@ -247,7 +247,7 @@ public class TaskStatus
                 taskStatus.getTaskInstanceIdLeastSignificantBits(),
                 taskStatus.getTaskInstanceIdMostSignificantBits(),
                 MAX_VERSION,
-                state,
+                state.ordinal(),
                 taskStatus.getSelf(),
                 taskStatus.getCompletedDriverGroups(),
                 exceptions,

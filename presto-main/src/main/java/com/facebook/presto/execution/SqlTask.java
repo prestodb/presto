@@ -287,7 +287,7 @@ public class SqlTask
                 taskInstanceId.getUuidLeastSignificantBits(),
                 taskInstanceId.getUuidMostSignificantBits(),
                 versionNumber,
-                state,
+                state.ordinal(),
                 location,
                 completedDriverGroups,
                 failures,

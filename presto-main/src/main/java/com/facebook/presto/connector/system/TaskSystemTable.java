@@ -17,6 +17,7 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorSession;
@@ -115,7 +116,7 @@ public class TaskSystemTable
                     taskInfo.getTaskId().getStageExecutionId().toString(),
                     taskInfo.getTaskId().getStageExecutionId().getStageId().toString(),
                     taskInfo.getTaskId().getQueryId().toString(),
-                    taskStatus.getState().toString(),
+                    TaskState.values[taskStatus.getState()].toString(),
 
                     (long) stats.getTotalDrivers(),
                     (long) stats.getQueuedDrivers(),

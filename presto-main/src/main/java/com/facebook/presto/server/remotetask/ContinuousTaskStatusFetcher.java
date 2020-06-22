@@ -20,6 +20,7 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -131,7 +132,7 @@ class ContinuousTaskStatusFetcher
     {
         // stopped or done?
         TaskStatus taskStatus = getTaskStatus();
-        if (!running || taskStatus.getState().isDone()) {
+        if (!running || TaskState.values[taskStatus.getState()].isDone()) {
             return;
         }
 
@@ -151,7 +152,7 @@ class ContinuousTaskStatusFetcher
 
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
-                .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                .setHeader(PRESTO_CURRENT_STATE, TaskState.values[taskStatus.getState()].toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
@@ -197,7 +198,7 @@ class ContinuousTaskStatusFetcher
             try {
                 // if task not already done, record error
                 TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isDone()) {
+                if (!TaskState.values[taskStatus.getState()].isDone()) {
                     errorTracker.requestFailed(cause);
                 }
             }
@@ -237,7 +238,7 @@ class ContinuousTaskStatusFetcher
                 return false;
             }
 
-            if (oldValue.getState().isDone()) {
+            if (TaskState.values[oldValue.getState()].isDone()) {
                 // never update if the task has reached a terminal state
                 return false;
             }

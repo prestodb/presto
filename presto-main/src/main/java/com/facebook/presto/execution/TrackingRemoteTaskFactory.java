@@ -91,13 +91,13 @@ public class TrackingRemoteTaskFactory
             previousSystemMemory = currentSystemMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
 
-            if (state == PLANNED && newStatus.getState() == RUNNING) {
+            if (state == PLANNED && newStatus.getState() == RUNNING.ordinal()) {
                 stateMachine.incrementCurrentRunningTaskCount();
             }
-            else if (state == RUNNING && newStatus.getState().isDone()) {
+            else if (state == RUNNING && TaskState.values[newStatus.getState()].isDone()) {
                 stateMachine.decrementCurrentRunningTaskCount();
             }
-            state = newStatus.getState();
+            state = TaskState.values[newStatus.getState()];
         }
     }
 }

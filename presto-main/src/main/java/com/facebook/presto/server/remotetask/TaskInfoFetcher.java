@@ -22,6 +22,7 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -219,7 +220,7 @@ public class TaskInfoFetcher
         Request.Builder uriBuilder = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet());
 
         if (taskInfoRefreshMaxWait.toMillis() != 0L) {
-            uriBuilder.setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+            uriBuilder.setHeader(PRESTO_CURRENT_STATE, TaskState.values[taskStatus.getState()].toString())
                     .setHeader(PRESTO_MAX_WAIT, taskInfoRefreshMaxWait.toString());
         }
 
@@ -244,7 +245,7 @@ public class TaskInfoFetcher
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
             TaskStatus newTaskStatus = newValue.getTaskStatus();
-            if (oldTaskStatus.getState().isDone()) {
+            if (TaskState.values[oldTaskStatus.getState()].isDone()) {
                 // never update if the task has reached a terminal state
                 return false;
             }
@@ -252,7 +253,7 @@ public class TaskInfoFetcher
             return newTaskStatus.getVersion() >= oldTaskStatus.getVersion();
         });
 
-        if (updated && newValue.getTaskStatus().getState().isDone()) {
+        if (updated && TaskState.values[newValue.getTaskStatus().getState()].isDone()) {
             finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             stop();
         }
@@ -311,6 +312,6 @@ public class TaskInfoFetcher
 
     private static boolean isDone(TaskInfo taskInfo)
     {
-        return taskInfo.getTaskStatus().getState().isDone();
+        return TaskState.values[taskInfo.getTaskStatus().getState()].isDone();
     }
 }

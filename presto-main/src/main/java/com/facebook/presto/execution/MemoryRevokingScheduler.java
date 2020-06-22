@@ -218,7 +218,7 @@ public class MemoryRevokingScheduler
     private long getMemoryAlreadyBeingRevoked(Collection<SqlTask> sqlTasks, MemoryPool memoryPool)
     {
         return sqlTasks.stream()
-                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING.ordinal())
                 .filter(task -> task.getQueryContext().getMemoryPool() == memoryPool)
                 .mapToLong(task -> task.getQueryContext().accept(new TraversingQueryContextVisitor<Void, Long>()
                 {
@@ -245,7 +245,7 @@ public class MemoryRevokingScheduler
     {
         AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(remainingBytesToRevoke);
         sqlTasks.stream()
-                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING.ordinal())
                 .filter(task -> task.getQueryContext().getMemoryPool() == memoryPool)
                 .sorted(ORDER_BY_CREATE_TIME)
                 .forEach(task -> task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
