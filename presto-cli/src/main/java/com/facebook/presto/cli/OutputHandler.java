@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.Column;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.common.type.TypeMetadata;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.units.Duration.nanosSince;
@@ -44,17 +49,44 @@ public final class OutputHandler
         this.printer = requireNonNull(printer, "printer is null");
     }
 
-    public void processRow(List<?> row)
+    public void processRow(List<?> row, List<Column> columns)
             throws IOException
     {
         if (rowBuffer.isEmpty()) {
             bufferStart = System.nanoTime();
         }
 
-        rowBuffer.add(row);
+        rowBuffer.add(prettyPrintRow(row, columns));
         if (rowBuffer.size() >= MAX_BUFFERED_ROWS) {
             flush(false);
         }
+    }
+
+    private List<?> prettyPrintRow(List<?> row, List<Column> columns)
+    {
+        ImmutableList.Builder<Object> builder = new ImmutableList.Builder<>();
+        for (int i = 0; i < row.size(); i++) {
+            Object value = row.get(i);
+            Column column = columns.get(i);
+            TypeMetadata typeInfo = column.getTypeMetadata();
+            if (typeInfo == null || typeInfo.getEnumValues() == null) {
+                builder.add(value);
+                continue;
+            }
+            builder.add(getDisplayValueForEnum(value, typeInfo.getEnumValues(), column.getType()));
+        }
+        return builder.build();
+    }
+
+    private Object getDisplayValueForEnum(Object value, Map<String, String> enumEntries, String enumName)
+    {
+        Optional<String> key = enumEntries.entrySet().stream()
+                .filter(e -> e.getValue().equals(value.toString()))
+                .map(Map.Entry::getKey).findFirst();
+        if (key.isPresent()) {
+            return String.format("%s'%s'", enumName, key.get());
+        }
+        return value;
     }
 
     @Override
@@ -74,7 +106,7 @@ public final class OutputHandler
             Iterable<List<Object>> data = client.currentData().getData();
             if (data != null) {
                 for (List<Object> row : data) {
-                    processRow(unmodifiableList(row));
+                    processRow(unmodifiableList(row), client.currentData().getColumns());
                 }
             }
 

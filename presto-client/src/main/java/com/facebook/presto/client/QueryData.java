@@ -18,4 +18,6 @@ import java.util.List;
 public interface QueryData
 {
     Iterable<List<Object>> getData();
+
+    List<Column> getColumns();
 }
