@@ -60,5 +60,29 @@
             <directory>${project.build.directory}/dependency/presto-postgresql-${project.version}</directory>
             <outputDirectory>plugin/postgresql</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-kafka-${project.version}</directory>
+            <outputDirectory>plugin/kafka</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-mongodb-${project.version}</directory>
+            <outputDirectory>plugin/mongodb</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-pinot-${project.version}</directory>
+            <outputDirectory>plugin/pinot</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-redis-${project.version}</directory>
+            <outputDirectory>plugin/redis</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-redshift-${project.version}</directory>
+            <outputDirectory>plugin/redshift</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-sqlserver-${project.version}</directory>
+            <outputDirectory>plugin/sqlserver</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
