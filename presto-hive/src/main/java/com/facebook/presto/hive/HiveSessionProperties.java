@@ -43,6 +43,7 @@ import static java.util.Locale.ENGLISH;
 public final class HiveSessionProperties
 {
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
+    private static final String MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING = "min_bucket_count_to_not_ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
@@ -134,6 +135,11 @@ public final class HiveSessionProperties
                         "Ignore table bucketing to enable reading from unbucketed partitions",
                         hiveClientConfig.isIgnoreTableBucketing(),
                         false),
+                integerProperty(
+                        MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING,
+                        "Ignore table bucketing when table bucket count is less than the value specified",
+                        hiveClientConfig.getMinBucketCountToNotIgnoreTableBucketing(),
+                        true),
                 booleanProperty(
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
@@ -494,6 +500,11 @@ public final class HiveSessionProperties
     public static boolean shouldIgnoreTableBucketing(ConnectorSession session)
     {
         return session.getProperty(IGNORE_TABLE_BUCKETING, Boolean.class);
+    }
+
+    public static Integer getMinBucketCountToNotIgnoreTableBucketing(ConnectorSession session)
+    {
+        return session.getProperty(MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING, Integer.class);
     }
 
     public static int getMaxBucketsForGroupedExecution(ConnectorSession session)
