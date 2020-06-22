@@ -24,9 +24,9 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.spark.TaskContext;
 
 import java.io.File;
-import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -38,18 +38,26 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.sort;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRunner
+        implements AutoCloseable
 {
     private final PrestoSparkDistribution distribution;
+    private final IPrestoSparkService driverPrestoSparkService;
 
     public PrestoSparkRunner(PrestoSparkDistribution distribution)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
+        driverPrestoSparkService = createService(
+                SparkProcessType.DRIVER,
+                distribution.getPackageSupplier(),
+                distribution.getConfigProperties(),
+                distribution.getCatalogProperties());
     }
 
     public void run(
@@ -59,20 +67,24 @@ public class PrestoSparkRunner
             Map<String, String> sessionProperties,
             Map<String, Map<String, String>> catalogSessionProperties)
     {
-        CachingServiceFactory serviceFactory = new CachingServiceFactory(distribution);
-        IPrestoSparkService service = serviceFactory.createService(SparkProcessType.DRIVER);
-        IPrestoSparkQueryExecutionFactory queryExecutionFactory = service.getQueryExecutionFactory();
+        IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
         PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
                 query,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(serviceFactory));
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution));
 
         List<List<Object>> results = queryExecution.execute();
 
         System.out.println("Rows: " + results.size());
         results.forEach(System.out::println);
+    }
+
+    @Override
+    public void close()
+    {
+        driverPrestoSparkService.close();
     }
 
     private static PrestoSparkSession createSessionInfo(
@@ -122,21 +134,32 @@ public class PrestoSparkRunner
         return serviceLoader.iterator().next();
     }
 
-    private static class CachingServiceFactory
-            implements Serializable
+    private static IPrestoSparkService createService(
+            SparkProcessType sparkProcessType,
+            PackageSupplier packageSupplier,
+            Map<String, String> configProperties,
+            Map<String, Map<String, String>> catalogProperties)
     {
-        private static IPrestoSparkService service;
+        String packagePath = getPackagePath(packageSupplier);
+        File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
+        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties);
+        IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
+        return serviceFactory.createService(sparkProcessType, configuration);
+    }
 
-        private static String currentPackagePath;
-        private static Map<String, String> currentConfigProperties;
-        private static Map<String, Map<String, String>> currentCatalogProperties;
-        private static SparkProcessType currentProcessEnvironment;
+    private static String getPackagePath(PackageSupplier packageSupplier)
+    {
+        return checkDirectory(packageSupplier.getPrestoSparkPackageDirectory()).getAbsolutePath();
+    }
 
+    private static class DistributionBasedPrestoSparkTaskExecutorFactoryProvider
+            implements PrestoSparkTaskExecutorFactoryProvider
+    {
         private final PackageSupplier packageSupplier;
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
 
-        public CachingServiceFactory(PrestoSparkDistribution distribution)
+        public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
             requireNonNull(distribution, "distribution is null");
             this.packageSupplier = distribution.getPackageSupplier();
@@ -144,26 +167,31 @@ public class PrestoSparkRunner
             this.catalogProperties = distribution.getCatalogProperties();
         }
 
-        public IPrestoSparkService createService(SparkProcessType processEnvironment)
+        @Override
+        public IPrestoSparkTaskExecutorFactory get()
         {
-            requireNonNull(processEnvironment, "processEnvironment is null");
+            checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
+            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
+            return prestoSparkService.getTaskExecutorFactory();
+        }
 
-            synchronized (CachingServiceFactory.class) {
+        private static IPrestoSparkService service;
+        private static String currentPackagePath;
+        private static Map<String, String> currentConfigProperties;
+        private static Map<String, Map<String, String>> currentCatalogProperties;
+
+        private IPrestoSparkService getOrCreatePrestoSparkService()
+        {
+            synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
-                    currentPackagePath = checkDirectory(packageSupplier.getPrestoSparkPackageDirectory()).getAbsolutePath();
+                    service = createService(SparkProcessType.EXECUTOR, packageSupplier, configProperties, catalogProperties);
+                    currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
-                    currentProcessEnvironment = processEnvironment;
-
-                    File pluginsDirectory = checkDirectory(new File(currentPackagePath, "plugin"));
-                    PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties);
-                    IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(currentPackagePath, "lib")));
-                    service = serviceFactory.createService(processEnvironment, configuration);
                 }
-                checkEquals("packagePath", currentPackagePath, packageSupplier.getPrestoSparkPackageDirectory().getAbsolutePath());
+                checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
                 checkEquals("configProperties", currentConfigProperties, configProperties);
                 checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
-                checkEquals("processEnvironment", currentProcessEnvironment, processEnvironment);
                 return service;
             }
         }
@@ -173,24 +201,6 @@ public class PrestoSparkRunner
             if (!Objects.equals(first, second)) {
                 throw new IllegalStateException(format("%s is different: %s != %s", name, first, second));
             }
-        }
-    }
-
-    private static class DistributionBasedPrestoSparkTaskExecutorFactoryProvider
-            implements PrestoSparkTaskExecutorFactoryProvider
-    {
-        private final CachingServiceFactory serviceFactory;
-
-        public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(CachingServiceFactory serviceFactory)
-        {
-            this.serviceFactory = requireNonNull(serviceFactory, "serviceFactory is null");
-        }
-
-        @Override
-        public IPrestoSparkTaskExecutorFactory get(SparkProcessType processEnvironment)
-        {
-            IPrestoSparkService service = serviceFactory.createService(processEnvironment);
-            return service.getTaskExecutorFactory();
         }
     }
 }

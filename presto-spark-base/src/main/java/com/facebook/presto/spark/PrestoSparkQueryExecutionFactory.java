@@ -48,9 +48,9 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
-import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionException;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
+import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndUpdateType;
@@ -134,6 +134,7 @@ public class PrestoSparkQueryExecutionFactory
     private final BlockEncodingManager blockEncodingManager;
     private final PrestoSparkSettingsRequirements settingsRequirements;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
+    private final PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -155,6 +156,7 @@ public class PrestoSparkQueryExecutionFactory
             BlockEncodingManager blockEncodingManager,
             PrestoSparkSettingsRequirements settingsRequirements,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
+            PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -173,6 +175,7 @@ public class PrestoSparkQueryExecutionFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.settingsRequirements = requireNonNull(settingsRequirements, "settingsRequirements is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
+        this.prestoSparkTaskExecutorFactory = requireNonNull(prestoSparkTaskExecutorFactory, "prestoSparkTaskExecutorFactory is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -220,6 +223,7 @@ public class PrestoSparkQueryExecutionFactory
                     session,
                     queryMonitor,
                     taskStatsCollector,
+                    prestoSparkTaskExecutorFactory,
                     executorFactoryProvider,
                     fragmentedPlan,
                     planAndUpdateType.getUpdateType(),
@@ -313,7 +317,10 @@ public class PrestoSparkQueryExecutionFactory
         private final Session session;
         private final QueryMonitor queryMonitor;
         private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
-        private final PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider;
+        // used to create tasks on the Driver
+        private final PrestoSparkTaskExecutorFactory taskExecutorFactory;
+        // used to create tasks on executor, serializable
+        private final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
         private final SubPlan plan;
         private final Optional<String> updateType;
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
@@ -329,7 +336,8 @@ public class PrestoSparkQueryExecutionFactory
                 Session session,
                 QueryMonitor queryMonitor,
                 CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-                PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
+                PrestoSparkTaskExecutorFactory taskExecutorFactory,
+                PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
                 SubPlan plan,
                 Optional<String> updateType,
                 JsonCodec<TaskStats> taskStatsJsonCodec,
@@ -344,7 +352,8 @@ public class PrestoSparkQueryExecutionFactory
             this.session = requireNonNull(session, "session is null");
             this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
-            this.executorFactoryProvider = requireNonNull(executorFactoryProvider, "executorFactoryProvider is null");
+            this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
+            this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
             this.plan = requireNonNull(plan, "plan is null");
             this.updateType = updateType;
             this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
@@ -452,7 +461,7 @@ public class PrestoSparkQueryExecutionFactory
                                 Map.Entry::getKey,
                                 entry -> getUnchecked(entry.getValue()).stream().map(Tuple2::_2).collect(toImmutableList())));
 
-                IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = executorFactoryProvider.get(SparkProcessType.DRIVER).create(
+                IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
                         0,
                         0,
                         serializedTaskDescriptor,
@@ -496,7 +505,7 @@ public class PrestoSparkQueryExecutionFactory
                     subPlan.getFragment(),
                     rddInputs.build(),
                     broadcastInputs.build(),
-                    executorFactoryProvider,
+                    taskExecutorFactoryProvider,
                     taskStatsCollector,
                     tableWriteInfo,
                     outputType);

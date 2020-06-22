@@ -44,7 +44,6 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorF
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
-import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
@@ -480,7 +479,7 @@ public class PrestoSparkQueryRunner
         }
 
         @Override
-        public IPrestoSparkTaskExecutorFactory get(SparkProcessType processType)
+        public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
         }

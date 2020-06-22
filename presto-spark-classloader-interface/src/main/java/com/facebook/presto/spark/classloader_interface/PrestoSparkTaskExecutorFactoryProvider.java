@@ -18,5 +18,5 @@ import java.io.Serializable;
 public interface PrestoSparkTaskExecutorFactoryProvider
         extends Serializable
 {
-    IPrestoSparkTaskExecutorFactory get(SparkProcessType processEnvironment);
+    IPrestoSparkTaskExecutorFactory get();
 }
