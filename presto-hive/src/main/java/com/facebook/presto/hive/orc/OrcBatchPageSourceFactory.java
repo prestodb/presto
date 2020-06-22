@@ -40,6 +40,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -133,6 +134,7 @@ public class OrcBatchPageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

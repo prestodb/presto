@@ -29,6 +29,7 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -87,6 +88,7 @@ public class DwrfBatchPageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
