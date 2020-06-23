@@ -103,6 +103,7 @@ public final class HiveSessionProperties
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
+    private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -468,7 +469,16 @@ public final class HiveSessionProperties
                         PARQUET_BATCH_READER_VERIFICATION_ENABLED,
                         "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
                         hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        BUCKET_FUNCTION_TYPE_FOR_EXCHANGE,
+                        "hash function type for bucketed table exchange",
+                        VARCHAR,
+                        BucketFunctionType.class,
+                        hiveClientConfig.getBucketFunctionTypeForExchange(),
+                        false,
+                        value -> BucketFunctionType.valueOf((String) value),
+                        BucketFunctionType::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -817,5 +827,10 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
     }
 }

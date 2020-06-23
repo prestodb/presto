@@ -163,6 +163,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
+import static com.facebook.presto.hive.HiveSessionProperties.getBucketFunctionTypeForExchange;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcCompressionCodec;
@@ -210,6 +211,7 @@ import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
+import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypeForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypesForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
@@ -2285,7 +2287,22 @@ public class HiveMetadata
     @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
-        return createPrestoNativePartitioningHandle(partitionCount, partitionTypes, OptionalInt.empty());
+        BucketFunctionType bucketFunctionType = getBucketFunctionTypeForExchange(session);
+        switch (bucketFunctionType) {
+            case HIVE_COMPATIBLE:
+                return createHiveCompatiblePartitioningHandle(
+                        partitionCount,
+                        partitionTypes.stream()
+                                .map(type -> toHiveType(
+                                        typeTranslator,
+                                        translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
+                                .collect(toImmutableList()),
+                        OptionalInt.empty());
+            case PRESTO_NATIVE:
+                return createPrestoNativePartitioningHandle(partitionCount, partitionTypes, OptionalInt.empty());
+            default:
+                throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
+        }
     }
 
     @VisibleForTesting
