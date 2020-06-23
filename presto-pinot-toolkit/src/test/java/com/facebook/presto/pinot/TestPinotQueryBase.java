@@ -70,6 +70,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
@@ -111,6 +112,7 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression("fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression("count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
+                    .put(new VariableReferenceExpression("sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
                     .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new PinotQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN)) // column for datetime functions
                     .put(new VariableReferenceExpression("dayssinceepoch", DATE), new PinotQueryGeneratorContext.Selection("daysSinceEpoch", TABLE_COLUMN)) // column for date functions
                     .put(new VariableReferenceExpression("millissinceepoch", TIMESTAMP), new PinotQueryGeneratorContext.Selection("millisSinceEpoch", TABLE_COLUMN)) // column for timestamp functions
@@ -129,9 +131,9 @@ public class TestPinotQueryBase
             session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
-        public SessionHolder(boolean useDateTrunc)
+        public SessionHolder(boolean useDateTrunc, boolean useSqlSyntax)
         {
-            this(new PinotConfig().setUseDateTrunc(useDateTrunc));
+            this(new PinotConfig().setUseDateTrunc(useDateTrunc).setUsePinotSqlForBrokerQueries(useSqlSyntax));
         }
 
         public ConnectorSession getConnectorSession()
@@ -242,6 +244,11 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle derived(String name)
     {
         return new PinotColumnHandle(name, BIGINT, PinotColumnHandle.PinotColumnType.DERIVED);
+    }
+
+    protected static PinotColumnHandle integer(String name)
+    {
+        return new PinotColumnHandle(name, INTEGER, PinotColumnHandle.PinotColumnType.REGULAR);
     }
 
     protected static PinotColumnHandle bigint(String name)

@@ -31,13 +31,25 @@ public class TestPinotExpressionConverters
     private final Function<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInputFunction = testInput::get;
 
     @Test
-    public void testProjectExpressionConverter()
+    public void testProjectExpressionConverterPql()
     {
-        SessionHolder sessionHolder = new SessionHolder(false);
+        testProjectExpressionConverter(new SessionHolder(false, false));
+    }
+
+    @Test
+    public void testProjectExpressionConverterSql()
+    {
+        testProjectExpressionConverter(new SessionHolder(false, true));
+    }
+
+    public void testProjectExpressionConverter(SessionHolder sessionHolder)
+    {
         testProject("secondssinceepoch", "secondsSinceEpoch", sessionHolder);
         // functions
-        testAggregationProject("date_trunc('hour', from_unixtime(secondssinceepoch))",
-                "dateTimeConvert(secondsSinceEpoch, '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')", sessionHolder);
+        testAggregationProject(
+                "date_trunc('hour', from_unixtime(secondssinceepoch))",
+                "dateTimeConvert(secondsSinceEpoch, '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
+                sessionHolder);
 
         // arithmetic
         testAggregationProject("regionid + 1", "ADD(regionId, 1)", sessionHolder);
@@ -52,44 +64,80 @@ public class TestPinotExpressionConverters
 
         testAggregationProjectUnsupported("secondssinceepoch > 0", sessionHolder);
 
-        testAggregationProject("date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
-                "dateTimeConvert(ADD(secondsSinceEpoch, 2), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')", sessionHolder);
+        testAggregationProject(
+                "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
+                "dateTimeConvert(ADD(secondsSinceEpoch, 2), '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '1:HOURS')",
+                sessionHolder);
     }
 
     private void testProject(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
-        String actualPinotExpression = pushDownExpression.accept(new PinotProjectExpressionConverter(
-                        typeManager,
-                        standardFunctionResolution),
+        String actualPinotExpression = pushDownExpression.accept(
+                new PinotProjectExpressionConverter(typeManager, standardFunctionResolution),
                 testInput).getDefinition();
         assertEquals(actualPinotExpression, expectedPinotExpression);
     }
 
     @Test
-    public void testAdhoc()
+    public void testAdhocPql()
     {
-        SessionHolder sessionHolder = new SessionHolder(false);
-
-        testAggregationProject("secondssinceepoch + 1559978258.674", "ADD(secondsSinceEpoch, 1559978258.674)", sessionHolder);
+        testAdhoc(new SessionHolder(false, false));
     }
 
     @Test
-    public void testDateTruncationConversion()
+    public void testAdhocSql()
     {
-        SessionHolder sessionHolder = new SessionHolder(true);
-        testAggregationProject("date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
-                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, UTC, hour)", sessionHolder);
+        testAdhoc(new SessionHolder(false, true));
+    }
 
-        testAggregationProject("date_trunc('hour', from_unixtime(secondssinceepoch + 2, 'America/New_York'))",
-                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, America/New_York, hour)", sessionHolder);
+    public void testAdhoc(SessionHolder sessionHolder)
+    {
+        testAggregationProject(
+                "secondssinceepoch + 1559978258.674",
+                "ADD(secondsSinceEpoch, 1559978258.674)",
+                sessionHolder);
     }
 
     @Test
-    public void testFilterExpressionConverter()
+    public void testDateTruncationConversionPql()
     {
-        SessionHolder sessionHolder = new SessionHolder(false);
+        testDateTruncationConversion(new SessionHolder(true, false));
+    }
 
+    @Test
+    public void testDateTruncationConversionSql()
+    {
+        testDateTruncationConversion(new SessionHolder(true, true));
+    }
+
+    public void testDateTruncationConversion(SessionHolder sessionHolder)
+    {
+        testAggregationProject(
+                "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
+                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, UTC, hour)",
+                sessionHolder);
+
+        testAggregationProject(
+                "date_trunc('hour', from_unixtime(secondssinceepoch + 2, 'America/New_York'))",
+                "dateTrunc(ADD(secondsSinceEpoch, 2),seconds, America/New_York, hour)",
+                sessionHolder);
+    }
+
+    @Test
+    public void testFilterExpressionConverterPql()
+    {
+        testFilterExpressionConverter(new SessionHolder(false, false));
+    }
+
+    @Test
+    public void testFilterExpressionConverterSql()
+    {
+        testFilterExpressionConverter(new SessionHolder(false, true));
+    }
+
+    public void testFilterExpressionConverter(SessionHolder sessionHolder)
+    {
         // Simple comparisons
         testFilter("regionid = 20", "(regionId = 20)", sessionHolder);
         testFilter("regionid >= 20", "(regionId >= 20)", sessionHolder);
@@ -116,7 +164,8 @@ public class TestPinotExpressionConverters
     private void testAggregationProject(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
-        String actualPinotExpression = pushDownExpression.accept(new PinotAggregationProjectConverter(
+        String actualPinotExpression = pushDownExpression.accept(
+                new PinotAggregationProjectConverter(
                         typeManager,
                         functionMetadataManager,
                         standardFunctionResolution,
@@ -129,7 +178,8 @@ public class TestPinotExpressionConverters
     {
         try {
             RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
-            String actualPinotExpression = pushDownExpression.accept(new PinotAggregationProjectConverter(
+            String actualPinotExpression = pushDownExpression.accept(
+                    new PinotAggregationProjectConverter(
                             typeManager,
                             functionMetadataManager,
                             standardFunctionResolution,
@@ -145,7 +195,8 @@ public class TestPinotExpressionConverters
     private void testFilter(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
-        String actualPinotExpression = pushDownExpression.accept(new PinotFilterExpressionConverter(
+        String actualPinotExpression = pushDownExpression.accept(
+                new PinotFilterExpressionConverter(
                         typeManager,
                         functionMetadataManager,
                         standardFunctionResolution),
@@ -157,7 +208,8 @@ public class TestPinotExpressionConverters
     {
         try {
             RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
-            String actualPinotExpression = pushDownExpression.accept(new PinotFilterExpressionConverter(
+            String actualPinotExpression = pushDownExpression.accept(
+                    new PinotFilterExpressionConverter(
                             typeManager,
                             functionMetadataManager,
                             standardFunctionResolution),
