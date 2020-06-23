@@ -44,7 +44,7 @@ public class StringEnumType
     @Override
     public boolean isComparable()
     {
-        return false;
+        return true;
     }
 
     @Override

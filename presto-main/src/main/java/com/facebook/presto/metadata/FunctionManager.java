@@ -306,6 +306,15 @@ public class FunctionManager
             return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
+        Optional<SqlFunction> udtFunction = builtInFunctionNamespaceManager.getUdtFunctionImplementation(
+                functionName, parameterTypes.stream()
+                        .map(TypeSignatureProvider::getTypeSignature)
+                        .collect(Collectors.toList()),
+                null);
+        if (udtFunction.isPresent()) {
+            return new BuiltInFunctionHandle(udtFunction.get().getSignature());
+        }
+
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
     }
 

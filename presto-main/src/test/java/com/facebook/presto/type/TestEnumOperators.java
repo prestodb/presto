@@ -14,8 +14,12 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.IntegerEnumType;
 import com.facebook.presto.common.type.StringEnumType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +28,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertThrows;
 
-public class TestEnumCasts
+public class TestEnumOperators
         extends AbstractTestFunctions
 {
     private static final Long BIG_VALUE = Integer.MAX_VALUE + 10L; // 2147483657
@@ -35,7 +39,8 @@ public class TestEnumCasts
             "MELLOW", BIG_VALUE));
     private static final StringEnumType COUNTRY_ENUM = new StringEnumType("Country", ImmutableMap.of(
             "US", "United States",
-            "BAHAMAS", "The Bahamas"));
+            "BAHAMAS", "The Bahamas",
+            "FRANCE", "France"));
 
     @BeforeClass
     public void initEnumTypes()
@@ -84,6 +89,57 @@ public class TestEnumCasts
 
         assertInvalidCast("CAST('hello' AS Country)");
         assertUnavailableCast("CAST(1 AS Country)");
+    }
+
+    @Test
+    public void testCastFromEnum()
+    {
+        assertFunction("CAST(mood'MELLOW' AS BIGINT)", BigintType.BIGINT, BIG_VALUE);
+        assertFunction("CAST(country'BAHAMAS' AS VARCHAR)", VarcharType.VARCHAR, "The Bahamas");
+    }
+
+    @Test
+    public void testEquality()
+    {
+        assertFunction("mood'HAPPY' = mood'HAPPY'", BooleanType.BOOLEAN, true);
+        assertFunction("mood'HAPPY' != mood'SAD'", BooleanType.BOOLEAN, true);
+        assertFunction("mood'HAPPY' = mood'SAD'", BooleanType.BOOLEAN, false);
+        assertFunction("mood'HAPPY' = try_cast(NULL AS mood)", BooleanType.BOOLEAN, null);
+
+        assertFunction("country'BAHAMAS' = country'BAHAMAS'", BooleanType.BOOLEAN, true);
+
+        assertFunction("array[mood'HAPPY', mood'SAD'] = array[mood'HAPPY', mood'SAD']", BooleanType.BOOLEAN, true);
+        assertFunction("row(mood'HAPPY', country'US') != row(mood'HAPPY', country'BAHAMAS')", BooleanType.BOOLEAN, true);
+
+        assertInvalidFunction("mood'HAPPY' = country'US'", SemanticErrorCode.TYPE_MISMATCH);
+        assertInvalidFunction("mood'HAPPY' = 3", SemanticErrorCode.TYPE_MISMATCH);
+        assertInvalidFunction("row(mood'HAPPY', country'US') != row(country'US', mood'HAPPY')", SemanticErrorCode.TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testInListPredicate()
+    {
+        assertFunction("mood'HAPPY' IN (mood'SAD', mood'HAPPY', null)", BooleanType.BOOLEAN, true);
+        assertFunction("mood'HAPPY' IN (mood'SAD', null)", BooleanType.BOOLEAN, null);
+        assertFunction("mood'HAPPY' IN (mood'SAD', mood'MELLOW')", BooleanType.BOOLEAN, false);
+
+        assertFunction("country'US' IN (country'BAHAMAS', country'FRANCE')", BooleanType.BOOLEAN, false);
+        assertFunction("country'US' IN (country'US', country'BAHAMAS', null)", BooleanType.BOOLEAN, true);
+        assertFunction("country'US' IN (country'BAHAMAS', null)", BooleanType.BOOLEAN, null);
+
+        assertInvalidFunction("mood'HAPPY' IN ('orange', 'yellow')", SemanticErrorCode.TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "mood'HAPPY', mood'SAD'", BooleanType.BOOLEAN, true);
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "mood'HAPPY', mood'HAPPY'", BooleanType.BOOLEAN, false);
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "mood'HAPPY', try_cast(NULL as mood)", BooleanType.BOOLEAN, true);
+
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "country'FRANCE', country'US'", BooleanType.BOOLEAN, true);
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "country'FRANCE', country'FRANCE'", BooleanType.BOOLEAN, false);
+        assertOperator(OperatorType.IS_DISTINCT_FROM, "country'FRANCE', try_cast(NULL as country)", BooleanType.BOOLEAN, true);
     }
 
     @Test

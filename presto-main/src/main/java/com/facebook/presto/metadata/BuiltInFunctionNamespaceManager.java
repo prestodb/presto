@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -225,12 +224,12 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
@@ -239,6 +238,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -905,13 +905,6 @@ public class BuiltInFunctionNamespaceManager
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
 
-        if (returnType instanceof EnumType && CastType.CAST.getCastName().equals(signature.getName())) {
-            // Specific enum types are not known in advance at server startup time, but all enum types
-            // support the same CAST functions. So here, we build these cast functions on-the-fly
-            // for the particular enum type encountered in the signature.
-            candidates = Iterables.concat(candidates, EnumOperators.makeEnumCastFunctions((EnumType) returnType));
-        }
-
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
@@ -973,7 +966,29 @@ public class BuiltInFunctionNamespaceManager
                     1);
         }
 
+        Optional<SqlFunction> udtFunction = getUdtFunctionImplementation(signature.getName(), signature.getArgumentTypes(), returnType);
+        if (udtFunction.isPresent()) {
+            return new SpecializedFunctionKey(udtFunction.get(), BoundVariables.builder().build(), argumentTypes.size());
+        }
+
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    Optional<SqlFunction> getUdtFunctionImplementation(QualifiedFunctionName functionName, List<TypeSignature> argTypes, @Nullable Type returnType)
+    {
+        // This method generates common functions that operate on user-defined types (UDTs).
+        // Functions like EQUAL have the same implementation across UDTs of the same underlying type,
+        // but they have different signatures, because each UDT has its own signature.
+        // This is why we generate these functions on-the-fly here.
+        Optional<OperatorType> maybeOpType = OperatorType.tryGetOperatorType(functionName);
+        if (!maybeOpType.isPresent()) {
+            return Optional.empty();
+        }
+
+        return EnumOperators.makeOperator(
+                maybeOpType.get(),
+                argTypes.stream().map(typeManager::getType).collect(Collectors.toList()),
+                returnType);
     }
 
     private static class EmptyTransactionHandle

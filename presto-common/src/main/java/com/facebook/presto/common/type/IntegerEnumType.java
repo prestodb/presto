@@ -52,7 +52,7 @@ public class IntegerEnumType
     @Override
     public boolean isComparable()
     {
-        return false;
+        return true;
     }
 
     @Override
