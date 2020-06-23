@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
@@ -28,11 +29,19 @@ import static org.testng.Assert.assertNull;
 
 public class TestGeometryStateSerializer
 {
+    private AccumulatorStateFactory<GeometryState> factory;
+    private AccumulatorStateSerializer<GeometryState> serializer;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        factory = StateCompiler.generateStateFactory(GeometryState.class);
+        serializer = StateCompiler.generateStateSerializer(GeometryState.class);
+    }
+
     @Test
     public void testSerializeDeserialize()
     {
-        AccumulatorStateFactory<GeometryState> factory = StateCompiler.generateStateFactory(GeometryState.class);
-        AccumulatorStateSerializer<GeometryState> serializer = StateCompiler.generateStateSerializer(GeometryState.class);
         GeometryState state = factory.createSingleState();
 
         state.setGeometry(OGCGeometry.fromText("POINT (1 2)"), 0);
@@ -53,8 +62,6 @@ public class TestGeometryStateSerializer
     @Test
     public void testSerializeDeserializeGrouped()
     {
-        AccumulatorStateFactory<GeometryState> factory = StateCompiler.generateStateFactory(GeometryState.class);
-        AccumulatorStateSerializer<GeometryState> serializer = StateCompiler.generateStateSerializer(GeometryState.class);
         GroupedGeometryState state = (GroupedGeometryState) factory.createGroupedState();
 
         // Add state to group 1
