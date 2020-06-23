@@ -79,6 +79,7 @@ public class PinotConfig
     private boolean inferDateTypeInSchema;
     private boolean inferTimestampTypeInSchema;
     private boolean markDataFetchExceptionsAsRetriable;
+    private boolean usePinotSqlForBrokerQueries;
     private int numSegmentsPerSplit = 1;
     private boolean ignoreEmptyResponses;
     private int fetchRetryCount = 2;
@@ -453,6 +454,18 @@ public class PinotConfig
     public PinotConfig setMarkDataFetchExceptionsAsRetriable(boolean markDataFetchExceptionsAsRetriable)
     {
         this.markDataFetchExceptionsAsRetriable = markDataFetchExceptionsAsRetriable;
+        return this;
+    }
+
+    public boolean isUsePinotSqlForBrokerQueries()
+    {
+        return usePinotSqlForBrokerQueries;
+    }
+
+    @Config("pinot.use-pinot-sql-for-broker-queries")
+    public PinotConfig setUsePinotSqlForBrokerQueries(boolean usePinotSqlForBrokerQueries)
+    {
+        this.usePinotSqlForBrokerQueries = usePinotSqlForBrokerQueries;
         return this;
     }
 }
