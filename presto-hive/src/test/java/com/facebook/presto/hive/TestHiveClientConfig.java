@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -134,7 +136,8 @@ public class TestHiveClientConfig
                 .setFileStatusCacheTables("")
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
                 .setParquetBatchReaderVerificationEnabled(false)
-                .setParquetBatchReadOptimizationEnabled(false));
+                .setParquetBatchReadOptimizationEnabled(false)
+                .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE));
     }
 
     @Test
@@ -232,6 +235,7 @@ public class TestHiveClientConfig
                 .put("hive.pagefile.writer.stripe-max-size", "1kB")
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.enable-parquet-batch-reader-verification", "true")
+                .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -326,7 +330,8 @@ public class TestHiveClientConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
                 .setParquetBatchReaderVerificationEnabled(true)
-                .setParquetBatchReadOptimizationEnabled(true);
+                .setParquetBatchReadOptimizationEnabled(true)
+                .setBucketFunctionTypeForExchange(PRESTO_NATIVE);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

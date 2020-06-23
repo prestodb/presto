@@ -77,6 +77,7 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", "PRESTO_NATIVE")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_bucket_by_non_hive_types AS\n" +
