@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.remotetask;
+package com.facebook.presto.server;
 
 import com.facebook.airlift.event.client.ServiceUnavailableException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.server.remotetask.Backoff;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
-import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
@@ -47,25 +48,34 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
-class RequestErrorTracker
+public class RequestErrorTracker
 {
     private static final Logger log = Logger.get(RequestErrorTracker.class);
 
-    private final TaskId taskId;
-    private final URI taskUri;
+    private final Object id;
+    private final URI uri;
+    private ErrorCodeSupplier errorCode;
+    private String nodeErrorMessage;
     private final ScheduledExecutorService scheduledExecutor;
     private final String jobDescription;
     private final Backoff backoff;
 
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    public RequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskUri = requireNonNull(taskUri, "taskUri is null");
+        this.id = requireNonNull(id, "id is null");
+        this.uri = requireNonNull(uri, "uri is null");
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.nodeErrorMessage = requireNonNull(nodeErrorMessage, "nodeErrorMessage is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
+    }
+
+    public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    {
+        return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription);
     }
 
     public ListenableFuture<?> acquireRequestPermit()
@@ -106,16 +116,16 @@ class RequestErrorTracker
         }
 
         if (reason instanceof RejectedExecutionException) {
-            throw new PrestoException(REMOTE_TASK_ERROR, reason);
+            throw new PrestoException(errorCode, reason);
         }
 
         // log failure message
         if (isExpectedError(reason)) {
             // don't print a stack for a known errors
-            log.warn("Error " + jobDescription + " %s: %s: %s", taskId, reason.getMessage(), taskUri);
+            log.warn("Error " + jobDescription + " %s: %s: %s", id, reason.getMessage(), uri);
         }
         else {
-            log.warn(reason, "Error " + jobDescription + " %s: %s", taskId, taskUri);
+            log.warn(reason, "Error " + jobDescription + " %s: %s", id, uri);
         }
 
         // remember the first 10 errors
@@ -123,15 +133,15 @@ class RequestErrorTracker
             errorsSinceLastSuccess.add(reason);
         }
 
-        // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
+        // fail the operation, if we have more than X failures in a row and more than Y seconds have passed since the last request
         if (backoff.failure()) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
             PrestoException exception = new PrestoTransportException(TOO_MANY_REQUESTS_FAILED,
-                    fromUri(taskUri),
+                    fromUri(uri),
                     format("%s (%s %s - %s failures, failure duration %s, total failed request time %s)",
-                            WORKER_NODE_ERROR,
+                            nodeErrorMessage,
                             jobDescription,
-                            taskUri,
+                            uri,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),
                             backoff.getFailureRequestTimeTotal().convertTo(SECONDS)));
@@ -140,17 +150,7 @@ class RequestErrorTracker
         }
     }
 
-    static void logError(Throwable t, String format, Object... args)
-    {
-        if (isExpectedError(t)) {
-            log.error(format + ": %s", ObjectArrays.concat(args, t));
-        }
-        else {
-            log.error(t, format, args);
-        }
-    }
-
-    private static boolean isExpectedError(Throwable t)
+    public static boolean isExpectedError(Throwable t)
     {
         while (t != null) {
             if ((t instanceof SocketException) ||
