@@ -38,6 +38,7 @@ import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -51,6 +52,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -94,8 +96,9 @@ import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.failWith;
+import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
+import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
-import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
@@ -249,7 +252,7 @@ public final class HttpRemoteTask
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
@@ -446,7 +449,7 @@ public final class HttpRemoteTask
         Request request = prepareDelete()
                 .setUri(remoteSourceUri)
                 .build();
-        RequestErrorTracker errorTracker = new RequestErrorTracker(
+        RequestErrorTracker errorTracker = taskRequestErrorTracker(
                 taskId,
                 remoteSourceUri,
                 maxErrorDuration,
@@ -994,6 +997,16 @@ public final class HttpRemoteTask
         {
             Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
             stats.updateRoundTripMillis(requestRoundTrip.toMillis());
+        }
+    }
+
+    private static void logError(Throwable t, String format, Object... args)
+    {
+        if (isExpectedError(t)) {
+            log.error(format + ": %s", ObjectArrays.concat(args, t));
+        }
+        else {
+            log.error(t, format, args);
         }
     }
 }
