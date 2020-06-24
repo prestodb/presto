@@ -27,12 +27,14 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -90,6 +92,41 @@ public class TestQueryManager
         assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertNotNull(queryInfo.getFailureInfo());
         assertEquals(queryInfo.getFailureInfo().getMessage(), "mock exception");
+        assertEquals(queryManager.getStats().getQueuedQueries(), 0);
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testFailQueryPrerun()
+            throws Exception
+    {
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryId queryId = dispatchManager.createQueryId();
+        dispatchManager.createQuery(
+                queryId,
+                "slug",
+                new TestingSessionContext(TEST_SESSION),
+                "SELECT * FROM lineitem")
+                .get();
+
+        // wait until it's admitted but fail it before it starts
+        while (true) {
+            QueryState state = dispatchManager.getQueryInfo(queryId).getState();
+            if (state.ordinal() >= RUNNING.ordinal()) {
+                fail("unexpected query state: " + state);
+            }
+            if (state.ordinal() > DISPATCHING.ordinal()) {
+                // cancel query
+                dispatchManager.failQuery(queryId, new PrestoException(GENERIC_USER_ERROR, "mock exception"));
+                break;
+            }
+        }
+
+        QueryState state = queryManager.getQueryInfo(queryId).getState();
+        assertEquals(state, FAILED);
+        //Give the stats a time to update
+        Thread.sleep(1000);
+        assertEquals(queryManager.getStats().getQueuedQueries(), 0);
     }
 
     @Test(timeOut = 60_000L)

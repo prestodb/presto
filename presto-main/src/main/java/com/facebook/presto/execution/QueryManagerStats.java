@@ -76,12 +76,17 @@ public class QueryManagerStats
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
-        queuedQueries.decrementAndGet();
+        queryDequeued();
     }
 
     private void queryStopped()
     {
         runningQueries.decrementAndGet();
+    }
+
+    private void queryDequeued()
+    {
+        queuedQueries.decrementAndGet();
     }
 
     private void queryFinished(BasicQueryInfo info)
@@ -169,6 +174,9 @@ public class QueryManagerStats
                     stopped = true;
                     if (started) {
                         queryStopped();
+                    }
+                    else {
+                        queryDequeued();
                     }
                     finalQueryInfoSupplier.get()
                             .ifPresent(QueryManagerStats.this::queryFinished);
