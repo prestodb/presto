@@ -31,8 +31,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestRange
 {
@@ -188,12 +188,7 @@ public class TestRange
     public void testGetSingleValue()
     {
         assertEquals(Range.equal(BIGINT, 0L).getSingleValue(), 0L);
-        try {
-            Range.lessThan(BIGINT, 0L).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThrows(IllegalStateException.class, () -> Range.lessThan(BIGINT, 0L).getSingleValue());
     }
 
     @Test
@@ -251,19 +246,8 @@ public class TestRange
     @Test
     public void testExceptionalIntersect()
     {
-        try {
-            Range.greaterThan(BIGINT, 2L).intersect(Range.lessThan(BIGINT, 2L));
-            fail();
-        }
-        catch (IllegalArgumentException e) {
-        }
-
-        try {
-            Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 3L, true, 10L, false));
-            fail();
-        }
-        catch (IllegalArgumentException e) {
-        }
+        assertThrows(IllegalArgumentException.class, () -> Range.greaterThan(BIGINT, 2L).intersect(Range.lessThan(BIGINT, 2L)));
+        assertThrows(IllegalArgumentException.class, () -> Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 3L, true, 10L, false)));
     }
 
     @Test
