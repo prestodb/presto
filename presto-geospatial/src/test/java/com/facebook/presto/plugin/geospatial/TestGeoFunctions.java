@@ -465,6 +465,11 @@ public class TestGeoFunctions
         assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "[MultiPoint] Repeated point: (1.0 2.0)");
         assertInvalidReason("LINESTRING (0 0, 1 1, 1 0, 0 1)", "[LineString] Self-intersection at or near: (0.5 0.5)");
         assertInvalidReason("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", "[MultiLineString] Self-intersection at or near: (3.5 1.0)");
+
+        // valid geometries
+        assertInvalidReason("POINT (1 2)", null);
+        assertInvalidReason("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", null);
+        assertInvalidReason("GEOMETRYCOLLECTION (MULTIPOINT (1 0, 1 1, 0 1, 0 0))", null);
     }
 
     private void assertInvalidReason(String wkt, String reason)
