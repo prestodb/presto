@@ -7,9 +7,10 @@ Synopsis
 
 .. code-block:: none
 
-    SHOW FUNCTIONS
+    SHOW FUNCTIONS [ LIKE pattern [ ESCAPE 'escape_character' ] ]
 
 Description
 -----------
 
-List all the functions available for use in queries.
+List all functions available for use in queries.
+The ``LIKE`` clause can be used to restrict the list of function names.
