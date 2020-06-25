@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.hive.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
 public interface RaptorHdfsConfiguration
 {
-    Configuration getConfiguration(FileSystemContext context, URI uri);
+    Configuration getConfiguration(HdfsContext context, URI uri);
 }
