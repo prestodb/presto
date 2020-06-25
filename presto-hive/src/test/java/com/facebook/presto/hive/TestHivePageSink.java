@@ -289,7 +289,8 @@ public class TestHivePageSink
                 Optional.empty(),
                 ImmutableList.of(),
                 "test",
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
         HivePageSinkProvider provider = new HivePageSinkProvider(

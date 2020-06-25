@@ -40,7 +40,7 @@ public interface EncryptionInformationSource
      *         encryption information available for the given table and partitions, either due to the format or the table not having any encrypted
      *         data.
      */
-    Optional<Map<String, EncryptionInformation>> getEncryptionInformation(
+    Optional<Map<String, EncryptionInformation>> getReadEncryptionInformation(
             ConnectorSession session,
             Table table,
             Optional<Set<HiveColumnHandle>> requestedColumns,
@@ -56,8 +56,25 @@ public interface EncryptionInformationSource
      * @return Encryption information for the given table. The implementation should return <code>Optional.empty()</code> if it does not have any
      *         encryption information available for the given table, either due to the format or the table not having any encrypted data.
      */
-    Optional<EncryptionInformation> getEncryptionInformation(
+    Optional<EncryptionInformation> getReadEncryptionInformation(
             ConnectorSession session,
             Table table,
             Optional<Set<HiveColumnHandle>> requestedColumns);
+
+    /**
+     * Return information required for writing to a table. This method is intended to be used for both partitioned and unpartitioned tables since
+     * Presto isn't aware of the partitions that are being written to ahead of time.
+     *
+     * @param session Session object for the associated query
+     * @param tableEncryptionProperties Table encryption information
+     * @param dbName database name
+     * @param tableName table name
+     * @return Encryption information for the given table. The implementation should return <code>Optional.empty()</code> if it does not have any
+     *         encryption information available for the given table, either due to the format or the table not having any encrypted data.
+     */
+    Optional<EncryptionInformation> getWriteEncryptionInformation(
+            ConnectorSession session,
+            TableEncryptionProperties tableEncryptionProperties,
+            String dbName,
+            String tableName);
 }

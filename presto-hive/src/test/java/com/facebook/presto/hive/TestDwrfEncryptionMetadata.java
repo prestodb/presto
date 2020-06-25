@@ -27,18 +27,28 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.hive.DwrfEncryptionMetadata.TABLE_IDENTIFIER;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDwrfEncryptionMetadata
 {
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Cannot have both table and column level settings. Given: \\[__TABLE__, foo\\]")
+    public void testOnlyOneTableProperty()
+    {
+        new DwrfEncryptionMetadata(ImmutableMap.of(TABLE_IDENTIFIER, "abcd".getBytes(), "foo", "def".getBytes()), ImmutableMap.of(), "", "");
+    }
+
     @Test
     public void testToKeyMap()
     {
         DwrfEncryptionMetadata dwrfEncryptionMetadata = new DwrfEncryptionMetadata(
                 ImmutableMap.of("c1", "abcd".getBytes(),
                         "c3.d2.e1.f1", "def".getBytes(),
-                        "c3.d2.e2", "ghi".getBytes()));
+                        "c3.d2.e2", "ghi".getBytes()),
+                ImmutableMap.of(),
+                "test_algo",
+                "test_provider");
 
         List<HiveColumnHandle> columnHandleList = ImmutableList.of(
                 new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()),
@@ -63,10 +73,31 @@ public class TestDwrfEncryptionMetadata
         assertEquals(actualKeyMap, expectedKeyMap);
     }
 
+    @Test
+    public void testWholeTable()
+    {
+        DwrfEncryptionMetadata dwrfEncryptionMetadata = new DwrfEncryptionMetadata(
+                ImmutableMap.of(TABLE_IDENTIFIER, "abcd".getBytes()),
+                ImmutableMap.of(),
+                "test_algo",
+                "test_provider");
+
+        List<HiveColumnHandle> columnHandleList = ImmutableList.of(
+                new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()),
+                new HiveColumnHandle("c2", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()));
+
+        List<OrcType> orcTypes = ImmutableList.of(
+                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()));
+        Map<Integer, Slice> actualKeyMap = dwrfEncryptionMetadata.toKeyMap(orcTypes, columnHandleList);
+        Map<Integer, Slice> expectedKeyMap = ImmutableMap.of(0, Slices.wrappedBuffer("abcd".getBytes()));
+        assertEquals(actualKeyMap, expectedKeyMap);
+    }
+
     @Test(expectedExceptions = PrestoException.class)
     public void testInvalidKeyMap()
     {
-        DwrfEncryptionMetadata dwrfEncryptionMetadata = new DwrfEncryptionMetadata(ImmutableMap.of("c1", "abcd".getBytes()));
+        DwrfEncryptionMetadata dwrfEncryptionMetadata = new DwrfEncryptionMetadata(ImmutableMap.of("c1", "abcd".getBytes()), ImmutableMap.of(), "test_algo", "test_provider");
 
         List<HiveColumnHandle> columnHandleList = ImmutableList.of(
                 new HiveColumnHandle("column1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()));

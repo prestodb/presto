@@ -13,18 +13,24 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.TestEncryptionInformationSource.createEncryptionInformation;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -55,14 +61,14 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.empty()),
                 new TestEncryptionInformationSource(Optional.empty())));
 
-        assertFalse(provider.getEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).isPresent());
+        assertFalse(provider.getReadEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).isPresent());
     }
 
     @Test
     public void testReturnsFirstNonEmptyObject()
     {
-        EncryptionInformation encryptionInformation1 = createEncryptionInformation("test1");
-        EncryptionInformation encryptionInformation2 = createEncryptionInformation("test2");
+        EncryptionInformation encryptionInformation1 = TestEncryptionInformationSource.createEncryptionInformation("test1");
+        EncryptionInformation encryptionInformation2 = TestEncryptionInformationSource.createEncryptionInformation("test2");
 
         HiveEncryptionInformationProvider provider = new HiveEncryptionInformationProvider(ImmutableList.of(
                 new TestEncryptionInformationSource(Optional.empty()),
@@ -70,6 +76,40 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation1)),
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation2))));
 
-        assertEquals(provider.getEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
+        assertEquals(provider.getReadEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
+    }
+
+    private static final class TestEncryptionInformationSource
+            implements EncryptionInformationSource
+    {
+        private final Optional<EncryptionInformation> encryptionInformation;
+
+        public TestEncryptionInformationSource(Optional<EncryptionInformation> encryptionInformation)
+        {
+            this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
+        }
+
+        @Override
+        public Optional<Map<String, EncryptionInformation>> getReadEncryptionInformation(ConnectorSession session, Table table, Optional<Set<HiveColumnHandle>> requestedColumns, Map<String, Partition> partitions)
+        {
+            return encryptionInformation.map(information -> partitions.keySet().stream().collect(toImmutableMap(identity(), partitionId -> information)));
+        }
+
+        @Override
+        public Optional<EncryptionInformation> getReadEncryptionInformation(ConnectorSession session, Table table, Optional<Set<HiveColumnHandle>> requestedColumns)
+        {
+            return encryptionInformation;
+        }
+
+        @Override
+        public Optional<EncryptionInformation> getWriteEncryptionInformation(ConnectorSession session, TableEncryptionProperties tableEncryptionProperties, String dbName, String tableName)
+        {
+            return encryptionInformation;
+        }
+
+        public static EncryptionInformation createEncryptionInformation(String fieldName)
+        {
+            return EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(ImmutableMap.of(fieldName, fieldName.getBytes()), ImmutableMap.of(), "algo1", "provider1"));
+        }
     }
 }
