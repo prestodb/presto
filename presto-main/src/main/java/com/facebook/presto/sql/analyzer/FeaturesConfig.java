@@ -116,6 +116,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
+    private boolean runtimeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean enableStatsCollectionForTemporaryTable;
     private boolean ignoreStatsCalculatorFailures = true;
@@ -760,6 +761,18 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
     {
         this.iterativeOptimizerEnabled = value;
+        return this;
+    }
+
+    public boolean isRuntimeOptimizerEnabled()
+    {
+        return runtimeOptimizerEnabled;
+    }
+
+    @Config("experimental.runtime-optimizer-enabled")
+    public FeaturesConfig setRuntimeOptimizerEnabled(boolean value)
+    {
+        this.runtimeOptimizerEnabled = value;
         return this;
     }
 

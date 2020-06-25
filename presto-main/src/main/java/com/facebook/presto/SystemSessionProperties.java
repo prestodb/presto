@@ -119,6 +119,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
+    public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -586,6 +587,11 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                booleanProperty(
+                        RUNTIME_OPTIMIZER_ENABLED,
+                        "Experimental: enable runtime optimizer",
+                        featuresConfig.isRuntimeOptimizerEnabled(),
+                        false),
                 booleanProperty(
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
@@ -1139,6 +1145,11 @@ public final class SystemSessionProperties
     public static boolean isNewOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
+    }
+
+    public static boolean isRuntimeOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(RUNTIME_OPTIMIZER_ENABLED, Boolean.class);
     }
 
     @Deprecated
