@@ -15,8 +15,8 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
@@ -69,7 +69,7 @@ public class RaptorPageSourceProvider
         Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
         boolean tableSupportsDeltaDelete = raptorSplit.isTableSupportsDeltaDelete();
 
-        FileSystemContext context = new FileSystemContext(session);
+        HdfsContext context = new HdfsContext(session);
 
         Map<UUID, UUID> shardDeltaMap = raptorSplit.getShardDeltaMap();
         if (raptorSplit.getShardUuids().size() == 1) {
@@ -114,7 +114,7 @@ public class RaptorPageSourceProvider
      * Having these two parameters at the same time gives us the flexibility and compatibility to future features.
      */
     private ConnectorPageSource createPageSource(
-            FileSystemContext context,
+            HdfsContext context,
             HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,

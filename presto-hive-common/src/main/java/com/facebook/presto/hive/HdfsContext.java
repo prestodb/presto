@@ -40,28 +40,29 @@ public class HdfsContext
         this.clientInfo = Optional.empty();
     }
 
+    public HdfsContext(ConnectorSession session)
+    {
+        this(session, Optional.empty(), Optional.empty());
+    }
+
     public HdfsContext(ConnectorSession session, String schemaName)
     {
-        requireNonNull(session, "session is null");
-        requireNonNull(schemaName, "schemaName is null");
-        this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
-        this.source = requireNonNull(session.getSource(), "session.getSource()");
-        this.queryId = Optional.of(session.getQueryId());
-        this.schemaName = Optional.of(schemaName);
-        this.tableName = Optional.empty();
-        this.clientInfo = session.getClientInfo();
+        this(session, Optional.of(requireNonNull(schemaName, "schemaName is null")), Optional.empty());
     }
 
     public HdfsContext(ConnectorSession session, String schemaName, String tableName)
     {
+        this(session, Optional.of(requireNonNull(schemaName, "schemaName is null")), Optional.of(requireNonNull(tableName, "tableName is null")));
+    }
+
+    private HdfsContext(ConnectorSession session, Optional<String> schemaName, Optional<String> tableName)
+    {
         requireNonNull(session, "session is null");
-        requireNonNull(schemaName, "schemaName is null");
-        requireNonNull(tableName, "tableName is null");
         this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
-        this.source = requireNonNull(session.getSource(), "session.getSource()");
+        this.source = requireNonNull(session.getSource(), "session.getSource() is null");
         this.queryId = Optional.of(session.getQueryId());
-        this.schemaName = Optional.of(schemaName);
-        this.tableName = Optional.of(tableName);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.clientInfo = session.getClientInfo();
     }
 

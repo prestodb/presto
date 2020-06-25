@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
@@ -72,12 +72,12 @@ public class RaptorPageSink
     private final Optional<Type> temporalColumnType;
     private final TemporalFunction temporalFunction;
     private final int maxAllowedFilesPerWriter;
-    private final FileSystemContext context;
+    private final HdfsContext context;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
-            FileSystemContext context,
+            HdfsContext context,
             PageSorter pageSorter,
             StorageManager storageManager,
             TemporalFunction temporalFunction,

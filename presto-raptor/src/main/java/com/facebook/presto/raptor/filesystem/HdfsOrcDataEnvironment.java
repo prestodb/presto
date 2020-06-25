@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -44,10 +45,10 @@ public class HdfsOrcDataEnvironment
     }
 
     @Override
-    public FileSystem getFileSystem(FileSystemContext fileSystemContext)
+    public FileSystem getFileSystem(HdfsContext hdfsContext)
     {
         try {
-            return baseLocation.getFileSystem(configuration.getConfiguration(fileSystemContext, baseLocation.toUri()));
+            return baseLocation.getFileSystem(configuration.getConfiguration(hdfsContext, baseLocation.toUri()));
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_FILE_SYSTEM_ERROR, "Raptor cannot create HDFS file system", e);

@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
@@ -54,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
@@ -526,6 +526,6 @@ public class ShardCleaner
     private void deleteFile(Path file)
             throws IOException
     {
-        orcDataEnvironment.getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT).delete(file, false);
+        orcDataEnvironment.getFileSystem(DEFAULT_RAPTOR_CONTEXT).delete(file, false);
     }
 }
