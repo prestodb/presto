@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_FILE_SYSTEM_ERROR;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -118,7 +119,7 @@ public class HdfsStorageService
     {
         boolean madeDirectory;
         try {
-            FileSystem fileSystem = environment.getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+            FileSystem fileSystem = environment.getFileSystem(DEFAULT_RAPTOR_CONTEXT);
             madeDirectory = fileSystem.mkdirs(directory) && fileSystem.isDirectory(directory);
         }
         catch (IOException e) {

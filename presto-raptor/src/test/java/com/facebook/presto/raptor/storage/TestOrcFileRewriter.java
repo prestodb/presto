@@ -34,7 +34,6 @@ import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -77,6 +76,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.raptor.filesystem.LocalFileStorageService.getFileSystemPath;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
@@ -231,7 +231,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(4);
 
         File newFile = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 94L, 118L * 2);
@@ -347,7 +347,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 1);
         assertBetweenInclusive(info.getUncompressedSize(), 13L, 13L * 2);
@@ -392,7 +392,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
@@ -415,7 +415,7 @@ public class TestOrcFileRewriter
         BitSet rowsToDelete = new BitSet();
 
         File newFile = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 16L, 16L * 2);
@@ -440,7 +440,7 @@ public class TestOrcFileRewriter
         }
 
         File newFile = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), new BitSet());
         assertEquals(info.getRowCount(), 3);
         assertBetweenInclusive(info.getUncompressedSize(), 55L, 55L * 2);
@@ -477,7 +477,7 @@ public class TestOrcFileRewriter
 
         // Add a column
         File newFile1 = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(
                 fileSystem,
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
@@ -541,7 +541,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 1);
 
         ConnectorPageSource source = storageManager.getPageSource(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),
@@ -616,7 +616,7 @@ public class TestOrcFileRewriter
 
         // Add a column
         File newFile1 = new File(temporary, randomUUID().toString());
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(
                 fileSystem,
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
@@ -663,7 +663,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 1);
 
         ConnectorPageSource source = storageManager.getPageSource(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),

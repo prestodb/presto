@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.HdfsContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -79,7 +80,7 @@ public class RaptorHiveHdfsConfiguration
 
     // TODO: Support DynamicConfigurationProvider which consumes context and URI
     @Override
-    public Configuration getConfiguration(FileSystemContext context, URI uri)
+    public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         return hadoopConfiguration.get();
     }
