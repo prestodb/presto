@@ -40,6 +40,7 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat partitionStorageFormat;
     private final HiveStorageFormat actualStorageFormat;
     private final HiveCompressionCodec compressionCodec;
+    private final Optional<EncryptionInformation> encryptionInformation;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -53,7 +54,8 @@ public class HiveWritableTableHandle
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             HiveStorageFormat actualStorageFormat,
-            HiveCompressionCodec compressionCodec)
+            HiveCompressionCodec compressionCodec,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -67,6 +69,7 @@ public class HiveWritableTableHandle
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.actualStorageFormat = requireNonNull(actualStorageFormat, "actualStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
 
         if (!compressionCodec.isSupportedStorageFormat(actualStorageFormat)) {
             throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), actualStorageFormat.name()));
@@ -151,6 +154,12 @@ public class HiveWritableTableHandle
     public HiveCompressionCodec getCompressionCodec()
     {
         return compressionCodec;
+    }
+
+    @JsonProperty
+    public Optional<EncryptionInformation> getEncryptionInformation()
+    {
+        return encryptionInformation;
     }
 
     @Override
