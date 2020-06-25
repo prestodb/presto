@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
@@ -36,6 +37,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandl
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.FunctionManager;
@@ -149,6 +151,7 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.DynamicFilters;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -184,6 +187,8 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
@@ -301,6 +306,9 @@ import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
+    private static final Logger log = Logger.get(LocalExecutionPlanner.class);
+    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
+
     private final Metadata metadata;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
     private final PageSourceProvider pageSourceProvider;
@@ -325,8 +333,6 @@ public class LocalExecutionPlanner
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
-
-    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
     @Inject
     public LocalExecutionPlanner(
@@ -1272,6 +1278,19 @@ public class LocalExecutionPlanner
             }
             Map<VariableReferenceExpression, Integer> outputMappings = outputMappingsBuilder.build();
 
+            FunctionManager functionManager = metadata.getFunctionManager();
+            LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
+            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
+            Optional<RowExpression> staticFilters = extractDynamicFilterResult
+                    .map(DynamicFilters.ExtractResult::getStaticConjuncts)
+                    .map(logicalRowExpressions::combineConjuncts);
+
+            // TODO: Dynamic filter execution be plugged in here
+            Optional<List<DynamicFilters.Descriptor>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getDynamicConjuncts);
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            }
+
             // compiler uses inputs instead of variables, so rewrite the expressions first
             List<RowExpression> projections = outputVariables.stream()
                     .map(assignments::get)
@@ -1280,8 +1299,8 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), staticFilters, projections, sourceNode.getId());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), staticFilters, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1299,7 +1318,7 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), staticFilters, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
