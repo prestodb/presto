@@ -92,7 +92,11 @@ public class TestHiveSplit
                 false,
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
-                Optional.of(EncryptionInformation.fromEncryptionMetadata(new DwrfEncryptionMetadata(ImmutableMap.of("field1", "test1".getBytes())))));
+                Optional.of(EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(
+                        ImmutableMap.of("field1", "test1".getBytes()),
+                        ImmutableMap.of(),
+                        "test_algo",
+                        "test_provider"))));
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);

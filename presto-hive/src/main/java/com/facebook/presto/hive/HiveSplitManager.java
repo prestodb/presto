@@ -332,7 +332,7 @@ public class HiveSplitManager
                         firstPartition,
                         Optional.empty(),
                         ImmutableMap.of(),
-                        encryptionInformationProvider.getEncryptionInformation(session, table, requestedColumns)));
+                        encryptionInformationProvider.getReadEncryptionInformation(session, table, requestedColumns)));
             }
         }
 
@@ -354,7 +354,7 @@ public class HiveSplitManager
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
 
-            Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getEncryptionInformation(
+            Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getReadEncryptionInformation(
                     session,
                     table,
                     requestedColumns,

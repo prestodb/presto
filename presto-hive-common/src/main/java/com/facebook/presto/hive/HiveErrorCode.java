@@ -68,6 +68,7 @@ public enum HiveErrorCode
     HIVE_TRANSACTION_NOT_FOUND(41, INTERNAL_ERROR),
     // To be used for metadata inconsistencies and not for incorrect input from users
     HIVE_INVALID_ENCRYPTION_METADATA(42, EXTERNAL),
+    HIVE_UNSUPPORTED_ENCRYPTION_OPERATION(43, USER_ERROR),
     /**/;
 
     private final ErrorCode errorCode;
