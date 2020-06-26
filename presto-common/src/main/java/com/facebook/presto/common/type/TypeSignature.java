@@ -13,25 +13,30 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Locale.ENGLISH;
 
 public class TypeSignature
 {
@@ -44,6 +49,10 @@ public class TypeSignature
             new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
             new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+    private static final String LONG_ENUM_PREFIX = "enum:bigint";
+    private static final String VARCHAR_ENUM_PREFIX = "enum:varchar";
+    private static final Pattern ENUM_PREFIX = Pattern.compile("enum:(bigint|varchar)\\{");
 
     static {
         BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
@@ -100,6 +109,21 @@ public class TypeSignature
         return calculated;
     }
 
+    public boolean isEnum()
+    {
+        return isLongEnum() || isVarcharEnum();
+    }
+
+    public boolean isLongEnum()
+    {
+        return parameters.size() == 1 && parameters.get(0).isLongEnum();
+    }
+
+    public boolean isVarcharEnum()
+    {
+        return parameters.size() == 1 && parameters.get(0).isVarcharEnum();
+    }
+
     @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
     {
@@ -115,16 +139,23 @@ public class TypeSignature
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
             return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
         }
-        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
+        String lowerCaseSignature = signature.toLowerCase(ENGLISH);
+        if (lowerCaseSignature.startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
         }
+
+        Set<Integer> enumMapStartIndices = findEnumMapStartIndices(lowerCaseSignature);
 
         String baseName = null;
         List<TypeSignatureParameter> parameters = new ArrayList<>();
         int parameterStart = -1;
         int bracketCount = 0;
+        int parameterEnd = -1;
 
         for (int i = 0; i < signature.length(); i++) {
+            if (i < parameterEnd) {
+                continue;
+            }
             char c = signature.charAt(i);
             // TODO: remove angle brackets support once ROW<TYPE>(name) will be dropped
             // Angle brackets here are checked not for the support of ARRAY<> and MAP<>
@@ -144,23 +175,157 @@ public class TypeSignature
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, enumMapStartIndices));
                     parameterStart = i + 1;
                     if (i == signature.length() - 1) {
                         return new TypeSignature(baseName, parameters);
                     }
                 }
             }
+            else if (enumMapStartIndices.contains(i)) {
+                parameterEnd = parseEnumMap(signature, i).mapEndIndex;
+            }
             else if (c == ',') {
                 if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters, enumMapStartIndices));
                     parameterStart = i + 1;
                 }
             }
         }
 
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+    }
+
+    private static class EnumMapParsingData
+    {
+        final int mapEndIndex;
+        private final Map<String, String> map;
+        final boolean isLongEnum;
+
+        EnumMapParsingData(int mapEndIndex, Map<String, String> map, boolean isLongEnum)
+        {
+            this.mapEndIndex = mapEndIndex;
+            this.map = map;
+            this.isLongEnum = isLongEnum;
+        }
+
+        LongEnumMap getLongEnumMap()
+        {
+            checkArgument(isLongEnum, "Invalid enum map format");
+            return new LongEnumMap(
+                    map.entrySet().stream()
+                            .collect(Collectors.toMap(Map.Entry::getKey, e -> Long.parseLong(e.getValue()))));
+        }
+
+        VarcharEnumMap getVarcharEnumMap()
+        {
+            checkArgument(!isLongEnum, "Invalid enum map format");
+            return new VarcharEnumMap(map);
+        }
+    }
+
+    private static Set<Integer> findEnumMapStartIndices(String signature)
+    {
+        Set<Integer> indices = new HashSet<>();
+        Matcher enumMatcher = ENUM_PREFIX.matcher(signature);
+        while (enumMatcher.find()) {
+            indices.add(enumMatcher.start());
+        }
+        return indices;
+    }
+
+    private enum EnumMapParsingState
+    {
+        EXPECT_KEY,
+        IN_KEY,
+        IN_KEY_ESCAPE,
+        EXPECT_COLON,
+        EXPECT_VALUE,
+        IN_NUM_VALUE,
+        IN_STR_VALUE,
+        IN_STR_VALUE_ESCAPE,
+        EXPECT_COMMA_OR_CLOSING_BRACKET
+    }
+
+    private static EnumMapParsingData parseEnumMap(String signature, int startIndex)
+    {
+        EnumMapParsingState state = EnumMapParsingState.EXPECT_KEY;
+        boolean isLongEnum = signature.substring(startIndex).trim().toLowerCase(ENGLISH).startsWith(LONG_ENUM_PREFIX);
+        int openBracketIndex = startIndex + (isLongEnum ? LONG_ENUM_PREFIX.length() : VARCHAR_ENUM_PREFIX.length()) + 1;
+        String key = null;
+        StringBuilder keyOrValue = new StringBuilder();
+        Map<String, String> map = new HashMap<>();
+
+        for (int i = openBracketIndex; i < signature.length(); i++) {
+            char c = signature.charAt(i);
+            if (state == EnumMapParsingState.IN_KEY_ESCAPE) {
+                state = EnumMapParsingState.IN_KEY;
+                keyOrValue.append(c);
+            }
+            if (state == EnumMapParsingState.IN_STR_VALUE_ESCAPE) {
+                state = EnumMapParsingState.IN_STR_VALUE;
+                keyOrValue.append(c);
+            }
+            else if (c == '"') {
+                if (state == EnumMapParsingState.EXPECT_KEY) {
+                    state = EnumMapParsingState.IN_KEY;
+                }
+                else if (state == EnumMapParsingState.EXPECT_VALUE) {
+                    if (isLongEnum) {
+                        throw new IllegalStateException("Unexpected varchar value in numeric enum signature");
+                    }
+                    state = EnumMapParsingState.IN_STR_VALUE;
+                }
+                else if ((state == EnumMapParsingState.IN_KEY || state == EnumMapParsingState.IN_STR_VALUE)
+                        && i + 1 < signature.length() && signature.charAt(i + 1) == '"') {
+                    state = state == EnumMapParsingState.IN_KEY ? EnumMapParsingState.IN_KEY_ESCAPE : EnumMapParsingState.IN_STR_VALUE_ESCAPE;
+                }
+                else if (state == EnumMapParsingState.IN_KEY) {
+                    state = EnumMapParsingState.EXPECT_COLON;
+                }
+                else if (state == EnumMapParsingState.IN_STR_VALUE) {
+                    state = EnumMapParsingState.EXPECT_COMMA_OR_CLOSING_BRACKET;
+                }
+                else {
+                    throw new IllegalStateException("Cannot parse enum signature");
+                }
+            }
+            else if (state == EnumMapParsingState.IN_KEY || state == EnumMapParsingState.IN_STR_VALUE) {
+                keyOrValue.append(c);
+            }
+            else if (c == ':' && state == EnumMapParsingState.EXPECT_COLON) {
+                key = keyOrValue.toString();
+                keyOrValue = new StringBuilder();
+                state = EnumMapParsingState.EXPECT_VALUE;
+            }
+            else if ((Character.isDigit(c) || c == '-') && state == EnumMapParsingState.EXPECT_VALUE) {
+                if (!isLongEnum) {
+                    throw new IllegalStateException("Unexpected numeric value in varchar enum signature");
+                }
+                state = EnumMapParsingState.IN_NUM_VALUE;
+                keyOrValue.append(c);
+            }
+            else if (Character.isDigit(c) && state == EnumMapParsingState.IN_NUM_VALUE) {
+                keyOrValue.append(c);
+            }
+            else if ((c == ',' || c == '}') && (state == EnumMapParsingState.EXPECT_COMMA_OR_CLOSING_BRACKET || state == EnumMapParsingState.IN_NUM_VALUE)) {
+                if (key == null) {
+                    throw new IllegalStateException("Cannot parse enum signature");
+                }
+                map.put(key, keyOrValue.toString());
+                if (c == '}') {
+                    return new EnumMapParsingData(i, map, isLongEnum);
+                }
+                key = null;
+                keyOrValue = new StringBuilder();
+                state = EnumMapParsingState.EXPECT_KEY;
+            }
+            else if (!Character.isWhitespace(c)) {
+                throw new IllegalStateException("Cannot parse enum signature");
+            }
+        }
+        throw new IllegalStateException("Cannot parse enum signature");
     }
 
     private enum RowTypeSignatureParsingState
@@ -175,7 +340,7 @@ public class TypeSignature
 
     private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
-        checkArgument(signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "("), "Not a row type signature: '%s'", signature);
+        checkArgument(signature.toLowerCase(ENGLISH).startsWith(StandardTypes.ROW + "("), "Not a row type signature: '%s'", signature);
 
         RowTypeSignatureParsingState state = RowTypeSignatureParsingState.START_OF_FIELD;
         int bracketLevel = 1;
@@ -309,7 +474,8 @@ public class TypeSignature
             String signature,
             int begin,
             int end,
-            Set<String> literalCalculationParameters)
+            Set<String> literalCalculationParameters,
+            Set<Integer> enumStartIndices)
     {
         String parameterName = signature.substring(begin, end).trim();
         if (isDigit(signature.charAt(begin))) {
@@ -317,6 +483,18 @@ public class TypeSignature
         }
         else if (literalCalculationParameters.contains(parameterName)) {
             return TypeSignatureParameter.of(parameterName);
+        }
+        else if (enumStartIndices.contains(begin)) {
+            if (!parameterName.endsWith("}")) {
+                throw new IllegalStateException("Cannot parse enum signature");
+            }
+            EnumMapParsingData enumMapData = parseEnumMap(signature, begin);
+            if (enumMapData.isLongEnum) {
+                return TypeSignatureParameter.of(enumMapData.getLongEnumMap());
+            }
+            else {
+                return TypeSignatureParameter.of(enumMapData.getVarcharEnumMap());
+            }
         }
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
@@ -394,13 +572,13 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
+        return Objects.equals(this.base.toLowerCase(ENGLISH), other.base.toLowerCase(ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+        return Objects.hash(base.toLowerCase(ENGLISH), parameters);
     }
 }

@@ -23,7 +23,9 @@ public enum ParameterKind
     TYPE(Optional.of("TYPE_SIGNATURE")),
     NAMED_TYPE(Optional.of("NAMED_TYPE_SIGNATURE")),
     LONG(Optional.of("LONG_LITERAL")),
-    VARIABLE(Optional.empty());
+    VARIABLE(Optional.empty()),
+    LONG_ENUM(Optional.of("LONG_ENUM")),
+    VARCHAR_ENUM(Optional.of("VARCHAR_ENUM"));
 
     // TODO: drop special serialization code as soon as all clients
     //       migrate to version which can deserialize new format.
