@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -78,6 +79,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.DynamicFilters.createDynamicFilterExpression;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -452,11 +454,6 @@ public class PredicatePushDown
                 newJoinPredicate = new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
             }
 
-            PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
-            PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
-
-            PlanNode output = node;
-
             // Create identity projections for all existing symbols
             Assignments.Builder leftProjections = Assignments.builder()
                     .putAll(identityAssignmentsAsSymbolReferences(node.getLeft().getOutputVariables()));
@@ -492,6 +489,22 @@ public class PredicatePushDown
                 }
             }
 
+            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator);
+            Map<String, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+            leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.getPredicates()));
+
+            PlanNode leftSource;
+            PlanNode rightSource;
+            boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
+            if (equiJoinClausesUnmodified) {
+                leftSource = context.rewrite(node.getLeft(), leftPredicate);
+                rightSource = context.rewrite(node.getRight(), rightPredicate);
+            }
+            else {
+                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
+                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+            }
+
             Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
             if (newJoinFilter.get() == TRUE_LITERAL) {
                 newJoinFilter = Optional.empty();
@@ -510,10 +523,11 @@ public class PredicatePushDown
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
                             (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), castToExpression(node.getFilter().get())));
 
+            PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !filtersEquivalent ||
-                    !ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()))) {
+                    !equiJoinClausesUnmodified) {
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
@@ -554,6 +568,52 @@ public class PredicatePushDown
             }
 
             return output;
+        }
+
+        private static DynamicFiltersResult createDynamicFilters(JoinNode node, List<JoinNode.EquiJoinClause> equiJoinClauses, Session session, PlanNodeIdAllocator idAllocator)
+        {
+            Map<String, Symbol> dynamicFilters = ImmutableMap.of();
+            List<Expression> predicates = ImmutableList.of();
+            if (node.getType() == INNER) {
+                // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
+                // Since we use PredicatePushdown to push dynamic filters themselves,
+                // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
+                // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
+                ImmutableMap.Builder<String, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
+                ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
+                for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+                    VariableReferenceExpression probeExpression = clause.getLeft();
+                    VariableReferenceExpression buildExpression = clause.getRight();
+                    String id = idAllocator.getNextId().toString();
+                    predicatesBuilder.add(createDynamicFilterExpression(id, new SymbolReference(probeExpression.getName())));
+                    dynamicFiltersBuilder.put(id, new Symbol(buildExpression.getName()));
+                }
+                dynamicFilters = dynamicFiltersBuilder.build();
+                predicates = predicatesBuilder.build();
+            }
+            return new DynamicFiltersResult(dynamicFilters, predicates);
+        }
+
+        private static class DynamicFiltersResult
+        {
+            private final Map<String, Symbol> dynamicFilters;
+            private final List<Expression> predicates;
+
+            public DynamicFiltersResult(Map<String, Symbol> dynamicFilters, List<Expression> predicates)
+            {
+                this.dynamicFilters = dynamicFilters;
+                this.predicates = predicates;
+            }
+
+            public Map<String, Symbol> getDynamicFilters()
+            {
+                return dynamicFilters;
+            }
+
+            public List<Expression> getPredicates()
+            {
+                return predicates;
+            }
         }
 
         @Override
