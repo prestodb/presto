@@ -743,7 +743,7 @@ public class PlanBuilder
             Optional<VariableReferenceExpression> rightHashVariable,
             Optional<JoinNode.DistributionType> distributionType)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, ImmutableMap.of());
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

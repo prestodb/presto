@@ -856,7 +856,8 @@ public class AddExchanges
                     node.getFilter(),
                     node.getLeftHashVariable(),
                     node.getRightHashVariable(),
-                    Optional.of(newDistributionType));
+                    Optional.of(newDistributionType),
+                    node.getDynamicFilters());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));
         }

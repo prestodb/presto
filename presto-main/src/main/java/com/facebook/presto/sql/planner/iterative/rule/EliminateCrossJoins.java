@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
@@ -189,7 +190,8 @@ public class EliminateCrossJoins
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    ImmutableMap.of());
         }
 
         List<Expression> filters = graph.getFilters();

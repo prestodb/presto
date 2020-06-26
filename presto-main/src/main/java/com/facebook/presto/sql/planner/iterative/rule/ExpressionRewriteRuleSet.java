@@ -255,7 +255,8 @@ public class ExpressionRewriteRuleSet
                         filter.map(OriginalExpressionUtils::castToRowExpression),
                         joinNode.getLeftHashVariable(),
                         joinNode.getRightHashVariable(),
-                        joinNode.getDistributionType()));
+                        joinNode.getDistributionType(),
+                        joinNode.getDynamicFilters()));
             }
             return Result.empty();
         }

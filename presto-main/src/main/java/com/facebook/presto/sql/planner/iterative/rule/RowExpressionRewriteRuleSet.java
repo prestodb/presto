@@ -227,7 +227,8 @@ public class RowExpressionRewriteRuleSet
                     Optional.of(rewritten),
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
-                    joinNode.getDistributionType()));
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters()));
         }
     }
 

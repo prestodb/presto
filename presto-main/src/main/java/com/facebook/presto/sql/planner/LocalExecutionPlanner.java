@@ -1673,6 +1673,11 @@ public class LocalExecutionPlanner
             List<VariableReferenceExpression> leftVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<VariableReferenceExpression> rightVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
+            // TODO: dynamic filter execution be plugged in here
+            if (!node.getDynamicFilters().isEmpty()) {
+                log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
+            }
+
             switch (node.getType()) {
                 case INNER:
                 case LEFT:
