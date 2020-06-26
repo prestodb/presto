@@ -155,6 +155,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean enableDynamicFiltering;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1176,6 +1177,18 @@ public class FeaturesConfig
     public Boolean isOptimizeFullOuterJoinWithCoalesce()
     {
         return this.optimizeFullOuterJoinWithCoalesce;
+    }
+
+    @Config("experimental.enable-dynamic-filtering")
+    public FeaturesConfig setEnableDynamicFiltering(boolean value)
+    {
+        this.enableDynamicFiltering = value;
+        return this;
+    }
+
+    public boolean isEnableDynamicFiltering()
+    {
+        return enableDynamicFiltering;
     }
 
     @Config("index-loader-timeout")

@@ -79,6 +79,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.sql.DynamicFilters.createDynamicFilterExpression;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -574,7 +575,7 @@ public class PredicatePushDown
         {
             Map<String, Symbol> dynamicFilters = ImmutableMap.of();
             List<Expression> predicates = ImmutableList.of();
-            if (node.getType() == INNER) {
+            if (node.getType() == INNER && isEnableDynamicFiltering(session)) {
                 // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
                 // Since we use PredicatePushdown to push dynamic filters themselves,
                 // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
