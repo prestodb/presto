@@ -32,7 +32,7 @@ import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSession;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@Test
+@Test(singleThreaded = true)
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {
