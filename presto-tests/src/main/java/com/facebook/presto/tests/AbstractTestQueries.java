@@ -8464,6 +8464,14 @@ public abstract class AbstractTestQueries
                 "select count(distinct y) from " + input);
 
         assertQuery(
+                "select set_agg(x) is null from (select cast(null as bigint) x)",
+                "values true");
+
+        assertQuery(
+                "select y, set_agg(x) is null from (select 1 y, cast(null as bigint) x) group by y",
+                "values (1, true)");
+
+        assertQuery(
                 "select count() from " +
                         "(select set_agg(orderkey) = array_agg(distinct orderkey) eq from orders group by custkey) where eq",
                 "select count(distinct custkey) from orders");
